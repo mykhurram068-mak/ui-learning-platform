@@ -255,17 +255,31 @@ const prediction = model.predict(padded);
         }
 
         // Tokenizer: simple word splitting (based on vocab)
-        function tokenize(text) {
-            // Normalize: lowercase, remove punctuation, split by spaces
-            const words = text.toLowerCase().replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(w => w.length > 0);
-            // Map each word to its index in vocabulary (if exists)
-            const vocab = metadata.vocab; // array of words
+       function tokenize(text) {
+        // Normalize: lowercase, remove punctuation, split
+        const words = text.toLowerCase().replace(/[^a-zA-Z\s]/g, '').split(/\s+/).filter(w => w.length > 0);
+       
+        // If we have metadata, use it; otherwise use a simple hash fallback
+        if (metadata && metadata.vocab) {
+            const vocab = metadata.vocab;
             const wordToIndex = {};
             vocab.forEach((word, idx) => { wordToIndex[word] = idx; });
-            const sequence = words.map(w => wordToIndex[w] !== undefined ? wordToIndex[w] : 0); // 0 is OOV token?
-            // Actually, OOV is 0 in this vocab (since it includes <UNK> at index 0)
+            const sequence = words.map(w => wordToIndex[w] !== undefined ? wordToIndex[w] : 0);
+            console.log('Tokenized sequence:', sequence);
+            return sequence;
+        } else {
+            // Fallback: simple hash (0-99)
+            const sequence = words.map(w => {
+                let hash = 0;
+                for (let i = 0; i < w.length; i++) {
+                    hash = (hash * 31 + w.charCodeAt(i)) % 100;
+                }
+                return hash + 1;
+            });
+            console.log('Fallback tokenized sequence:', sequence);
             return sequence;
         }
+    }
 
         // Pad sequence to max length (metadata.max_len)
         function padSequence(seq, maxLen) {
