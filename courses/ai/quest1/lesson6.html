@@ -13,7 +13,7 @@
     <meta property="og:description" content="Learn transfer learning: reuse a pre-trained model for your own image classification tasks. Train a custom classifier in the browser.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://mykhurram068-mak.github.io/ui-learning-platform/courses/ai/quest1/lesson6.html">
-    <meta property="og:image" content="https://mykhurram068-mak.github.io/ui-learning-platform/images/ai-preview.png">
+    <meta property="og:image" content="https://mykhurram068-mak.github.io/ui-learning-platform/images/social-card.png">
    
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Lesson 1.6: Transfer Learning – Free AI Course">
@@ -21,7 +21,6 @@
     <meta name="twitter:site" content="https://mykhurram068-mak.github.io/ui-learning-platform/courses/ai/quest1/lesson6.html" />
     <meta name="twitter:creator" content="https://mykhurram068-mak.github.io/ui-learning-platform/courses/ai/quest1/lesson6.html" />  
     <meta name="twitter:image" content="https://mykhurram068-mak.github.io/ui-learning-platform/images/ai-preview.png" />
-
 
     <link rel="canonical" href="https://mykhurram068-mak.github.io/ui-learning-platform/courses/ai/quest1/lesson6.html">
    
@@ -85,18 +84,6 @@
             object-fit: cover;
             border-radius: 0.25rem;
             border: 2px solid transparent;
-            cursor: pointer;
-        }
-        .thumb-grid img.selected {
-            border-color: #3b82f6;
-        }
-        .thumb-grid .label-badge {
-            background: #1e293b;
-            padding: 0.1rem 0.5rem;
-            border-radius: 1rem;
-            font-size: 0.6rem;
-            display: inline-block;
-            margin-top: 0.1rem;
         }
     </style>
 </head>
@@ -143,7 +130,7 @@
                 <li><strong>Fine-tuning (optional)</strong> – Unfreeze some layers and continue training with a low learning rate.</li>
             </ul>
             <div class="bg-slate-950 p-3 rounded-xl mt-3 text-xs font-mono">
-                MobileNet (frozen) → Embeddings (1280 dims) → New Dense(2) → Softmax
+                MobileNet (frozen) → Embeddings (1024 dims) → New Dense(2) → Softmax
             </div>
         </div>
 
@@ -158,17 +145,15 @@
                 </div>
             </div>
             <div class="p-5 font-mono text-sm leading-6 text-white">
-                <span class="text-slate-500">// Load pre-trained MobileNet (without top layer)</span><br>
-                <span class="text-purple-300">const</span> mobilenet = <span class="text-purple-300">await</span> mobilenet.load({version: 2, alpha: 1.0});<br>
-                <span class="text-slate-500">// Remove the classification head</span><br>
-                <span class="text-purple-300">const</span> model = mobilenet.model;<br>
-                <span class="text-purple-300">const</span> layer = model.getLayer(<span class="text-yellow-300">'conv_pw_13_relu'</span>);<br>
-                <span class="text-purple-300">const</span> embeddings = tf.model({inputs: model.input, outputs: layer.output});<br>
+                <span class="text-slate-500">// Load pre-trained MobileNet</span><br>
+                <span class="text-purple-300">const</span> mobilenet = <span class="text-purple-300">await</span> mobilenet.load();<br>
+                <br>
+                <span class="text-slate-500">// Extract embeddings for each image</span><br>
+                <span class="text-purple-300">const</span> embedding = mobilenet.infer(img, <span class="text-yellow-300">true</span>); <span class="text-slate-500">// true = embeddings</span><br>
                 <br>
                 <span class="text-slate-500">// Build new classifier on top</span><br>
                 <span class="text-purple-300">const</span> newModel = tf.sequential();<br>
-                newModel.add(tf.layers.flatten({inputShape: [7,7,256]}));<br>
-                newModel.add(tf.layers.dense({units: 128, activation: <span class="text-yellow-300">'relu'</span>}));<br>
+                newModel.add(tf.layers.dense({units: 128, activation: <span class="text-yellow-300">'relu'</span>, inputShape: [1024]}));<br>
                 newModel.add(tf.layers.dense({units: 2, activation: <span class="text-yellow-300">'softmax'</span>}));
             </div>
         </div>
@@ -259,7 +244,7 @@
             </div>
             <div class="flex flex-col items-center gap-1 text-slate-500">
                 <i class="fa-solid fa-book-open text-xl"></i>
-                <a href="../../../courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+                <a href="../../../index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
             </div>
             <div class="flex flex-col items-center gap-1 text-slate-500">
                 <i class="fa-solid fa-envelope text-xl"></i>
@@ -273,9 +258,8 @@
     </footer>
 
     <script>
-        // ====== TRANSFER LEARNING DEMO ======
+        // ====== TRANSFER LEARNING DEMO (Using mobilenet.infer) ======
         let mobilenetModel = null;
-        let featureExtractor = null;
         let newModel = null;
         let trainingData = null;
         let trainingLabels = null;
@@ -283,41 +267,32 @@
 
         const outputDiv = document.getElementById('tlOutput');
 
-        // Load MobileNet with feature extraction layer (conv_pw_13_relu)
+        // Load MobileNet
         async function loadMobileNet() {
-            outputDiv.innerHTML = '⏳ Loading MobileNet (feature extractor)...';
+            outputDiv.innerHTML = '⏳ Loading MobileNet... Please wait.';
             try {
-                // Use a specific layer to get embeddings
-                const model = await mobilenet.load({version: 2, alpha: 1.0});
-                mobilenetModel = model;
-                // Get the layer we want to extract from
-                const layer = model.model.getLayer('conv_pw_13_relu');
-                featureExtractor = tf.model({inputs: model.model.input, outputs: layer.output});
+                mobilenetModel = await mobilenet.load();
                 outputDiv.innerHTML = '✅ MobileNet loaded. Upload images and train.';
             } catch (err) {
-                outputDiv.innerHTML = '❌ Failed to load MobileNet. Check console.';
-                console.error(err);
+                console.error('Failed to load MobileNet:', err);
+                outputDiv.innerHTML = `❌ Failed to load MobileNet: ${err.message}. Please check internet connection and refresh.`;
             }
         }
 
-        // Get embeddings for a single image element
+        // Get embeddings for a single image element using mobilenet.infer
         async function getEmbeddings(imgElement) {
-            // Preprocess image: resize to 224x224, normalize to [-1,1]
-            const tensor = tf.browser.fromPixels(imgElement).toFloat();
-            const resized = tf.image.resizeBilinear(tensor, [224, 224]);
-            const normalized = resized.div(127.5).sub(1);
-            const batched = normalized.expandDims(0);
-            const embeddings = featureExtractor.predict(batched);
-            const data = await embeddings.data();
-            tensor.dispose(); resized.dispose(); normalized.dispose(); batched.dispose(); embeddings.dispose();
+            // The infer method returns a tensor; we need to convert to array
+            const embeddingTensor = mobilenetModel.infer(imgElement, true); // true = embeddings
+            const data = await embeddingTensor.data();
+            embeddingTensor.dispose();
             return Array.from(data);
         }
 
         // Build classifier model
         function buildClassifier(numClasses) {
             const model = tf.sequential();
-            model.add(tf.layers.flatten({inputShape: [7,7,256]}));
-            model.add(tf.layers.dense({units: 128, activation: 'relu'}));
+            // Input shape: 1024 (MobileNet v2 embeddings) or 1280 for v1; we'll set to 1024 for v2
+            model.add(tf.layers.dense({units: 128, activation: 'relu', inputShape: [1024]}));
             model.add(tf.layers.dense({units: numClasses, activation: 'softmax'}));
             model.compile({optimizer: 'adam', loss: 'categoricalCrossentropy', metrics: ['accuracy']});
             return model;
@@ -350,7 +325,7 @@
 
         // Train the model
         async function trainTransferLearning() {
-            if (!featureExtractor) {
+            if (!mobilenetModel) {
                 outputDiv.innerHTML = '⏳ MobileNet not loaded yet. Please wait.';
                 return;
             }
