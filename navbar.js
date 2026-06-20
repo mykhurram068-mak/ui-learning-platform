@@ -14,13 +14,13 @@
         <span></span>
       </button>
       <ul class="nav-menu" id="navMenuList">
-        <li><a href="/index.html">Home</a></li>
-        <li><a href="/loader.html">Loaders</a></li>
-        <li><a href="/login.html">Login</a></li>
-        <li><a href="/darkmode.html">Dark Mode</a></li>
-        <li><a href="/animated-cards.html">Cards</a></li>
-        <li><a href="/courses/index.html">Courses</a></li>
-        <li><a href="/pro-pack.html">Pro Pack</a></li>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="loader.html">Loaders</a></li>
+        <li><a href="login.html">Login</a></li>
+        <li><a href="darkmode.html">Dark Mode</a></li>
+        <li><a href="animated-cards.html">Cards</a></li>
+        <li><a href="courses/index.html">Courses</a></li>
+        <li><a href="pro-pack.html">Pro Pack</a></li>
       </ul>
       <!--
       <div class="flex items-center gap-3">
