@@ -19,7 +19,7 @@
         <li><a href="login.html">Login</a></li>
         <li><a href="darkmode.html">Dark Mode</a></li>
         <li><a href="animated-cards.html">Cards</a></li>
-        <li><a href="dropdown-menu.html">Cards</a></li>
+        <li><a href="dropdown-menu.html">Menus</a></li>
         <li><a href="courses/index.html">Courses</a></li>
         <li><a href="pro-pack.html">Pro Pack</a></li>
       </ul>
