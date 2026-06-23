@@ -18,20 +18,20 @@
         <span></span>
       </button>
       <ul class="nav-menu" id="navMenuList">
-        <li><a href="/index.html">Home</a></li>
+        <li><a href="index.html">Home</a></li>
         <li class="dropdown-nav">
           <a href="#" class="dropbtn-nav">Snippets ▼</a>
           <ul class="dropdown-nav-content">
-            <li><a href="/animated-cards.html">🎴 Animated Cards</a></li>
-            <li><a href="/dropdown-menu.html">🔽 Dropdown Menu</a></li>
-            <li><a href="/loader.html">⏳ Loaders</a></li>
-            <li><a href="/login.html">🔐 Login Form</a></li>
-            <li><a href="/darkmode.html">🌙 Dark Mode</a></li>
-            <li><a href="/navbar-snippet.html">📱 Navbar</a></li>
+            <li><a href="animated-cards.html">🎴 Animated Cards</a></li>
+            <li><a href="dropdown-menu.html">🔽 Dropdown Menu</a></li>
+            <li><a href="loader.html">⏳ Loaders</a></li>
+            <li><a href="login.html">🔐 Login Form</a></li>
+            <li><a href="darkmode.html">🌙 Dark Mode</a></li>
+            <li><a href="navbar-snippet.html">📱 Navbar</a></li>
           </ul>
         </li>
-        <li><a href="/courses/index.html">Courses</a></li>
-        <li><a href="/pro-pack.html">Pro Pack</a></li>
+        <li><a href="courses/index.html">Courses</a></li>
+        <li><a href="pro-pack.html">Pro Pack</a></li>
       </ul>
     </header>
   `;
