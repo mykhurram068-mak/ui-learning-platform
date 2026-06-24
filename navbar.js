@@ -24,6 +24,7 @@
           <ul class="dropdown-nav-content">
             <li><a href="animated-cards.html">🎴 Animated Cards</a></li>
             <li><a href="dropdown-menu.html">🔽 Dropdown Menu</a></li>
+            <li><a href="pricing-matrix.html">💳 Glassmorphism Pricing Matrix</a></li>
             <li><a href="loader.html">⏳ Loaders</a></li>
             <li><a href="login.html">🔐 Login Form</a></li>
             <li><a href="darkmode.html">🌙 Dark Mode</a></li>
