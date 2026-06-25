@@ -30,6 +30,7 @@
             <li><a href="login.html">🔐 Login Form</a></li>
             <li><a href="darkmode.html">🌙 Dark Mode</a></li>
             <li><a href="navbar-snippet.html">📱 Navbar</a></li>
+            <li><a href="/password-gen.html">🔐 Password Generator</a></li>
           </ul>
         </li>
         <li><a href="courses/index.html">Courses</a></li>
