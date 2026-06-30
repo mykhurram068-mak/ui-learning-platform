@@ -32,6 +32,7 @@
             <li><a href="navbar-snippet.html">📱 Navbar</a></li>
             <li><a href="/password-gen.html">🔐 Password Generator</a></li>
             <li><a href="/ai-analyser.html">💬 Sentiment Analyser</a></li>
+            <li><a href="/ultimate-html-guide.html">📘 Ultimate HTML Guide</a></li>
           </ul>
         </li>
         <li><a href="courses/index.html">Courses</a></li>
