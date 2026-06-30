@@ -38,9 +38,9 @@
         <li class="dropdown-nav">
           <a href="#" class="dropbtn-nav">Guides ▼</a>
           <ul class="dropdown-nav-content">
-            <li><a href="ultimate-html-guide.html">📘 Ultimate HTML Guide</a></li>
-            <li><a href="ultimate-python-guide.html">📘 Ultimate Python Guide</a></li>
-            <li><a href="ultimate-ai-guide.html">📘 Ultimate AI Guide</a></li>
+            <li><a href="ultimate-html-guide.html">🌐 Ultimate HTML Guide</a></li>
+            <li><a href="ultimate-python-guide.html">🐍 Ultimate Python Guide</a></li>
+            <li><a href="ultimate-ai-guide.html">🤖 Ultimate AI Guide</a></li>
           </ul>
         </li>
         <li><a href="/courses/index.html">Courses</a></li>
