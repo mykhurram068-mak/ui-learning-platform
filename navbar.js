@@ -1,10 +1,10 @@
 // navbar.js
 (function() {
-  // Navbar HTML with Snippets dropdown
+  // Navbar HTML with Guides dropdown
   const navbarHTML = `
     <header class="p-5 flex justify-between items-center border-b border-gray-800 sticky top-0 bg-slate-950 z-50">
       <div class="logo-container">
-      <!--  <img src="/logo mak.jpg" alt="mak" class="signature-logo">
+        <!--<img src="/logo mak.jpg" alt="mak" class="signature-logo">
         <span class="brand-name">CODE PATH</span>-->
       </div>
       <!--<div class="flex items-center gap-3">
@@ -18,21 +18,20 @@
         <span></span>
       </button>
       <ul class="nav-menu" id="navMenuList">
-        <li><a href="index.html">Home</a></li>
+        <li><a href="/index.html">Home</a></li>
+        <!-- Snippets Dropdown -->
         <li class="dropdown-nav">
           <a href="#" class="dropbtn-nav">Snippets ▼</a>
           <ul class="dropdown-nav-content">
             <li><a href="animated-cards.html">🎴 Animated Cards</a></li>
             <li><a href="dropdown-menu.html">🔽 Dropdown Menu</a></li>
-            <li><a href="pricing-matrix.html">💳 Glassmorphism Pricing Matrix</a></li>
-            <li><a href="image-slider.html">🎠 Image Slider / Carousel</a></li>
             <li><a href="loader.html">⏳ Loaders</a></li>
             <li><a href="login.html">🔐 Login Form</a></li>
             <li><a href="darkmode.html">🌙 Dark Mode</a></li>
             <li><a href="navbar-snippet.html">📱 Navbar</a></li>
-            <li><a href="password-gen.html">🔐 Password Generator</a></li>
-            <li><a href="ai-analyser.html">💬 Sentiment Analyser</a></li>
-            <!--<li><a href="/ultimate-html-guide.html">📘 Ultimate HTML Guide</a></li>-->
+            <li><a href="password-generator.html">🔐 Password Generator</a></li>
+            <li><a href="sentiment-analyser.html">💬 Sentiment Analyser</a></li>
+            <!-- Add more snippets as needed -->
           </ul>
         </li>
         <!-- Guides Dropdown (NEW) -->
@@ -44,8 +43,8 @@
             <li><a href="ultimate-ai-guide.html">📘 Ultimate AI Guide</a></li>
           </ul>
         </li>
-        <li><a href="courses/index.html">Courses</a></li>
-        <li><a href="pro-pack.html">Pro Pack</a></li>
+        <li><a href="/courses/index.html">Courses</a></li>
+        <li><a href="/pro-pack.html">Pro Pack</a></li>
       </ul>
     </header>
   `;
@@ -79,24 +78,22 @@
     }
 
     // ====== DROPDOWN NAV (Desktop) ======
-    const dropdownNav = document.querySelector('.dropdown-nav');
-    if (dropdownNav) {
-      dropdownNav.addEventListener('mouseenter', function() {
+    document.querySelectorAll('.dropdown-nav').forEach(function(dropdown) {
+      dropdown.addEventListener('mouseenter', function() {
         if (window.innerWidth > 768) {
           this.querySelector('.dropdown-nav-content').style.display = 'block';
         }
       });
-      dropdownNav.addEventListener('mouseleave', function() {
+      dropdown.addEventListener('mouseleave', function() {
         if (window.innerWidth > 768) {
           this.querySelector('.dropdown-nav-content').style.display = 'none';
         }
       });
-    }
+    });
 
     // ====== DROPDOWN NAV (Mobile) ======
-    const dropbtnNav = document.querySelector('.dropbtn-nav');
-    if (dropbtnNav) {
-      dropbtnNav.addEventListener('click', function(e) {
+    document.querySelectorAll('.dropbtn-nav').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
         if (window.innerWidth <= 768) {
           e.preventDefault();
           const content = this.nextElementSibling;
@@ -107,6 +104,6 @@
           }
         }
       });
-    }
+    });
   }
 })();
