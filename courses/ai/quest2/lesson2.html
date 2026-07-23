@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Lesson 2.2: Generative AI (GANs) – Free AI Course | UI Studio</title>
+    <meta name="description" content="Learn how Generative Adversarial Networks (GANs) work. Train a simple GAN in your browser to generate circles from random noise.">
+    <meta name="keywords" content="GAN, generative adversarial networks, deep learning, TensorFlow.js, AI, generative AI">
+    <meta name="author" content="UI Studio">
+    <meta name="robots" content="index, follow">
+   
+    <meta property="og:title" content="Lesson 2.2: Generative AI (GANs) – Free AI Course">
+    <meta property="og:description" content="Learn how Generative Adversarial Networks (GANs) work. Train a simple GAN in your browser to generate circles from random noise.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://makuistudio.com/courses/ai/quest2/lesson2.html">
+    <meta property="og:image" content="https://makuistudio.com/images/ai-preview.png">
+   
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Lesson 2.2: Generative AI (GANs) – Free AI Course">
+    <meta name="twitter:description" content="Learn how Generative Adversarial Networks (GANs) work. Train a simple GAN in your browser to generate circles from random noise.">
+    <meta name="twitter:site" content="https://makuistudio.com/courses/ai/quest2/lesson2.html" />
+    <meta name="twitter:creator" content="https://makuistudio.com/courses/ai/quest2/lesson2.html" />  
+    <meta name="twitter:image" content="https://makuistudio.com/images/ai-preview.png" />
+
+    
+    <link rel="canonical" href="https://makuistudio.com/courses/ai/quest2/lesson2.html">
+   
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .logo-container { display: flex; align-items: center; gap: 12px; }
+        .signature-logo { height: 35px; filter: brightness(1) invert(0); transform: rotate(-5deg); }
+        .brand-name { font-weight: 800; letter-spacing: -1px; font-size: 1.25rem; color: #3b82f6; }
+
+        .btn-copy {
+            background: #334155;
+            border: none;
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            float: right;
+            margin-top: -2.2rem;
+            position: relative;
+            z-index: 2;
+        }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            margin: 1rem 0;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 2rem;
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        footer {
+            text-align: center;
+            padding: 2rem;
+            border-top: 1px solid #334155;
+            margin-top: 3rem;
+            color: #94a3b8;
+        }
+        footer a { color: #3b82f6; text-decoration: none; }
+
+        .gan-demo {
+            background: #0f172a;
+            padding: 1rem;
+            border-radius: 1rem;
+            margin: 1rem 0;
+        }
+        .gan-demo canvas {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+            display: block;
+            margin: 0.5rem auto;
+        }
+        .gan-demo button {
+            background: #3b82f6;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            color: white;
+            cursor: pointer;
+            margin: 0.25rem;
+        }
+        .gan-demo button:hover {
+            background: #2563eb;
+        }
+        .gan-demo .reset-btn {
+            background: #ef4444;
+        }
+        .gan-demo .reset-btn:hover {
+            background: #dc2626;
+        }
+        .gan-demo .train-btn {
+            background: #f59e0b;
+        }
+        .gan-demo .train-btn:hover {
+            background: #d97706;
+        }
+        .gan-output {
+            background: #1e293b;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            min-height: 60px;
+        }
+        .gan-stats {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin: 0.5rem 0;
+        }
+        .gan-stats div {
+            background: #1e293b;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            border: 1px solid #334155;
+        }
+        .gan-stats span { color: #4ade80; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+    <header class="p-5 flex justify-between items-center border-b border-gray-800 sticky top-0 bg-slate-950 z-50">
+        <div class="logo-container">
+            <img src="../../../logo mak.jpg" alt="mak" class="signature-logo">
+            <span class="brand-name">CODE PATH</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-500/10 border border-blue-500/20 px-3 py-1 rounded-full">
+                <span class="text-[10px] font-bold text-blue-400">PRO ACCOUNT</span>
+            </div>
+        </div>
+    </header>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Master Code <br> On The Go</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Learn. Practice. Build.</p>
+    </section>
+
+    <main class="p-6 max-w-6xl mx-auto space-y-6">
+        <div class="space-y-2">
+            <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Quest 2 • Lesson 2</h2>
+            <h1 class="text-2xl font-black">🎨 Generative AI (GANs)</h1>
+            <p class="text-slate-400">Learn how Generative Adversarial Networks create new data – from images to music – by pitting two neural networks against each other.</p>
+        </div>
+
+        <!-- Introduction -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-sm leading-relaxed">
+            <p class="mb-4">
+                <span class="text-white font-bold">Generative Adversarial Networks (GANs)</span> consist of two neural networks: a <span class="text-white font-bold">Generator</span> that creates fake data, and a <span class="text-white font-bold">Discriminator</span> that tries to tell real from fake. They compete, improving each other over time.
+            </p>
+            <div class="bg-slate-950 p-4 rounded-xl border-l-4 border-yellow-500 italic text-xs">
+                "Imagine an art forger (Generator) and an art expert (Discriminator). The forger improves until the expert can't tell the difference – that's a GAN at work."
+            </div>
+        </div>
+
+        <!-- Key Concepts -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h3 class="text-white font-bold mb-3">🧠 How GANs Work</h3>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Generator</strong> – takes random noise (latent vector) and generates fake samples.</li>
+                <li><strong>Discriminator</strong> – classifies samples as real or fake.</li>
+                <li><strong>Adversarial training</strong> – generator tries to fool discriminator, discriminator tries to catch fakes.</li>
+                <li><strong>Loss functions</strong> – generator minimizes discriminator's ability to detect fakes; discriminator minimizes classification error.</li>
+                <li><strong>Applications</strong> – image generation, style transfer, text-to-image, super-resolution.</li>
+            </ul>
+        </div>
+
+        <!-- Interactive Demo -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h3 class="text-white font-bold mb-3">🚀 Live Demo: Train a Simple GAN</h3>
+            <p class="text-sm mb-2">This GAN learns to generate circles from random noise. Click "Train GAN" to start. Watch the fake images become more realistic.</p>
+            <div class="gan-demo">
+                <div class="flex justify-center gap-4 flex-wrap">
+                    <div>
+                        <p class="text-xs text-center text-slate-400">Real (target)</p>
+                        <canvas id="realCanvas" width="100" height="100"></canvas>
+                    </div>
+                    <div>
+                        <p class="text-xs text-center text-slate-400">Generated (fake)</p>
+                        <canvas id="fakeCanvas" width="100" height="100"></canvas>
+                    </div>
+                </div>
+                <div class="gan-stats">
+                    <div>Generator Loss: <span id="genLoss">—</span></div>
+                    <div>Discriminator Loss: <span id="discLoss">—</span></div>
+                    <div>Epoch: <span id="epochCount">0</span></div>
+                </div>
+                <div>
+                    <button id="trainBtn" class="train-btn">🏋️ Train GAN</button>
+                    <button id="generateBtn">🎲 Generate</button>
+                    <button id="resetBtn" class="reset-btn">↺ Reset</button>
+                </div>
+                <div id="ganStatus" class="gan-output">Ready. Click "Train GAN" to start.</div>
+            </div>
+            <details class="mt-3">
+                <summary class="cursor-pointer text-blue-400 text-xs">📘 How the demo works</summary>
+                <div class="bg-slate-950 p-3 rounded-xl text-xs mt-2">
+                    The GAN is built with TensorFlow.js. The generator takes 10 random numbers and outputs a 10×10 grayscale image (a circle). The discriminator tries to classify images as real or fake. After training, you can see the generator producing increasingly realistic circles.
+                </div>
+            </details>
+        </div>
+
+        <!-- Code Snippet -->
+        <div class="bg-slate-950 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
+            <div class="bg-slate-900 px-4 py-2 flex justify-between items-center border-b border-slate-800">
+                <span class="text-[10px] font-mono text-slate-500">gan.py</span>
+                <div class="flex gap-1.5">
+                    <div class="w-2 h-2 rounded-full bg-red-500"></div>
+                    <div class="w-2 h-2 rounded-full bg-yellow-500"></div>
+                    <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                </div>
+            </div>
+            <div class="p-5 font-mono text-sm leading-6 text-white">
+                <span class="text-slate-500"># Generator: noise → image</span><br>
+                generator = Sequential([<br>
+                &nbsp;&nbsp;Dense(128, activation='relu', input_shape=[10]),<br>
+                &nbsp;&nbsp;Dense(100, activation='sigmoid'),<br>
+                ])<br>
+                <br>
+                <span class="text-slate-500"># Discriminator: image → real/fake</span><br>
+                discriminator = Sequential([<br>
+                &nbsp;&nbsp;Dense(64, activation='relu', input_shape=[100]),<br>
+                &nbsp;&nbsp;Dense(1, activation='sigmoid'),<br>
+                ])<br>
+                <br>
+                <span class="text-slate-500"># Adversarial training loop</span><br>
+                for epoch in range(num_epochs):<br>
+                &nbsp;&nbsp;noise = random.normal(0, 1, (batch_size, 10))<br>
+                &nbsp;&nbsp;fake_images = generator.predict(noise)<br>
+                &nbsp;&nbsp;real_images = get_real_images()<br>
+                &nbsp;&nbsp;disc_loss = discriminator.train_on_batch(real_images, ones) + discriminator.train_on_batch(fake_images, zeros)<br>
+                &nbsp;&nbsp;gen_loss = gan.train_on_batch(noise, ones)<br>
+            </div>
+        </div>
+
+        <!-- Challenge -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h3 class="text-white font-bold mb-3">✨ Challenge: Improve the GAN</h3>
+            <p class="text-sm mb-2">Try modifying the GAN architecture:</p>
+            <ul class="list-disc list-inside text-sm mb-3">
+                <li>Increase the latent dimension (e.g., 20 instead of 10).</li>
+                <li>Add more layers to generator/discriminator.</li>
+                <li>Train for more epochs.</li>
+            </ul>
+            <button onclick="copyChallengeCode()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-xl transition-all text-sm">📋 Copy Generator Code</button>
+            <div id="challengeAnswer" class="hidden mt-3 bg-slate-950 p-3 rounded-xl font-mono text-xs overflow-x-auto">
+                // Generator with more layers<br>
+                const generator = tf.sequential();<br>
+                generator.add(tf.layers.dense({units: 64, activation: 'relu', inputShape: [20]}));<br>
+                generator.add(tf.layers.dense({units: 128, activation: 'relu'}));<br>
+                generator.add(tf.layers.dense({units: 100, activation: 'sigmoid'}));
+            </div>
+        </div>
+
+        <!-- What's Next -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-center">
+            <h3 class="text-white font-bold mb-3">➡️ Next Lesson</h3>
+            <p class="text-sm mb-4">Lesson 2.3: AI in Production – deploy your AI models.</p>
+            <a href="#" class="inline-block bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-xl transition-all">Continue to Lesson 2.3 →</a>
+            <p class="text-xs text-slate-400 mt-3">(Coming soon – check back or buy Pro Pack for early access)</p>
+        </div>
+
+        <!-- Call to Action -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5 text-center">
+            <h3 class="text-white font-bold mb-3">❤️ Support Free Education</h3>
+            <p class="text-sm mb-4">This course is 100% free. If it helps you, consider buying me a coffee.</p>
+            <a href="https://ko-fi.com/uilearningbymak" target="_blank" class="inline-block bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-6 rounded-xl transition-all">☕ Buy Me a Coffee</a>
+        </div>
+
+        <a href="../../index.html" class="back-link">← Back to AI Course Hub</a>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="../../index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // ====== SIMPLE GAN DEMO ======
+        let generator, discriminator, gan;
+        let realData;
+        let genLoss = 0, discLoss = 0;
+        let epoch = 0;
+        let isTraining = false;
+
+        const realCanvas = document.getElementById('realCanvas');
+        const fakeCanvas = document.getElementById('fakeCanvas');
+        const ctxReal = realCanvas.getContext('2d');
+        const ctxFake = fakeCanvas.getContext('2d');
+        const genLossEl = document.getElementById('genLoss');
+        const discLossEl = document.getElementById('discLoss');
+        const epochEl = document.getElementById('epochCount');
+        const statusEl = document.getElementById('ganStatus');
+        const trainBtn = document.getElementById('trainBtn');
+        const generateBtn = document.getElementById('generateBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // Generate a circle image (real data) on a 10x10 grid
+        function generateCircleImage(size) {
+            const data = tf.tensor2d(Array(size).fill(0).map(() => Array(size).fill(0)));
+            const center = size / 2;
+            const radius = size * 0.35;
+            const arr = data.arraySync();
+            for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                    const dist = Math.sqrt((i - center) ** 2 + (j - center) ** 2);
+                    arr[i][j] = dist < radius ? 1 : 0;
+                }
+            }
+            return tf.tensor2d(arr);
+        }
+
+        // Build real dataset (multiple circles with slight variations)
+        function generateRealData(count, size) {
+            const batch = [];
+            for (let i = 0; i < count; i++) {
+                const c = generateCircleImage(size);
+                const arr = c.arraySync().flat();
+                batch.push(arr);
+                c.dispose();
+            }
+            return tf.tensor2d(batch);
+        }
+
+        // Initialize model
+        function buildModels() {
+            // Generator: noise (10) -> image (100)
+            generator = tf.sequential();
+            generator.add(tf.layers.dense({units: 64, activation: 'relu', inputShape: [10]}));
+            generator.add(tf.layers.dense({units: 128, activation: 'relu'}));
+            generator.add(tf.layers.dense({units: 100, activation: 'sigmoid'}));
+            generator.compile({optimizer: 'adam', loss: 'binaryCrossentropy'});
+
+            // Discriminator: image (100) -> real/fake (1)
+            discriminator = tf.sequential();
+            discriminator.add(tf.layers.dense({units: 64, activation: 'relu', inputShape: [100]}));
+            discriminator.add(tf.layers.dense({units: 32, activation: 'relu'}));
+            discriminator.add(tf.layers.dense({units: 1, activation: 'sigmoid'}));
+            discriminator.compile({optimizer: 'adam', loss: 'binaryCrossentropy'});
+
+            // GAN: generator + discriminator (discriminator frozen)
+            discriminator.trainable = false;
+            gan = tf.sequential();
+            gan.add(generator);
+            gan.add(discriminator);
+            gan.compile({optimizer: 'adam', loss: 'binaryCrossentropy'});
+            discriminator.trainable = true;
+
+            // Real data (10 samples)
+            realData = generateRealData(10, 10);
+            drawCanvas(ctxReal, realData, 10);
+        }
+
+        // Draw a 10x10 image on canvas
+        function drawCanvas(ctx, data, size) {
+            const arr = data.arraySync();
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            const w = ctx.canvas.width / size;
+            const h = ctx.canvas.height / size;
+            for (let i = 0; i < size; i++) {
+                for (let j = 0; j < size; j++) {
+                    const val = arr[i][j];
+                    ctx.fillStyle = `rgb(${val * 255}, ${val * 255}, ${val * 255})`;
+                    ctx.fillRect(j * w, i * h, w, h);
+                }
+            }
+        }
+
+        // Generate a fake image from random noise
+        function generateFake() {
+            const noise = tf.randomNormal([1, 10]);
+            const fake = generator.predict(noise);
+            const fakeArr = fake.arraySync()[0];
+            const fakeTensor = tf.tensor2d(fakeArr, [10, 10]);
+            drawCanvas(ctxFake, fakeTensor, 10);
+            fakeTensor.dispose();
+            noise.dispose();
+            fake.dispose();
+        }
+
+        // Train one epoch
+        async function trainEpoch() {
+            const batchSize = 10;
+            // Train discriminator
+            const realBatch = realData;
+            const noise = tf.randomNormal([batchSize, 10]);
+            const fakeBatch = generator.predict(noise);
+            const realLabels = tf.ones([batchSize, 1]);
+            const fakeLabels = tf.zeros([batchSize, 1]);
+
+            const dLossReal = discriminator.trainOnBatch(realBatch, realLabels);
+            const dLossFake = discriminator.trainOnBatch(fakeBatch, fakeLabels);
+            const dLoss = tf.tensor([dLossReal, dLossFake]).mean().dataSync()[0];
+
+            // Train generator via GAN (discriminator frozen)
+            const gLoss = gan.trainOnBatch(noise, tf.ones([batchSize, 1]));
+
+            // Cleanup
+            noise.dispose();
+            fakeBatch.dispose();
+            realLabels.dispose();
+            fakeLabels.dispose();
+
+            // Update stats
+            genLoss = gLoss;
+            discLoss = dLoss;
+            epoch++;
+
+            // Update UI
+            genLossEl.textContent = genLoss.toFixed(4);
+            discLossEl.textContent = discLoss.toFixed(4);
+            epochEl.textContent = epoch;
+
+            // Generate a sample
+            generateFake();
+        }
+
+        // Training loop
+        async function trainGAN(steps = 100) {
+            if (isTraining) return;
+            isTraining = true;
+            trainBtn.disabled = true;
+            trainBtn.textContent = 'Training...';
+            statusEl.textContent = 'Training GAN...';
+
+            for (let i = 0; i < steps; i++) {
+                await trainEpoch();
+                if (i % 10 === 0) {
+                    statusEl.textContent = `Training... Epoch ${epoch}`;
+                }
+                // Yield to UI
+                await new Promise(r => setTimeout(r, 50));
+            }
+
+            isTraining = false;
+            trainBtn.disabled = false;
+            trainBtn.textContent = '🏋️ Train GAN';
+            statusEl.textContent = 'Training complete! Generate new samples with "Generate".';
+        }
+
+        // Reset
+        function resetDemo() {
+            // Dispose models and data
+            if (generator) generator.dispose();
+            if (discriminator) discriminator.dispose();
+            if (gan) gan.dispose();
+            if (realData) realData.dispose();
+
+            // Reset stats
+            genLoss = 0; discLoss = 0; epoch = 0;
+            genLossEl.textContent = '—';
+            discLossEl.textContent = '—';
+            epochEl.textContent = '0';
+            statusEl.textContent = 'Reset. Click "Train GAN" to start.';
+
+            // Rebuild
+            buildModels();
+            generateFake();
+            ctxReal.clearRect(0, 0, realCanvas.width, realCanvas.height);
+            drawCanvas(ctxReal, realData, 10);
+        }
+
+        // Event listeners
+        trainBtn.addEventListener('click', () => { trainGAN(50); });
+        generateBtn.addEventListener('click', generateFake);
+        resetBtn.addEventListener('click', resetDemo);
+
+        // Initial setup
+        buildModels();
+        generateFake();
+        drawCanvas(ctxReal, realData, 10);
+
+        // ====== CHALLENGE CODE COPY ======
+        function copyChallengeCode() {
+            const code = `// Generator with more layers
+const generator = tf.sequential();
+generator.add(tf.layers.dense({units: 64, activation: 'relu', inputShape: [20]}));
+generator.add(tf.layers.dense({units: 128, activation: 'relu'}));
+generator.add(tf.layers.dense({units: 100, activation: 'sigmoid'}));`;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('Generator code copied!');
+                document.getElementById('challengeAnswer').classList.remove('hidden');
+            });
+        }
+    </script>
+</body>
+</html>
