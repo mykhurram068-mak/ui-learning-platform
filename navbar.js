@@ -44,6 +44,14 @@
           </ul>
         </li>
         <li><a href="/courses/index.html">Courses</a></li>
+
+        <!-- Shorts Dropdown (NEW) -->
+        <li class="dropdown-nav">
+          <a href="#" class="dropbtn-nav">Shorts ▼</a>
+          <ul class="dropdown-nav-content">
+            <li><a href="/html-shorts.html">📱 HTML Shorts</a></li>            
+          </ul>
+        </li>
         <li><a href="/pro-pack.html">Pro Pack</a></li>
       </ul>
     </header>
