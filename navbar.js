@@ -50,6 +50,7 @@
           <a href="#" class="dropbtn-nav">Shorts ▼</a>
           <ul class="dropdown-nav-content">
             <li><a href="/html-shorts.html">📱 HTML Shorts</a></li>            
+            <li><a href="/python-shorts.html">🐍 Python Shorts</a></li>
           </ul>
         </li>
         <li><a href="/questions.html">❓ FAQ</a></li>
