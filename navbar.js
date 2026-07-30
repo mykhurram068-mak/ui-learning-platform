@@ -52,6 +52,7 @@
             <li><a href="/html-shorts.html">📱 HTML Shorts</a></li>            
           </ul>
         </li>
+        <li><a href="/questions.html">❓ FAQ</a></li>
         <li><a href="/pro-pack.html">Pro Pack</a></li>
       </ul>
     </header>
