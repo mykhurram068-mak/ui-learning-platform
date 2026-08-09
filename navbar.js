@@ -29,6 +29,7 @@
             <li><a href="login.html">🔐 Login Form</a></li>
             <li><a href="darkmode.html">🌙 Dark Mode</a></li>
             <li><a href="image-slider.html">↔️ Image Slider</a></li>
+            <li><a href="pricing-matrix.html">🏷️ Pricing Matrix</a></li>            
             <li><a href="navbar-snippet.html">📱 Navbar</a></li>
             <li><a href="password-gen.html">🔐 Password Generator</a></li>
             <li><a href="ai-analyser.html">💬 Sentiment Analyser</a></li>
