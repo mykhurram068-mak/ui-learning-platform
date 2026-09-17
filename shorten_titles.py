@@ -24,7 +24,9 @@ import argparse
 import os
 import re
 
+TITLE_MIN = 40  # NEW: never go below thi
 TITLE_LIMIT = 60
+DESC_MIN = 120 # NEW
 DESC_LIMIT  = 160
 
 # ─────────────────────────────────────────────
@@ -104,9 +106,14 @@ RULES_DESC = [
 
 def shorten_title(title):
     """Apply all title rules, then trim if still over 60 chars."""
+    """Apply rules, but respect minimum lenght."""
     s = title
     for rule in RULES_TITLE:
-        s = rule(s)
+        candidate = rule(s)
+        #Only apply the rule if the result stays >= TITLE_MIN
+        #s = rule(s)
+        if len(candidate) >= TITLE_MIN:
+            s = candidate
     if len(s) > TITLE_LIMIT:
         s = rule_trim_to_boundary(s, TITLE_LIMIT)
     return s
