@@ -33,6 +33,7 @@
             <li><a href="navbar-snippet.html">📱 Navbar</a></li>
             <li><a href="password-gen.html">🔐 Password Generator</a></li>
             <li><a href="ai-analyser.html">💬 Sentiment Analyser</a></li>
+            <li><a href="/otp-verification.html">🔐 OTP Verification</a></li>
             <!-- Add more snippets as needed -->
           </ul>
         </li>
