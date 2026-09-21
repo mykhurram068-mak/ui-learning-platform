@@ -34,6 +34,7 @@
             <li><a href="password-gen.html">🔐 Password Generator</a></li>
             <li><a href="ai-analyser.html">💬 Sentiment Analyser</a></li>
             <li><a href="/otp-verification.html">🔐 OTP Verification</a></li>
+            <li><a href="/download-button.html">⬇️ Animated Download Button</a></li>
             <!-- Add more snippets as needed -->
           </ul>
         </li>
