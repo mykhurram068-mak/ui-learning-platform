@@ -53,7 +53,7 @@
         <li class="dropdown-nav">
           <a href="#" class="dropbtn-nav">How-to ▼</a>
           <ul class="dropdown-nav-content">
-            <li><a href="install-vs-code.html">🌐 Install VS Code</a></li>
+            <li><a href="/how-to/install-vs-code.html">🌐 Install VS Code</a></li>
             <!--<li><a href="ultimate-python-guide.html">🐍 Ultimate Python Guide</a></li>
             <li><a href="ultimate-ai-guide.html">🤖 Ultimate AI Guide</a></li>
             <li><a href="#">⚡ JavaScript</a></li>-->
