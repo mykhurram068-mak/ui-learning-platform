@@ -1,8 +1,8 @@
 // navbar.js
 (function() {
-  // Navbar HTML with Guides dropdown
+  // Navbar HTML with Guides dropdown bg-slate-950
   const navbarHTML = `
-    <header class="p-5 flex justify-between items-center border-b border-gray-800 sticky top-0 bg-slate-950 z-50">
+    <header class="p-5 flex justify-between items-center border-b border-gray-800 sticky top-0 z-50">
       <div class="logo-container">
         <!--<img src="/logo mak.jpg" alt="mak" class="signature-logo">
         <span class="brand-name">CODE PATH</span>-->
