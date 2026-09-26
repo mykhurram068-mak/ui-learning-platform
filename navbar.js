@@ -56,7 +56,7 @@
             <li><a href="/how-to/install-vs-code.html">🌐 Install VS Code</a></li>
             <li><a href="/how-to/install-python.html">🐍 Install Python</a></li>
             <li><a href="/how-to/install-pytube.html">📥 Install Pytube</a></li>
-            <li><a href="/how-to/run-first-html-file.html">📥 Run First HTML File</a></li>
+            <li><a href="/how-to/run-first-html-file.html">📄 Run First HTML File</a></li>
             <!--<li><a href="ultimate-ai-guide.html">🤖 Ultimate AI Guide</a></li>
             <li><a href="#">⚡ JavaScript</a></li>-->
           </ul>
