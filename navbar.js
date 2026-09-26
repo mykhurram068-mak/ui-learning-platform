@@ -23,16 +23,16 @@
         <li class="dropdown-nav">
           <a href="#" class="dropbtn-nav">Snippets ▼</a>
           <ul class="dropdown-nav-content">
-            <li><a href="animated-cards.html">🎴 Animated Cards</a></li>
-            <li><a href="dropdown-menu.html">🔽 Dropdown Menu</a></li>
-            <li><a href="loader.html">⏳ Loaders</a></li>
-            <li><a href="login.html">🔐 Login Form</a></li>
-            <li><a href="darkmode.html">🌙 Dark Mode</a></li>
-            <li><a href="image-slider.html">↔️ Image Slider</a></li>
-            <li><a href="pricing-matrix.html">🏷️ Pricing Matrix</a></li>            
-            <li><a href="navbar-snippet.html">📱 Navbar</a></li>
-            <li><a href="password-gen.html">🔐 Password Generator</a></li>
-            <li><a href="ai-analyser.html">💬 Sentiment Analyser</a></li>
+            <li><a href="/animated-cards.html">🎴 Animated Cards</a></li>
+            <li><a href="/dropdown-menu.html">🔽 Dropdown Menu</a></li>
+            <li><a href="/loader.html">⏳ Loaders</a></li>
+            <li><a href="/login.html">🔐 Login Form</a></li>
+            <li><a href="/darkmode.html">🌙 Dark Mode</a></li>
+            <li><a href="/image-slider.html">↔️ Image Slider</a></li>
+            <li><a href="/pricing-matrix.html">🏷️ Pricing Matrix</a></li>            
+            <li><a href="/navbar-snippet.html">📱 Navbar</a></li>
+            <li><a href="/password-gen.html">🔐 Password Generator</a></li>
+            <li><a href="/ai-analyser.html">💬 Sentiment Analyser</a></li>
             <li><a href="/otp-verification.html">🔐 OTP Verification</a></li>
             <li><a href="/download-button.html">⬇️ Animated Download Button</a></li>
             <!-- Add more snippets as needed -->
@@ -42,9 +42,9 @@
         <li class="dropdown-nav">
           <a href="#" class="dropbtn-nav">Guides ▼</a>
           <ul class="dropdown-nav-content">
-            <li><a href="ultimate-html-guide.html">🌐 HTML</a></li>
-            <li><a href="ultimate-python-guide.html">🐍 Python</a></li>
-            <li><a href="ultimate-ai-guide.html">🤖 AI</a></li>
+            <li><a href="/ultimate-html-guide.html">🌐 HTML</a></li>
+            <li><a href="/ultimate-python-guide.html">🐍 Python</a></li>
+            <li><a href="/ultimate-ai-guide.html">🤖 AI</a></li>
             <li><a href="#">⚡ JavaScript</a></li>
           </ul>
         </li>
