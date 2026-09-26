@@ -64,6 +64,7 @@
             <li><a href="/how-to/publish-website-free.html">🚀 Publish Website Free</a></li>
             <li><a href="/how-to/get-free-domain.html">🌐 Free Domain Name</a></li>
             <li><a href="/how-to/deploy-with-netlify.html">⚡ Deploy with Netlify</a></li>
+            <li><a href="/how-to/add-google-analytics.html">📊 Add Google Analytics</a></li>
             <!--<li><a href="ultimate-ai-guide.html">🤖 Ultimate AI Guide</a></li>
             <li><a href="#">⚡ JavaScript</a>⌨️</li>-->
           </ul>
