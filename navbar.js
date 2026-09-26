@@ -61,6 +61,7 @@
             <li><a href="/how-to/command-line-basics.html">⌨️ Command Line Basics</a></li>
             <li><a href="/how-to/write-first-html-page.html">📝 Write First HTML Page</a></li>
             <li><a href="/how-to/install-git.html">🌿 Install Git</a></li>
+            <li><a href="/how-to/publish-website-free.html">🚀 Publish Website Free</a></li>
             <!--<li><a href="ultimate-ai-guide.html">🤖 Ultimate AI Guide</a></li>
             <li><a href="#">⚡ JavaScript</a>⌨️</li>-->
           </ul>
