@@ -328,6 +328,7 @@
 <a class="logo" href="../../../index.html">✨ MAK UI Studio</a>
 <div id="navbar-placeholder"></div>
 <script src="../../../navbar.js"></script>
+<script src="../../../currency.js"></script>    
 </div>
 </nav>
     <section class="p-8 text-center">
@@ -344,6 +345,7 @@
 
         <!-- Calculator -->
         <div class="calc-wrapper">
+            <div id="currencyPicker" style="margin-bottom: 1rem;"></div>
             <div class="calc-input-group">
                 <label>Initial Investment (Starting Amount)</label>
                 <div class="input-with-suffix">
@@ -607,166 +609,145 @@
     </footer>
 
     <script>
-        function formatPKR(amount) {
-            return 'Rs. ' + Math.round(amount).toLocaleString('en-PK');
+    Currency.injectDropdown('#currencyPicker');
+    Currency.onChange(() => calculate());
+
+    function getVal(id) {
+        return parseFloat(document.getElementById(id).value) || 0;
+    }
+
+    function calculate() {
+        const P = getVal('principal');
+        const PMT = getVal('monthly');
+        const annualRate = getVal('rate') / 100;
+        const years = getVal('years');
+
+        const monthlyRate = annualRate / 12;
+        const monthlyPeriods = years * 12;
+
+        const fvPrincipal = P * Math.pow(1 + monthlyRate, monthlyPeriods);
+        let fvContributions = 0;
+        if (monthlyRate > 0) {
+            fvContributions = PMT * ((Math.pow(1 + monthlyRate, monthlyPeriods) - 1) / monthlyRate);
+        } else {
+            fvContributions = PMT * monthlyPeriods;
         }
 
-        function getVal(id) {
-            return parseFloat(document.getElementById(id).value) || 0;
-        }
+        const futureValue = fvPrincipal + fvContributions;
+        const totalContrib = P + PMT * monthlyPeriods;
+        const totalInterest = futureValue - totalContrib;
+        const multiple = totalContrib > 0 ? (futureValue / totalContrib) : 0;
+        const interestPct = futureValue > 0 ? (totalInterest / futureValue * 100) : 0;
 
-        function calculate() {
-            const P = getVal('principal');
-            const PMT = getVal('monthly');
-            const annualRate = getVal('rate') / 100;
-            const years = getVal('years');
-            const n = parseFloat(document.getElementById('frequency').value);
+        document.getElementById('futureValue').textContent = Currency.format(futureValue);
+        document.getElementById('totalContrib').textContent = Currency.format(totalContrib);
+        document.getElementById('totalInterest').textContent = Currency.format(totalInterest);
+        document.getElementById('multiple').textContent = multiple.toFixed(2) + 'x';
+        document.getElementById('interestPct').textContent = interestPct.toFixed(1) + '%';
 
-            const r = annualRate / n;             // rate per period
-            const totalPeriods = n * years;
+        const contribPct = futureValue > 0 ? (totalContrib / futureValue * 100) : 0;
+        document.getElementById('contribBar').style.width = contribPct + '%';
+        document.getElementById('interestBar').style.width = (100 - contribPct) + '%';
 
-            // Future value of initial principal
-            const fvPrincipal = P * Math.pow(1 + r, totalPeriods);
+        let cumulativeContrib = P;
+        let balance = P;
+        const yearData = [{ year: 0, contrib: P, interest: 0, balance: P }];
 
-            // Future value of monthly contributions (paid monthly)
-            // Contributions are monthly; convert to per-period if compounding differs
-            const monthlyPeriods = years * 12;
-            const monthlyRate = annualRate / 12;
-            let fvContributions = 0;
-            if (monthlyRate > 0) {
-                fvContributions = PMT * ((Math.pow(1 + monthlyRate, monthlyPeriods) - 1) / monthlyRate);
-            } else {
-                fvContributions = PMT * monthlyPeriods;
+        for (let y = 1; y <= years; y++) {
+            for (let m = 0; m < 12; m++) {
+                balance *= (1 + monthlyRate);
+                balance += PMT;
             }
-
-            const futureValue = fvPrincipal + fvContributions;
-            const totalContrib = P + PMT * monthlyPeriods;
-            const totalInterest = futureValue - totalContrib;
-            const multiple = totalContrib > 0 ? (futureValue / totalContrib) : 0;
-            const interestPct = futureValue > 0 ? (totalInterest / futureValue * 100) : 0;
-
-            // Update UI
-            document.getElementById('futureValue').textContent = formatPKR(futureValue);
-            document.getElementById('totalContrib').textContent = formatPKR(totalContrib);
-            document.getElementById('totalInterest').textContent = formatPKR(totalInterest);
-            document.getElementById('multiple').textContent = multiple.toFixed(2) + 'x';
-            document.getElementById('interestPct').textContent = interestPct.toFixed(1) + '%';
-
-            // Update breakdown bar
-            const contribPct = futureValue > 0 ? (totalContrib / futureValue * 100) : 0;
-            const interestBarPct = 100 - contribPct;
-            document.getElementById('contribBar').style.width = contribPct + '%';
-            document.getElementById('interestBar').style.width = interestBarPct + '%';
-
-            // Build year-by-year table + chart data
-            let cumulativeContrib = P;
-            let balance = P;
-            const yearData = [{ year: 0, contrib: P, interest: 0, balance: P }];
-
-            for (let y = 1; y <= years; y++) {
-                // Simulate month-by-month for accuracy with contributions
-                for (let m = 0; m < 12; m++) {
-                    // Interest on current balance (using monthly rate for simplicity)
-                    balance *= (1 + monthlyRate);
-                    balance += PMT;
-                }
-                const contrib = P + PMT * 12 * y;
-                const interest = balance - contrib;
-                yearData.push({ year: y, contrib, interest, balance });
-            }
-
-            // Render table — show max 20 rows, else sample every few years
-            const tbody = document.getElementById('yearTableBody');
-            tbody.innerHTML = '';
-            const toShow = years <= 20 ? yearData.slice(1) : sampleYears(yearData, 10);
-            toShow.forEach(d => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>Year ${d.year}</td>
-                    <td style="color:#fbbf24;">${formatPKR(d.contrib)}</td>
-                    <td style="color:#4ade80;">${formatPKR(Math.max(d.interest, 0))}</td>
-                    <td style="color:#60a5fa;">${formatPKR(d.balance)}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            // Render chart
-            renderChart(yearData);
+            const contrib = P + PMT * 12 * y;
+            const interest = balance - contrib;
+            yearData.push({ year: y, contrib, interest, balance });
         }
 
-        function sampleYears(data, n) {
-            // Returns a sample of n entries, always including the last year
-            if (data.length <= n) return data.slice(1);
-            const step = Math.floor((data.length - 1) / n);
-            const result = [];
-            for (let i = 1; i < data.length; i += step) {
-                result.push(data[i]);
-            }
-            if (result[result.length - 1].year !== data[data.length - 1].year) {
-                result.push(data[data.length - 1]);
-            }
-            return result;
-        }
-
-        function renderChart(yearData) {
-            const container = document.getElementById('chartBars');
-            const labels = document.getElementById('chartLabels');
-            container.innerHTML = '';
-            labels.innerHTML = '';
-
-            const maxBalance = Math.max(...yearData.map(d => d.balance));
-
-            yearData.forEach((d, i) => {
-                if (i === 0) return; // Skip year 0
-                const height = (d.balance / maxBalance) * 100;
-                const contribHeight = (d.contrib / d.balance) * 100;
-
-                const bar = document.createElement('div');
-                bar.className = 'chart-bar';
-                bar.style.height = height + '%';
-                bar.innerHTML = `
-                    <div class="interest-part" style="height: ${100 - contribHeight}%;"></div>
-                    <div class="contrib-part" style="height: ${contribHeight}%;"></div>
-                `;
-                container.appendChild(bar);
-
-                // Label every few bars
-                if (i === 1 || i === yearData.length - 1 || (yearData.length > 6 && i % Math.ceil(yearData.length / 6) === 0)) {
-                    const lbl = document.createElement('span');
-                    lbl.textContent = 'Y' + d.year;
-                    labels.appendChild(lbl);
-                }
-            });
-        }
-
-        function copyResults() {
-            const results = [
-                `Compound Interest Calculator — ${new Date().toLocaleDateString()}`,
-                `---`,
-                `Initial Investment: ${formatPKR(getVal('principal'))}`,
-                `Monthly Contribution: ${formatPKR(getVal('monthly'))}`,
-                `Annual Return: ${getVal('rate')}%`,
-                `Time Period: ${getVal('years')} years`,
-                `---`,
-                `Future Value: ${document.getElementById('futureValue').textContent}`,
-                `Total Contributions: ${document.getElementById('totalContrib').textContent}`,
-                `Interest Earned: ${document.getElementById('totalInterest').textContent}`,
-                `Growth Multiple: ${document.getElementById('multiple').textContent}`,
-                `---`,
-                `Calculated at makuistudio.com/tools/compound-interest-calculator.html`
-            ].join('\n');
-
-            navigator.clipboard.writeText(results).then(() => {
-                alert('✅ Results copied to clipboard!');
-            });
-        }
-
-        ['principal', 'monthly', 'rate', 'years'].forEach(id => {
-            document.getElementById(id).addEventListener('input', calculate);
+        const tbody = document.getElementById('yearTableBody');
+        tbody.innerHTML = '';
+        const toShow = years <= 20 ? yearData.slice(1) : sampleYears(yearData, 10);
+        toShow.forEach(d => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>Year ${d.year}</td>
+                <td style="color:#fbbf24;">${Currency.format(d.contrib)}</td>
+                <td style="color:#4ade80;">${Currency.format(Math.max(d.interest, 0))}</td>
+                <td style="color:#60a5fa;">${Currency.format(d.balance)}</td>
+            `;
+            tbody.appendChild(tr);
         });
-        document.getElementById('frequency').addEventListener('change', calculate);
 
-        calculate();
-    </script>
+        renderChart(yearData);
+    }
+
+    function sampleYears(data, n) {
+        if (data.length <= n) return data.slice(1);
+        const step = Math.floor((data.length - 1) / n);
+        const result = [];
+        for (let i = 1; i < data.length; i += step) {
+            result.push(data[i]);
+        }
+        if (result[result.length - 1].year !== data[data.length - 1].year) {
+            result.push(data[data.length - 1]);
+        }
+        return result;
+    }
+
+    function renderChart(yearData) {
+        const container = document.getElementById('chartBars');
+        const labels = document.getElementById('chartLabels');
+        container.innerHTML = '';
+        labels.innerHTML = '';
+        const maxBalance = Math.max(...yearData.map(d => d.balance));
+
+        yearData.forEach((d, i) => {
+            if (i === 0) return;
+            const height = (d.balance / maxBalance) * 100;
+            const contribHeight = (d.contrib / d.balance) * 100;
+            const bar = document.createElement('div');
+            bar.className = 'chart-bar';
+            bar.style.height = height + '%';
+            bar.innerHTML = `
+                <div class="interest-part" style="height: ${100 - contribHeight}%;"></div>
+                <div class="contrib-part" style="height: ${contribHeight}%;"></div>
+            `;
+            container.appendChild(bar);
+
+            if (i === 1 || i === yearData.length - 1 || (yearData.length > 6 && i % Math.ceil(yearData.length / 6) === 0)) {
+                const lbl = document.createElement('span');
+                lbl.textContent = 'Y' + d.year;
+                labels.appendChild(lbl);
+            }
+        });
+    }
+
+    function copyResults() {
+        const results = [
+            `Compound Interest Calculator — ${new Date().toLocaleDateString()}`,
+            `Currency: ${Currency.get()}`,
+            `---`,
+            `Initial Investment: ${Currency.format(getVal('principal'))}`,
+            `Monthly Contribution: ${Currency.format(getVal('monthly'))}`,
+            `Annual Return: ${getVal('rate')}%`,
+            `Time Period: ${getVal('years')} years`,
+            `---`,
+            `Future Value: ${document.getElementById('futureValue').textContent}`,
+            `Total Contributions: ${document.getElementById('totalContrib').textContent}`,
+            `Interest Earned: ${document.getElementById('totalInterest').textContent}`,
+            `Growth Multiple: ${document.getElementById('multiple').textContent}`,
+            `---`,
+            `Calculated at makuistudio.com/tools/compound-interest-calculator.html`
+        ].join('\n');
+        navigator.clipboard.writeText(results).then(() => {
+            alert('✅ Results copied to clipboard!');
+        });
+    }
+
+    ['principal', 'monthly', 'rate', 'years'].forEach(id => {
+        document.getElementById(id).addEventListener('input', calculate);
+    });
+
+    calculate();
+</script>
 </body>
 </html>
