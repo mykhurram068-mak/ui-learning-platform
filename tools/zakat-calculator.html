@@ -250,6 +250,7 @@
 <a class="logo" href="../../../index.html">✨ MAK UI Studio</a>
 <div id="navbar-placeholder"></div>
 <script src="../../../navbar.js"></script>
+<script src="../../../currency.js"></script>    
 </div>
 </nav>
     <section class="p-8 text-center">
@@ -270,7 +271,9 @@
 
         <!-- Calculator -->
         <div class="calc-wrapper">
-
+            <p id="rateStatus" style="font-size:0.75rem; color:#94a3b8; margin-top:-0.25rem; margin-bottom:0.75rem">
+                Loading live rates...
+            </p>
             <!-- Rates -->
             <div class="section-label">1. Current Gold & Silver Rates</div>
 
@@ -519,139 +522,162 @@
     </footer>
 
     <script>
-        const GOLD_NISAB_GRAMS = 87.48;
-        const SILVER_NISAB_GRAMS = 612.36;
-        const ZAKAT_RATE = 0.025;
+    const GOLD_NISAB_GRAMS = 87.48;
+    const SILVER_NISAB_GRAMS = 612.36;
+    const ZAKAT_RATE = 0.025;
 
-        let nisabStandard = 'silver';
+    let nisabStandard = 'silver';
 
-        function setNisab(standard) {
-            nisabStandard = standard;
-            document.querySelectorAll('#nisabToggle button').forEach(b => {
-                b.classList.toggle('active', b.dataset.nisab === standard);
-            });
-            document.getElementById('nisabHint').textContent = standard === 'silver'
-                ? 'Silver Nisab is lower → more people qualify for Zakat. This is the recommended standard for most Muslims.'
-                : 'Gold Nisab is higher → fewer people qualify. Some scholars prefer this standard when silver is not commonly used.';
-            calculate();
-        }
+    Currency.injectDropdown('#currencyPicker');
+    Currency.onChange(() => calculate());
 
-        function formatPKR(amount) {
-            return 'Rs. ' + Math.round(amount).toLocaleString('en-PK');
-        }
+    function setNisab(standard) {
+        nisabStandard = standard;
+        document.querySelectorAll('#nisabToggle button').forEach(b => {
+            b.classList.toggle('active', b.dataset.nisab === standard);
+        });
+        document.getElementById('nisabHint').textContent = standard === 'silver'
+            ? 'Silver Nisab is lower → more people qualify for Zakat. This is the recommended standard for most Muslims.'
+            : 'Gold Nisab is higher → fewer people qualify. Some scholars prefer this standard when silver is not commonly used.';
+        calculate();
+    }
 
-        function getVal(id) {
-            return parseFloat(document.getElementById(id).value) || 0;
-        }
+    function getVal(id) {
+        return parseFloat(document.getElementById(id).value) || 0;
+    }
 
-        function calculate() {
-            const goldRate = getVal('goldRate');
-            const silverRate = getVal('silverRate');
-            const cash = getVal('cash');
-            const goldGrams = getVal('goldGrams');
-            const silverGrams = getVal('silverGrams');
-            const investments = getVal('investments');
-            const businessStock = getVal('businessStock');
-            const receivables = getVal('receivables');
-            const otherAssets = getVal('otherAssets');
-            const debts = getVal('debts');
+    function timeAgo(date) {
+        const sec = Math.floor((Date.now() - date.getTime()) / 1000);
+        if (sec < 60) return 'just now';
+        if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+        if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+        return Math.floor(sec / 86400) + 'd ago';
+    }
 
-            // Calculate asset values
-            const goldValue = goldGrams * goldRate;
-            const silverValue = silverGrams * silverRate;
+    async function loadMetalRates() {
+        const status = document.getElementById('rateStatus');
+        try {
+            const rates = await Currency.metalRates();
+            document.getElementById('goldRate').value = Math.round(rates.goldPerGram);
+            document.getElementById('silverRate').value = Math.round(rates.silverPerGram);
 
-            const totalAssets = cash + goldValue + silverValue + investments + businessStock + receivables + otherAssets;
-            const netWealth = Math.max(totalAssets - debts, 0);
-
-            // Nisab
-            const nisabGrams = nisabStandard === 'silver' ? SILVER_NISAB_GRAMS : GOLD_NISAB_GRAMS;
-            const nisabValue = nisabGrams * (nisabStandard === 'silver' ? silverRate : goldRate);
-
-            // Zakat
-            const isAboveNisab = netWealth >= nisabValue;
-            const zakatDue = isAboveNisab ? netWealth * ZAKAT_RATE : 0;
-
-            // Update UI
-            document.getElementById('zakatDue').textContent = isAboveNisab ? formatPKR(zakatDue) : 'Not due';
-            document.getElementById('netWealth').textContent = formatPKR(netWealth);
-            document.getElementById('nisabValue').textContent = formatPKR(nisabValue);
-            document.getElementById('totalAssets').textContent = formatPKR(totalAssets);
-            document.getElementById('rateApplied').textContent = isAboveNisab ? '2.5%' : '0%';
-
-            const statusCard = document.getElementById('nisabCheckCard');
-            const statusText = document.getElementById('nisabStatus');
-            statusCard.classList.remove('pass', 'fail');
-            if (isAboveNisab) {
-                statusCard.classList.add('pass');
-                statusText.textContent = '✅ Above Nisab';
-            } else {
-                statusCard.classList.add('fail');
-                statusText.textContent = '❌ Below Nisab';
+            if (status) {
+                const updated = new Date(rates.updated);
+                status.innerHTML = rates.isFallback
+                    ? '⚠️ Estimated rates — verify with your local market for accuracy'
+                    : `✅ Live rates from ${timeAgo(updated)} — verify with your local market before paying Zakat`;
             }
+        } catch (e) {
+            if (status) {
+                status.innerHTML = '⚠️ Could not load live rates — please enter today\'s rates manually';
+            }
+        }
+        calculate();
+    }
 
-            // Update breakdown
-            const breakdown = document.getElementById('breakdown');
-            const items = [
-                ['Cash', cash],
-                ['Gold (' + goldGrams + 'g)', goldValue],
-                ['Silver (' + silverGrams + 'g)', silverValue],
-                ['Investments', investments],
-                ['Business stock', businessStock],
-                ['Receivables', receivables],
-                ['Other assets', otherAssets],
-            ];
-            let html = '';
-            items.forEach(([label, value]) => {
-                if (value > 0) {
-                    html += `<div class="flex justify-between py-1 border-b border-slate-800">
-                        <span class="text-slate-400">${label}</span>
-                        <span class="text-slate-200 font-mono">${formatPKR(value)}</span>
-                    </div>`;
-                }
-            });
-            html += `<div class="flex justify-between py-2 font-bold text-white border-t-2 border-slate-700 mt-2">
-                <span>Total Assets</span>
-                <span class="font-mono">${formatPKR(totalAssets)}</span>
-            </div>`;
-            if (debts > 0) {
-                html += `<div class="flex justify-between py-1 text-red-400">
-                    <span>Less: Debts</span>
-                    <span class="font-mono">- ${formatPKR(debts)}</span>
+    function calculate() {
+        const goldRate = getVal('goldRate');
+        const silverRate = getVal('silverRate');
+        const cash = getVal('cash');
+        const goldGrams = getVal('goldGrams');
+        const silverGrams = getVal('silverGrams');
+        const investments = getVal('investments');
+        const businessStock = getVal('businessStock');
+        const receivables = getVal('receivables');
+        const otherAssets = getVal('otherAssets');
+        const debts = getVal('debts');
+
+        const goldValue = goldGrams * goldRate;
+        const silverValue = silverGrams * silverRate;
+
+        const totalAssets = cash + goldValue + silverValue + investments + businessStock + receivables + otherAssets;
+        const netWealth = Math.max(totalAssets - debts, 0);
+
+        const nisabGrams = nisabStandard === 'silver' ? SILVER_NISAB_GRAMS : GOLD_NISAB_GRAMS;
+        const nisabValue = nisabGrams * (nisabStandard === 'silver' ? silverRate : goldRate);
+
+        const isAboveNisab = netWealth >= nisabValue;
+        const zakatDue = isAboveNisab ? netWealth * ZAKAT_RATE : 0;
+
+        document.getElementById('zakatDue').textContent = isAboveNisab ? Currency.format(zakatDue) : 'Not due';
+        document.getElementById('netWealth').textContent = Currency.format(netWealth);
+        document.getElementById('nisabValue').textContent = Currency.format(nisabValue);
+        document.getElementById('totalAssets').textContent = Currency.format(totalAssets);
+        document.getElementById('rateApplied').textContent = isAboveNisab ? '2.5%' : '0%';
+
+        const statusCard = document.getElementById('nisabCheckCard');
+        const statusText = document.getElementById('nisabStatus');
+        statusCard.classList.remove('pass', 'fail');
+        if (isAboveNisab) {
+            statusCard.classList.add('pass');
+            statusText.textContent = '✅ Above Nisab';
+        } else {
+            statusCard.classList.add('fail');
+            statusText.textContent = '❌ Below Nisab';
+        }
+
+        const breakdown = document.getElementById('breakdown');
+        const items = [
+            ['Cash', cash],
+            ['Gold (' + goldGrams + 'g)', goldValue],
+            ['Silver (' + silverGrams + 'g)', silverValue],
+            ['Investments', investments],
+            ['Business stock', businessStock],
+            ['Receivables', receivables],
+            ['Other assets', otherAssets],
+        ];
+        let html = '';
+        items.forEach(([label, value]) => {
+            if (value > 0) {
+                html += `<div class="flex justify-between py-1 border-b border-slate-800">
+                    <span class="text-slate-400">${label}</span>
+                    <span class="text-slate-200 font-mono">${Currency.format(value)}</span>
                 </div>`;
             }
-            html += `<div class="flex justify-between py-2 font-bold text-blue-400 border-t border-slate-700">
-                <span>Net Zakatable Wealth</span>
-                <span class="font-mono">${formatPKR(netWealth)}</span>
-            </div>`;
-            breakdown.innerHTML = html;
-        }
-
-        function copyResults() {
-            const results = [
-                `Zakat Calculator — ${new Date().toLocaleDateString()}`,
-                `Nisab Standard: ${nisabStandard}`,
-                `---`,
-                `Total Assets: ${document.getElementById('totalAssets').textContent}`,
-                `Net Zakatable Wealth: ${document.getElementById('netWealth').textContent}`,
-                `Nisab Threshold: ${document.getElementById('nisabValue').textContent}`,
-                `Status: ${document.getElementById('nisabStatus').textContent}`,
-                `---`,
-                `Zakat Due: ${document.getElementById('zakatDue').textContent}`,
-                `---`,
-                `Calculated at makuistudio.com/tools/zakat-calculator.html`
-            ].join('\n');
-
-            navigator.clipboard.writeText(results).then(() => {
-                alert('✅ Results copied to clipboard!');
-            });
-        }
-
-        // Attach live listeners
-        ['goldRate', 'silverRate', 'cash', 'goldGrams', 'silverGrams', 'investments', 'businessStock', 'receivables', 'otherAssets', 'debts'].forEach(id => {
-            document.getElementById(id).addEventListener('input', calculate);
         });
+        html += `<div class="flex justify-between py-2 font-bold text-white border-t-2 border-slate-700 mt-2">
+            <span>Total Assets</span>
+            <span class="font-mono">${Currency.format(totalAssets)}</span>
+        </div>`;
+        if (debts > 0) {
+            html += `<div class="flex justify-between py-1 text-red-400">
+                <span>Less: Debts</span>
+                <span class="font-mono">- ${Currency.format(debts)}</span>
+            </div>`;
+        }
+        html += `<div class="flex justify-between py-2 font-bold text-blue-400 border-t border-slate-700">
+            <span>Net Zakatable Wealth</span>
+            <span class="font-mono">${Currency.format(netWealth)}</span>
+        </div>`;
+        breakdown.innerHTML = html;
+    }
 
-        calculate();
-    </script>
+    function copyResults() {
+        const results = [
+            `Zakat Calculator — ${new Date().toLocaleDateString()}`,
+            `Currency: ${Currency.get()}`,
+            `Nisab Standard: ${nisabStandard}`,
+            `---`,
+            `Total Assets: ${document.getElementById('totalAssets').textContent}`,
+            `Net Zakatable Wealth: ${document.getElementById('netWealth').textContent}`,
+            `Nisab Threshold: ${document.getElementById('nisabValue').textContent}`,
+            `Status: ${document.getElementById('nisabStatus').textContent}`,
+            `---`,
+            `Zakat Due: ${document.getElementById('zakatDue').textContent}`,
+            `---`,
+            `Calculated at makuistudio.com/tools/zakat-calculator.html`
+        ].join('\n');
+        navigator.clipboard.writeText(results).then(() => {
+            alert('✅ Results copied to clipboard!');
+        });
+    }
+
+    ['goldRate', 'silverRate', 'cash', 'goldGrams', 'silverGrams', 'investments', 'businessStock', 'receivables', 'otherAssets', 'debts'].forEach(id => {
+        document.getElementById(id).addEventListener('input', calculate);
+    });
+
+    // Load live metal rates on page load
+    loadMetalRates();
+</script>
 </body>
 </html>
