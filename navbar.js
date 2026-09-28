@@ -74,6 +74,16 @@
         
         <li><a href="/courses/index.html">Courses</a></li>
 
+        <!-- Tools Dropdown (NEW) -->
+        <li class="dropdown-nav">
+          <a href="#" class="dropbtn-nav">Tools ▼</a>
+          <ul class="dropdown-nav-content">
+            <li><a href="/tools/income-tax-calculator.html">💰 Income Tax Calculator</a></li>
+            
+          </ul>
+        </li>
+
+        
         <!-- Shorts Dropdown (NEW) -->
         <li class="dropdown-nav">
           <a href="#" class="dropbtn-nav">Shorts ▼</a>
