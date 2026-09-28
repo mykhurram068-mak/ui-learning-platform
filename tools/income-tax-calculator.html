@@ -273,6 +273,7 @@
 <a class="logo" href="../../../index.html">✨ MAK UI Studio</a>
 <div id="navbar-placeholder"></div>
 <script src="../../../navbar.js"></script>
+<script src="../../../currency.js"></script>    
 </div>
 </nav>
     <section class="p-8 text-center">
@@ -289,6 +290,7 @@
 
         <!-- Calculator -->
         <div class="calc-wrapper">
+            <div id="currencyPicker" style="margin-bottom: 1rem;"></div>
             <div class="calc-input-group">
                 <label>Salary Amount (PKR)</label>
                 <input type="number" id="salary" value="150000" min="0" step="1000" placeholder="e.g. 150000">
@@ -464,101 +466,109 @@
     </footer>
 
     <script>
-        // ====== FBR SALARIED TAX SLABS (FY 2025-26) ======
-        const SLABS = [
-            { min: 0,        max: 600000,   fixed: 0,       rate: 0.00, prevMax: 0 },
-            { min: 600000,   max: 1200000,  fixed: 0,       rate: 0.01, prevMax: 600000 },
-            { min: 1200000,  max: 2200000,  fixed: 6000,    rate: 0.11, prevMax: 1200000 },
-            { min: 2200000,  max: 3200000,  fixed: 116000,  rate: 0.23, prevMax: 2200000 },
-            { min: 3200000,  max: 4100000,  fixed: 346000,  rate: 0.30, prevMax: 3200000 },
-            { min: 4100000,  max: Infinity, fixed: 616000,  rate: 0.35, prevMax: 4100000 }
-        ];
-        const SURCHARGE_THRESHOLD = 10000000; // Rs. 10 million
-        const SURCHARGE_RATE = 0.10;
+    // ====== FBR SALARIED TAX SLABS (FY 2025-26) ======
+    const SLABS = [
+        { min: 0,        max: 600000,   fixed: 0,       rate: 0.00, prevMax: 0 },
+        { min: 600000,   max: 1200000,  fixed: 0,       rate: 0.01, prevMax: 600000 },
+        { min: 1200000,  max: 2200000,  fixed: 6000,    rate: 0.11, prevMax: 1200000 },
+        { min: 2200000,  max: 3200000,  fixed: 116000,  rate: 0.23, prevMax: 2200000 },
+        { min: 3200000,  max: 4100000,  fixed: 346000,  rate: 0.30, prevMax: 3200000 },
+        { min: 4100000,  max: Infinity, fixed: 616000,  rate: 0.35, prevMax: 4100000 }
+    ];
+    const SURCHARGE_THRESHOLD = 10000000;
+    const SURCHARGE_RATE = 0.10;
 
-        let frequency = 'monthly';
+    let frequency = 'monthly';
 
-        function setFreq(freq) {
-            frequency = freq;
-            document.querySelectorAll('#freqToggle button').forEach(b => {
-                b.classList.toggle('active', b.dataset.freq === freq);
-            });
-            calculate();
-        }
+    // Initialize currency picker
+    Currency.injectDropdown('#currencyPicker');
+    Currency.onChange(() => calculate());
 
-        function calculateTax(annualIncome) {
-            // Find applicable slab
-            let slab = SLABS[0];
-            let slabIndex = 0;
-            for (let i = 0; i < SLABS.length; i++) {
-                if (annualIncome > SLABS[i].min) {
-                    slab = SLABS[i];
-                    slabIndex = i;
-                }
-            }
-
-            let tax = slab.fixed + (annualIncome - slab.prevMax) * slab.rate;
-
-            // Apply surcharge if income > Rs. 10 million
-            let surcharge = 0;
-            if (annualIncome > SURCHARGE_THRESHOLD) {
-                surcharge = tax * SURCHARGE_RATE;
-            }
-
-            const totalTax = tax + surcharge;
-            return { tax, surcharge, totalTax, slabIndex };
-        }
-
-        function formatPKR(amount) {
-            return 'Rs. ' + Math.round(amount).toLocaleString('en-PK');
-        }
-
-        function calculate() {
-            const input = parseFloat(document.getElementById('salary').value) || 0;
-            const annualIncome = frequency === 'monthly' ? input * 12 : input;
-            const monthlyIncome = annualIncome / 12;
-
-            const { totalTax, slabIndex } = calculateTax(annualIncome);
-            const monthlyTax = totalTax / 12;
-            const takeHome = monthlyIncome - monthlyTax;
-            const effRate = annualIncome > 0 ? (totalTax / annualIncome * 100) : 0;
-
-            document.getElementById('takeHome').textContent = formatPKR(takeHome);
-            document.getElementById('grossAnnual').textContent = formatPKR(annualIncome);
-            document.getElementById('annualTax').textContent = formatPKR(totalTax);
-            document.getElementById('monthlyTax').textContent = formatPKR(monthlyTax);
-            document.getElementById('effRate').textContent = effRate.toFixed(2) + '%';
-
-            // Highlight active slab
-            document.querySelectorAll('#slabTable tbody tr').forEach((row, i) => {
-                row.classList.toggle('active-slab', i === slabIndex);
-            });
-        }
-
-        function copyResults() {
-            const results = [
-                `Income Tax Calculator — ${new Date().toLocaleDateString()}`,
-                `---`,
-                `Salary (${frequency}): ${formatPKR(parseFloat(document.getElementById('salary').value) || 0)}`,
-                `Annual Gross: ${document.getElementById('grossAnnual').textContent}`,
-                `Annual Tax: ${document.getElementById('annualTax').textContent}`,
-                `Monthly Tax: ${document.getElementById('monthlyTax').textContent}`,
-                `Take-Home (Monthly): ${document.getElementById('takeHome').textContent}`,
-                `Effective Rate: ${document.getElementById('effRate').textContent}`,
-                `---`,
-                `Calculated at makuistudio.com/tools/income-tax-calculator.html`
-            ].join('\n');
-
-            navigator.clipboard.writeText(results).then(() => {
-                alert('✅ Results copied to clipboard!');
-            });
-        }
-
-        // Live update on input
-        document.getElementById('salary').addEventListener('input', calculate);
-
-        // Initial calculation
+    function setFreq(freq) {
+        frequency = freq;
+        document.querySelectorAll('#freqToggle button').forEach(b => {
+            b.classList.toggle('active', b.dataset.freq === freq);
+        });
         calculate();
-    </script>
+    }
+
+    function calculateTax(annualIncome) {
+        let slab = SLABS[0];
+        let slabIndex = 0;
+        for (let i = 0; i < SLABS.length; i++) {
+            if (annualIncome > SLABS[i].min) {
+                slab = SLABS[i];
+                slabIndex = i;
+            }
+        }
+        let tax = slab.fixed + (annualIncome - slab.prevMax) * slab.rate;
+        let surcharge = 0;
+        if (annualIncome > SURCHARGE_THRESHOLD) {
+            surcharge = tax * SURCHARGE_RATE;
+        }
+        return { tax, surcharge, totalTax: tax + surcharge, slabIndex };
+    }
+
+    // Convert salary input from user's currency back to PKR for FBR slab comparison
+    async function convertToPKR(amount) {
+        const code = Currency.get();
+        if (code === 'PKR') return amount;
+        return await Currency.convert(amount, code, 'PKR');
+    }
+
+    // Convert PKR result back to user's currency for display
+    async function convertFromPKR(amount) {
+        const code = Currency.get();
+        if (code === 'PKR') return amount;
+        return await Currency.convert(amount, 'PKR', code);
+    }
+
+    async function calculate() {
+        const input = parseFloat(document.getElementById('salary').value) || 0;
+        const code = Currency.get();
+
+        // Convert input to PKR for slab calculation
+        const inputInPKR = code === 'PKR' ? input : await Currency.convert(input, code, 'PKR');
+        const annualIncome = frequency === 'monthly' ? inputInPKR * 12 : inputInPKR;
+
+        const { totalTax } = calculateTax(annualIncome);
+
+        // Convert results back to user's currency for display
+        const annualIncomeDisplay = await convertFromPKR(annualIncome);
+        const totalTaxDisplay = await convertFromPKR(totalTax);
+        const monthlyTaxDisplay = totalTaxDisplay / 12;
+        const monthlyIncomeDisplay = annualIncomeDisplay / 12;
+        const takeHome = monthlyIncomeDisplay - monthlyTaxDisplay;
+        const effRate = annualIncome > 0 ? (totalTax / annualIncome * 100) : 0;
+
+        document.getElementById('takeHome').textContent = Currency.format(takeHome);
+        document.getElementById('grossAnnual').textContent = Currency.format(annualIncomeDisplay);
+        document.getElementById('annualTax').textContent = Currency.format(totalTaxDisplay);
+        document.getElementById('monthlyTax').textContent = Currency.format(monthlyTaxDisplay);
+        document.getElementById('effRate').textContent = effRate.toFixed(2) + '%';
+    }
+
+    function copyResults() {
+        const results = [
+            `Income Tax Calculator — ${new Date().toLocaleDateString()}`,
+            `Currency: ${Currency.get()}`,
+            `---`,
+            `Salary (${frequency}): ${document.getElementById('salary').value}`,
+            `Annual Gross: ${document.getElementById('grossAnnual').textContent}`,
+            `Annual Tax: ${document.getElementById('annualTax').textContent}`,
+            `Monthly Tax: ${document.getElementById('monthlyTax').textContent}`,
+            `Take-Home (Monthly): ${document.getElementById('takeHome').textContent}`,
+            `Effective Rate: ${document.getElementById('effRate').textContent}`,
+            `---`,
+            `Calculated at makuistudio.com/tools/income-tax-calculator.html`
+        ].join('\n');
+        navigator.clipboard.writeText(results).then(() => {
+            alert('✅ Results copied to clipboard!');
+        });
+    }
+
+    document.getElementById('salary').addEventListener('input', calculate);
+    calculate();
+</script>
 </body>
 </html>
