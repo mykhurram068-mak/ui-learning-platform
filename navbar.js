@@ -79,7 +79,7 @@
           <a href="#" class="dropbtn-nav">Tools ▼</a>
           <ul class="dropdown-nav-content">
             <li><a href="/tools/income-tax-calculator.html">💰 Income Tax Calculator</a></li>
-            
+            <li><a href="/tools/loan-emi-calculator.html">🏦 Loan EMI Calculator</a></li>
           </ul>
         </li>
 
