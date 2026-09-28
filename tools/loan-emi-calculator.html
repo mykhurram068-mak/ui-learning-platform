@@ -276,6 +276,7 @@
 <a class="logo" href="../../../index.html">✨ MAK UI Studio</a>
 <div id="navbar-placeholder"></div>
 <script src="../../../navbar.js"></script>
+<script src="../../../currency.js"></script>    
 </div>
 </nav>
     <section class="p-8 text-center">
@@ -292,6 +293,7 @@
 
         <!-- Calculator -->
         <div class="calc-wrapper">
+            <div id="currencyPicker" style="margin-bottom: 1rem;"></div>
             <div class="calc-input-group">
                 <label>Loan Amount (PKR)</label>
                 <div class="input-with-suffix">
@@ -488,96 +490,86 @@
     </footer>
 
     <script>
-        function formatPKR(amount) {
-            return 'Rs. ' + Math.round(amount).toLocaleString('en-PK');
+    Currency.injectDropdown('#currencyPicker');
+    Currency.onChange(() => calculate());
+
+    function calculate() {
+        const P = parseFloat(document.getElementById('principal').value) || 0;
+        const annualRate = parseFloat(document.getElementById('rate').value) || 0;
+        const years = parseFloat(document.getElementById('tenure').value) || 1;
+
+        const r = annualRate / 12 / 100;
+        const n = years * 12;
+
+        let emi = 0;
+        if (r === 0) {
+            emi = P / n;
+        } else {
+            const factor = Math.pow(1 + r, n);
+            emi = P * r * factor / (factor - 1);
         }
 
-        function calculate() {
-            const P = parseFloat(document.getElementById('principal').value) || 0;
-            const annualRate = parseFloat(document.getElementById('rate').value) || 0;
-            const years = parseFloat(document.getElementById('tenure').value) || 1;
+        const totalPayment = emi * n;
+        const totalInterest = totalPayment - P;
 
-            const r = annualRate / 12 / 100;
-            const n = years * 12;
+        document.getElementById('emi').textContent = Currency.format(emi);
+        document.getElementById('principalOut').textContent = Currency.format(P);
+        document.getElementById('totalInterest').textContent = Currency.format(totalInterest);
+        document.getElementById('totalPayment').textContent = Currency.format(totalPayment);
+        document.getElementById('totalMonths').textContent = n.toLocaleString();
 
-            let emi = 0;
-            if (r === 0) {
-                emi = P / n;
-            } else {
-                const factor = Math.pow(1 + r, n);
-                emi = P * r * factor / (factor - 1);
-            }
+        const principalPct = totalPayment > 0 ? (P / totalPayment * 100) : 0;
+        document.getElementById('principalBar').style.width = principalPct + '%';
+        document.getElementById('interestBar').style.width = (100 - principalPct) + '%';
 
-            const totalPayment = emi * n;
-            const totalInterest = totalPayment - P;
+        generateAmortization(P, r, emi, Math.min(12, n));
+    }
 
-            // Update result cards
-            document.getElementById('emi').textContent = formatPKR(emi);
-            document.getElementById('principalOut').textContent = formatPKR(P);
-            document.getElementById('totalInterest').textContent = formatPKR(totalInterest);
-            document.getElementById('totalPayment').textContent = formatPKR(totalPayment);
-            document.getElementById('totalMonths').textContent = n.toLocaleString();
-
-            // Update breakdown bar
-            const principalPct = totalPayment > 0 ? (P / totalPayment * 100) : 0;
-            const interestPct = 100 - principalPct;
-            document.getElementById('principalBar').style.width = principalPct + '%';
-            document.getElementById('interestBar').style.width = interestPct + '%';
-
-            // Generate amortization table (first 12 months or fewer)
-            generateAmortization(P, r, emi, Math.min(12, n));
+    function generateAmortization(P, r, emi, monthsToShow) {
+        const tbody = document.getElementById('amortBody');
+        tbody.innerHTML = '';
+        let balance = P;
+        for (let month = 1; month <= monthsToShow; month++) {
+            const interest = balance * r;
+            const principalPaid = emi - interest;
+            balance -= principalPaid;
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${month}</td>
+                <td>${Currency.format(emi)}</td>
+                <td style="color:#4ade80;">${Currency.format(principalPaid)}</td>
+                <td style="color:#f87171;">${Currency.format(interest)}</td>
+                <td>${Currency.format(Math.max(balance, 0))}</td>
+            `;
+            tbody.appendChild(row);
         }
+    }
 
-        function generateAmortization(P, r, emi, monthsToShow) {
-            const tbody = document.getElementById('amortBody');
-            tbody.innerHTML = '';
-
-            let balance = P;
-            for (let month = 1; month <= monthsToShow; month++) {
-                const interest = balance * r;
-                const principalPaid = emi - interest;
-                balance -= principalPaid;
-
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${month}</td>
-                    <td>${formatPKR(emi)}</td>
-                    <td style="color:#4ade80;">${formatPKR(principalPaid)}</td>
-                    <td style="color:#f87171;">${formatPKR(interest)}</td>
-                    <td>${formatPKR(Math.max(balance, 0))}</td>
-                `;
-                tbody.appendChild(row);
-            }
-        }
-
-        function copyResults() {
-            const results = [
-                `Loan EMI Calculator — ${new Date().toLocaleDateString()}`,
-                `---`,
-                `Loan Amount: ${document.getElementById('principalOut').textContent}`,
-                `Rate: ${document.getElementById('rate').value}% per year`,
-                `Tenure: ${document.getElementById('tenure').value} years`,
-                `---`,
-                `Monthly EMI: ${document.getElementById('emi').textContent}`,
-                `Total Interest: ${document.getElementById('totalInterest').textContent}`,
-                `Total Payment: ${document.getElementById('totalPayment').textContent}`,
-                `Total Months: ${document.getElementById('totalMonths').textContent}`,
-                `---`,
-                `Calculated at makuistudio.com/tools/loan-emi-calculator.html`
-            ].join('\n');
-
-            navigator.clipboard.writeText(results).then(() => {
-                alert('✅ Results copied to clipboard!');
-            });
-        }
-
-        // Live update on input
-        ['principal', 'rate', 'tenure'].forEach(id => {
-            document.getElementById(id).addEventListener('input', calculate);
+    function copyResults() {
+        const results = [
+            `Loan EMI Calculator — ${new Date().toLocaleDateString()}`,
+            `Currency: ${Currency.get()}`,
+            `---`,
+            `Loan Amount: ${document.getElementById('principalOut').textContent}`,
+            `Rate: ${document.getElementById('rate').value}% per year`,
+            `Tenure: ${document.getElementById('tenure').value} years`,
+            `---`,
+            `Monthly EMI: ${document.getElementById('emi').textContent}`,
+            `Total Interest: ${document.getElementById('totalInterest').textContent}`,
+            `Total Payment: ${document.getElementById('totalPayment').textContent}`,
+            `---`,
+            `Calculated at makuistudio.com/tools/loan-emi-calculator.html`
+        ].join('\n');
+        navigator.clipboard.writeText(results).then(() => {
+            alert('✅ Results copied to clipboard!');
         });
+    }
 
-        // Initial calculation
-        calculate();
-    </script>
+    ['principal', 'rate', 'tenure'].forEach(id => {
+        document.getElementById(id).addEventListener('input', calculate);
+    });
+
+    calculate();
+</script>
 </body>
 </html>
