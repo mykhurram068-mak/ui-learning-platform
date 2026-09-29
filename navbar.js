@@ -87,6 +87,7 @@
             <li><a href="/tools/bmi-calculator.html">⚖️ BMI Calculator</a></li>
             <li><a href="/tools/json-formatter.html">🧩 JSON Formatter</a></li>
             <li><a href="/tools/percentage-calculator.html">📊 Percentage Calculator</a></li>
+            <li><a href="/tools/word-counter.html">📝 Word Counter</a></li>
           </ul>
         </li>
 
