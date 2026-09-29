@@ -86,6 +86,7 @@
             <li><a href="/tools/age-calculator.html">🎂 Age Calculator</a></li>
             <li><a href="/tools/bmi-calculator.html">⚖️ BMI Calculator</a></li>
             <li><a href="/tools/json-formatter.html">🧩 JSON Formatter</a></li>
+            <li><a href="/tools/percentage-calculator.html">📊 Percentage Calculator</a></li>
           </ul>
         </li>
 
