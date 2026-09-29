@@ -82,6 +82,7 @@
             <li><a href="/tools/loan-emi-calculator.html">🏦 Loan EMI Calculator</a></li>
             <li><a href="/tools/zakat-calculator.html">🤲 Zakat Calculator</a></li>
             <li><a href="/tools/compound-interest-calculator.html">📈 Compound Interest Calculator</a></li>
+            <li><a href="/tools/currency-converter.html">💱 Currency Converter</a></li>
           </ul>
         </li>
 
