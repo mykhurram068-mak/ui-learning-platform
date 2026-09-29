@@ -85,6 +85,7 @@
             <li><a href="/tools/currency-converter.html">💱 Currency Converter</a></li>
             <li><a href="/tools/age-calculator.html">🎂 Age Calculator</a></li>
             <li><a href="/tools/bmi-calculator.html">⚖️ BMI Calculator</a></li>
+            <li><a href="/tools/json-formatter.html">🧩 JSON Formatter</a></li>
           </ul>
         </li>
 
