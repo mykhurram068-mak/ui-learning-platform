@@ -218,11 +218,14 @@
   // ============ METAL RATES ============
   function getCachedMetals() {
     try {
-      const raw = JSON.parse(localStorage.getItem(METAL_CACHE_KEY));
-      if (raw && (Date.now() - raw.at) < CACHE_DURATION) return raw;
+        const raw = JSON.parse(localStorage.getItem(METAL_CACHE_KEY));
+        // Only use cache if it matches the current currency AND is fresh
+        if (raw && (Date.now() - raw.at) < CACHE_DURATION && raw.currency === get()) {
+            return raw;
+        }
     } catch (e) {}
     return null;
-  }
+}
 
   function cacheMetals(data) {
     try {
@@ -231,48 +234,50 @@
   }
 
   async function metalRates() {
-    // Returns { goldPerGram, silverPerGram, currency, updated, isFallback }
     const cached = getCachedMetals();
     if (cached) return cached;
 
     const code = get();
     try {
-      // Fetch spot price in USD per troy ounce from a public source
-      // (Swaps easily if the API changes; this is a placeholder that works when available)
-      const res = await fetch('https://api.gold-api.com/price/XAU');
-      const gold = await res.json();
-      const res2 = await fetch('https://api.gold-api.com/price/XAG');
-      const silver = await res2.json();
+        const res = await fetch('https://api.gold-api.com/price/XAU');
+        const gold = await res.json();
+        const res2 = await fetch('https://api.gold-api.com/price/XAG');
+        const silver = await res2.json();
 
-      // 1 troy ounce = 31.1035 grams
-      const USD_PER_GRAM_GOLD = gold.price / 31.1035;
-      const USD_PER_GRAM_SILVER = silver.price / 31.1035;
+        const USD_PER_GRAM_GOLD = gold.price / 31.1035;
+        const USD_PER_GRAM_SILVER = silver.price / 31.1035;
 
-      const usdToLocal = await rate('USD', code);
+        const usdToLocal = await rate('USD', code);
 
-      const result = {
-        goldPerGram: USD_PER_GRAM_GOLD * usdToLocal,
-        silverPerGram: USD_PER_GRAM_SILVER * usdToLocal,
-        currency: code,
-        updated: new Date().toISOString(),
-        isFallback: false,
-      };
-      cacheMetals(result);
-      return result;
+        const result = {
+            goldPerGram: USD_PER_GRAM_GOLD * usdToLocal,
+            silverPerGram: USD_PER_GRAM_SILVER * usdToLocal,
+            currency: code,
+            updated: new Date().toISOString(),
+            isFallback: false,
+        };
+        cacheMetals(result);
+        return result;
     } catch (e) {
-      console.warn('[currency.js] Metal rate fetch failed, using fallback:', e.message);
-      // Fallback — reasonable defaults for PKR
-      const usdToLocal = await rate('USD', code);
-      const fallback = {
-        goldPerGram: (2400 / 31.1035 * 31.1035) * 1, // ~USD $2400/oz → placeholder
-        silverPerGram: (28 / 31.1035 * 31.1035) * 1,
-        currency: code,
-        updated: new Date().toISOString(),
-        isFallback: true,
-      };
-      return fallback;
+        console.warn('[currency.js] Metal rate fetch failed, using fallback:', e.message);
+        const usdToLocal = await rate('USD', code);
+        // Fallback: reasonable global spot estimates in USD
+        const fallback = {
+            goldPerGram: (2650 / 31.1035) * usdToLocal,     // ~$2650/oz gold spot
+            silverPerGram: (31 / 31.1035) * usdToLocal,     // ~$31/oz silver spot
+            currency: code,
+            updated: new Date().toISOString(),
+            isFallback: true,
+        };
+        return fallback;
     }
-  }
+}
+
+function clearMetalCache() {
+  try {localStorage.removeItem(METAL_CACHE_KEY); }
+    catch(e){}
+}
+  
 
   // ============ DROPDOWN INJECTION ============
   function injectDropdown(selector) {
@@ -312,6 +317,7 @@
     injectDropdown,
     onChange,
     SUPPORTED,
+    clearMetalCache,
   };
 
   console.log('[currency.js] Loaded. Detected currency:', get());
