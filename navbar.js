@@ -89,6 +89,7 @@
             <li><a href="/tools/percentage-calculator.html">📊 Percentage Calculator</a></li>
             <li><a href="/tools/word-counter.html">📝 Word Counter</a></li>
             <li><a href="/tools/qr-code-generator.html">📱 QR Code Generator</a></li>
+            <li><a href="/tools/unit-converter.html">📏 Unit Converter</a></li>
           </ul>
         </li>
 
