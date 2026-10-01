@@ -145,6 +145,7 @@
                         <ul class="dropdown-category-content">
                             <li><a href="/tools/regex-tester.html">🔍 Regex Tester</a></li>
                             <li><a href="/tools/base64-encoder.html">🔐 Base64 Encoder/ Decoder</a></li>
+                            <li><a href="/tools/timestamp-converter.html">⏱️ Unix Timestamp Converter</a></li>
                             <li><a href="/tools/json-formatter.html">🧩 JSON Formatter</a></li>
                         </ul>
                     </li>
