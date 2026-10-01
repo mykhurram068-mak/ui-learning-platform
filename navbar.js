@@ -102,6 +102,7 @@
                         <ul class="dropdown-category-content">
                             <li><a href="/how-to/add-google-analytics.html">📊 Add Google Analytics</a></li>
                             <li><a href="/how-to/seo-friendly-website.html">🔎 SEO-Friendly Website</a></li>
+                            <li><a href="/how-to/calculate-percentage-increase.html">📊 Calculate Percentage Increase</a></li>
                         </ul>
                     </li>
                 </ul>
