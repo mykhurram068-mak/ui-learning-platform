@@ -137,6 +137,13 @@
                         <a href="#" class="dropdown-category-btn">✍️ Writing & Code ▸</a>
                         <ul class="dropdown-category-content">
                             <li><a href="/tools/word-counter.html">📝 Word Counter</a></li>
+                            
+                        </ul>
+                    </li>
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">💻 Developer Tools ▸</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/tools/regex-tester.html">🔍 Regex Tester</a></li>
                             <li><a href="/tools/json-formatter.html">🧩 JSON Formatter</a></li>
                         </ul>
                     </li>
@@ -146,6 +153,8 @@
                             <li><a href="/tools/qr-code-generator.html">📱 QR Code Generator</a></li>
                         </ul>
                     </li>
+
+                    
                     <li style="border-top:1px solid #334155; margin-top:0.5rem; padding-top:0.5rem;">
                         <a href="/tools/index.html" style="color:#60a5fa; font-weight:700;">🛠️ View All Tools →</a>
                     </li>
