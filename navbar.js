@@ -119,6 +119,15 @@
 
             <li><a href="/courses/index.html">Courses</a></li>
 
+            <!-- ==================== Projects DROPDOWN ==================== -->
+            <li class="dropdown-nav">
+                <a href="/projects/index.html" class="dropbtn-nav">Projects ▼</a>
+                <ul class="dropdown-nav-content">
+                    <li><a href="/projects/index.html">📚 All Projects</a></li>
+                    <li><a href="/projects/build-bmi-calculator.html">⚖️ BMI Calculator</a></li>
+                </ul>
+            </li>
+
             <!-- ==================== TOOLS DROPDOWN ==================== -->
             <li class="dropdown-nav">
                 <a href="#" class="dropbtn-nav">Tools ▼</a>
