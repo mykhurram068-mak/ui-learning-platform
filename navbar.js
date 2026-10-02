@@ -108,6 +108,7 @@
                             <li><a href="/how-to/calculate-bmi.html">⚖️ How to Calculate BMI</a></li>
                             <li><a href="/how-to/bmi-chart.html">📊 BMI Chart for Adults</a></li>
                             <li><a href="/how-to/bmi-for-women.html">👩 BMI for Women</a></li>
+                            <li><a href="/how-to/how-many-calories-a-day.html">🔥 How Many Calories a Day</a></li>
                         </ul>
                     </li>
                 </ul>
