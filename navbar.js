@@ -111,6 +111,7 @@
                             <li><a href="/how-to/how-many-calories-a-day.html">🔥 How Many Calories a Day</a></li>
                             <li><a href="/how-to/what-is-tdee.html">📊 What is TDEE?</a></li>
                             <li><a href="/how-to/convert-unix-timestamp-to-date.html">⏱️ Convert Unix Timestamp</a></li>
+                            <li><a href="/how-to/what-is-base64.html">🔐 What is Base64</a></li>
                         </ul>
                     </li>
                 </ul>
