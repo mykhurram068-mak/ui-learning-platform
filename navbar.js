@@ -125,6 +125,7 @@
                 <ul class="dropdown-nav-content">
                     <li><a href="/projects/index.html">📚 All Projects</a></li>
                     <li><a href="/projects/build-bmi-calculator.html">⚖️ BMI Calculator</a></li>
+                    <li><a href="/projects/build-age-calculator.html">🎂 Age Calculator</a></li>
                 </ul>
             </li>
 
