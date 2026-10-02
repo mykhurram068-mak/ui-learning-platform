@@ -107,6 +107,7 @@
                             <li><a href="/how-to/calculate-percentage-of-a-number.html">🔢 Calculate X% of a Number</a></li>
                             <li><a href="/how-to/calculate-bmi.html">⚖️ How to Calculate BMI</a></li>
                             <li><a href="/how-to/bmi-chart.html">📊 BMI Chart for Adults</a></li>
+                            <li><a href="/how-to/bmi-for-women.html">👩 BMI for Women</a></li>
                         </ul>
                     </li>
                 </ul>
