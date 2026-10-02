@@ -105,6 +105,7 @@
                             <li><a href="/how-to/calculate-percentage-increase.html">📊 Calculate Percentage Increase</a></li>
                             <li><a href="/how-to/calculate-percentage-decrease.html">📉 Calculate Percentage decrease</a></li>
                             <li><a href="/how-to/calculate-percentage-of-a-number.html">🔢 Calculate X% of a Number</a></li>
+                            <li><a href="/how-to/calculate-bmi.html">⚖️ How to Calculate BMI</a></li>
                         </ul>
                     </li>
                 </ul>
