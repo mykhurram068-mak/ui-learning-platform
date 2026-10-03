@@ -127,6 +127,7 @@
                     <li><a href="/projects/build-bmi-calculator.html">⚖️ BMI Calculator</a></li>
                     <li><a href="/projects/build-age-calculator.html">🎂 Age Calculator</a></li>
                     <li><a href="/projects/build-word-counter.html">📝 Word Counter</a></li>
+                    <li><a href="/projects/build-todo-list.html">✅ Todo List</a></li>
                 </ul>
             </li>
 
