@@ -269,22 +269,7 @@
                 </li>
             </ul>
         </li>
-
         
-        <!-- 🏥 Health Guides (5 + View all) -->
-        <li class="dropdown-category">
-            <a href="#" class="dropdown-category-btn">🏥 Health Guides</a>
-            <ul class="dropdown-category-content">
-                <li><a href="/how-to/calculate-bmi.html">⚖️ Calculate BMI</a></li>
-                <li><a href="/how-to/bmi-chart.html">📊 BMI Chart</a></li>
-                <li><a href="/how-to/bmi-for-women.html">👩 BMI for Women</a></li>
-                <li><a href="/how-to/how-many-calories-a-day.html">🔥 Calories a Day</a></li>
-                <li><a href="/how-to/what-is-tdee.html">📈 What Is TDEE</a></li>
-                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                    <a href="/how-to/health-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 5 Health Guides</a>
-                </li>
-            </ul>
-        </li>
 
         <!-- 📈 Growth & SEO (2 — no cap needed yet) -->
         <li class="dropdown-category">
@@ -318,7 +303,22 @@
                     <a href="/how-to/math-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 4 Math Guides</a>
                 </li>
             </ul>
-        </li>  
+        </li> 
+
+        <!-- 🏥 Health Guides (5 + View all) -->
+        <li class="dropdown-category">
+            <a href="#" class="dropdown-category-btn">🏥 Health Guides</a>
+            <ul class="dropdown-category-content">
+                <li><a href="/how-to/calculate-bmi.html">⚖️ Calculate BMI</a></li>
+                <li><a href="/how-to/bmi-chart.html">📊 BMI Chart</a></li>
+                <li><a href="/how-to/bmi-for-women.html">👩 BMI for Women</a></li>
+                <li><a href="/how-to/how-many-calories-a-day.html">🔥 Calories a Day</a></li>
+                <li><a href="/how-to/what-is-tdee.html">📈 What Is TDEE</a></li>
+                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                    <a href="/how-to/health-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 5 Health Guides</a>
+                </li>
+            </ul>
+        </li>
 
     </ul>
 </li>
