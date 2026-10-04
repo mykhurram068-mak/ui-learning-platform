@@ -234,6 +234,7 @@
                             <li><a href="/how-to/install-nodejs.html">🟢 Install Node.js</a></li>
                             <li><a href="/how-to/install-git.html">🌿 Install Git</a></li>
                             <li><a href="/how-to/install-pytube.html">📥 Install Pytube</a></li>
+                            <li><a href="/how-to/install-java.html">☕ Install Java</a></li>
                         </ul>
                     </li>
                     <li class="dropdown-category">
@@ -250,6 +251,7 @@
                             <li><a href="/how-to/publish-website-free.html">🚀 Publish Website Free</a></li>
                             <li><a href="/how-to/get-free-domain.html">🌐 Free Domain Name</a></li>
                             <li><a href="/how-to/deploy-with-netlify.html">⚡ Deploy with Netlify</a></li>
+                            <li><a href="/how-to/deploy-with-vercel.html">⚡ Deploy with Vercel</a></li>
                         </ul>
                     </li>
                     <li class="dropdown-category">
@@ -265,6 +267,7 @@
                             <li><a href="/how-to/calculate-percentage-increase.html">📈 Calculate % Increase</a></li>
                             <li><a href="/how-to/calculate-percentage-decrease.html">📉 Calculate % Decrease</a></li>
                             <li><a href="/how-to/calculate-percentage-of-a-number.html">🔢 Calculate X% of a Number</a></li>
+                            <li><a href="/how-to/calculate-percentage-difference.html">📐 Calculate % Difference</a></li>
                         </ul>
                     </li>
                     <li class="dropdown-category">
