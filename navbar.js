@@ -222,6 +222,8 @@
                     <li><a href="/how-to/what-is-typescript.html">🟦 TypeScript Guide</a></li>
                     <li><a href="/how-to/what-is-nextjs.html">⚫ Next.js Guide</a></li>
                     <li><a href="/how-to/what-is-tailwind-css.html">🎨 Tailwind CSS Guide</a></li>
+                    <li><a href="/how-to/what-is-react.html">⚛️ React Guide</a></li>
+
                 </ul>
             </li>
 
