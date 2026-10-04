@@ -284,6 +284,9 @@
                             <li><a href="/how-to/convert-unix-timestamp-to-date.html">⏱️ Convert Timestamp</a></li>
                         </ul>
                     </li>
+                    <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                        <a href="/how-to/index.html" style="color: #60a5fa;">🛠️ View All How-To →</a>
+                    </li>
                 </ul>
             </li>
 
