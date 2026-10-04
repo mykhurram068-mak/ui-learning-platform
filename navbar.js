@@ -220,6 +220,7 @@
                     <li><a href="/ultimate-python-guide.html">🐍 Python Guide</a></li>
                     <li><a href="/ultimate-ai-guide.html">🤖 AI Guide</a></li>
                     <li><a href="/how-to/what-is-typescript.html">🟦 TypeScript Guide</a></li>
+                    <li><a href="/how-to/what-is-nextjs.html">⚫ Next.js Guide</a></li>
                 </ul>
             </li>
 
@@ -237,6 +238,7 @@
                             <li><a href="/how-to/install-pytube.html">📥 Install Pytube</a></li>
                             <li><a href="/how-to/install-java.html">☕ Install Java</a></li>
                             <li><a href="/how-to/install-docker.html">🐳 Install Docker</a></li>
+                            <li><a href="/how-to/install-bun.html">🥟 Install Bun</a></li>
                         </ul>
                     </li>
                     <li class="dropdown-category">
@@ -288,6 +290,7 @@
                             <li><a href="/how-to/what-is-base64.html">🔐 What Is Base64</a></li>
                             <li><a href="/how-to/convert-unix-timestamp-to-date.html">⏱️ Convert Timestamp</a></li>
                             <li><a href="/how-to/first-react-component.html">⚛️ First React Component</a></li>
+                            <li><a href="/how-to/first-nextjs-app.html">⚫ First Next.js App</a></li>
                         </ul>
                     </li>
                     <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
