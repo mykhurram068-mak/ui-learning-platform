@@ -132,6 +132,8 @@
                     <li><a href="/projects/build-unit-converter.html">📏 Unit Converter</a></li>
                     <li><a href="/projects/build-password-generator.html">🔐 Password Genertor</a></li>
                     <li><a href="/projects/build-percentage-calculator.html">📊 Percentage Calculator</a></li>
+                    <li><a href="/projects/build-loan-calculator.html">🏦 Loan EMI Calculator</a></li>
+                    
                 </ul>
             </li>
 
