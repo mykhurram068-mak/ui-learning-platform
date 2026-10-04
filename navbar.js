@@ -128,6 +128,7 @@
                     <li><a href="/projects/build-age-calculator.html">🎂 Age Calculator</a></li>
                     <li><a href="/projects/build-word-counter.html">📝 Word Counter</a></li>
                     <li><a href="/projects/build-todo-list.html">✅ Todo List</a></li>
+                    <li><a href="/projects/build-qr-generator.html">📱 QR Generator</a></li>
                 </ul>
             </li>
 
