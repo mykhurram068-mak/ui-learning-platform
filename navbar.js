@@ -160,9 +160,12 @@
         }
     </style>
 
-    <header class="p-5 flex justify-between items-center border-b border-gray-800 sticky top-0 z-50">
+    <!--<header class="p-5 flex justify-between items-center border-b border-gray-800 sticky top-0 z-50">-->
         <!--<div class="logo-container"></div>-->
 
+    <header style="display:flex; aligin-items:center; justify-content: flex-end; magrin-left:auto;">
+        
+    
         <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
             <span></span>
             <span></span>
