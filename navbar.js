@@ -253,18 +253,33 @@
                         </ul>
                     </li>
                     <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">📊 Growth</a>
+                        <a href="#" class="dropdown-category-btn">📈 Growth & SEO</a>
                         <ul class="dropdown-category-content">
                             <li><a href="/how-to/add-google-analytics.html">📊 Add Google Analytics</a></li>
                             <li><a href="/how-to/seo-friendly-website.html">🔎 SEO-Friendly Website</a></li>
+                        </ul>
+                    </li>
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">📊 Math Guides</a>
+                        <ul class="dropdown-category-content">
                             <li><a href="/how-to/calculate-percentage-increase.html">📈 Calculate % Increase</a></li>
                             <li><a href="/how-to/calculate-percentage-decrease.html">📉 Calculate % Decrease</a></li>
                             <li><a href="/how-to/calculate-percentage-of-a-number.html">🔢 Calculate X% of a Number</a></li>
+                        </ul>
+                    </li>
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🏥 Health Guides</a>
+                        <ul class="dropdown-category-content">
                             <li><a href="/how-to/calculate-bmi.html">⚖️ Calculate BMI</a></li>
                             <li><a href="/how-to/bmi-chart.html">📊 BMI Chart</a></li>
                             <li><a href="/how-to/bmi-for-women.html">👩 BMI for Women</a></li>
                             <li><a href="/how-to/how-many-calories-a-day.html">🔥 Calories a Day</a></li>
                             <li><a href="/how-to/what-is-tdee.html">📈 What Is TDEE</a></li>
+                        </ul>
+                    </li>
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">💻 Developer Guides</a>
+                        <ul class="dropdown-category-content">
                             <li><a href="/how-to/what-is-base64.html">🔐 What Is Base64</a></li>
                             <li><a href="/how-to/convert-unix-timestamp-to-date.html">⏱️ Convert Timestamp</a></li>
                         </ul>
