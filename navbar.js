@@ -226,81 +226,101 @@
             </li>
 
             <!-- ==================== HOW-TO ==================== -->
-            <li class="dropdown-nav">
-                <a href="/how-to/index.html" class="dropbtn-nav">How-to ▼</a>
-                <ul class="dropdown-nav-content">
-                    <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">🛠️ Setup</a>
-                        <ul class="dropdown-category-content">
-                            <li><a href="/how-to/install-vs-code.html">🌐 Install VS Code</a></li>
-                            <li><a href="/how-to/install-python.html">🐍 Install Python</a></li>
-                            <li><a href="/how-to/install-nodejs.html">🟢 Install Node.js</a></li>
-                            <li><a href="/how-to/install-git.html">🌿 Install Git</a></li>
-                            <li><a href="/how-to/install-pytube.html">📥 Install Pytube</a></li>
-                            <li><a href="/how-to/install-java.html">☕ Install Java</a></li>
-                            <li><a href="/how-to/install-docker.html">🐳 Install Docker</a></li>
-                            <li><a href="/how-to/install-bun.html">🥟 Install Bun</a></li>
-                            <li><a href="/how-to/install-postgresql.html">🐘 Install PostgreSQL</a></li>
-                        </ul>
-                    </li>
-                    <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">🚀 First Steps</a>
-                        <ul class="dropdown-category-content">
-                            <li><a href="/how-to/run-first-html-file.html">📄 Run First HTML File</a></li>
-                            <li><a href="/how-to/command-line-basics.html">⌨️ Command Line Basics</a></li>
-                            <li><a href="/how-to/write-first-html-page.html">📝 Write First HTML Page</a></li>
-                        </ul>
-                    </li>
-                    <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">🌍 Publishing</a>
-                        <ul class="dropdown-category-content">
-                            <li><a href="/how-to/publish-website-free.html">🚀 Publish Website Free</a></li>
-                            <li><a href="/how-to/get-free-domain.html">🌐 Free Domain Name</a></li>
-                            <li><a href="/how-to/deploy-with-netlify.html">⚡ Deploy with Netlify</a></li>
-                            <li><a href="/how-to/deploy-with-vercel.html">⚡ Deploy with Vercel</a></li>
-                        </ul>
-                    </li>
-                    <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">📈 Growth & SEO</a>
-                        <ul class="dropdown-category-content">
-                            <li><a href="/how-to/add-google-analytics.html">📊 Add Google Analytics</a></li>
-                            <li><a href="/how-to/seo-friendly-website.html">🔎 SEO-Friendly Website</a></li>
-                        </ul>
-                    </li>
-                    <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">📊 Math Guides</a>
-                        <ul class="dropdown-category-content">
-                            <li><a href="/how-to/calculate-percentage-increase.html">📈 Calculate % Increase</a></li>
-                            <li><a href="/how-to/calculate-percentage-decrease.html">📉 Calculate % Decrease</a></li>
-                            <li><a href="/how-to/calculate-percentage-of-a-number.html">🔢 Calculate X% of a Number</a></li>
-                            <li><a href="/how-to/calculate-percentage-difference.html">📐 Calculate % Difference</a></li>
-                        </ul>
-                    </li>
-                    <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">🏥 Health Guides</a>
-                        <ul class="dropdown-category-content">
-                            <li><a href="/how-to/calculate-bmi.html">⚖️ Calculate BMI</a></li>
-                            <li><a href="/how-to/bmi-chart.html">📊 BMI Chart</a></li>
-                            <li><a href="/how-to/bmi-for-women.html">👩 BMI for Women</a></li>
-                            <li><a href="/how-to/how-many-calories-a-day.html">🔥 Calories a Day</a></li>
-                            <li><a href="/how-to/what-is-tdee.html">📈 What Is TDEE</a></li>
-                        </ul>
-                    </li>
-                    <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">💻 Developer Guides</a>
-                        <ul class="dropdown-category-content">
-                            <li><a href="/how-to/what-is-base64.html">🔐 What Is Base64</a></li>
-                            <li><a href="/how-to/convert-unix-timestamp-to-date.html">⏱️ Convert Timestamp</a></li>
-                            <li><a href="/how-to/first-react-component.html">⚛️ First React Component</a></li>
-                            <li><a href="/how-to/first-nextjs-app.html">⚫ First Next.js App</a></li>
-                            <li><a href="/how-to/fetch-data-nextjs.html">⚫ Fetch Data in Next.js</a></li>
-                        </ul>
-                    </li>
-                    <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                        <a href="/how-to/index.html" style="color: #60a5fa;">🛠️ View All How-To →</a>
-                    </li>
-                </ul>
-            </li>
+<li class="dropdown-nav">
+    <a href="/how-to/index.html" class="dropbtn-nav">How-to ▼</a>
+    <ul class="dropdown-nav-content">
+
+        <!-- 💻 Developer Guides (5 + View all) -->
+        <li class="dropdown-category">
+            <a href="#" class="dropdown-category-btn">💻 Developer Guides</a>
+            <ul class="dropdown-category-content">
+                <li><a href="/how-to/first-react-component.html">⚛️ First React Component</a></li>
+                <li><a href="/how-to/first-nextjs-app.html">⚫ First Next.js App</a></li>
+                <li><a href="/how-to/fetch-data-nextjs.html">⚫ Fetch Data in Next.js</a></li>
+                <li><a href="/how-to/what-is-typescript.html">🟦 What Is TypeScript</a></li>
+                <li><a href="/how-to/what-is-tailwind-css.html">🎨 What Is Tailwind CSS</a></li>
+                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                    <a href="/how-to/developer-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 8 Developer Guides</a>
+                </li>
+            </ul>
+        </li>
+
+        <!-- 📊 Math Guides (4 + View all) -->
+        <li class="dropdown-category">
+            <a href="#" class="dropdown-category-btn">📊 Math Guides</a>
+            <ul class="dropdown-category-content">
+                <li><a href="/how-to/calculate-percentage-increase.html">📈 Calculate % Increase</a></li>
+                <li><a href="/how-to/calculate-percentage-decrease.html">📉 Calculate % Decrease</a></li>
+                <li><a href="/how-to/calculate-percentage-of-a-number.html">🔢 Calculate X% of a Number</a></li>
+                <li><a href="/how-to/calculate-percentage-difference.html">📐 Calculate % Difference</a></li>
+                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                    <a href="/how-to/math-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 4 Math Guides</a>
+                </li>
+            </ul>
+        </li>
+
+        <!-- 🏥 Health Guides (5 + View all) -->
+        <li class="dropdown-category">
+            <a href="#" class="dropdown-category-btn">🏥 Health Guides</a>
+            <ul class="dropdown-category-content">
+                <li><a href="/how-to/calculate-bmi.html">⚖️ Calculate BMI</a></li>
+                <li><a href="/how-to/bmi-chart.html">📊 BMI Chart</a></li>
+                <li><a href="/how-to/bmi-for-women.html">👩 BMI for Women</a></li>
+                <li><a href="/how-to/how-many-calories-a-day.html">🔥 Calories a Day</a></li>
+                <li><a href="/how-to/what-is-tdee.html">📈 What Is TDEE</a></li>
+                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                    <a href="/how-to/health-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 5 Health Guides</a>
+                </li>
+            </ul>
+        </li>
+
+        <!-- 📈 Growth & SEO (2 — no cap needed yet) -->
+        <li class="dropdown-category">
+            <a href="#" class="dropdown-category-btn">📈 Growth & SEO</a>
+            <ul class="dropdown-category-content">
+                <li><a href="/how-to/add-google-analytics.html">📊 Add Google Analytics</a></li>
+                <li><a href="/how-to/seo-friendly-website.html">🔎 SEO-Friendly Website</a></li>
+            </ul>
+        </li>
+
+        <!-- 🌍 Publishing (4) -->
+        <li class="dropdown-category">
+            <a href="#" class="dropdown-category-btn">🌍 Publishing</a>
+            <ul class="dropdown-category-content">
+                <li><a href="/how-to/publish-website-free.html">🚀 Publish Website Free</a></li>
+                <li><a href="/how-to/get-free-domain.html">🌐 Get Free Domain</a></li>
+                <li><a href="/how-to/deploy-with-netlify.html">⚡ Deploy with Netlify</a></li>
+                <li><a href="/how-to/deploy-with-vercel.html">⚡ Deploy with Vercel</a></li>
+            </ul>
+        </li>
+
+        <!-- 🚀 First Steps (3) -->
+        <li class="dropdown-category">
+            <a href="#" class="dropdown-category-btn">🚀 First Steps</a>
+            <ul class="dropdown-category-content">
+                <li><a href="/how-to/run-first-html-file.html">📄 Run First HTML File</a></li>
+                <li><a href="/how-to/command-line-basics.html">⌨️ Command Line Basics</a></li>
+                <li><a href="/how-to/write-first-html-page.html">📝 Write First HTML Page</a></li>
+            </ul>
+        </li>
+
+        <!-- 🛠️ Setup (5 + View all — capped from 9) -->
+        <li class="dropdown-category">
+            <a href="#" class="dropdown-category-btn">🛠️ Setup</a>
+            <ul class="dropdown-category-content">
+                <li><a href="/how-to/install-vs-code.html">💻 Install VS Code</a></li>
+                <li><a href="/how-to/install-python.html">🐍 Install Python</a></li>
+                <li><a href="/how-to/install-nodejs.html">🟢 Install Node.js</a></li>
+                <li><a href="/how-to/install-git.html">🌿 Install Git</a></li>
+                <li><a href="/how-to/install-docker.html">🐳 Install Docker</a></li>
+                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                    <a href="/how-to/setup-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 9 Setup Guides</a>
+                </li>
+            </ul>
+        </li>
+
+    </ul>
+</li>
 
             <li><a href="/courses/index.html">Courses</a></li>
 
