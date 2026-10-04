@@ -140,7 +140,7 @@
                     <li><a href="/projects/build-timestamp-converter.html">⏱️ Unix Timestamp Converter</a></li>
                     <li><a href="/projects/build-portfolio-website.html">🎨 Portfolio Website</a></li>
                     <li><a href="/projects/build-weather-app.html">🌦️ Weather App</a></li>
-                    
+                    <li><a href="/projects/build-python-calculator.html">🐍 Python Calculator</a></li>
                 </ul>
             </li>
 
