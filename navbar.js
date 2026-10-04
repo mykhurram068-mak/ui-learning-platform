@@ -136,6 +136,7 @@
                     <li><a href="/projects/build-compound-interest.html">📈 Compound Interest Calculator</a></li>
                     <li><a href="/projects/build-json-formatter.html">🧩 JSON Formatter</a></li>
                     <li><a href="/projects/build-regex-tester.html">🔍 Regex Teset</a></li>
+                    <li><a href="/projects/build-base64-encoder.html">🔐 Base64 Encoder</a></li>
                     
                 </ul>
             </li>
