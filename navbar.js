@@ -230,6 +230,31 @@
     <a href="/how-to/index.html" class="dropbtn-nav">How-to ▼</a>
     <ul class="dropdown-nav-content">
 
+            <!-- 🛠️ Setup (5 + View all — capped from 9) -->
+        <li class="dropdown-category">
+            <a href="#" class="dropdown-category-btn">🛠️ Setup</a>
+            <ul class="dropdown-category-content">
+                <li><a href="/how-to/install-vs-code.html">💻 Install VS Code</a></li>
+                <li><a href="/how-to/install-python.html">🐍 Install Python</a></li>
+                <li><a href="/how-to/install-nodejs.html">🟢 Install Node.js</a></li>
+                <li><a href="/how-to/install-git.html">🌿 Install Git</a></li>
+                <li><a href="/how-to/install-docker.html">🐳 Install Docker</a></li>
+                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                    <a href="/how-to/setup-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 9 Setup Guides</a>
+                </li>
+            </ul>
+        </li>
+
+        <!-- 🚀 First Steps (3) -->
+        <li class="dropdown-category">
+            <a href="#" class="dropdown-category-btn">🚀 First Steps</a>
+            <ul class="dropdown-category-content">
+                <li><a href="/how-to/run-first-html-file.html">📄 Run First HTML File</a></li>
+                <li><a href="/how-to/command-line-basics.html">⌨️ Command Line Basics</a></li>
+                <li><a href="/how-to/write-first-html-page.html">📝 Write First HTML Page</a></li>
+            </ul>
+        </li>   
+    
         <!-- 💻 Developer Guides (5 + View all) -->
         <li class="dropdown-category">
             <a href="#" class="dropdown-category-btn">💻 Developer Guides</a>
@@ -245,20 +270,7 @@
             </ul>
         </li>
 
-        <!-- 📊 Math Guides (4 + View all) -->
-        <li class="dropdown-category">
-            <a href="#" class="dropdown-category-btn">📊 Math Guides</a>
-            <ul class="dropdown-category-content">
-                <li><a href="/how-to/calculate-percentage-increase.html">📈 Calculate % Increase</a></li>
-                <li><a href="/how-to/calculate-percentage-decrease.html">📉 Calculate % Decrease</a></li>
-                <li><a href="/how-to/calculate-percentage-of-a-number.html">🔢 Calculate X% of a Number</a></li>
-                <li><a href="/how-to/calculate-percentage-difference.html">📐 Calculate % Difference</a></li>
-                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                    <a href="/how-to/math-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 4 Math Guides</a>
-                </li>
-            </ul>
-        </li>
-
+        
         <!-- 🏥 Health Guides (5 + View all) -->
         <li class="dropdown-category">
             <a href="#" class="dropdown-category-btn">🏥 Health Guides</a>
@@ -294,30 +306,19 @@
             </ul>
         </li>
 
-        <!-- 🚀 First Steps (3) -->
+        <!-- 📊 Math Guides (4 + View all) -->
         <li class="dropdown-category">
-            <a href="#" class="dropdown-category-btn">🚀 First Steps</a>
+            <a href="#" class="dropdown-category-btn">📊 Math Guides</a>
             <ul class="dropdown-category-content">
-                <li><a href="/how-to/run-first-html-file.html">📄 Run First HTML File</a></li>
-                <li><a href="/how-to/command-line-basics.html">⌨️ Command Line Basics</a></li>
-                <li><a href="/how-to/write-first-html-page.html">📝 Write First HTML Page</a></li>
-            </ul>
-        </li>
-
-        <!-- 🛠️ Setup (5 + View all — capped from 9) -->
-        <li class="dropdown-category">
-            <a href="#" class="dropdown-category-btn">🛠️ Setup</a>
-            <ul class="dropdown-category-content">
-                <li><a href="/how-to/install-vs-code.html">💻 Install VS Code</a></li>
-                <li><a href="/how-to/install-python.html">🐍 Install Python</a></li>
-                <li><a href="/how-to/install-nodejs.html">🟢 Install Node.js</a></li>
-                <li><a href="/how-to/install-git.html">🌿 Install Git</a></li>
-                <li><a href="/how-to/install-docker.html">🐳 Install Docker</a></li>
+                <li><a href="/how-to/calculate-percentage-increase.html">📈 Calculate % Increase</a></li>
+                <li><a href="/how-to/calculate-percentage-decrease.html">📉 Calculate % Decrease</a></li>
+                <li><a href="/how-to/calculate-percentage-of-a-number.html">🔢 Calculate X% of a Number</a></li>
+                <li><a href="/how-to/calculate-percentage-difference.html">📐 Calculate % Difference</a></li>
                 <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                    <a href="/how-to/setup-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 9 Setup Guides</a>
+                    <a href="/how-to/math-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 4 Math Guides</a>
                 </li>
             </ul>
-        </li>
+        </li>  
 
     </ul>
 </li>
