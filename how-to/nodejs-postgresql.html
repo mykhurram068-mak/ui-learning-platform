@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Node.js with PostgreSQL — Complete Setup Guide (2026)</title>
+    <meta name="description" content="Connect Node.js to PostgreSQL. Covers node-postgres, connection pooling, parameterized queries, and Prisma ORM setup with examples.">
+    <meta name="keywords" content="node.js postgresql, node postgres, node.js database, prisma postgresql, node-postgres, pg pool">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Node.js with PostgreSQL — Complete Setup Guide">
+    <meta property="og:description" content="Connect Node.js to PostgreSQL with pg or Prisma.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/how-to/nodejs-postgresql.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="../favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/how-to/nodejs-postgresql.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"HowTo","name":"Node.js with PostgreSQL","description":"Complete setup guide for Node.js + PostgreSQL.","totalTime":"PT30M","step":[{"@type":"HowToStep","position":1,"name":"Install pg","text":"Run npm install pg."},{"@type":"HowToStep","position":2,"name":"Create a connection pool","text":"Use the Pool class for efficient connection reuse."},{"@type":"HowToStep","position":3,"name":"Run your first query","text":"Execute parameterized SQL queries with pool.query."},{"@type":"HowToStep","position":4,"name":"Try Prisma","text":"Alternative: use Prisma ORM for a type-safe schema-first approach."}]}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I connect Node.js to PostgreSQL?","acceptedAnswer":{"@type":"Answer","text":"Install the pg package, create a Pool with your connection string, and use pool.query() to run SQL. Always use parameterized queries to prevent SQL injection."}},{"@type":"Question","name":"Should I use pg or Prisma?","acceptedAnswer":{"@type":"Answer","text":"pg gives you raw SQL control and is lighter. Prisma gives you type safety, migrations, and a cleaner API. Choose pg for simple projects and full SQL control, Prisma for larger apps and team projects."}},{"@type":"Question","name":"What is a connection pool?","acceptedAnswer":{"@type":"Answer","text":"A connection pool maintains a set of reusable database connections. Instead of opening a new connection for every query (slow), your app reuses connections from the pool."}},{"@type":"Question","name":"How do I prevent SQL injection?","acceptedAnswer":{"@type":"Answer","text":"Never concatenate user input into SQL strings. Use parameterized queries with placeholders ($1, $2) and pass values as an array."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="../style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .brand-name { font-weight: 800; letter-spacing: -1px; font-size: 1.25rem; color: #3b82f6; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #3b82f6; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #3b82f6; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="../navbar.js"></script>
+</div>
+</nav>
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Master Code <br> On The Go</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Learn. Practice. Build.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/how-to/index.html" class="hover:text-blue-400">How-To</a> ›
+            <span class="text-slate-400">Node.js with PostgreSQL</span>
+        </div>
+
+        <div class="space-y-2">
+            <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Node.js Guide</h2>
+            <h1 class="text-3xl font-black">Node.js with PostgreSQL</h1>
+            <p class="text-slate-400">The most common Node.js database pairing. Here's how to connect, query, and scale with either raw SQL (pg) or an ORM (Prisma).</p>
+        </div>
+
+        <div class="info-box">
+            <p class="text-sm text-slate-300"><strong>Quick answer:</strong> Install <code class="text-yellow-300">pg</code> for raw SQL — fast, lightweight, full control. Or use Prisma for a type-safe schema-first approach — more setup but better DX for larger apps.</p>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Install pg (node-postgres)</h3>
+                    <pre><code>npm install pg dotenv</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Add your connection string to <code class="text-yellow-300">.env</code>:</p>
+                    <pre><code>DATABASE_URL=postgres://user:password@localhost:5432/mydb</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Create a Connection Pool</h3>
+                    <pre><code>import 'dotenv/config';
+import pg from 'pg';
+
+const { Pool } = pg;
+
+export const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 20,                  // max connections in pool
+    idleTimeoutMillis: 30000, // close idle connections after 30s
+    connectionTimeoutMillis: 2000  // fail fast if no connection
+});
+
+// Test the connection on startup
+pool.on('error', (err) =&gt; {
+    console.error('Unexpected pool error:', err);
+});</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Always use a pool, never a single Client, in web servers. A Client opens a new connection per request — slow and resource-hungry.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Run Your First Query</h3>
+                    <pre><code>import { pool } from './db.js';
+
+const result = await pool.query('SELECT NOW() as now');
+console.log(result.rows[0].now);
+// 2026-10-05T12:00:00.000Z</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Create a table and insert data:</p>
+                    <pre><code>await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+`);
+
+const insert = await pool.query(
+    'INSERT INTO users (name, email) VALUES ($1, $2) RETURNING id, name',
+    ['Sarah', 'sarah@example.com']
+);
+
+console.log(insert.rows[0]); // { id: 1, name: 'Sarah' }</code></pre>
+                    <div class="warning-box mt-3">
+                        <p class="text-sm text-slate-300"><strong>Always use parameterized queries.</strong> <code>$1, $2</code> placeholders prevent SQL injection. Never concatenate user input into SQL strings.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">4</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">CRUD Operations</h3>
+                    <pre><code>// READ all
+const all = await pool.query('SELECT * FROM users ORDER BY created_at DESC');
+
+// READ one
+const one = await pool.query('SELECT * FROM users WHERE id = $1', [userId]);
+
+// UPDATE
+await pool.query(
+    'UPDATE users SET name = $1 WHERE id = $2',
+    ['Sarah Updated', userId]
+);
+
+// DELETE
+await pool.query('DELETE FROM users WHERE id = $1', [userId]);</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">5</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Transactions</h3>
+                    <pre><code>const client = await pool.connect();
+try {
+    await client.query('BEGIN');
+
+    await client.query(
+        'INSERT INTO accounts (name, balance) VALUES ($1, $2)',
+        ['Sarah', 100]
+    );
+    await client.query(
+        'UPDATE accounts SET balance = balance - 50 WHERE name = $1',
+        ['Sarah']
+    );
+
+    await client.query('COMMIT');
+} catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+} finally {
+    client.release();  // ALWAYS return to pool
+}</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Use transactions when multiple queries must all succeed or all fail (transfers, orders, etc.).</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">6</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Alternative — Prisma ORM</h3>
+                    <p class="text-sm text-slate-300 mt-2">If you prefer type safety and migrations over raw SQL:</p>
+                    <pre><code>npm install prisma @prisma/client
+npx prisma init</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Define your schema in <code class="text-yellow-300">prisma/schema.prisma</code>:</p>
+                    <pre><code>model User {
+    id        Int      @id @default(autoincrement())
+    name      String
+    email     String   @unique
+    createdAt DateTime @default(now())
+}</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Run migrations and query:</p>
+                    <pre><code>npx prisma migrate dev --name init
+
+// Then in code:
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
+const users = await prisma.user.findMany();
+const user = await prisma.user.create({
+    data: { name: 'Sarah', email: 'sarah@example.com' }
+});</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">⚖️ pg vs Prisma — Quick Comparison</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>pg</strong> — lightweight, raw SQL, full control, steeper for complex queries</li>
+                <li><strong>Prisma</strong> — type-safe, migrations, auto-complete, schema-first, larger bundle</li>
+                <li><strong>Use pg</strong> for small apps, high-performance endpoints, or when you know SQL well</li>
+                <li><strong>Use Prisma</strong> for team projects, larger schemas, and long-term maintainability</li>
+            </ul>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🛡️ Production Best Practices</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Always use a pool.</strong> Never open connections per request.</li>
+                <li><strong>Release clients.</strong> <code class="text-yellow-300">client.release()</code> in a finally block.</li>
+                <li><strong>Parameterize queries.</strong> Prevents SQL injection.</li>
+                <li><strong>Handle errors.</strong> Wrap queries in try/catch.</li>
+                <li><strong>Use indexes</strong> on columns you filter and sort by.</li>
+                <li><strong>Close the pool on shutdown.</strong> <code class="text-yellow-300">await pool.end()</code> in SIGTERM handler.</li>
+            </ul>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">❓ Frequently Asked Questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I connect Node.js to PostgreSQL?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Install pg, create a Pool with your connection string, use pool.query for SQL. Always parameterize queries.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">pg or Prisma?</summary>
+                    <p class="mt-2 text-sm text-slate-300">pg for raw SQL control and small apps. Prisma for type safety, migrations, and team projects.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a connection pool?</summary>
+                    <p class="mt-2 text-sm text-slate-300">A set of reusable database connections. Reusing connections is much faster than opening new ones per query.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I prevent SQL injection?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Use parameterized queries with <code>$1, $2</code> placeholders. Pass values in an array. Never concatenate strings.</p>
+                </details>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 What's Next?</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/how-to/nodejs-jwt.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🔑 JWT Authentication</div>
+                    <div class="text-xs text-slate-400 mt-1">Store users in Postgres.</div>
+                </a>
+                <a href="/how-to/deploy-nodejs.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🚀 Deploy Node.js Free</div>
+                    <div class="text-xs text-slate-400 mt-1">Ship it to production.</div>
+                </a>
+                <a href="/how-to/install-postgresql.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🐘 Install PostgreSQL</div>
+                    <div class="text-xs text-slate-400 mt-1">The prerequisite.</div>
+                </a>
+                <a href="/how-to/nodejs-guides.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🟢 All Node.js Guides</div>
+                    <div class="text-xs text-slate-400 mt-1">Complete library.</div>
+                </a>
+            </div>
+        </div>
+
+        <section class="related-resources bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">📚 Related Node.js Guides</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/how-to/prisma-vs-drizzle.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🗄️ Prisma vs Drizzle</div>
+                    <div class="text-xs text-slate-400 mt-1">ORM comparison.</div>
+                </a>
+                <a href="/how-to/postgresql-vs-mongodb.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🐘 PostgreSQL vs MongoDB</div>
+                    <div class="text-xs text-slate-400 mt-1">Database comparison.</div>
+                </a>
+                <a href="/how-to/install-postgresql.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🐘 Install PostgreSQL</div>
+                    <div class="text-xs text-slate-400 mt-1">Setup guide.</div>
+                </a>
+                <a href="/how-to/nodejs-guides.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🟢 Node.js Hub</div>
+                    <div class="text-xs text-slate-400 mt-1">All guides.</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/how-to/index.html" class="back-link">← All How-To Guides</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
