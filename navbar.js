@@ -216,22 +216,43 @@
             <li class="dropdown-nav">
                 <a href="#" class="dropbtn-nav">Guides ▼</a>
                 <ul class="dropdown-nav-content">
-                    <li><a href="/ultimate-html-guide.html">🌐 HTML Guide</a></li>
-                    <li><a href="/ultimate-python-guide.html">🐍 Python Guide</a></li>
-                    <li><a href="/ultimate-ai-guide.html">🤖 AI Guide</a></li>
-                    <li><a href="/how-to/what-is-typescript.html">🟦 TypeScript Guide</a></li>
-                    <li><a href="/how-to/what-is-nextjs.html">⚫ Next.js Guide</a></li>
-                    <li><a href="/how-to/what-is-tailwind-css.html">🎨 Tailwind CSS Guide</a></li>
-                    <li><a href="/how-to/what-is-react.html">⚛️ React Guide</a></li>
-                    <li><a href="/how-to/what-is-rest-api.html">🔌 REST API Guide</a></li>
-                    <li><a href="/how-to/what-is-rag.html">🧠 RAG Guide</a></li>
-                    <li><a href="/how-to/react-vs-vue.html">⚔️ React vs Vue</a></li>
-                    <li><a href="/how-to/nextjs-vs-remix.html">⚔️ Next.js vs Remix</a></li>
-                    <li><a href="/how-to/bun-vs-node.html">⚔️ Bun vs Node.js</a></li>
-
+            
+                    <!-- 🟨 Languages -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🟨 Languages</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/ultimate-html-guide.html">🌐 HTML Guide</a></li>
+                            <li><a href="/ultimate-python-guide.html">🐍 Python Guide</a></li>
+                            <li><a href="/ultimate-ai-guide.html">🤖 AI Guide</a></li>
+                            <li><a href="/how-to/what-is-typescript.html">🟦 TypeScript Guide</a></li>
+                        </ul>
+                    </li>
+            
+                    <!-- ⚛️ Frameworks & Concepts -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">⚛️ Frameworks & Concepts</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/how-to/what-is-react.html">⚛️ React Guide</a></li>
+                            <li><a href="/how-to/what-is-nextjs.html">⚫ Next.js Guide</a></li>
+                            <li><a href="/how-to/what-is-tailwind-css.html">🎨 Tailwind CSS Guide</a></li>
+                            <li><a href="/how-to/what-is-rest-api.html">🔌 REST API Guide</a></li>
+                            <li><a href="/how-to/what-is-rag.html">🧠 RAG Guide</a></li>
+                        </ul>
+                    </li>
+            
+                    <!-- ⚔️ Comparisons -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">⚔️ Comparisons</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/how-to/react-vs-vue.html">⚛️ React vs Vue</a></li>
+                            <li><a href="/how-to/nextjs-vs-remix.html">⚫ Next.js vs Remix</a></li>
+                            <li><a href="/how-to/bun-vs-node.html">🥟 Bun vs Node.js</a></li>
+                        </ul>
+                    </li>
+            
                 </ul>
             </li>
-
+            
             <!-- ==================== HOW-TO ==================== -->
 <li class="dropdown-nav">
     <a href="/how-to/index.html" class="dropbtn-nav">How-to ▼</a>
