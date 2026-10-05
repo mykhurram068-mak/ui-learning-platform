@@ -225,6 +225,9 @@
                     <li><a href="/how-to/what-is-react.html">⚛️ React Guide</a></li>
                     <li><a href="/how-to/what-is-rest-api.html">🔌 REST API Guide</a></li>
                     <li><a href="/how-to/what-is-rag.html">🧠 RAG Guide</a></li>
+                    <li><a href="/how-to/react-vs-vue.html">⚔️ React vs Vue</a></li>
+                    <li><a href="/how-to/nextjs-vs-remix.html">⚔️ Next.js vs Remix</a></li>
+                    <li><a href="/how-to/bun-vs-node.html">⚔️ Bun vs Node.js</a></li>
 
                 </ul>
             </li>
