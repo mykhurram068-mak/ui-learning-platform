@@ -250,7 +250,8 @@
                             <li><a href="/how-to/prisma-vs-drizzle.html">🗄️ Prisma vs Drizzle</a></li>
                             <li><a href="/how-to/tailwind-vs-bootstrap.html">🎨 Tailwind vs Bootstrap</a></li>
                             <li><a href="/how-to/postgresql-vs-mongodb.html">🐘 PostgreSQL vs MongoDB</a></li>
-                            <li><a href="/how-to/vite-vs-webpack.html">⚡ Vite vs Webpack</a></li>
+                            <!--<li><a href="/how-to/vite-vs-webpack.html">⚡ Vite vs Webpack</a></li>-->
+                            <li><a href="/how-to/npm-vs-npx.html">📦 npm vs npx vs yarn vs pnpm</a></li>
                         </ul>
                     </li>
             
@@ -270,7 +271,8 @@
                 <li><a href="/how-to/install-python.html">🐍 Install Python</a></li>
                 <li><a href="/how-to/install-nodejs.html">🟢 Install Node.js</a></li>
                 <li><a href="/how-to/install-git.html">🌿 Install Git</a></li>
-                <li><a href="/how-to/install-docker.html">🐳 Install Docker</a></li>
+                <li><a href="/how-to/update-nodejs.html">⬆️ Update Node.js</a></li>
+                <!--<li><a href="/how-to/install-docker.html">🐳 Install Docker</a></li>-->
                 <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                     <a href="/how-to/setup-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 9 Setup Guides</a>
                 </li>
@@ -294,8 +296,9 @@
                 <li><a href="/how-to/first-react-component.html">⚛️ First React Component</a></li>
                 <li><a href="/how-to/first-nextjs-app.html">⚫ First Next.js App</a></li>
                 <li><a href="/how-to/fetch-data-nextjs.html">⚫ Fetch Data in Next.js</a></li>
-                <li><a href="/how-to/what-is-typescript.html">🟦 What Is TypeScript</a></li>
+                <!--<li><a href="/how-to/what-is-typescript.html">🟦 What Is TypeScript</a></li>-->
                 <li><a href="/how-to/what-is-tailwind-css.html">🎨 What Is Tailwind CSS</a></li>
+                <li><a href="/how-to/fix-cannot-find-module.html">🔧 Fix "Cannot Find Module"</a></li>
                 <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                     <a href="/how-to/developer-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 8 Developer Guides</a>
                 </li>
