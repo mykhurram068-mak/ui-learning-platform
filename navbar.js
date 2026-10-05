@@ -259,13 +259,14 @@
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">🟢 Node.js</a>
                         <ul class="dropdown-category-content">
-                            <li><a href="/how-to/nodejs-guides.html">📚 All Node.js Guides</a></li>
                             <li><a href="/how-to/install-nodejs.html">🟢 Install Node.js</a></li>
                             <li><a href="/how-to/update-nodejs.html">⬆️ Update Node.js</a></li>
                             <li><a href="/how-to/read-json-nodejs.html">📄 Read & Write JSON</a></li>
                             <li><a href="/how-to/nodejs-dotenv.html">🔐 Environment Variables</a></li>
                             <li><a href="/how-to/nodejs-fs-module.html">🗂️ fs Module Guide</a></li>
-                            <li><a href="/how-to/fix-cannot-find-module.html">🔧 Fix "Cannot Find Module"</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/how-to/nodejs-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 12 Node.js Guides</a>
+                            </li>
                         </ul>
                     </li>
             
