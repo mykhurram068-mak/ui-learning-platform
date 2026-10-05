@@ -1,0 +1,13 @@
+print('    <url>')
+print('        <loc>https://makuistudio.com/tools/age-calculator-by-year.html</loc>;')
+print('        <lastmod>2026-10-05</lastmod>')
+print('        <changefreq>monthly</changefreq>')
+print('        <priority>0.8</priority>')
+print('    </url>')
+for year in range(1950, 2011):
+    print('    <url>')
+    print(f'        <loc>https://makuistudio.com/tools/age-in-{year}.html</loc>')
+    print('        <lastmod>2026-10-05</lastmod>')
+    print('        <changefreq>monthly</changefreq>')
+    print('        <priority>0.7</priority>')
+    print('    </url>')
