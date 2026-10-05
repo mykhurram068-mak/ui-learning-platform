@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Node.js JWT Authentication — Complete Guide (2026)</title>
+    <meta name="description" content="Learn JWT authentication in Node.js. Sign, verify, and protect routes with JSON Web Tokens. Includes middleware, refresh tokens, and security best practices.">
+    <meta name="keywords" content="node.js jwt, jwt authentication node, json web tokens, node express jwt, jwt middleware, node auth tutorial">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Node.js JWT Authentication — Complete Guide">
+    <meta property="og:description" content="Sign, verify, and protect routes with JWT.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/how-to/nodejs-jwt.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="../favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/how-to/nodejs-jwt.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"HowTo","name":"Node.js JWT Authentication","description":"Complete guide to JWT authentication in Node.js.","totalTime":"PT30M","step":[{"@type":"HowToStep","position":1,"name":"Install jsonwebtoken","text":"Run npm install jsonwebtoken."},{"@type":"HowToStep","position":2,"name":"Sign a token","text":"Use jwt.sign() with a payload and secret."},{"@type":"HowToStep","position":3,"name":"Verify the token","text":"Use jwt.verify() to validate incoming tokens."},{"@type":"HowToStep","position":4,"name":"Add middleware","text":"Protect routes with a middleware that checks the Authorization header."}]}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is JWT in Node.js?","acceptedAnswer":{"@type":"Answer","text":"JWT (JSON Web Token) is a compact, self-contained way to securely transmit information between parties as a JSON object. It's the standard for stateless authentication in modern APIs."}},{"@type":"Question","name":"Should I store JWTs in localStorage?","acceptedAnswer":{"@type":"Answer","text":"No — localStorage is vulnerable to XSS attacks. Store JWTs in HTTP-only cookies with the Secure and SameSite flags for better security."}},{"@type":"Question","name":"How long should a JWT last?","acceptedAnswer":{"@type":"Answer","text":"Access tokens should be short-lived: 15 minutes to 1 hour. Use refresh tokens (stored securely) to issue new access tokens without requiring the user to log in again."}},{"@type":"Question","name":"What is the difference between access and refresh tokens?","acceptedAnswer":{"@type":"Answer","text":"Access tokens are short-lived and sent with every request. Refresh tokens are long-lived and only used to get a new access token when the old one expires."}},{"@type":"Question","name":"Can JWTs be revoked?","acceptedAnswer":{"@type":"Answer","text":"Not easily — JWTs are stateless by design. To revoke them, you need a blacklist (store revoked tokens in Redis or a database) or use short expiry times with refresh tokens."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="../style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .brand-name { font-weight: 800; letter-spacing: -1px; font-size: 1.25rem; color: #3b82f6; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #3b82f6; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #3b82f6; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="../navbar.js"></script>
+</div>
+</nav>
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Master Code <br> On The Go</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Learn. Practice. Build.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/how-to/index.html" class="hover:text-blue-400">How-To</a> ›
+            <span class="text-slate-400">Node.js JWT Authentication</span>
+        </div>
+
+        <div class="space-y-2">
+            <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Node.js Guide</h2>
+            <h1 class="text-3xl font-black">Node.js JWT Authentication</h1>
+            <p class="text-slate-400">Secure your Node.js API with JSON Web Tokens. Sign, verify, and protect routes with production-ready middleware.</p>
+        </div>
+
+        <div class="info-box">
+            <p class="text-sm text-slate-300"><strong>Quick answer:</strong> Install <code class="text-yellow-300">jsonwebtoken</code>. Sign tokens with <code class="text-yellow-300">jwt.sign(payload, secret, { expiresIn: '1h' })</code>. Verify with <code class="text-yellow-300">jwt.verify(token, secret)</code>. Store tokens in HTTP-only cookies, never in localStorage.</p>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Install jsonwebtoken</h3>
+                    <pre><code>npm install jsonwebtoken</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Store your JWT secret in <code class="text-yellow-300">.env</code>:</p>
+                    <pre><code>JWT_SECRET=your-long-random-secret
+JWT_EXPIRES_IN=1h</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Generate a strong secret with:</p>
+                    <pre><code>node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Sign a Token on Login</h3>
+                    <pre><code>import jwt from 'jsonwebtoken';
+
+app.post('/login', async (req, res) =&gt; {
+    const { email, password } = req.body;
+
+    // 1. Find user by email
+    const user = await User.findOne({ email });
+    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+
+    // 2. Compare password (bcrypt)
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(401).json({ error: 'Invalid credentials' });
+
+    // 3. Sign JWT
+    const token = jwt.sign(
+        { userId: user.id, email: user.email },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN }
+    );
+
+    // 4. Return in HTTP-only cookie
+    res.cookie('token', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 3600000  // 1 hour
+    });
+
+    res.json({ message: 'Logged in' });
+});</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Verify Middleware</h3>
+                    <pre><code>export function authenticate(req, res, next) {
+    // Read token from cookie or Authorization header
+    const token =
+        req.cookies?.token ||
+        req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
+    }
+
+    try {
+        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = payload;   // attach to request
+        next();
+    } catch (err) {
+        return res.status(403).json({ error: 'Invalid or expired token' });
+    }
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">4</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Protect Routes</h3>
+                    <pre><code>import { authenticate } from './middleware/auth.js';
+
+// Public route
+app.get('/posts', (req, res) =&gt; {
+    res.json({ posts: [] });
+});
+
+// Protected route
+app.post('/posts', authenticate, (req, res) =&gt; {
+    console.log('User:', req.user.userId);
+    // Create the post...
+    res.status(201).json({ message: 'Created' });
+});
+
+// Admin-only route
+app.delete('/posts/:id', authenticate, requireAdmin, (req, res) =&gt; {
+    // ...
+});</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">5</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Refresh Tokens (Long Sessions)</h3>
+                    <p class="text-sm text-slate-300 mt-2">Access tokens are short-lived. Issue a separate refresh token to get new ones:</p>
+                    <pre><code>// On login — issue both
+const accessToken = jwt.sign(
+    { userId: user.id },
+    process.env.JWT_SECRET,
+    { expiresIn: '15m' }
+);
+
+const refreshToken = jwt.sign(
+    { userId: user.id },
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: '7d' }
+);
+
+// Store refresh token in httpOnly cookie
+res.cookie('refresh', refreshToken, { httpOnly: true, secure: true });
+
+// Endpoint to refresh
+app.post('/refresh', (req, res) =&gt; {
+    const token = req.cookies.refresh;
+    if (!token) return res.status(401).end();
+
+    try {
+        const { userId } = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+        const newAccess = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '15m' });
+        res.json({ accessToken: newAccess });
+    } catch {
+        res.status(403).end();
+    }
+});</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🛡️ Security Best Practices</h2>
+            <div class="warning-box">
+                <p class="text-sm text-slate-300"><strong>Never store JWTs in localStorage.</strong> localStorage is accessible from any script on the page. An XSS attack steals every token instantly. Use HTTP-only cookies with Secure and SameSite=Strict.</p>
+            </div>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300 mt-3">
+                <li><strong>Use strong secrets.</strong> 64 random bytes minimum. Never use "secret" or "123456".</li>
+                <li><strong>Short-lived access tokens.</strong> 15 minutes to 1 hour. Combine with refresh tokens.</li>
+                <li><strong>Always use HTTPS in production.</strong> Set the Secure cookie flag.</li>
+                <li><strong>Validate the algorithm.</strong> Force <code class="text-yellow-300">algorithms: ['HS256']</code> in verify to prevent algorithm confusion attacks.</li>
+                <li><strong>Include only non-sensitive data.</strong> JWT payloads are base64-encoded, not encrypted — anyone can read them.</li>
+                <li><strong>Hash passwords with bcrypt.</strong> Never store plain passwords or MD5 hashes.</li>
+            </ul>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">❓ Frequently Asked Questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is JWT in Node.js?</summary>;
+                    <p class="mt-2 text-sm text-slate-300">A compact, self-contained way to transmit authentication info as a JSON object. Standard for stateless APIs.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I store JWTs in localStorage?</summary>
+                    <p class="mt-2 text-sm text-slate-300">No. Use HTTP-only cookies with Secure and SameSite flags. localStorage is vulnerable to XSS.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How long should a JWT last?</summary>
+                    <p class="mt-2 text-sm text-slate-300">15 minutes to 1 hour for access tokens. Use refresh tokens for longer sessions.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can JWTs be revoked?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Not easily — they're stateless. Use short expiry + refresh tokens, or a blacklist in Redis.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Where should the JWT secret go?</summary>
+                    <p class="mt-2 text-sm text-slate-300">In a .env file for local dev, and in the host's environment variables for production. Never commit it to Git.</p>
+                </details>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 What's Next?</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/how-to/nodejs-postgresql.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🐘 Node.js with PostgreSQL</div>
+                    <div class="text-xs text-slate-400 mt-1">Store users in a real database.</div>
+                </a>
+                <a href="/how-to/build-first-api.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🚂 Build First API</div>
+                    <div class="text-xs text-slate-400 mt-1">Add auth to a full API.</div>
+                </a>
+                <a href="/how-to/nodejs-dotenv.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🔐 Environment Variables</div>
+                    <div class="text-xs text-slate-400 mt-1">Store the JWT secret safely.</div>
+                </a>
+                <a href="/how-to/nodejs-guides.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🟢 All Node.js Guides</div>
+                    <div class="text-xs text-slate-400 mt-1">Complete library.</div>
+                </a>
+            </div>
+        </div>
+
+        <section class="related-resources bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">📚 Related Node.js Guides</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/how-to/install-express.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🚂 Install Express</div>
+                    <div class="text-xs text-slate-400 mt-1">Web framework for JWT routes.</div>
+                </a>
+                <a href="/how-to/nodejs-fs-module.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🗂️ fs Module Guide</div>
+                    <div class="text-xs text-slate-400 mt-1">File system reference.</div>
+                </a>
+                <a href="/how-to/read-json-nodejs.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">📄 Read & Write JSON</div>
+                    <div class="text-xs text-slate-400 mt-1">Config and data files.</div>
+                </a>
+                <a href="/how-to/nodejs-guides.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🟢 Node.js Hub</div>
+                    <div class="text-xs text-slate-400 mt-1">All guides.</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/how-to/index.html" class="back-link">← All How-To Guides</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
