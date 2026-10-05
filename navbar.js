@@ -247,6 +247,10 @@
                             <li><a href="/how-to/react-vs-vue.html">⚛️ React vs Vue</a></li>
                             <li><a href="/how-to/nextjs-vs-remix.html">⚫ Next.js vs Remix</a></li>
                             <li><a href="/how-to/bun-vs-node.html">🥟 Bun vs Node.js</a></li>
+                            <li><a href="/how-to/prisma-vs-drizzle.html">🗄️ Prisma vs Drizzle</a></li>
+                            <li><a href="/how-to/tailwind-vs-bootstrap.html">🎨 Tailwind vs Bootstrap</a></li>
+                            <li><a href="/how-to/postgresql-vs-mongodb.html">🐘 PostgreSQL vs MongoDB</a></li>
+                            <li><a href="/how-to/vite-vs-webpack.html">⚡ Vite vs Webpack</a></li>
                         </ul>
                     </li>
             
