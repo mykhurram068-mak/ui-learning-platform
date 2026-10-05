@@ -336,6 +336,7 @@
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">📊 Calculators</a>
                         <ul class="dropdown-category-content">
+                             <li><a href="/tools/best-free-developer-tools.html">⭐ Best Free Dev Tools</a></li>
                             <li><a href="/tools/bmi-calculator.html">⚖️ BMI Calculator</a></li>
                             <li><a href="/tools/bmi-by-height.html">📏 BMI by Height</a></li>
                             <li><a href="/tools/age-calculator.html">🎂 Age Calculator</a></li>
