@@ -269,6 +269,21 @@
                             </li>
                         </ul>
                     </li>
+
+                    <!-- ⚫ Next.js -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">⚫ Next.js</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/how-to/create-nextjs-app.html">⚫ Create a Next.js App</a></li>
+                            <li><a href="/how-to/nextjs-routing.html">🛣️ Next.js Routing</a></li>
+                            <li><a href="/how-to/nextjs-server-vs-client.html">⚡ Server vs Client Components</a></li>
+                            <li><a href="/how-to/what-is-nextjs.html">⚫ What Is Next.js</a></li>
+                            <li><a href="/how-to/first-nextjs-app.html">⚫ First Next.js App</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/how-to/fetch-data-nextjs.html" style="color: #60a5fa; font-weight: 700;">→ Related: Fetch Data in Next.js</a>
+                            </li>
+                        </ul>
+                    </li>
             
                 </ul>
             </li>
