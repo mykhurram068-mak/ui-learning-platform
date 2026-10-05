@@ -337,11 +337,13 @@
                         <a href="#" class="dropdown-category-btn">📊 Calculators</a>
                         <ul class="dropdown-category-content">
                             <li><a href="/tools/bmi-calculator.html">⚖️ BMI Calculator</a></li>
+                            <li><a href="/tools/bmi-by-height.html">📏 BMI by Height</a></li>
                             <li><a href="/tools/age-calculator.html">🎂 Age Calculator</a></li>
+                            <li><a href="/tools/age-calculator-by-year.html">📅 Age by Birth Year</a></li>
                             <li><a href="/tools/percentage-calculator.html">📊 Percentage Calculator</a></li>
                             <li><a href="/tools/unit-converter.html">📏 Unit Converter</a></li>
                             <li><a href="/tools/calorie-calculator.html">🔥 Calorie Calculator</a></li>
-                            <li><a href="/tools/age-calculator-by-year.html">📅 Age by Birth Year</a></li>
+                            
                         </ul>
                     </li>
                     <li class="dropdown-category">
