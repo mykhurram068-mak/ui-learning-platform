@@ -236,16 +236,18 @@
                             <li><a href="/roadmaps/ai-engineer.html">🤖 AI Engineer Roadmap</a></li>
                         </ul>
                     </li>
-                    <!-- ⚛️ Frameworks & Concepts -->
+                    <!-- ⚛️ Frameworks & Concepts (5 + View all) -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚛️ Frameworks & Concepts</a>
                         <ul class="dropdown-category-content">
                             <li><a href="/how-to/what-is-react.html">⚛️ React Guide</a></li>
                             <li><a href="/how-to/what-is-nextjs.html">⚫ Next.js Guide</a></li>
                             <li><a href="/how-to/what-is-tailwind-css.html">🎨 Tailwind CSS Guide</a></li>
-                            <li><a href="/how-to/what-is-rest-api.html">🔌 REST API Guide</a></li>
-                            <li><a href="/how-to/what-is-rag.html">🧠 RAG Guide</a></li>
-                            <li><a href="/how-to/what-is-streamlit.html">📊 Streamlit Guide</a></li> <!-- NEW -->
+                            <li><a href="/how-to/what-is-django.html">🐍 Django Guide</a></li>
+                            <li><a href="/how-to/what-is-streamlit.html">📊 Streamlit Guide</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/how-to/frameworks-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all Frameworks & Concepts</a>
+                            </li>
                         </ul>
                     </li>
            
