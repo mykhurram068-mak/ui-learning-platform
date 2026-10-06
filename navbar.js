@@ -237,6 +237,7 @@
                             <li><a href="/how-to/what-is-tailwind-css.html">🎨 Tailwind CSS Guide</a></li>
                             <li><a href="/how-to/what-is-rest-api.html">🔌 REST API Guide</a></li>
                             <li><a href="/how-to/what-is-rag.html">🧠 RAG Guide</a></li>
+                            <li><a href="/how-to/what-is-streamlit.html">📊 Streamlit Guide</a></li>
                         </ul>
                     </li>
             
