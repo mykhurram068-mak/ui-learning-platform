@@ -249,17 +249,18 @@
                         </ul>
                     </li>
            
-                    <!-- ⚔️ Comparisons -->
+                    <!-- ⚔️ Comparisons (5 + View all) -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚔️ Comparisons</a>
                         <ul class="dropdown-category-content">
                             <li><a href="/how-to/react-vs-vue.html">⚛️ React vs Vue</a></li>
                             <li><a href="/how-to/nextjs-vs-remix.html">⚫ Next.js vs Remix</a></li>
                             <li><a href="/how-to/bun-vs-node.html">🥟 Bun vs Node.js</a></li>
-                            <li><a href="/how-to/prisma-vs-drizzle.html">🗄️ Prisma vs Drizzle</a></li>
                             <li><a href="/how-to/tailwind-vs-bootstrap.html">🎨 Tailwind vs Bootstrap</a></li>
-                            <li><a href="/how-to/postgresql-vs-mongodb.html">🐘 PostgreSQL vs MongoDB</a></li>
-                            <li><a href="/how-to/npm-vs-npx.html">📦 npm vs npx vs yarn vs pnpm</a></li>
+                            <li><a href="/how-to/streamlit-vs-gradio.html">📊 Streamlit vs Gradio</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/how-to/comparisons.html" style="color: #60a5fa; font-weight: 700;">→ View all Comparisons</a>
+                            </li>
                         </ul>
                     </li>
                 </ul>
