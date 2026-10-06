@@ -161,8 +161,7 @@
     </style>
 
     <header class="p-5 flex justify-between items-center border-b border-gray-800 sticky top-0 z-50">
-        <!--<div class="logo-container"></div>-->
-    
+   
         <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
             <span></span>
             <span></span>
@@ -216,7 +215,7 @@
             <li class="dropdown-nav">
                 <a href="#" class="dropbtn-nav">Guides ▼</a>
                 <ul class="dropdown-nav-content">
-            
+           
                     <!-- 🟨 Languages -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">🟨 Languages</a>
@@ -227,7 +226,7 @@
                             <li><a href="/how-to/what-is-typescript.html">🟦 TypeScript Guide</a></li>
                         </ul>
                     </li>
-            
+           
                     <!-- ⚛️ Frameworks & Concepts -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚛️ Frameworks & Concepts</a>
@@ -237,10 +236,10 @@
                             <li><a href="/how-to/what-is-tailwind-css.html">🎨 Tailwind CSS Guide</a></li>
                             <li><a href="/how-to/what-is-rest-api.html">🔌 REST API Guide</a></li>
                             <li><a href="/how-to/what-is-rag.html">🧠 RAG Guide</a></li>
-                            <li><a href="/how-to/what-is-streamlit.html">📊 Streamlit Guide</a></li>
+                            <li><a href="/how-to/what-is-streamlit.html">📊 Streamlit Guide</a></li> <!-- NEW -->
                         </ul>
                     </li>
-            
+           
                     <!-- ⚔️ Comparisons -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚔️ Comparisons</a>
@@ -251,8 +250,56 @@
                             <li><a href="/how-to/prisma-vs-drizzle.html">🗄️ Prisma vs Drizzle</a></li>
                             <li><a href="/how-to/tailwind-vs-bootstrap.html">🎨 Tailwind vs Bootstrap</a></li>
                             <li><a href="/how-to/postgresql-vs-mongodb.html">🐘 PostgreSQL vs MongoDB</a></li>
-                            <!--<li><a href="/how-to/vite-vs-webpack.html">⚡ Vite vs Webpack</a></li>-->
                             <li><a href="/how-to/npm-vs-npx.html">📦 npm vs npx vs yarn vs pnpm</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+           
+            <!-- ==================== HOW-TO ==================== -->
+            <li class="dropdown-nav">
+                <a href="/how-to/index.html" class="dropbtn-nav">How-to ▼</a>
+                <ul class="dropdown-nav-content">
+
+                    <!-- 🛠️ Setup -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🛠️ Setup</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/how-to/install-vs-code.html">💻 Install VS Code</a></li>
+                            <li><a href="/how-to/install-python.html">🐍 Install Python</a></li>
+                            <li><a href="/how-to/install-nodejs.html">🟢 Install Node.js</a></li>
+                            <li><a href="/how-to/install-git.html">🌿 Install Git</a></li>
+                            <li><a href="/how-to/install-java.html">☕ Install Java</a></li>
+                            <li><a href="/how-to/install-docker.html">🐳 Install Docker</a></li>
+                            <li><a href="/how-to/install-bun.html">🥟 Install Bun</a></li>
+                            <li><a href="/how-to/install-postgresql.html">🐘 Install PostgreSQL</a></li>
+                            <li><a href="/how-to/install-pnpm.html">📦 Install pnpm</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/how-to/setup-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 12 Setup Guides</a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- 🚀 First Steps -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🚀 First Steps</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/how-to/run-first-html-file.html">📄 Run First HTML File</a></li>
+                            <li><a href="/how-to/command-line-basics.html">⌨️ Command Line Basics</a></li>
+                            <li><a href="/how-to/write-first-html-page.html">📝 Write First HTML Page</a></li>
+                        </ul>
+                    </li>  
+               
+                    <!-- 🐍 Python & Streamlit -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🐍 Python & Streamlit</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/how-to/install-pytube.html">📥 Install PyTube</a></li>
+                            <li><a href="/how-to/streamlit-python-app.html">📊 Streamlit Python App</a></li>
+                            <li><a href="/how-to/streamlit-dashboard.html">📈 Streamlit Dashboard</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/how-to/python-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 6 Python Guides</a>
+                            </li>
                         </ul>
                     </li>
 
@@ -260,11 +307,12 @@
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">🟢 Node.js</a>
                         <ul class="dropdown-category-content">
-                            <li><a href="/how-to/install-nodejs.html">🟢 Install Node.js</a></li>
-                            <li><a href="/how-to/update-nodejs.html">⬆️ Update Node.js</a></li>
                             <li><a href="/how-to/read-json-nodejs.html">📄 Read & Write JSON</a></li>
                             <li><a href="/how-to/nodejs-dotenv.html">🔐 Environment Variables</a></li>
                             <li><a href="/how-to/nodejs-fs-module.html">🗂️ fs Module Guide</a></li>
+                            <li><a href="/how-to/nodejs-jwt.html">🔑 JWT Authentication</a></li>
+                            <li><a href="/how-to/nodejs-postgresql.html">🐘 Node.js + PostgreSQL</a></li>
+                            <li><a href="/how-to/deploy-nodejs.html">🚀 Deploy Node.js App</a></li>
                             <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                                 <a href="/how-to/nodejs-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 12 Node.js Guides</a>
                             </li>
@@ -279,117 +327,70 @@
                             <li><a href="/how-to/nextjs-routing.html">🛣️ Next.js Routing</a></li>
                             <li><a href="/how-to/nextjs-server-vs-client.html">⚡ Server vs Client Components</a></li>
                             <li><a href="/how-to/nextjs-authentication.html">🔑 Next.js Authentication</a></li>
+                            <li><a href="/how-to/fetch-data-nextjs.html">📥 Fetch Data in Next.js</a></li>
                             <li><a href="/how-to/deploy-nextjs-vercel.html">🚀 Deploy to Vercel</a></li>
                             <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                                <a href="/how-to/fetch-data-nextjs.html" style="color: #60a5fa; font-weight: 700;">→ Fetch Data in Next.js</a>
+                                <a href="/how-to/nextjs-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 8 Next.js Guides</a>
                             </li>
                         </ul>
                     </li>
-            
+
+                    <!-- 💻 Web Dev -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">💻 Web Dev</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/how-to/first-react-component.html">⚛️ First React Component</a></li>
+                            <li><a href="/how-to/react-state-management.html">🔄 React State Management</a></li>
+                            <li><a href="/how-to/first-nextjs-app.html">⚫ First Next.js App</a></li>
+                            <li><a href="/how-to/what-is-tailwind-css.html">🎨 What Is Tailwind CSS</a></li>
+                            <li><a href="/how-to/fix-cannot-find-module.html">🔧 Fix "Cannot Find Module"</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/how-to/developer-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all Developer Guides</a>
+                            </li>
+                        </ul>
+                    </li>
+
+                    <!-- 🔌 API & AI -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🔌 API & AI</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/how-to/build-first-api.html">🔨 Build First API</a></li>
+                            <li><a href="/how-to/openai-api-setup.html">🤖 OpenAI API Setup</a></li>
+                            <li><a href="/how-to/build-ai-chatbot.html">💬 Build AI Chatbot</a></li>
+                            <li><a href="/how-to/what-is-rag.html">🧠 What is RAG?</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 🌍 Publishing -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🌍 Publishing</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/how-to/publish-website-free.html">🚀 Publish Website Free</a></li>
+                            <li><a href="/how-to/get-free-domain.html">🌐 Get Free Domain</a></li>
+                            <li><a href="/how-to/deploy-with-netlify.html">⚡ Deploy with Netlify</a></li>
+                            <li><a href="/how-to/deploy-with-vercel.html">⚡ Deploy with Vercel</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 📊 Math & Health -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">📊 Math & Health</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/how-to/calculate-percentage-increase.html">📈 Calculate % Increase</a></li>
+                            <li><a href="/how-to/calculate-percentage-decrease.html">📉 Calculate % Decrease</a></li>
+                            <li><a href="/how-to/calculate-percentage-difference.html">📐 Calculate % Difference</a></li>
+                            <li><a href="/how-to/calculate-bmi.html">⚖️ Calculate BMI</a></li>
+                            <li><a href="/how-to/bmi-chart.html">📊 BMI Chart</a></li>
+                            <li><a href="/how-to/how-many-calories-a-day.html">🔥 Calories a Day</a></li>
+                            <li><a href="/how-to/what-is-tdee.html">📈 What Is TDEE</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/how-to/math-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all Math & Health Guides</a>
+                            </li>
+                        </ul>
+                    </li>
+
                 </ul>
             </li>
-            
-            <!-- ==================== HOW-TO ==================== -->
-<li class="dropdown-nav">
-    <a href="/how-to/index.html" class="dropbtn-nav">How-to ▼</a>
-    <ul class="dropdown-nav-content">
-
-            <!-- 🛠️ Setup (5 + View all — capped from 9) -->
-        <li class="dropdown-category">
-            <a href="#" class="dropdown-category-btn">🛠️ Setup</a>
-            <ul class="dropdown-category-content">
-                <li><a href="/how-to/install-vs-code.html">💻 Install VS Code</a></li>
-                <li><a href="/how-to/install-python.html">🐍 Install Python</a></li>
-                <li><a href="/how-to/install-nodejs.html">🟢 Install Node.js</a></li>
-                <li><a href="/how-to/install-git.html">🌿 Install Git</a></li>
-                <li><a href="/how-to/update-nodejs.html">⬆️ Update Node.js</a></li>
-                <!--<li><a href="/how-to/install-docker.html">🐳 Install Docker</a></li>-->
-                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                    <a href="/how-to/setup-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 9 Setup Guides</a>
-                </li>
-            </ul>
-        </li>
-
-        <!-- 🚀 First Steps (3) -->
-        <li class="dropdown-category">
-            <a href="#" class="dropdown-category-btn">🚀 First Steps</a>
-            <ul class="dropdown-category-content">
-                <li><a href="/how-to/run-first-html-file.html">📄 Run First HTML File</a></li>
-                <li><a href="/how-to/command-line-basics.html">⌨️ Command Line Basics</a></li>
-                <li><a href="/how-to/write-first-html-page.html">📝 Write First HTML Page</a></li>
-            </ul>
-        </li>   
-    
-        <!-- 💻 Developer Guides (5 + View all) -->
-        <li class="dropdown-category">
-            <a href="#" class="dropdown-category-btn">💻 Developer Guides</a>
-            <ul class="dropdown-category-content">
-                <li><a href="/how-to/first-react-component.html">⚛️ First React Component</a></li>
-                <li><a href="/how-to/first-nextjs-app.html">⚫ First Next.js App</a></li>
-                <li><a href="/how-to/fetch-data-nextjs.html">⚫ Fetch Data in Next.js</a></li>
-                <!--<li><a href="/how-to/what-is-typescript.html">🟦 What Is TypeScript</a></li>-->
-                <li><a href="/how-to/what-is-tailwind-css.html">🎨 What Is Tailwind CSS</a></li>
-                <li><a href="/how-to/fix-cannot-find-module.html">🔧 Fix "Cannot Find Module"</a></li>
-                <li><a href="/how-to/streamlit-python-app.html">📊 Streamlit Python App</a></li>
-                <li><a href="/how-to/streamlit-dashboard.html">📈 Streamlit Dashboard</a></li>
-                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                    <a href="/how-to/developer-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 8 Developer Guides</a>
-                </li>
-            </ul>
-        </li>
-        
-
-        <!-- 📈 Growth & SEO (2 — no cap needed yet) -->
-        <li class="dropdown-category">
-            <a href="#" class="dropdown-category-btn">📈 Growth & SEO</a>
-            <ul class="dropdown-category-content">
-                <li><a href="/how-to/add-google-analytics.html">📊 Add Google Analytics</a></li>
-                <li><a href="/how-to/seo-friendly-website.html">🔎 SEO-Friendly Website</a></li>
-            </ul>
-        </li>
-
-        <!-- 🌍 Publishing (4) -->
-        <li class="dropdown-category">
-            <a href="#" class="dropdown-category-btn">🌍 Publishing</a>
-            <ul class="dropdown-category-content">
-                <li><a href="/how-to/publish-website-free.html">🚀 Publish Website Free</a></li>
-                <li><a href="/how-to/get-free-domain.html">🌐 Get Free Domain</a></li>
-                <li><a href="/how-to/deploy-with-netlify.html">⚡ Deploy with Netlify</a></li>
-                <li><a href="/how-to/deploy-with-vercel.html">⚡ Deploy with Vercel</a></li>
-            </ul>
-        </li>
-
-        <!-- 📊 Math Guides (4 + View all) -->
-        <li class="dropdown-category">
-            <a href="#" class="dropdown-category-btn">📊 Math Guides</a>
-            <ul class="dropdown-category-content">
-                <li><a href="/how-to/calculate-percentage-increase.html">📈 Calculate % Increase</a></li>
-                <li><a href="/how-to/calculate-percentage-decrease.html">📉 Calculate % Decrease</a></li>
-                <li><a href="/how-to/calculate-percentage-of-a-number.html">🔢 Calculate X% of a Number</a></li>
-                <li><a href="/how-to/calculate-percentage-difference.html">📐 Calculate % Difference</a></li>
-                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                    <a href="/how-to/math-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 4 Math Guides</a>
-                </li>
-            </ul>
-        </li> 
-
-        <!-- 🏥 Health Guides (5 + View all) -->
-        <li class="dropdown-category">
-            <a href="#" class="dropdown-category-btn">🏥 Health Guides</a>
-            <ul class="dropdown-category-content">
-                <li><a href="/how-to/calculate-bmi.html">⚖️ Calculate BMI</a></li>
-                <li><a href="/how-to/bmi-chart.html">📊 BMI Chart</a></li>
-                <li><a href="/how-to/bmi-for-women.html">👩 BMI for Women</a></li>
-                <li><a href="/how-to/how-many-calories-a-day.html">🔥 Calories a Day</a></li>
-                <li><a href="/how-to/what-is-tdee.html">📈 What Is TDEE</a></li>
-                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                    <a href="/how-to/health-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all 5 Health Guides</a>
-                </li>
-            </ul>
-        </li>
-
-    </ul>
-</li>
 
             <li><a href="/courses/index.html">Courses</a></li>
 
@@ -400,7 +401,7 @@
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">📊 Calculators</a>
                         <ul class="dropdown-category-content">
-                             <li><a href="/tools/best-free-developer-tools.html">⭐ Best Free Dev Tools</a></li>
+                            <li><a href="/tools/best-free-developer-tools.html">⭐ Best Free Dev Tools</a></li>
                             <li><a href="/tools/bmi-calculator.html">⚖️ BMI Calculator</a></li>
                             <li><a href="/tools/bmi-by-height.html">📏 BMI by Height</a></li>
                             <li><a href="/tools/age-calculator.html">🎂 Age Calculator</a></li>
@@ -408,7 +409,6 @@
                             <li><a href="/tools/percentage-calculator.html">📊 Percentage Calculator</a></li>
                             <li><a href="/tools/unit-converter.html">📏 Unit Converter</a></li>
                             <li><a href="/tools/calorie-calculator.html">🔥 Calorie Calculator</a></li>
-                            
                         </ul>
                     </li>
                     <li class="dropdown-category">
@@ -489,9 +489,10 @@
                         </ul>
                     </li>
                     <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">🐍 Python</a>
+                        <a href="#" class="dropdown-category-btn">🐍 Python & Streamlit</a>
                         <ul class="dropdown-category-content">
                             <li><a href="/projects/build-python-calculator.html">🐍 Python Calculator</a></li>
+                            <li><a href="/projects/build-streamlit-dashboard.html">📊 Streamlit Dashboard</a></li>
                         </ul>
                     </li>
                     <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
@@ -511,7 +512,6 @@
 
             <li><a href="/questions.html">❓ FAQ</a></li>
             <li><a href="/showcase.html">Showcase</a></li>
-            <!--<li><a href="/pro-pack.html">Pro Pack</a></li>-->
         </ul>
     </header>
     `;
