@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Next.js Authentication — Complete Guide with Auth.js (2026)</title>
+    <meta name="description" content="Learn Next.js authentication with Auth.js. Email/password, OAuth providers, session management, and protected routes. Complete 2026 tutorial.">
+    <meta name="keywords" content="next.js authentication, nextauth.js, auth.js next.js, next.js login, next.js auth tutorial, next.js oauth">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Next.js Authentication — Complete Guide with Auth.js">
+    <meta property="og:description" content="Full tutorial with Auth.js, OAuth, and protected routes.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/how-to/nextjs-authentication.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="../favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/how-to/nextjs-authentication.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"HowTo","name":"Next.js Authentication with Auth.js","description":"Complete guide to adding authentication to Next.js with Auth.js.","totalTime":"PT45M","step":[{"@type":"HowToStep","position":1,"name":"Install Auth.js","text":"Run npm install next-auth@beta."},{"@type":"HowToStep","position":2,"name":"Create auth.ts config","text":"Set up providers and callbacks in auth.ts."},{"@type":"HowToStep","position":3,"name":"Create the route handler","text":"Add app/api/auth/[...nextauth]/route.ts."},{"@type":"HowToStep","position":4,"name":"Add session provider","text":"Wrap your app with SessionProvider."},{"@type":"HowToStep","position":5,"name":"Protect routes","text":"Use the auth() helper to protect pages and API routes."}]}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the best way to add authentication to Next.js?","acceptedAnswer":{"@type":"Answer","text":"Auth.js (formerly NextAuth.js) is the most popular choice. It supports 80+ OAuth providers, email/password, and works with the App Router out of the box."}},{"@type":"Question","name":"Should I use NextAuth or build my own auth?","acceptedAnswer":{"@type":"Answer","text":"Use Auth.js unless you have very specific requirements. Building auth from scratch means handling password hashing, session management, CSRF, OAuth flows, and edge cases — Auth.js handles all of it."}},{"@type":"Question","name":"How do I protect a route in Next.js?","acceptedAnswer":{"@type":"Answer","text":"Call the auth() helper in a Server Component and redirect if no session exists. Or use middleware to protect multiple routes at once."}},{"@type":"Question","name":"Can I use Auth.js with a database?","acceptedAnswer":{"@type":"Answer","text":"Yes. Auth.js supports database sessions with Prisma, Drizzle, or any adapter. It also supports JWT sessions with no database."}},{"@type":"Question","name":"Does Auth.js work with the App Router?","acceptedAnswer":{"@type":"Answer","text":"Yes. Auth.js v5 is designed for the App Router with Server Components, Server Actions, and middleware support."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="../style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .brand-name { font-weight: 800; letter-spacing: -1px; font-size: 1.25rem; color: #3b82f6; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #3b82f6; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #3b82f6; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="../navbar.js"></script>
+</div>
+</nav>
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Master Code <br> On The Go</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Learn. Practice. Build.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/how-to/index.html" class="hover:text-blue-400">How-To</a> ›
+            <span class="text-slate-400">Next.js Authentication</span>
+        </div>
+
+        <div class="space-y-2">
+            <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Next.js Guide</h2>
+            <h1 class="text-3xl font-black">Next.js Authentication with Auth.js</h1>
+            <p class="text-slate-400">Add secure login to your Next.js app — Google, GitHub, email/password, and protected routes. All handled by Auth.js.</p>
+        </div>
+
+        <div class="info-box">
+            <p class="text-sm text-slate-300"><strong>Quick answer:</strong> Install <code class="text-yellow-300">next-auth@beta</code>, create an <code class="text-yellow-300">auth.ts</code> config with your providers, add the catch-all route at <code class="text-yellow-300">app/api/auth/[...nextauth]/route.ts</code>, and use <code class="text-yellow-300">auth()</code> to read the session anywhere.</p>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Install Auth.js</h3>
+                    <pre><code>npm install next-auth@beta</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Auth.js v5 is the version that works with the App Router. Add the required environment variables:</p>
+                    <pre><code># .env.local
+AUTH_SECRET=your-secret-here
+AUTH_GITHUB_ID=your-github-client-id
+AUTH_GITHUB_SECRET=your-github-client-secret</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Generate a secret with:</p>
+                    <pre><code>npx auth secret</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Create the Auth Config</h3>
+                    <p class="text-sm text-slate-300 mt-2">Create <code class="text-yellow-300">auth.ts</code> at your project root:</p>
+                    <pre><code>import NextAuth from 'next-auth';
+import GitHub from 'next-auth/providers/github';
+import Google from 'next-auth/providers/google';
+
+export const { handlers, signIn, signOut, auth } = NextAuth({
+    providers: [GitHub, Google],
+    pages: {
+        signIn: '/login'
+    },
+    callbacks: {
+        async session({ session, token }) {
+            if (token.sub) session.user.id = token.sub;
+            return session;
+        }
+    }
+});</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Add the Route Handler</h3>
+                    <p class="text-sm text-slate-300 mt-2">Create <code class="text-yellow-300">app/api/auth/[...nextauth]/route.ts</code>:</p>
+                    <pre><code>import { handlers } from '@/auth';
+
+export const { GET, POST } = handlers;</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">This single file handles every OAuth callback, sign-in, sign-out, and session endpoint.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">4</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Add Sign-In and Sign-Out Buttons</h3>
+                    <pre><code>import { signIn, signOut } from '@/auth';
+
+// Sign-in button (Server Component)
+export function SignIn() {
+    return (
+        &lt;form action={async () =&gt; {
+            'use server';
+            await signIn('github');
+        }}&gt;
+            &lt;button type="submit"&gt;Sign in with GitHub&lt;/button&gt;
+        &lt;/form&gt;
+    );
+}
+
+// Sign-out button
+export function SignOut() {
+    return (
+        &lt;form action={async () =&gt; {
+            'use server';
+            await signOut();
+        }}&gt;
+            &lt;button type="submit"&gt;Sign out&lt;/button&gt;
+        &lt;/form&gt;
+    );
+}</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Server Actions let you handle auth without writing client-side fetch calls.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">5</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Read the Session</h3>
+                    <p class="text-sm text-slate-300 mt-2">In any Server Component:</p>
+                    <pre><code>import { auth } from '@/auth';
+
+export default async function Dashboard() {
+    const session = await auth();
+
+    if (!session) {
+        return &lt;p&gt;Not logged in&lt;/p&gt;;
+    }
+
+    return &lt;h1&gt;Welcome, {session.user?.name}&lt;/h1&gt;;
+}</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">In a Client Component:</p>
+                    <pre><code>'use client';
+import { useSession } from 'next-auth/react';
+
+export function Profile() {
+    const { data: session, status } = useSession();
+    if (status === 'loading') return &lt;p&gt;Loading...&lt;/p&gt;;
+    if (!session) return &lt;p&gt;Not logged in&lt;/p&gt;;
+    return &lt;p&gt;{session.user?.email}&lt;/p&gt;;
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">6</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Protect Routes with Middleware</h3>
+                    <p class="text-sm text-slate-300 mt-2">Create <code class="text-yellow-300">middleware.ts</code> at your project root:</p>
+                    <pre><code>import { auth } from '@/auth';
+import { NextResponse } from 'next/server';
+
+export default auth((req) =&gt; {
+    const isLoggedIn = !!req.auth;
+    const isOnDashboard = req.nextUrl.pathname.startsWith('/dashboard');
+
+    if (isOnDashboard && !isLoggedIn) {
+        return NextResponse.redirect(new URL('/login', req.url));
+    }
+    return NextResponse.next();
+});
+
+export const config = {
+    matcher: ['/dashboard/:path*', '/admin/:path*']
+};</code></pre>
+                    <div class="pro-tip mt-3">
+                        <p class="text-xs text-slate-300">💡 <strong>Note:</strong> In Next.js 16, <code>middleware.ts</code> was renamed to <code>proxy.ts</code>. Both names work in v15.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">7</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Wrap the Session Provider</h3>
+                    <p class="text-sm text-slate-300 mt-2">For client-side <code class="text-yellow-300">useSession()</code>, wrap your app in <code class="text-yellow-300">app/layout.tsx</code>:</p>
+                    <pre><code>import { SessionProvider } from 'next-auth/react';
+
+export default function RootLayout({ children }) {
+    return (
+        &lt;html lang="en"&gt;
+            &lt;body&gt;
+                &lt;SessionProvider&gt;{children}&lt;/SessionProvider&gt;
+            &lt;/body&gt;
+        &lt;/html&gt;
+    );
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 Auth Patterns You'll Use</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Server-side session check</strong> — <code class="text-yellow-300">const session = await auth()</code> in any Server Component</li>
+                <li><strong>Client-side session check</strong> — <code class="text-yellow-300">useSession()</code> for interactive UI</li>
+                <li><strong>Route protection</strong> — middleware with a matcher for admin routes</li>
+                <li><strong>Protected API routes</strong> — <code class="text-yellow-300">const session = await auth(); if (!session) return new Response('Unauthorized', { status: 401 })</code></li>
+                <li><strong>Role-based access</strong> — add a role to the session and check it in middleware</li>
+            </ul>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🛡️ Security Best Practices</h2>
+            <div class="warning-box">
+                <p class="text-sm text-slate-300"><strong>Never implement auth yourself</strong> unless you understand CSRF, session fixation, password hashing (bcrypt/argon2), OAuth flows, and rate limiting. Auth.js handles all of it.</p>
+            </div>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300 mt-3">
+                <li>Always use HTTPS in production — cookies need the Secure flag</li>
+                <li>Use a strong <code class="text-yellow-300">AUTH_SECRET</code> — at least 32 random bytes</li>
+                <li>Enable email verification for email/password auth</li>
+                <li>Rate-limit sign-in attempts to prevent brute force</li>
+                <li>Never log sensitive data (tokens, passwords)</li>
+                <li>Use short session expiry + refresh tokens for long-lived sessions</li>
+                <li>Store secrets in environment variables, never in code</li>
+            </ul>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">❓ Frequently Asked Questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the best way to add auth to Next.js?</summary>;
+                    <p class="mt-2 text-sm text-slate-300">Auth.js (formerly NextAuth.js) — it supports 80+ OAuth providers, email/password, and the App Router out of the box.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I build my own auth?</summary>
+                    <p class="mt-2 text-sm text-slate-300">No. Use Auth.js unless you have very specific needs. Building auth means handling password hashing, CSRF, OAuth flows, and edge cases.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I protect a route?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Use middleware with a matcher, or check <code>await auth()</code> in the Server Component and redirect.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I use a database with Auth.js?</summary>;
+                    <p class="mt-2 text-sm text-slate-300">Yes — Prisma, Drizzle, or any adapter. Or use JWT sessions with no database.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Does Auth.js work with App Router?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. Auth.js v5 is designed for the App Router with Server Components, Server Actions, and middleware.</p>
+                </details>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 What's Next?</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/how-to/deploy-nextjs-vercel.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">⚡ Deploy Next.js to Vercel</div>
+                    <div class="text-xs text-slate-400 mt-1">Ship your app live.</div>
+                </a>
+                <a href="/how-to/create-nextjs-app.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">⚫ Create a Next.js App</div>
+                    <div class="text-xs text-slate-400 mt-1">Setup guide.</div>
+                </a>
+                <a href="/how-to/nextjs-routing.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🛣️ Next.js Routing</div>
+                    <div class="text-xs text-slate-400 mt-1">App Router deep dive.</div>
+                </a>
+                <a href="/how-to/nextjs-server-vs-client.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">⚡ Server vs Client Components</div>
+                    <div class="text-xs text-slate-400 mt-1">When to use which.</div>
+                </a>
+            </div>
+        </div>
+
+        <section class="related-resources bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">📚 Related Guides</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/how-to/developer-guides.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">💻 Developer Guides</div>
+                    <div class="text-xs text-slate-400 mt-1">All modern dev guides.</div>
+                </a>
+                <a href="/how-to/nodejs-jwt.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🔑 Node.js JWT Authentication</div>
+                    <div class="text-xs text-slate-400 mt-1">Build JWT auth from scratch.</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/how-to/index.html" class="back-link">← All How-To Guides</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
