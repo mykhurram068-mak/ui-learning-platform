@@ -226,7 +226,16 @@
                             <li><a href="/how-to/what-is-typescript.html">🟦 TypeScript Guide</a></li>
                         </ul>
                     </li>
-           
+
+                    <!-- 🗺️ Roadmaps -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🗺️ Roadmaps</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/roadmaps/frontend-developer.html">🎨 Frontend Roadmap</a></li>
+                            <li><a href="/roadmaps/python-developer.html">🐍 Python Roadmap</a></li>
+                            <li><a href="/roadmaps/ai-engineer.html">🤖 AI Engineer Roadmap</a></li>
+                        </ul>
+                    </li>
                     <!-- ⚛️ Frameworks & Concepts -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚛️ Frameworks & Concepts</a>
