@@ -234,6 +234,7 @@
                             <li><a href="/roadmaps/frontend-developer.html">🎨 Frontend Roadmap</a></li>
                             <li><a href="/roadmaps/python-developer.html">🐍 Python Roadmap</a></li>
                             <li><a href="/roadmaps/ai-engineer.html">🤖 AI Engineer Roadmap</a></li>
+                            <li><a href="/roadmaps/nodejs-developer.html">🟢 Node.js Roadmap</a></li>
                         </ul>
                     </li>
                     <!-- ⚛️ Frameworks & Concepts (5 + View all) -->
