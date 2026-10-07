@@ -226,17 +226,7 @@
                             <li><a href="/how-to/what-is-typescript.html">🟦 TypeScript Guide</a></li>
                         </ul>
                     </li>
-
-                    <!-- 🗺️ Roadmaps -->
-                    <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">🗺️ Roadmaps</a>
-                        <ul class="dropdown-category-content">
-                            <li><a href="/roadmaps/frontend-developer.html">🎨 Frontend Roadmap</a></li>
-                            <li><a href="/roadmaps/python-developer.html">🐍 Python Roadmap</a></li>
-                            <li><a href="/roadmaps/ai-engineer.html">🤖 AI Engineer Roadmap</a></li>
-                            <li><a href="/roadmaps/nodejs-developer.html">🟢 Node.js Roadmap</a></li>
-                        </ul>
-                    </li>
+           
                     <!-- ⚛️ Frameworks & Concepts (5 + View all) -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚛️ Frameworks & Concepts</a>
@@ -264,6 +254,17 @@
                             <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                                 <a href="/how-to/comparisons.html" style="color: #60a5fa; font-weight: 700;">→ View all Comparisons</a>
                             </li>
+                        </ul>
+                    </li>
+
+                    <!-- 🗺️ Roadmaps -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🗺️ Roadmaps</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/roadmaps/frontend-developer.html">🎨 Frontend Roadmap</a></li>
+                            <li><a href="/roadmaps/python-developer.html">🐍 Python Roadmap</a></li>
+                            <li><a href="/roadmaps/ai-engineer.html">🤖 AI Engineer Roadmap</a></li>
+                            <li><a href="/roadmaps/nodejs-developer.html">🟢 Node.js Roadmap</a></li>
                         </ul>
                     </li>
                 </ul>
