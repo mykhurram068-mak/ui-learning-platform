@@ -359,7 +359,7 @@
                             <li><a href="/how-to/what-is-tailwind-css.html">🎨 What Is Tailwind CSS</a></li>
                             <li><a href="/how-to/fix-cannot-find-module.html">🔧 Fix "Cannot Find Module"</a></li>
                             <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                                <a href="/how-to/developer-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all Developer Guides</a>
+                                <a href="/how-to/web-dev-guides.html" style="color: #60a5fa; font-weight: 700;">→ View all Developer Guides</a>
                             </li>
                         </ul>
                     </li>
