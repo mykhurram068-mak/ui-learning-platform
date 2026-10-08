@@ -211,6 +211,72 @@
                 </ul>
             </li>
 
+            <!-- ==================== CODE SNIPPETS ==================== -->
+            <li class="dropdown-nav">
+                <a href="#" class="dropbtn-nav">Code ▼</a>
+                <ul class="dropdown-nav-content">
+                    <!-- 🟨 HTML Snippets -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🟨 HTML Snippets</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/code/html/html-boilerplate.html">🧱 HTML Boilerplate</a></li>
+                            <li><a href="/code/html/html-forms.html">📋 Forms & Inputs</a></li>
+                            <li><a href="/code/html/html-semantic-layout.html">🖼️ Semantic Layouts</a></li>
+                            <li><a href="/code/html/html-dialog-popover.html">🎬 Dialog & Popover</a></li>
+                            <li><a href="/code/html/html-permissions.html">📍 Permissions Elements</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/code/html/index.html" style="color: #60a5fa; font-weight: 700;">→ View all HTML Snippets</a>
+                            </li>
+                        </ul>
+                    </li>
+            
+                    <!-- 🎨 CSS Snippets -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🎨 CSS Snippets</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/code/css/css-center-a-div.html">🎯 Center a Div</a></li>
+                            <li><a href="/code/css/css-autofit-grid.html">📐 Auto-fit Grid</a></li>
+                            <li><a href="/code/css/css-has-selector.html">🌈 :has() Selector</a></li>
+                            <li><a href="/code/css/css-container-queries.html">📦 Container Queries</a></li>
+                            <li><a href="/code/css/css-clamp-fluid-type.html">📏 Fluid Typography</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/code/css/index.html" style="color: #60a5fa; font-weight: 700;">→ View all CSS Snippets</a>
+                            </li>
+                        </ul>
+                    </li>
+            
+                    <!-- 🐍 Python Snippets -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🐍 Python Snippets</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/code/python/python-list-comprehension.html">📝 List Comprehension</a></li>
+                            <li><a href="/code/python/python-decorators.html">🎁 Decorators</a></li>
+                            <li><a href="/code/python/python-dataclass.html">🏷️ Dataclass</a></li>
+                            <li><a href="/code/python/python-uv-ruff.html">🔧 Modern Toolchain</a></li>
+                            <li><a href="/code/python/python-context-managers.html">📂 Context Managers</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/code/python/index.html" style="color: #60a5fa; font-weight: 700;">→ View all Python Snippets</a>
+                            </li>
+                        </ul>
+                    </li>
+            
+                    <!-- ⚡ JavaScript Snippets -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">⚡ JavaScript Snippets</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/code/js/js-debounce-throttle.html">⏱️ Debounce & Throttle</a></li>
+                            <li><a href="/code/js/js-optional-chaining.html">🔗 Optional Chaining</a></li>
+                            <li><a href="/code/js/js-abortcontroller.html">🚫 AbortController</a></li>
+                            <li><a href="/code/js/js-structuredclone.html">📋 structuredClone</a></li>
+                            <li><a href="/code/js/js-array-methods.html">📚 Array Methods</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/code/js/index.html" style="color: #60a5fa; font-weight: 700;">→ View all JS Snippets</a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </li>
+
             <!-- ==================== GUIDES ==================== -->
             <li class="dropdown-nav">
                 <a href="#" class="dropbtn-nav">Guides ▼</a>
