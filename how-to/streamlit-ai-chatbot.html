@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Build an AI Chatbot with Streamlit & OpenAI — Full Tutorial (2026)</title>
+    <meta name="description" content="Build a working AI chatbot with Streamlit and the OpenAI API. Step-by-step tutorial with streaming responses, chat history, and deployment.">
+    <meta name="keywords" content="streamlit ai chatbot, streamlit openai, streamlit chatbot tutorial, python ai chatbot, streamlit gpt, openai api chatbot">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Build an AI Chatbot with Streamlit & OpenAI — Full Tutorial">
+    <meta property="og:description" content="Build a working AI chatbot with Streamlit and OpenAI API.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/how-to/streamlit-ai-chatbot.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="../favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/how-to/streamlit-ai-chatbot.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"HowTo","name":"Build an AI Chatbot with Streamlit and OpenAI","description":"Complete tutorial to build an AI chatbot with Streamlit and the OpenAI API.","totalTime":"PT45M","step":[{"@type":"HowToStep","position":1,"name":"Install dependencies","text":"Run pip install streamlit openai."},{"@type":"HowToStep","position":2,"name":"Set up the OpenAI client","text":"Configure the OpenAI client with your API key."},{"@type":"HowToStep","position":3,"name":"Build the chat interface","text":"Use st.chat_message and st.chat_input for the UI."},{"@type":"HowToStep","position":4,"name":"Maintain chat history","text":"Store messages in st.session_state."},{"@type":"HowToStep","position":5,"name":"Stream responses","text":"Use the streaming API to display responses word by word."},{"@type":"HowToStep","position":6,"name":"Deploy to Streamlit Cloud","text":"Push to GitHub and deploy for free."}]}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I build an AI chatbot with Streamlit?","acceptedAnswer":{"@type":"Answer","text":"Yes. Streamlit has built-in chat components (st.chat_message, st.chat_input) that make building an AI chatbot straightforward. Combined with the OpenAI API, you can build a working chatbot in under 50 lines of code."}},{"@type":"Question","name":"Do I need an OpenAI API key for a Streamlit chatbot?","acceptedAnswer":{"@type":"Answer","text":"Yes. You need an OpenAI API key to call GPT models. You can also use alternatives like Anthropic Claude or Google Gemini by swapping the API client. Store the key in .streamlit/secrets.toml for security."}},{"@type":"Question","name":"How do I keep chat history in Streamlit?","acceptedAnswer":{"@type":"Answer","text":"Store the conversation in st.session_state as a list of message dicts. Each rerun reads the list and renders all previous messages. This keeps the conversation persistent across user interactions."}},{"@type":"Question","name":"How do I stream AI responses in Streamlit?","acceptedAnswer":{"@type":"Answer","text":"Use st.write_stream() with a generator that yields tokens from the OpenAI streaming API. This displays responses word by word, like ChatGPT. It dramatically improves perceived responsiveness."}},{"@type":"Question","name":"How much does it cost to run an AI chatbot?","acceptedAnswer":{"@type":"Answer","text":"Costs depend on usage. With GPT-4o-mini, a typical chatbot conversation costs fractions of a cent per exchange. Streaming, chat history, and rate limiting help control costs. Free tiers on OpenAI are available for testing."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="../style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #3b82f6; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #3b82f6; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="../navbar.js"></script>
+</div>
+</nav>
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Master Code <br> On The Go</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Learn. Practice. Build.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/how-to/index.html" class="hover:text-blue-400">How-To</a> ›
+            <span class="text-slate-400">Streamlit AI Chatbot</span>
+        </div>
+
+        <div class="space-y-2">
+            <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Streamlit + AI Guide</h2>
+            <h1 class="text-3xl font-black">Build an AI Chatbot with Streamlit & OpenAI</h1>
+            <p class="text-slate-400">A working chatbot with streaming responses, chat history, and free deployment — in under 50 lines.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026 · Tested with Streamlit 1.40+ and OpenAI SDK 1.x</p>
+        </div>
+
+        <div class="info-box">
+            <p class="text-sm text-slate-300"><strong>Quick answer:</strong> Install <code class="text-yellow-300">streamlit</code> and <code class="text-yellow-300">openai</code>, store your API key in <code class="text-yellow-300">.streamlit/secrets.toml</code>, use <code class="text-yellow-300">st.chat_message()</code> and <code class="text-yellow-300">st.chat_input()</code> for the UI, store messages in <code class="text-yellow-300">st.session_state</code>, and stream responses with <code class="text-yellow-300">st.write_stream()</code>. Deploy for free on Streamlit Cloud.</p>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Install Dependencies</h3>
+                    <pre><code>pip install streamlit openai</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Create your project folder and a <code>requirements.txt</code>:</p>
+                    <pre><code>mkdir streamlit-chatbot
+cd streamlit-chatbot
+echo "streamlit
+openai" &gt; requirements.txt
+touch app.py</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Store Your API Key Securely</h3>
+                    <p class="text-sm text-slate-300 mt-2">Never hardcode API keys. Create <code>.streamlit/secrets.toml</code>:</p>
+                    <pre><code># .streamlit/secrets.toml
+OPENAI_API_KEY = "sk-your-key-here"</code></pre>
+                    <div class="warning-box mt-3">
+                        <p class="text-sm text-slate-300"><strong>Important:</strong> Add <code>.streamlit/secrets.toml</code> to your <code>.gitignore</code>. Never commit secrets to GitHub. Streamlit Cloud has a separate secrets manager for deployment.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Build the Chatbot (Full Code)</h3>
+                    <p class="text-sm text-slate-300 mt-2">Here's the complete working <code>app.py</code>:</p>
+                    <pre><code>import streamlit as st
+from openai import OpenAI
+
+# Setup
+st.set_page_config(page_title="AI Chatbot", page_icon="🤖")
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+
+st.title("🤖 AI Chatbot")
+st.caption("Powered by Streamlit + OpenAI")
+
+# Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "system", "content": "You are a helpful assistant."}
+    ]
+
+# Display existing messages
+for msg in st.session_state.messages:
+    if msg["role"] != "system":
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+# Handle new input
+if prompt := st.chat_input("Ask me anything..."):
+    # Add user message
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+
+    # Get AI response (streamed)
+    with st.chat_message("assistant"):
+        stream = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=st.session_state.messages,
+            stream=True,
+        )
+
+        response = st.write_stream(
+            chunk.choices[0].delta.content or ""
+            for chunk in stream
+        )
+
+    # Save assistant message
+    st.session_state.messages.append(
+        {"role": "assistant", "content": response}
+    )</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Run it:</p>
+                    <pre><code>streamlit run app.py</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">That's a complete, working AI chatbot with streaming and history. Let's break it down.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">4</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Understanding the Key Parts</h3>
+                    <p class="text-sm text-slate-300 mt-2"><strong>Session state:</strong> Streamlit reruns the script on every interaction. To keep the conversation alive, we store it in <code>st.session_state.messages</code>:</p>
+                    <pre><code>if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "system", "content": "You are a helpful assistant."}
+    ]</code></pre>
+                    <p class="text-sm text-slate-300 mt-3"><strong>Chat UI:</strong> <code>st.chat_message</code> renders a bubble with an avatar. <code>st.chat_input</code> shows the input box at the bottom:</p>
+                    <pre><code>with st.chat_message("user"):
+    st.markdown(prompt)
+
+with st.chat_message("assistant"):
+    st.markdown(response)</code></pre>
+                    <p class="text-sm text-slate-300 mt-3"><strong>Streaming:</strong> <code>st.write_stream()</code> displays chunks as they arrive, like ChatGPT:</p>
+                    <pre><code>response = st.write_stream(
+    chunk.choices[0].delta.content or ""
+    for chunk in stream
+)</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">5</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Add a Sidebar with Controls</h3>
+                    <p class="text-sm text-slate-300 mt-2">Give users control over the model and reset:</p>
+                    <pre><code>with st.sidebar:
+    st.header("Settings")
+
+    model = st.selectbox(
+        "Model",
+        ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"]
+    )
+
+    temperature = st.slider(
+        "Temperature", 0.0, 1.0, 0.7, 0.1
+    )
+
+    if st.button("Clear chat"):
+        st.session_state.messages = [
+            {"role": "system", "content": "You are a helpful assistant."}
+        ]
+        st.rerun()</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Pass <code>model</code> and <code>temperature</code> to the API call. This instantly makes your app feel professional.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">6</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Deploy to Streamlit Cloud (Free)</h3>
+                    <ol class="list-decimal list-inside text-sm space-y-2 text-slate-300 mt-2">
+                        <li>Push your code to a GitHub repo (make sure secrets aren't committed).</li>
+                        <li>Go to <code>share.streamlit.io</code> and connect your repo.</li>
+                        <li>In the Streamlit Cloud dashboard, go to <strong>Settings → Secrets</strong>.</li>
+                        <li>Paste your <code>OPENAI_API_KEY</code> in TOML format.</li>
+                        <li>Click Deploy.</li>
+                    </ol>
+                    <p class="text-sm text-slate-300 mt-3">You now have a live AI chatbot with a public URL — hosted for free.</p>
+                    <div class="pro-tip mt-3">
+                        <p class="text-xs text-slate-300">💡 <strong>Cost tip:</strong> Use <code>gpt-4o-mini</code> as the default. It's 10–20x cheaper than GPT-4o and more than capable for most chatbot use cases.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🚀 Enhancements to Try Next</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Add RAG:</strong> Let the chatbot answer questions from your own PDFs or docs. 👉 See our <a href="/how-to/what-is-rag.html" class="text-blue-400 hover:underline">What is RAG guide</a>.</li>
+                <li><strong>Add file uploads:</strong> Let users upload images or documents for analysis.</li>
+                <li><strong>Swap models:</strong> Use Anthropic Claude or Google Gemini by changing one import.</li>
+                <li><strong>Add authentication:</strong> Restrict access with a login screen.</li>
+                <li><strong>Cache responses:</strong> Add <code>@st.cache_data</code> for repeated prompts.</li>
+            </ul>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🛡️ Best Practices</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li>Never hardcode API keys — use <code class="text-yellow-300">st.secrets</code>.</li>
+                <li>Limit chat history length to control token costs (e.g., last 20 messages).</li>
+                <li>Use <code class="text-yellow-300">gpt-4o-mini</code> for development and prototyping.</li>
+                <li>Add rate limiting to prevent abuse if the app is public.</li>
+                <li>Show a typing indicator or use streaming — perception of speed matters.</li>
+                <li>Test prompts with different system messages to control the bot's personality.</li>
+            </ul>
+            <div class="warning-box mt-3">
+                <p class="text-sm text-slate-300"><strong>Security:</strong> If your app is public, anyone can run up your OpenAI bill. Add authentication (Streamlit has built-in OIDC support) before sharing widely.</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">❓ Frequently Asked Questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I build an AI chatbot with Streamlit?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. Streamlit has built-in chat components (st.chat_message, st.chat_input) that make building an AI chatbot straightforward. Combined with the OpenAI API, you can build a working chatbot in under 50 lines of code.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Do I need an OpenAI API key for a Streamlit chatbot?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. You need an OpenAI API key to call GPT models. You can also use alternatives like Anthropic Claude or Google Gemini by swapping the API client. Store the key in .streamlit/secrets.toml for security.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I keep chat history in Streamlit?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Store the conversation in st.session_state as a list of message dicts. Each rerun reads the list and renders all previous messages. This keeps the conversation persistent across user interactions.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I stream AI responses in Streamlit?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Use st.write_stream() with a generator that yields tokens from the OpenAI streaming API. This displays responses word by word, like ChatGPT. It dramatically improves perceived responsiveness.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How much does it cost to run an AI chatbot?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Costs depend on usage. With GPT-4o-mini, a typical chatbot conversation costs fractions of a cent per exchange. Streaming, chat history, and rate limiting help control costs. Free tiers on OpenAI are available for testing.</p>
+                </details>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 What's Next?</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/how-to/streamlit-authentication.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🔐 Streamlit Authentication</div>
+                    <div class="text-xs text-slate-400 mt-1">Secure your chatbot before sharing.</div>
+                </a>
+                <a href="/how-to/streamlit-multi-page.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">📄 Streamlit Multi-Page Apps</div>
+                    <div class="text-xs text-slate-400 mt-1">Turn your chatbot into a full app.</div>
+                </a>
+                <a href="/how-to/what-is-rag.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🧠 What is RAG?</div>
+                    <div class="text-xs text-slate-400 mt-1">Supercharge your chatbot with your own data.</div>
+                </a>
+                <a href="/how-to/what-is-streamlit.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">📊 What is Streamlit?</div>
+                    <div class="text-xs text-slate-400 mt-1">The complete introduction guide.</div>
+                </a>
+            </div>
+        </div>
+
+        <section class="related-resources bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">📚 Related Guides</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/how-to/build-ai-chatbot.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🤖 Build an AI Chatbot</div>
+                    <div class="text-xs text-slate-400 mt-1">The full-stack version.</div>
+                </a>
+                <a href="/how-to/openai-api-setup.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🔑 OpenAI API Setup</div>
+                    <div class="text-xs text-slate-400 mt-1">Get your API key working.</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/how-to/index.html" class="back-link">← All How-To Guides</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
