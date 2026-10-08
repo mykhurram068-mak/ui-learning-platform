@@ -208,13 +208,11 @@
                             <li><a href="/password-gen.html">🔐 Password Generator</a></li>
                         </ul>
                     </li>
-                </ul>
-            </li>
+               <!--</ul>
+            </li>-->
 
             <!-- ==================== CODE SNIPPETS ==================== -->
-            <li class="dropdown-nav">
-                <a href="#" class="dropbtn-nav">Code ▼</a>
-                <ul class="dropdown-nav-content">
+           
                     <!-- 🟨 HTML Snippets -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">🟨 HTML Snippets</a>
