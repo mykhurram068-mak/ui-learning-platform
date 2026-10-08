@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Streamlit Authentication — Add Login to Your App (2026 Guide)</title>
+    <meta name="description" content="Add authentication to your Streamlit app. Learn 3 approaches: native OIDC, streamlit-authenticator, and password protection. Complete 2026 tutorial.">
+    <meta name="keywords" content="streamlit authentication, streamlit login, streamlit auth, streamlit authenticator, streamlit password protection, streamlit oidc">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Streamlit Authentication — Add Login to Your App">
+    <meta property="og:description" content="Add login to any Streamlit app with 3 different approaches.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/how-to/streamlit-authentication.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="../favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/how-to/streamlit-authentication.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"HowTo","name":"Streamlit Authentication","description":"Add authentication to a Streamlit app using 3 approaches.","totalTime":"PT30M","step":[{"@type":"HowToStep","position":1,"name":"Choose an approach","text":"Native OIDC, streamlit-authenticator, or basic password."},{"@type":"HowToStep","position":2,"name":"Install dependencies","text":"Install streamlit-authenticator or configure OIDC secrets."},{"@type":"HowToStep","position":3,"name":"Configure credentials","text":"Add users and hashed passwords to your config."},{"@type":"HowToStep","position":4,"name":"Render the login form","text":"Call authenticator.login() before your app content."},{"@type":"HowToStep","position":5","name":"Gate your app","text":"Only show app content when authentication status is logged in."}]}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I add authentication to Streamlit?","acceptedAnswer":{"@type":"Answer","text":"Use the streamlit-authenticator package for username/password auth, or use Streamlit's built-in OIDC support for Google/Microsoft SSO. For simple internal tools, st.secrets-based password checks work fine."}},{"@type":"Question","name":"What is streamlit-authenticator?","acceptedAnswer":{"@type":"Answer","text":"streamlit-authenticator is a community package that provides a ready-made login widget, password hashing, cookie-based sessions, and user management for Streamlit apps."}},{"@type":"Question","name":"Does Streamlit have built-in authentication?","acceptedAnswer":{"@type":"Answer","text":"Streamlit has built-in OIDC support for enterprise SSO (Google, Microsoft, Okta). For simple username/password auth, use streamlit-authenticator. For public apps, add OIDC to prevent API abuse."}},{"@type":"Question","name":"How do I protect secrets in Streamlit?","acceptedAnswer":{"@type":"Answer","text":"Store secrets in .streamlit/secrets.toml locally and in the Streamlit Cloud dashboard for deployed apps. Never commit secrets to Git. Use st.secrets['KEY'] to access them."}},{"@type":"Question","name":"Can I add a login page to Streamlit?","acceptedAnswer":{"@type":"Answer","text":"Yes. Use streamlit-authenticator's login widget or Streamlit's native st.login() to build a login page. Gate the rest of your app behind the authentication check."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="../style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #3b82f6; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #3b82f6; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="../navbar.js"></script>
+</div>
+</nav>
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Master Code <br> On The Go</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Learn. Practice. Build.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/how-to/index.html" class="hover:text-blue-400">How-To</a> ›
+            <span class="text-slate-400">Streamlit Authentication</span>
+        </div>
+
+        <div class="space-y-2">
+            <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Streamlit Guide</h2>
+            <h1 class="text-3xl font-black">Streamlit Authentication</h1>
+            <p class="text-slate-400">Add login to your Streamlit app — three approaches, from simple to enterprise-ready.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026 · Tested with Streamlit 1.40+</p>
+        </div>
+
+        <div class="info-box">
+            <p class="text-sm text-slate-300"><strong>Quick answer:</strong> For quick internal tools, use <code class="text-yellow-300">streamlit-authenticator</code> with hashed passwords in <code class="text-yellow-300">secrets.toml</code>. For enterprise SSO, use Streamlit's built-in <code class="text-yellow-300">st.login()</code> with OIDC. For simple demos, a password check against a secret works. Never expose your app publicly without auth if it uses paid APIs.</p>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Three Approaches — Pick One</h3>
+                    <div class="overflow-x-auto mt-3">
+                        <table class="w-full text-sm text-slate-300">
+                            <thead>
+                                <tr class="border-b border-slate-700">
+                                    <th class="text-left py-2 pr-4 text-slate-400 font-medium">Approach</th>
+                                    <th class="text-left py-2 pr-4 text-slate-400 font-medium">Best For</th>
+                                    <th class="text-left py-2 text-slate-400 font-medium">Complexity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-slate-800">
+                                    <td class="py-2 pr-4">Password secret</td>
+                                    <td class="py-2 pr-4">Personal demos, prototypes</td>
+                                    <td class="py-2 text-green-400">Very simple</td>
+                                </tr>
+                                <tr class="border-b border-slate-800">
+                                    <td class="py-2 pr-4">streamlit-authenticator</td>
+                                    <td class="py-2 pr-4">Internal tools, small teams</td>
+                                    <td class="py-2 text-green-400">Simple</td>
+                                </tr>
+                                <tr>
+                                    <td class="py-2 pr-4">Native OIDC (st.login)</td>
+                                    <td class="py-2 pr-4">Enterprise SSO, public apps</td>
+                                    <td class="py-2">Moderate</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Option A: Simple Password (Quickest)</h3>
+                    <p class="text-sm text-slate-300 mt-2">For personal demos, a single password check is enough:</p>
+                    <pre><code># .streamlit/secrets.toml
+APP_PASSWORD = "mysecretpassword"
+
+# app.py
+import streamlit as st
+
+def check_password():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    if not st.session_state.authenticated:
+        password = st.text_input("Password", type="password")
+        if st.button("Login"):
+            if password == st.secrets["APP_PASSWORD"]:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Wrong password")
+        st.stop()
+
+check_password()
+st.write("Welcome to the secret app!")</code></pre>
+                    <div class="warning-box mt-3">
+                        <p class="text-sm text-slate-300"><strong>Not recommended for teams:</strong> This approach has one shared password and no user tracking. Use it only for personal use or demos.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Option B: streamlit-authenticator (Best for Teams)</h3>
+                    <pre><code>pip install streamlit-authenticator</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Generate hashed passwords:</p>
+                    <pre><code>import streamlit_authenticator as stauth
+
+hashed = stauth.Hasher(["pass1", "pass2"]).generate()
+print(hashed)
+# ['$2b$12$...', '$2b$12$...']</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Add config to <code>.streamlit/secrets.toml</code>:</p>
+                    <pre><code>[credentials.usernames.alice]
+name = "Alice"
+password = "$2b$12$..."
+email = "alice@example.com"
+
+[credentials.usernames.bob]
+name = "Bob"
+password = "$2b$12$..."
+email = "bob@example.com"
+
+[cookie]
+name = "streamlit_auth"
+key = "some-random-secret-key"
+expiry_days = 30</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Then in your app:</p>
+                    <pre><code>import streamlit as st
+import streamlit_authenticator as stauth
+
+authenticator = stauth.Authenticate(
+    st.secrets["credentials"].to_dict(),
+    st.secrets["cookie"]["name"],
+    st.secrets["cookie"]["key"],
+    st.secrets["cookie"]["expiry_days"],
+)
+
+name, auth_status, username = authenticator.login()
+
+if auth_status:
+    authenticator.logout(location="sidebar")
+    st.write(f"Welcome, {name}!")
+    # Your app content here
+
+elif auth_status is False:
+    st.error("Username or password incorrect")
+elif auth_status is None:
+    st.warning("Please log in")</code></pre>
+                    <div class="pro-tip mt-3">
+                        <p class="text-xs text-slate-300">💡 <strong>Why this is great:</strong> Passwords are hashed with bcrypt, sessions persist across page reloads via cookies, and you get a built-in logout button. All in one package.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">4</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Option C: Native OIDC (Enterprise SSO)</h3>
+                    <p class="text-sm text-slate-300 mt-2">Streamlit now has built-in OIDC support for Google, Microsoft, Okta, and Auth0:</p>
+                    <pre><code># .streamlit/secrets.toml
+[auth]
+redirect_uri = "https://your-app.streamlit.app/oauth2callback"
+cookie_secret = "random-32-char-string"
+
+[auth.google]
+client_id = "your-client-id"
+client_secret = "your-client-secret"
+server_metadata_url = "https://accounts.google.com/.well-known/openid-configuration"</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Then in your app:</p>
+                    <pre><code>import streamlit as st
+
+if not st.user.is_logged_in:
+    st.login()
+
+if st.user.is_logged_in:
+    st.write(f"Welcome, {st.user.name}!")
+    st.write(f"Email: {st.user.email}")
+    # Your app content here
+
+    if st.sidebar.button("Log out"):
+        st.logout()</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">The user is authenticated via Google (or your OIDC provider). No passwords to manage.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">5</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Gate Your App Content</h3>
+                    <p class="text-sm text-slate-300 mt-2">Whatever approach you pick, the pattern is the same:</p>
+                    <pre><code>if not authenticated:
+    st.warning("Please log in to continue")
+    st.stop()
+
+# All your app content below this line
+st.title("My App")
+st.write("Sensitive data...")</code></pre>
+                    <p class="text-sm text-slate-300 mt-3"><code>st.stop()</code> halts execution. Nothing below it renders until the user is authenticated.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🛡️ Security Best Practices</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li>Never hardcode passwords or API keys in your code.</li>
+                <li>Always hash passwords (bcrypt via streamlit-authenticator, or use OIDC).</li>
+                <li>Use <code class="text-yellow-300">.streamlit/secrets.toml</code> locally and Streamlit Cloud secrets in production.</li>
+                <li>Add secrets to <code class="text-yellow-300">.gitignore</code>. Rotate keys if you accidentally commit them.</li>
+                <li>Enable HTTPS — Streamlit Cloud does this automatically.</li>
+                <li>For public apps with paid APIs, always require authentication.</li>
+                <li>Log out sessions after a reasonable expiry (30 days is common).</li>
+                <li>Consider rate limiting on the login form to prevent brute-force attacks.</li>
+            </ul>
+            <div class="warning-box mt-3">
+                <p class="text-sm text-slate-300"><strong>The most common mistake:</strong> Deploying a chatbot that uses your OpenAI key without any authentication. Anyone can find the URL and run up your bill. Add auth before sharing publicly.</p>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">❓ Frequently Asked Questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I add authentication to Streamlit?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Use the streamlit-authenticator package for username/password auth, or use Streamlit's built-in OIDC support for Google/Microsoft SSO. For simple internal tools, st.secrets-based password checks work fine.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is streamlit-authenticator?</summary>
+                    <p class="mt-2 text-sm text-slate-300">streamlit-authenticator is a community package that provides a ready-made login widget, password hashing, cookie-based sessions, and user management for Streamlit apps.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Does Streamlit have built-in authentication?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Streamlit has built-in OIDC support for enterprise SSO (Google, Microsoft, Okta). For simple username/password auth, use streamlit-authenticator. For public apps, add OIDC to prevent API abuse.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I protect secrets in Streamlit?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Store secrets in .streamlit/secrets.toml locally and in the Streamlit Cloud dashboard for deployed apps. Never commit secrets to Git. Use st.secrets['KEY'] to access them.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I add a login page to Streamlit?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. Use streamlit-authenticator's login widget or Streamlit's native st.login() to build a login page. Gate the rest of your app behind the authentication check.</p>
+                </details>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 What's Next?</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/how-to/streamlit-ai-chatbot.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🤖 Streamlit AI Chatbot</div>
+                    <div class="text-xs text-slate-400 mt-1">Secure a chatbot with login.</div>
+                </a>
+                <a href="/how-to/streamlit-multi-page.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">📄 Streamlit Multi-Page Apps</div>
+                    <div class="text-xs text-slate-400 mt-1">Structure larger Streamlit apps.</div>
+                </a>
+                <a href="/how-to/what-is-streamlit.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">📊 What is Streamlit?</div>
+                    <div class="text-xs text-slate-400 mt-1">The complete introduction guide.</div>
+                </a>
+                <a href="/how-to/what-is-rag.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🧠 What is RAG?</div>
+                    <div class="text-xs text-slate-400 mt-1">Build AI apps with your own data.</div>
+                </a>
+            </div>
+        </div>
+
+        <a href="/how-to/index.html" class="back-link">← All How-To Guides</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
