@@ -247,7 +247,7 @@
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">🐍 Python Snippets</a>
                         <ul class="dropdown-category-content">
-                            <li><a href="/code/python/python-list-comprehension.html">📝 List Comprehension</a></li>
+                            <li><a href="/how-to/python-list-comprehension.html">📝 List Comprehension</a></li>
                             <li><a href="/code/python/python-decorators.html">🎁 Decorators</a></li>
                             <li><a href="/code/python/python-dataclass.html">🏷️ Dataclass</a></li>
                             <li><a href="/code/python/python-uv-ruff.html">🔧 Modern Toolchain</a></li>
