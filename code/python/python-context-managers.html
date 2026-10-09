@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Python Context Managers — The Complete Guide with Live Examples (2026)</title>
+    <meta name="description" content="Master Python context managers. Learn the with statement, __enter__ and __exit__, contextlib helpers, and build your own — with interactive live examples.">
+    <meta name="keywords" content="python context managers, python with statement, python __enter__ __exit__, contextlib, python contextmanager decorator, python file handling">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Python Context Managers — The Complete Guide with Live Examples">
+    <meta property="og:description" content="Master the with statement and build custom context managers.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/code/python/python-context-managers.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="../../favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/code/python/python-context-managers.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"HowTo","name":"Python Context Managers","description":"Learn Python context managers and the with statement.","totalTime":"PT20M","step":[{"@type":"HowToStep","position":1,"name":"Understand the with statement","text":"The with statement ensures cleanup runs even if exceptions occur."},{"@type":"HowToStep","position":2,"name":"Build a class-based manager","text":"Implement __enter__ and __exit__ methods."},{"@type":"HowToStep","position":3,"name":"Use @contextmanager","text":"Wrap a generator with @contextmanager for a concise manager."},{"@type":"HowToStep","position":4,"name":"Handle exceptions in __exit__","text":"Return True to suppress, False to propagate."},{"@type":"HowToStep","position":5,"name":"Use contextlib helpers","text":"suppress, closing, ExitStack, and redirect_stdout."}]}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is a context manager in Python?","acceptedAnswer":{"@type":"Answer","text":"A context manager is an object that defines setup and cleanup behavior for a block of code. It is used with the with statement, which guarantees cleanup runs even if an exception is raised."}},{"@type":"Question","name":"What does the with statement do?","acceptedAnswer":{"@type":"Answer","text":"The with statement calls __enter__ on the object to set up resources, runs the block, then calls __exit__ to clean up. Even if the block raises an exception, __exit__ is called."}},{"@type":"Question","name":"What is the difference between class-based and generator-based context managers?","acceptedAnswer":{"@type":"Answer","text":"Class-based managers implement __enter__ and __exit__ methods and offer more control. Generator-based managers use the @contextmanager decorator and are more concise. Use @contextmanager for simple cases."}},{"@type":"Question","name":"What does contextlib.suppress do?","acceptedAnswer":{"@type":"Answer","text":"contextlib.suppress is a context manager that silently ignores specific exceptions. It replaces try/except/pass blocks and makes intent explicit."}},{"@type":"Question","name":"Can I have multiple context managers in one with statement?","acceptedAnswer":{"@type":"Answer","text":"Yes. Use with open('a') as a, open('b') as b: to chain multiple context managers. They are entered left-to-right and exited right-to-left, similar to how nested decorators work."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="../../style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #3b82f6; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #3b82f6; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .live-demo-frame { width: 100%; height: 500px; border: none; border-radius: 0.75rem; background: #0f172a; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="../../navbar.js"></script>
+</div>
+</nav>
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Master Code <br> On The Go</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Learn. Practice. Build.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/code/index.html" class="hover:text-blue-400">Code Snippets</a> ›
+            <a href="/code/python/index.html" class="hover:text-blue-400">Python Snippets</a> ›
+            <span class="text-slate-400">Context Managers</span>
+        </div>
+
+        <div class="space-y-2">
+            <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Python Snippet</h2>
+            <h1 class="text-3xl font-black">Python Context Managers</h1>
+            <p class="text-slate-400">The <code>with</code> statement is more powerful than you think. Learn to build your own.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <div class="info-box">
+            <p class="text-sm text-slate-300"><strong>Quick answer:</strong> A context manager defines setup and cleanup around a block of code. Use the <code class="text-yellow-300">with</code> statement to run it — cleanup runs even if an exception occurs. Build one by implementing <code class="text-yellow-300">__enter__</code> and <code class="text-yellow-300">__exit__</code>, or use the <code class="text-yellow-300">@contextmanager</code> decorator on a generator function for a shorter version.</p>
+        </div>
+
+        <!-- LIVE DEMO -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎬 Interactive Live Demo</h2>
+            <p class="text-sm text-slate-400 mb-3">Click through the tabs to see different context manager patterns and their simulated execution traces.</p>
+            <iframe class="live-demo-frame" srcdoc='
+                &lt;!DOCTYPE html&gt;
+                &lt;html&gt;
+                &lt;head&gt;
+                    &lt;style&gt;
+                        * { box-sizing: border-box; }
+                        body {
+                            margin: 0;
+                            padding: 16px;
+                            background: #0f172a;
+                            font-family: system-ui, -apple-system, sans-serif;
+                            color: #e2e8f0;
+                            font-size: 13px;
+                        }
+                        h3 {
+                            font-size: 12px;
+                            margin: 0 0 10px 0;
+                            color: #94a3b8;
+                            text-transform: uppercase;
+                            letter-spacing: 0.05em;
+                        }
+                        .panel {
+                            background: #1e293b;
+                            border-radius: 12px;
+                            padding: 14px;
+                            margin-bottom: 12px;
+                            border: 1px solid #334155;
+                        }
+                        .buttons {
+                            display: flex;
+                            gap: 6px;
+                            flex-wrap: wrap;
+                            margin-bottom: 12px;
+                        }
+                        button {
+                            padding: 8px 14px;
+                            background: #334155;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            font-size: 12px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            font-family: inherit;
+                            transition: background 0.15s;
+                        }
+                        button:hover { background: #475569; }
+                        button.active { background: #3b82f6; }
+                        .code {
+                            background: #0f172a;
+                            border-radius: 8px;
+                            padding: 12px;
+                            font-family: ui-monospace, monospace;
+                            font-size: 11px;
+                            color: #e2e8f0;
+                            white-space: pre;
+                            border-left: 3px solid #3b82f6;
+                            overflow-x: auto;
+                            line-height: 1.6;
+                        }
+                        .trace {
+                            background: #0f172a;
+                            border-radius: 8px;
+                            padding: 12px;
+                            font-family: ui-monospace, monospace;
+                            font-size: 11px;
+                            white-space: pre;
+                            border-left: 3px solid #10b981;
+                            line-height: 1.8;
+                            margin-top: 10px;
+                        }
+                        .enter { color: #60a5fa; }
+                        .exit { color: #10b981; }
+                        .body { color: #fbbf24; }
+                    &lt;/style&gt;
+                &lt;/head&gt;
+                &lt;body&gt;
+                    &lt;div class="buttons"&gt;
+                        &lt;button data-v="with" class="active"&gt;Basic with&lt;/button&gt;
+                        &lt;button data-v="class"&gt;Class-based&lt;/button&gt;
+                        &lt;button data-v="generator"&gt;@contextmanager&lt;/button&gt;
+                        &lt;button data-v="suppress"&gt;contextlib.suppress&lt;/button&gt;
+                    &lt;/div&gt;
+
+                    &lt;div class="panel"&gt;
+                        &lt;h3&gt;Code&lt;/h3&gt;
+                        &lt;div class="code" id="code-display"&gt;&lt;/div&gt;
+                        &lt;div class="trace" id="trace-display"&gt;&lt;/div&gt;
+                    &lt;/div&gt;
+
+                    &lt;script&gt;
+                        const samples = {
+                            with: {
+                                code: `with open("data.txt", "r") as f:
+    content = f.read()
+    print(content)`,
+                                trace: `&lt;span class="enter"&gt;[ENTER] File opened for reading&lt;/span&gt;
+&lt;span class="body"&gt;[BODY]  content = f.read()
+[BODY]  print(content)&lt;/span&gt;
+&lt;span class="exit"&gt;[EXIT]  File closed automatically&lt;/span&gt;
+
+(Even if f.read() raises, the file is closed.)`
+                            },
+                            class: {
+                                code: `class Timer:
+    def __enter__(self):
+        import time
+        self.start = time.time()
+        return self
+
+    def __exit__(self, *args):
+        print(f"Elapsed: {time.time() - self.start:.2f}s")
+
+with Timer():
+    # slow operation here
+    pass`,
+                                trace: `&lt;span class="enter"&gt;[ENTER] Timer initialized&lt;/span&gt;
+&lt;span class="body"&gt;[BODY]  block executes&lt;/span&gt;
+&lt;span class="exit"&gt;[EXIT]  Elapsed: 0.42s&lt;/span&gt;
+
+__exit__ always runs — even on exception.`
+                            },
+                            generator: {
+                                code: `from contextlib import contextmanager
+
+@contextmanager
+def tag(name):
+    print(f"&lt;{name}&gt;")
+    yield
+    print(f"&lt;/{name}&gt;")
+
+with tag("p"):
+    print("Hello")`,
+                                trace: `&lt;span class="enter"&gt;[ENTER] &lt;p&gt; printed&lt;/span&gt;
+&lt;span class="body"&gt;[BODY]  Hello printed&lt;/span&gt;
+&lt;span class="exit"&gt;[EXIT]  &lt;/p&gt; printed&lt;/span&gt;
+
+The code before yield runs on __enter__.
+The code after yield runs on __exit__.`
+                            },
+                            suppress: {
+                                code: `from contextlib import suppress
+
+with suppress(FileNotFoundError):
+    with open("missing.txt") as f:
+        data = f.read()
+
+print("Continuing safely")`,
+                                trace: `&lt;span class="body"&gt;[BODY]  open() raises FileNotFoundError&lt;/span&gt;
+&lt;span class="exit"&gt;[EXIT]  Exception suppressed&lt;/span&gt;
+&lt;span class="body"&gt;[BODY]  Continuing safely&lt;/span&gt;
+
+Replaces try/except/pass in one line.`
+                            }
+                        };
+
+                        function render(key) {
+                            document.getElementById("code-display").textContent = samples[key].code;
+                            document.getElementById("trace-display").innerHTML = samples[key].trace;
+                        }
+
+                        document.querySelectorAll("button[data-v]").forEach(btn =&gt; {
+                            btn.addEventListener("click", () =&gt; {
+                                document.querySelectorAll("button[data-v]").forEach(b =&gt; b.classList.remove("active"));
+                                btn.classList.add("active");
+                                render(btn.dataset.v);
+                            });
+                        });
+
+                        render("with");
+                    &lt;/script&gt;
+                &lt;/body&gt;
+                &lt;/html&gt;
+            '></iframe>
+            <p class="text-xs text-slate-500 mt-3">💡 Switch between tabs to see how setup/cleanup flows through each pattern.</p>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">The with Statement — Why It Matters</h3>
+                    <p class="text-sm text-slate-300 mt-2">Without <code>with</code>, resource cleanup is error-prone:</p>
+                    <pre><code>f = open("data.txt", "r")
+try:
+    content = f.read()
+    print(content)
+finally:
+    f.close()</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">With <code>with</code>, cleanup is guaranteed and the code is cleaner:</p>
+                    <pre><code>with open("data.txt", "r") as f:
+    content = f.read()
+    print(content)</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">The file closes even if <code>f.read()</code> raises an exception. That guarantee is the entire point of context managers.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Class-Based Context Manager</h3>
+                    <p class="text-sm text-slate-300 mt-2">Implement two methods: <code>__enter__</code> (setup) and <code>__exit__</code> (cleanup):</p>
+                    <pre><code>import time
+
+class Timer:
+    def __enter__(self):
+        self.start = time.time()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        elapsed = time.time() - self.start
+        print(f"Elapsed: {elapsed:.3f}s")
+        # Returning False (or None) propagates any exception
+        return False
+
+with Timer():
+    total = sum(range(1_000_000))
+# Elapsed: 0.015s</code></pre>
+                    <p class="text-sm text-slate-300 mt-3"><strong>Key details:</strong></p>
+                    <ul class="list-disc list-inside text-sm space-y-1 text-slate-300 mt-2">
+                        <li><code>__enter__</code> returns whatever the <code>as</code> variable gets.</li>
+                        <li><code>__exit__</code> receives exception info if one occurs.</li>
+                        <li>Returning <code>True</code> from <code>__exit__</code> suppresses the exception.</li>
+                        <li>Returning <code>False</code> (or nothing) propagates it.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Generator-Based Context Manager</h3>
+                    <p class="text-sm text-slate-300 mt-2">The <code>@contextmanager</code> decorator turns a generator into a context manager. Cleaner for simple cases:</p>
+                    <pre><code>from contextlib import contextmanager
+
+@contextmanager
+def tag(name):
+    print(f"&lt;{name}&gt;")
+    yield
+    print(f"&lt;/{name}&gt;")
+
+with tag("p"):
+    print("Hello")
+# &lt;p&gt;
+# Hello
+# &lt;/p&gt;</code></pre>
+                    <p class="text-sm text-slate-300 mt-3"><strong>The pattern:</strong> Code before <code>yield</code> is setup. Code after <code>yield</code> is cleanup. Use <code>try/finally</code> if the block can raise:</p>
+                    <pre><code>@contextmanager
+def transaction(db):
+    db.begin()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">4</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Handling Exceptions in <code>__exit__</code></h3>
+                    <p class="text-sm text-slate-300 mt-2">When an exception occurs inside the <code>with</code> block, Python passes the details to <code>__exit__</code>:</p>
+                    <pre><code>class Suppressor:
+    def __init__(self, *exceptions):
+        self.exceptions = exceptions
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is None:
+            return False
+        # Suppress only the listed exception types
+        return issubclass(exc_type, self.exceptions)
+
+with Suppressor(ZeroDivisionError):
+    result = 1 / 0  # Silently ignored
+print("Continues here")</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">This is exactly how <code>contextlib.suppress</code> works internally.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">5</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">contextlib — The Built-In Helpers</h3>
+                    <p class="text-sm text-slate-300 mt-2">Python ships four context manager helpers you should know:</p>
+                    <pre><code>from contextlib import suppress, closing, ExitStack, redirect_stdout
+
+# 1. suppress — ignore specific exceptions
+with suppress(FileNotFoundError):
+    open("missing.txt")
+
+# 2. closing — auto-close any object with .close()
+from urllib.request import urlopen
+with closing(urlopen("https://example.com")) as page:
+    data = page.read()
+
+# 3. ExitStack — dynamic number of managers
+with ExitStack() as stack:
+    files = [stack.enter_context(open(f)) for f in filenames]
+    # All files closed on exit, in reverse order
+
+# 4. redirect_stdout — capture prints
+import io
+buffer = io.StringIO()
+with redirect_stdout(buffer):
+    print("Captured!")
+print(buffer.getvalue())  # "Captured!\n"</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">6</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Real-World Use Case: Database Transactions</h3>
+                    <pre><code>from contextlib import contextmanager
+
+@contextmanager
+def transaction(connection):
+    cursor = connection.cursor()
+    try:
+        yield cursor
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        cursor.close()
+
+# Usage
+with transaction(db) as cursor:
+    cursor.execute("UPDATE users SET name = ? WHERE id = ?", ("Alice", 1))
+    cursor.execute("UPDATE accounts SET balance = balance - 100 WHERE user_id = ?", (1,))
+# Commits automatically on success, rolls back on any exception</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">This pattern appears in nearly every production Python codebase. It's the reason <code>with</code> exists.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 Class vs @contextmanager — When to Use Each</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-700">
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Aspect</th>
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Class-Based</th>
+                            <th class="text-left py-2 text-slate-400 font-medium">@contextmanager</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">Boilerplate</td>
+                            <td class="py-2 pr-4">More</td>
+                            <td class="py-2 text-green-400">Less</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">Reusability</td>
+                            <td class="py-2 pr-4 text-green-400">Better (can subclass)</td>
+                            <td class="py-2">Limited</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">Complex state</td>
+                            <td class="py-2 pr-4 text-green-400">Handles well</td>
+                            <td class="py-2">Possible but awkward</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 pr-4">Best for</td>
+                            <td class="py-2 pr-4">Reusable utilities</td>
+                            <td class="py-2">One-off setup/cleanup</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">⚠️ Common Mistakes</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Forgetting to return from <code>__enter__</code>.</strong> The <code>as</code> variable will be <code>None</code>. Always return <code>self</code> or the value the user needs.</li>
+                <li><strong>Accidentally suppressing exceptions.</strong> Returning <code>True</code> from <code>__exit__</code> hides the exception silently. Return <code>False</code> unless suppression is intentional.</li>
+                <li><strong>Using <code>@contextmanager</code> without <code>try/finally</code>.</strong> If the block raises, code after <code>yield</code> never runs — cleanup leaks. Wrap the yield in <code>try/finally</code>.</li>
+                <li><strong>Forgetting the <code>yield</code> in a generator-based manager.</strong> Without a <code>yield</code>, the function returns a generator, not a context manager.</li>
+                <li><strong>Assuming <code>__exit__</code> receives every exception type.</strong> It doesn't catch exceptions raised by <code>__enter__</code> — those propagate directly.</li>
+                <li><strong>Nesting without order awareness.</strong> Multiple managers exit in reverse order (last-in, first-out), like decorators.</li>
+            </ul>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">❓ Frequently Asked Questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a context manager in Python?</summary>
+                    <p class="mt-2 text-sm text-slate-300">A context manager is an object that defines setup and cleanup behavior for a block of code. It is used with the with statement, which guarantees cleanup runs even if an exception is raised.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What does the with statement do?</summary>
+                    <p class="mt-2 text-sm text-slate-300">The with statement calls __enter__ on the object to set up resources, runs the block, then calls __exit__ to clean up. Even if the block raises an exception, __exit__ is called.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between class-based and generator-based context managers?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Class-based managers implement __enter__ and __exit__ methods and offer more control. Generator-based managers use the @contextmanager decorator and are more concise. Use @contextmanager for simple cases.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What does contextlib.suppress do?</summary>
+                    <p class="mt-2 text-sm text-slate-300">contextlib.suppress is a context manager that silently ignores specific exceptions. It replaces try/except/pass blocks and makes intent explicit.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I have multiple context managers in one with statement?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. Use with open('a') as a, open('b') as b: to chain multiple context managers. They are entered left-to-right and exited right-to-left, similar to how nested decorators work.</p>
+                </details>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 What's Next?</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/code/python/python-uv-ruff.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🔧 Modern Python Toolchain</div>
+                    <div class="text-xs text-slate-400 mt-1">uv, ruff, and ty explained.</div>
+                </a>
+                <a href="/code/python/python-decorators.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🎁 Python Decorators</div>
+                    <div class="text-xs text-slate-400 mt-1">Add behavior to functions.</div>
+                </a>
+                <a href="/code/python/python-dataclass.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🏷️ Python Dataclass</div>
+                    <div class="text-xs text-slate-400 mt-1">Eliminate class boilerplate.</div>
+                </a>
+                <a href="/code/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🐍 All Python Snippets</div>
+                    <div class="text-xs text-slate-400 mt-1">Browse every Python snippet.</div>
+                </a>
+            </div>
+        </div>
+
+        <section class="related-resources bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">📚 Related Guides</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/ultimate-python-guide.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🐍 Ultimate Python Guide</div>
+                    <div class="text-xs text-slate-400 mt-1">Master the full language.</div>
+                </a>
+                <a href="/how-to/what-is-django.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🐍 What is Django?</div>
+                    <div class="text-xs text-slate-400 mt-1">See context managers in production.</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/code/python/index.html" class="back-link">← All Python Snippets</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
