@@ -222,6 +222,7 @@
                             <li><a href="/code/html/html-semantic-layout.html">🖼️ Semantic Layouts</a></li>
                             <li><a href="/code/html/html-dialog-popover.html">🎬 Dialog & Popover</a></li>
                             <li><a href="/code/html/html-permissions.html">📍 Permissions Elements</a></li>
+                            <li><a href="/code/html/reference/index.html">📖 HTML Reference</a></li>
                             <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                                 <a href="/code/html/index.html" style="color: #60a5fa; font-weight: 700;">→ View all HTML Snippets</a>
                             </li>
