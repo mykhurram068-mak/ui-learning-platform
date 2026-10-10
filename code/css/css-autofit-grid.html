@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>CSS auto-fit + minmax — Responsive Grids Without Media Queries (2026)</title>
+    <meta name="description" content="Learn the CSS auto-fit + minmax trick for responsive grids without media queries. Interactive live demo shows how it adapts to any container width.">
+    <meta name="keywords" content="css auto-fit, css minmax, responsive grid without media queries, css grid auto-fit, grid template columns auto-fit, responsive card grid">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="CSS auto-fit + minmax — Responsive Grids Without Media Queries">
+    <meta property="og:description" content="The one-line CSS trick that creates responsive grids automatically.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/code/css/css-autofit-grid.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="../../favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/code/css/css-autofit-grid.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"HowTo","name":"CSS auto-fit + minmax Responsive Grid","description":"Learn how to create responsive grids without media queries using auto-fit and minmax.","totalTime":"PT10M","step":[{"@type":"HowToStep","position":1,"name":"Enable grid","text":"Set display: grid on the container."},{"@type":"HowToStep","position":2,"name":"Use auto-fit with minmax","text":"Set grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))."},{"@type":"HowToStep","position":3,"name":"Add gaps","text":"Use gap to space the grid items."},{"@type":"HowToStep","position":4,"name":"Compare auto-fit and auto-fill","text":"auto-fit collapses empty tracks, auto-fill keeps them."},{"@type":"HowToStep","position":5,"name":"Combine with Tailwind","text":"In Tailwind, use grid-cols-[repeat(auto-fit,minmax(250px,1fr))]."}]}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What does auto-fit do in CSS Grid?","acceptedAnswer":{"@type":"Answer","text":"auto-fit tells the grid to fit as many columns as possible into the container. Empty columns are collapsed, so remaining columns stretch to fill the space. This makes grids automatically responsive."}},{"@type":"Question","name":"What is the difference between auto-fit and auto-fill?","acceptedAnswer":{"@type":"Answer","text":"auto-fit collapses empty columns and stretches items to fill the row. auto-fill keeps empty columns, leaving whitespace. For responsive card grids, auto-fit is usually what you want."}},{"@type":"Question","name":"What is minmax() in CSS Grid?","acceptedAnswer":{"@type":"Answer","text":"minmax() defines a minimum and maximum size for a grid track. In minmax(250px, 1fr), each column is at least 250px wide but can grow to fill available space up to 1 fractional unit."}},{"@type":"Question","name":"Do I still need media queries for responsive grids?","acceptedAnswer":{"@type":"Answer","text":"For most card grids, no. auto-fit + minmax handles responsiveness automatically. You still need media queries for layout changes (like switching a sidebar from horizontal to vertical) that aren't about item count."}},{"@type":"Question","name":"Can I use auto-fit with Tailwind CSS?","acceptedAnswer":{"@type":"Answer","text":"Yes. Tailwind supports arbitrary values: grid-cols-[repeat(auto-fit,minmax(250px,1fr))] creates the same responsive grid without writing custom CSS."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="../../style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #3b82f6; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #3b82f6; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .live-demo-frame { width: 100%; height: 520px; border: none; border-radius: 0.75rem; background: #0f172a; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="../../navbar.js"></script>
+</div>
+</nav>
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Master Code <br> On The Go</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Learn. Practice. Build.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/code/index.html" class="hover:text-blue-400">Code Snippets</a> ›
+            <a href="/code/css/index.html" class="hover:text-blue-400">CSS Snippets</a> ›
+            <span class="text-slate-400">auto-fit + minmax</span>
+        </div>
+
+        <div class="space-y-2">
+            <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">CSS Snippet</h2>
+            <h1 class="text-3xl font-black">CSS auto-fit + minmax</h1>
+            <p class="text-slate-400">The one-line CSS trick that creates fully responsive grids without media queries.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <div class="info-box">
+            <p class="text-sm text-slate-300"><strong>Quick answer:</strong> Use <code class="text-yellow-300">grid-template-columns: repeat(auto-fit, minmax(250px, 1fr))</code> to create a responsive grid. The grid automatically fits as many 250px-minimum columns as possible, and each one stretches evenly to fill the row. No media queries required.</p>
+        </div>
+
+        <!-- LIVE DEMO -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎬 Interactive Live Demo</h2>
+            <p class="text-sm text-slate-400 mb-3">Resize your browser window to see the grid respond. Drag the slider to change the minimum column width.</p>
+            <iframe class="live-demo-frame" srcdoc='
+                &lt;!DOCTYPE html&gt;
+                &lt;html&gt;
+                &lt;head&gt;
+                    &lt;style&gt;
+                        * { box-sizing: border-box; }
+                        body {
+                            margin: 0;
+                            padding: 16px;
+                            background: #0f172a;
+                            font-family: system-ui, -apple-system, sans-serif;
+                            color: #e2e8f0;
+                            font-size: 13px;
+                        }
+                        .control {
+                            background: #1e293b;
+                            border-radius: 10px;
+                            padding: 12px;
+                            margin-bottom: 12px;
+                            border: 1px solid #334155;
+                            display: flex;
+                            align-items: center;
+                            gap: 12px;
+                            flex-wrap: wrap;
+                        }
+                        label {
+                            font-size: 12px;
+                            color: #94a3b8;
+                            font-family: ui-monospace, monospace;
+                        }
+                        input[type=range] {
+                            flex: 1;
+                            min-width: 150px;
+                            accent-color: #3b82f6;
+                        }
+                        .value {
+                            font-family: ui-monospace, monospace;
+                            color: #60a5fa;
+                            font-weight: 700;
+                            font-size: 12px;
+                            min-width: 60px;
+                            text-align: right;
+                        }
+                        .grid {
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                            gap: 12px;
+                            transition: grid-template-columns 0.2s;
+                        }
+                        .card {
+                            background: linear-gradient(135deg, #1e293b, #0f172a);
+                            border: 1px solid #334155;
+                            border-radius: 10px;
+                            padding: 20px;
+                            font-weight: 600;
+                            color: #e2e8f0;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            min-height: 80px;
+                        }
+                        .card.active {
+                            background: linear-gradient(135deg, #1e40af, #3b82f6);
+                            border-color: #60a5fa;
+                            color: white;
+                        }
+                    &lt;/style&gt;
+                &lt;/head&gt;
+                &lt;body&gt;
+                    &lt;div class="control"&gt;
+                        &lt;label&gt;minmax(&lt;/label&gt;
+                        &lt;input type="range" id="minmax-slider" min="120" max="350" value="220" step="10"&gt;
+                        &lt;span class="value" id="minmax-value"&gt;220px&lt;/span&gt;
+                        &lt;label&gt;, 1fr)&lt;/label&gt;
+                    &lt;/div&gt;
+                    &lt;div class="grid" id="grid"&gt;
+                        &lt;div class="card active"&gt;Card 1&lt;/div&gt;
+                        &lt;div class="card active"&gt;Card 2&lt;/div&gt;
+                        &lt;div class="card active"&gt;Card 3&lt;/div&gt;
+                        &lt;div class="card active"&gt;Card 4&lt;/div&gt;
+                        &lt;div class="card active"&gt;Card 5&lt;/div&gt;
+                        &lt;div class="card active"&gt;Card 6&lt;/div&gt;
+                    &lt;/div&gt;
+
+                    &lt;script&gt;
+                        const slider = document.getElementById("minmax-slider");
+                        const value = document.getElementById("minmax-value");
+                        const grid = document.getElementById("grid");
+
+                        slider.addEventListener("input", () =&gt; {
+                            const v = slider.value;
+                            value.textContent = v + "px";
+                            grid.style.gridTemplateColumns = `repeat(auto-fit, minmax(${v}px, 1fr))`;
+                        });
+                    &lt;/script&gt;
+                &lt;/body&gt;
+                &lt;/html&gt;
+            '></iframe>
+            <p class="text-xs text-slate-500 mt-3">💡 Drag the slider and resize your browser window to see the grid react automatically.</p>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">The One-Line Responsive Grid</h3>
+                    <pre><code>.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">That's it. No media queries, no JavaScript, no breakpoints. The grid figures out how many columns fit in the available space:</p>
+                    <ul class="list-disc list-inside text-sm space-y-1 text-slate-300 mt-2">
+                        <li><strong>Wide container:</strong> 4 or 5 columns.</li>
+                        <li><strong>Medium container:</strong> 2 or 3 columns.</li>
+                        <li><strong>Narrow container (mobile):</strong> 1 column.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">How Each Part Works</h3>
+                    <pre><code>grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                        │       │         │
+                        │       │         └── Max width: 1 fraction of available space
+                        │       └─── Function: distribute tracks automatically
+                        └─── Keywords: create as many tracks as fit</code></pre>
+                    <p class="text-sm text-slate-300 mt-3"><strong>Breaking it down:</strong></p>
+                    <ul class="list-disc list-inside text-sm space-y-1 text-slate-300 mt-2">
+                        <li><code>repeat(...)</code> — repeats the track pattern.</li>
+                        <li><code>auto-fit</code> — fills the row with as many tracks as will fit.</li>
+                        <li><code>minmax(250px, 1fr)</code> — each track is at least 250px wide, but grows to fill extra space evenly.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">auto-fit vs auto-fill — The Critical Difference</h3>
+                    <p class="text-sm text-slate-300 mt-2">These two keywords look identical but behave differently when there are fewer items than available columns:</p>
+                    <pre><code>/* auto-fit — collapses empty columns, items stretch */
+grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+/* Result: 3 items → 3 evenly-sized stretched cards */
+
+/* auto-fill — keeps empty columns, items stay sized */
+grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+/* Result: 3 items → 3 cards + empty space on the right */</code></pre>
+                    <div class="pro-tip mt-3">
+                        <p class="text-xs text-slate-300">💡 <strong>Rule of thumb:</strong> Use <code>auto-fit</code> for card grids (you want items to fill the row). Use <code>auto-fill</code> when you want items to stay a fixed size regardless of container width.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">4</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Practical Examples</h3>
+                    <p class="text-sm text-slate-300 mt-2"><strong>Responsive card grid:</strong></p>
+                    <pre><code>.cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}</code></pre>
+                    <p class="text-sm text-slate-300 mt-3"><strong>Responsive photo gallery:</strong></p>
+                    <pre><code>.gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px;
+}</code></pre>
+                    <p class="text-sm text-slate-300 mt-3"><strong>Responsive dashboard with different min widths:</strong></p>
+                    <pre><code>.dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1rem;
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">5</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Tailwind CSS Version</h3>
+                    <p class="text-sm text-slate-300 mt-2">Tailwind supports arbitrary values with square brackets:</p>
+                    <pre><code>&lt;div class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-4"&gt;
+    &lt;div&gt;Card 1&lt;/div&gt;
+    &lt;div&gt;Card 2&lt;/div&gt;
+    &lt;div&gt;Card 3&lt;/div&gt;
+    &lt;div&gt;Card 4&lt;/div&gt;
+&lt;/div&gt;</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">Or for a more reusable setup, define a custom utility in your CSS:</p>
+                    <pre><code>@utility grid-auto-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+}</code></pre>
+                    <p class="text-xs text-slate-400 mt-3">👉 Read our <a href="/how-to/tailwind-grid-guide.html" class="text-blue-400 hover:underline">Tailwind Grid Guide</a> and <a href="/how-to/tailwind-custom-utilities.html" class="text-blue-400 hover:underline">Custom Utilities Guide</a>.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 auto-fit vs auto-fill — Side by Side</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-700">
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Keyword</th>
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Empty columns</th>
+                            <th class="text-left py-2 text-slate-400 font-medium">Best for</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4"><code class="text-yellow-300">auto-fit</code></td>
+                            <td class="py-2 pr-4">Collapsed</td>
+                            <td class="py-2 text-green-400">Card grids, galleries, dashboards</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 pr-4"><code class="text-yellow-300">auto-fill</code></td>
+                            <td class="py-2 pr-4">Kept as empty space</td>
+                            <td class="py-2">Fixed-size items, alignment scenarios</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">⚠️ Common Mistakes</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Using <code>1fr</code> as the minimum.</strong> <code>minmax(1fr, 1fr)</code> doesn't work. The minimum needs a fixed unit (px, rem, or ch).</li>
+                <li><strong>Forgetting <code>gap</code>.</strong> Without a gap, cards touch each other. Always set a gap.</li>
+                <li><strong>Setting the minimum too high.</strong> A 500px minimum forces single-column layout on mobile. Keep it between 180px and 300px for most grids.</li>
+                <li><strong>Confusing <code>auto-fit</code> with <code>auto-fill</code>.</strong> Try both if the layout doesn't look right.</li>
+                <li><strong>Expecting this to work on flex containers.</strong> <code>auto-fit</code> is Grid-only. For Flexbox, use <code>flex-wrap</code> with <code>flex: 1 1 250px</code>.</li>
+            </ul>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">❓ Frequently Asked Questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What does auto-fit do in CSS Grid?</summary>
+                    <p class="mt-2 text-sm text-slate-300">auto-fit tells the grid to fit as many columns as possible into the container. Empty columns are collapsed, so remaining columns stretch to fill the space. This makes grids automatically responsive.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between auto-fit and auto-fill?</summary>
+                    <p class="mt-2 text-sm text-slate-300">auto-fit collapses empty columns and stretches items to fill the row. auto-fill keeps empty columns, leaving whitespace. For responsive card grids, auto-fit is usually what you want.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is minmax() in CSS Grid?</summary>
+                    <p class="mt-2 text-sm text-slate-300">minmax() defines a minimum and maximum size for a grid track. In minmax(250px, 1fr), each column is at least 250px wide but can grow to fill available space up to 1 fractional unit.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Do I still need media queries for responsive grids?</summary>
+                    <p class="mt-2 text-sm text-slate-300">For most card grids, no. auto-fit + minmax handles responsiveness automatically. You still need media queries for layout changes (like switching a sidebar from horizontal to vertical) that aren't about item count.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I use auto-fit with Tailwind CSS?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. Tailwind supports arbitrary values: grid-cols-[repeat(auto-fit,minmax(250px,1fr))] creates the same responsive grid without writing custom CSS.</p>
+                </details>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 What's Next?</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/code/css/css-has-selector.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🌈 :has() Selector</div>
+                    <div class="text-xs text-slate-400 mt-1">Style parents based on children.</div>
+                </a>
+                <a href="/code/css/css-container-queries.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">📦 Container Queries</div>
+                    <div class="text-xs text-slate-400 mt-1">Component-level responsiveness.</div>
+                </a>
+                <a href="/code/css/css-clamp-fluid-type.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">📏 Fluid Typography</div>
+                    <div class="text-xs text-slate-400 mt-1">Scale text with clamp().</div>
+                </a>
+                <a href="/code/css/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🎨 All CSS Snippets</div>
+                    <div class="text-xs text-slate-400 mt-1">Browse every CSS snippet.</div>
+                </a>
+            </div>
+        </div>
+
+        <section class="related-resources bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">📚 Related Guides</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/how-to/tailwind-grid-guide.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">📐 Tailwind Grid Guide</div>
+                    <div class="text-xs text-slate-400 mt-1">Grid utilities in Tailwind.</div>
+                </a>
+                <a href="/code/css/css-center-a-div.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🎯 Center a Div</div>
+                    <div class="text-xs text-slate-400 mt-1">The other essential CSS trick.</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/code/css/index.html" class="back-link">← All CSS Snippets</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
