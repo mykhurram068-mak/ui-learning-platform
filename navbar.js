@@ -238,6 +238,7 @@
                             <li><a href="/code/css/css-has-selector.html">🌈 :has() Selector</a></li>
                             <li><a href="/code/css/css-container-queries.html">📦 Container Queries</a></li>
                             <li><a href="/code/css/css-clamp-fluid-type.html">📏 Fluid Typography</a></li>
+                            <li><a href="/code/css/reference/index.html">📖 CSS Reference</a></li>
                             <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                                 <a href="/code/css/index.html" style="color: #60a5fa; font-weight: 700;">→ View all CSS Snippets</a>
                             </li>
