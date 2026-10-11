@@ -269,6 +269,7 @@
                             <li><a href="/code/js/js-abortcontroller.html">🚫 AbortController</a></li>
                             <li><a href="/code/js/js-structuredclone.html">📋 structuredClone</a></li>
                             <li><a href="/code/js/js-array-methods.html">📚 Array Methods</a></li>
+                            <li><a href="/code/js/reference/index.html">📖 JavaScript Reference</a></li>
                             <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                                 <a href="/code/js/index.html" style="color: #60a5fa; font-weight: 700;">→ View all JS Snippets</a>
                             </li>
