@@ -254,6 +254,7 @@
                             <li><a href="/code/python/python-dataclass.html">🏷️ Dataclass</a></li>
                             <li><a href="/code/python/python-uv-ruff.html">🔧 Modern Toolchain</a></li>
                             <li><a href="/code/python/python-context-managers.html">📂 Context Managers</a></li>
+                            <li><a href="/code/python/reference/index.html">🐍 Python Reference</a></li>
                             <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                                 <a href="/code/python/index.html" style="color: #60a5fa; font-weight: 700;">→ View all Python Snippets</a>
                             </li>
