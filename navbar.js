@@ -283,7 +283,7 @@
                             <ul class="dropdown-category-content">
                                 <li><a href="/code/ai/streaming-text.html">Streaming Text</a></li>
                                 
-                                <li><a href="#">📖 AI Reference</a></li>
+                                <li><a href="/code/ai/reference/index.html">📖 AI Reference</a></li>
                                 <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                                     <a href="/code/ai/index.html" style="color: #60a5fa; font-weight: 700;">→ View all AI Snippets</a>
                                 </li>
