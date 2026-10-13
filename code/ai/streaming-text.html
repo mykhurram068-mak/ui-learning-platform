@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Streaming Text Snippet — AI Token Reveal (HTML, CSS, JS)</title>
+    <meta name="description" content="Free streaming text snippet for AI apps. ChatGPT-style token-by-token reveal with blinking cursor, stop button, and copy-paste HTML, CSS, and JavaScript.">
+    <meta name="keywords" content="streaming text snippet, ai streaming text, chatgpt text effect, token reveal javascript, ai typing effect">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Streaming Text Snippet — AI Token Reveal">
+    <meta property="og:description" content="ChatGPT-style streaming text with blinking cursor. Copy-paste HTML, CSS, JS.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/code/ai/streaming-text.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/code/ai/streaming-text.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Streaming Text Snippet — AI Token Reveal","description":"ChatGPT-style streaming text with cursor and stop button.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-13","dateModified":"2026-10-13"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How does streaming text work in AI apps?","acceptedAnswer":{"@type":"Answer","text":"The model returns tokens over a stream (SSE or WebSocket). The UI appends each token to the DOM as it arrives, giving the effect of text being typed in real time."}},{"@type":"Question","name":"Do I need a library for streaming text?","acceptedAnswer":{"@type":"Answer","text":"No. This snippet uses vanilla JavaScript with setInterval or requestAnimationFrame. Works in any modern browser without dependencies."}},{"@type":"Question","name":"How do I stop streaming mid-way?","acceptedAnswer":{"@type":"Answer","text":"Store the interval or animation frame ID and clear it on stop. This snippet includes a Stop button that does exactly that."}},{"@type":"Question","name":"Can I use this with a real AI API?","acceptedAnswer":{"@type":"Answer","text":"Yes. Replace the simulated interval with your actual API call using fetch() with a ReadableStream reader or EventSource for SSE."}},{"@type":"Question","name":"Does this work on mobile?","acceptedAnswer":{"@type":"Answer","text":"Yes. The layout is responsive and uses no fixed widths. The cursor animation uses CSS only."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #3b82f6; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #3b82f6; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .ref-card { background: #0f172a; border: 1px solid #1e293b; border-radius: 1.5rem; padding: 1.25rem; transition: all 0.25s ease; display: block; text-decoration: none; height: 100%; }
+        .ref-card:hover { border-color: rgba(59, 130, 246, 0.5); transform: translateY(-3px); box-shadow: 0 10px 30px rgba(59, 130, 246, 0.1); }
+
+        /* === SNIPPET STYLES (copy this block) === */
+        .stream-output {
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            line-height: 1.7;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 3rem;
+        }
+        .stream-cursor {
+            display: inline-block;
+            width: 0.5ch;
+            height: 1.1em;
+            background: #3b82f6;
+            margin-left: 2px;
+            vertical-align: text-bottom;
+            animation: blink 1s step-end infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        .stream-cursor.hidden { display: none; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">AI Snippet</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Copy. Paste. Ship.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/code/index.html" class="hover:text-blue-400">Code Snippets</a> ›
+            <a href="/code/ai/index.html" class="hover:text-blue-400">AI</a> ›
+            <span class="text-slate-400">Streaming Text</span>
+        </div>
+
+        <div class="space-y-2">
+            <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Snippet</h2>
+            <h1 class="text-3xl font-black">Streaming Text Reveal</h1>
+            <p class="text-slate-400">ChatGPT-style token-by-token text reveal with a blinking cursor and stop button.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <div class="info-box">
+            <p class="text-sm text-slate-300"><strong>What this snippet does:</strong> Renders text one character at a time, mimicking the streaming output of AI models like ChatGPT and Claude. Includes a blinking cursor and a stop button. Pure HTML, CSS, and vanilla JavaScript — no dependencies, no build step.</p>
+        </div>
+
+        <!-- LIVE DEMO -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎬 Live Demo</h2>
+            <p class="text-sm text-slate-400 mb-4">Click Start to see the streaming effect.</p>
+            <div class="bg-slate-950 rounded-xl p-4 border border-slate-800">
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <button id="demo-start" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition">▶ Start</button>
+                    <button id="demo-stop" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-semibold transition" disabled>⏹ Stop</button>
+                    <button id="demo-reset" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-semibold transition">↺ Reset</button>
+                </div>
+                <div id="demo-output" class="stream-output"></div>
+            </div>
+            <p class="text-xs text-slate-500 mt-3">💡 The cursor blinks while streaming and disappears when done.</p>
+        </div>
+
+        <script>
+        (function() {
+            const SAMPLE_TEXT = "Artificial intelligence is transforming how developers build software. With streaming responses, users see results instantly instead of waiting for the full reply. This pattern is now standard in ChatGPT, Claude, and every modern AI interface.";
+
+            const output = document.getElementById('demo-output');
+            const startBtn = document.getElementById('demo-start');
+            const stopBtn = document.getElementById('demo-stop');
+            const resetBtn = document.getElementById('demo-reset');
+
+            let intervalId = null;
+            let cursor = null;
+
+            function createCursor() {
+                cursor = document.createElement('span');
+                cursor.className = 'stream-cursor';
+                output.appendChild(cursor);
+            }
+
+            function removeCursor() {
+                if (cursor && cursor.parentNode) {
+                    cursor.parentNode.removeChild(cursor);
+                }
+                cursor = null;
+            }
+
+            function startStream() {
+                if (intervalId) return;
+                output.textContent = '';
+                createCursor();
+
+                let i = 0;
+                intervalId = setInterval(() => {
+                    if (i >= SAMPLE_TEXT.length) {
+                        stopStream();
+                        return;
+                    }
+                    cursor.insertAdjacentText('beforebegin', SAMPLE_TEXT[i]);
+                    i++;
+                }, 25);
+
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+            }
+
+            function stopStream() {
+                if (intervalId) {
+                    clearInterval(intervalId);
+                    intervalId = null;
+                }
+                removeCursor();
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+            }
+
+            function resetStream() {
+                stopStream();
+                output.textContent = '';
+            }
+
+            startBtn.addEventListener('click', startStream);
+            stopBtn.addEventListener('click', stopStream);
+            resetBtn.addEventListener('click', resetStream);
+        })();
+        </script>
+
+        <!-- HOW IT WORKS -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">📝</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">How It Works</h3>
+                    <p class="text-sm text-slate-300">Text is appended one character at a time using <code>setInterval</code>. The cursor is a separate span that stays at the end. When streaming finishes, the cursor is removed.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- HTML -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">HTML</h3>
+                    <pre><code>&lt;div class="stream-container"&gt;
+  &lt;div class="stream-output" id="output"&gt;&lt;/div&gt;
+  &lt;div class="stream-controls"&gt;
+    &lt;button id="start"&gt;▶ Start&lt;/button&gt;
+    &lt;button id="stop" disabled&gt;⏹ Stop&lt;/button&gt;
+    &lt;button id="reset"&gt;↺ Reset&lt;/button&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- CSS -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">CSS</h3>
+                    <pre><code>.stream-output {
+  font-family: 'Inter', sans-serif;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: #e2e8f0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  min-height: 3rem;
+}
+
+.stream-cursor {
+  display: inline-block;
+  width: 0.5ch;
+  height: 1.1em;
+  background: #3b82f6;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- JS -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">JavaScript</h3>
+                    <pre><code>const TEXT = "Your streaming text here...";
+
+const output = document.getElementById('output');
+const startBtn = document.getElementById('start');
+const stopBtn = document.getElementById('stop');
+const resetBtn = document.getElementById('reset');
+
+let intervalId = null;
+let cursor = null;
+
+function createCursor() {
+  cursor = document.createElement('span');
+  cursor.className = 'stream-cursor';
+  output.appendChild(cursor);
+}
+
+function removeCursor() {
+  if (cursor &amp;&amp; cursor.parentNode) {
+    cursor.parentNode.removeChild(cursor);
+  }
+  cursor = null;
+}
+
+function startStream() {
+  if (intervalId) return;
+  output.textContent = '';
+  createCursor();
+
+  let i = 0;
+  intervalId = setInterval(() =&gt; {
+    if (i &gt;= TEXT.length) {
+      stopStream();
+      return;
+    }
+    cursor.insertAdjacentText('beforebegin', TEXT[i]);
+    i++;
+  }, 25);
+
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+}
+
+function stopStream() {
+  if (intervalId) {
+    clearInterval(intervalId);
+    intervalId = null;
+  }
+  removeCursor();
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+}
+
+function resetStream() {
+  stopStream();
+  output.textContent = '';
+}
+
+startBtn.addEventListener('click', startStream);
+stopBtn.addEventListener('click', stopStream);
+resetBtn.addEventListener('click', resetStream);</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- REAL API -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">4</span>
+                <div>
+                    <h3 class="text-white font-bold text-lg">Using a Real AI API</h3>
+                    <p class="text-sm text-slate-300 mb-2">Replace the simulated interval with a real streaming fetch:</p>
+                    <pre><code>async function streamFromAPI(prompt) {
+  output.textContent = '';
+  createCursor();
+
+  const res = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
+  });
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    const chunk = decoder.decode(value, { stream: true });
+    cursor.insertAdjacentText('beforebegin', chunk);
+  }
+
+  removeCursor();
+}</code></pre>
+                    <div class="pro-tip mt-3">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> For OpenAI/Anthropic APIs, set <code>stream: true</code> in the request body and read chunks from the response body.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CUSTOMIZATION -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎨 Customization</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-700">
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Property</th>
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Effect</th>
+                            <th class="text-left py-2 text-slate-400 font-medium">Default</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4"><code>interval</code></td><td class="py-2 pr-4">Speed of reveal</td><td class="py-2"><code>25ms</code></td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4"><code>background</code> (cursor)</td><td class="py-2 pr-4">Cursor color</td><td class="py-2"><code>#3b82f6</code></td></tr>
+                        <tr><td class="py-2 pr-4"><code>font-size</code></td><td class="py-2 pr-4">Text size</td><td class="py-2"><code>1rem</code></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- USE CASES -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 Use Cases</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>AI chat interfaces</strong> — ChatGPT, Claude, Perplexity clones</li>
+                <li><strong>Code assistants</strong> — streaming completions into an editor</li>
+                <li><strong>Documentation generators</strong> — progressive reveal of long text</li>
+                <li><strong>Landing page hero</strong> — attention-grabbing animated headline</li>
+                <li><strong>Terminal emulators</strong> — simulate command output</li>
+            </ul>
+        </div>
+
+        <!-- MISTAKES -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">⚠️ Common Mistakes</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Appending with innerHTML +=.</strong> Re-parses the DOM each time. Use <code>insertAdjacentText</code>.</li>
+                <li><strong>Using setInterval for real APIs.</strong> Use <code>ReadableStream</code> reader for actual streaming.</li>
+                <li><strong>Forgetting to clear the interval.</strong> Memory leak if the user navigates away.</li>
+                <li><strong>Not handling unicode.</strong> Split emoji incorrectly if you slice strings naively.</li>
+                <li><strong>Auto-scrolling jitter.</strong> Use <code>scrollIntoView({ block: 'nearest' })</code>.</li>
+            </ul>
+        </div>
+
+        <!-- FAQ -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">❓ Frequently Asked Questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How does streaming text work in AI apps?</summary>
+                    <p class="mt-2 text-sm text-slate-300">The model returns tokens over a stream (SSE or WebSocket). The UI appends each token to the DOM as it arrives, giving the effect of text being typed in real time.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Do I need a library for streaming text?</summary>
+                    <p class="mt-2 text-sm text-slate-300">No. This snippet uses vanilla JavaScript with setInterval or requestAnimationFrame. Works in any modern browser without dependencies.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I stop streaming mid-way?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Store the interval or animation frame ID and clear it on stop. This snippet includes a Stop button that does exactly that.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I use this with a real AI API?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. Replace the simulated interval with your actual API call using fetch() with a ReadableStream reader or EventSource for SSE.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Does this work on mobile?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. The layout is responsive and uses no fixed widths. The cursor animation uses CSS only.</p>
+                </details>
+            </div>
+        </div>
+
+        <!-- WHAT'S NEXT -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎯 What's Next?</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/code/ai/chat-sidebar.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">📎 Chat Sidebar</div>
+                    <div class="text-xs text-slate-400 mt-1">Docked AI panel.</div>
+                </a>
+                <a href="/code/ai/typing-indicator.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">💭 Typing Indicator</div>
+                    <div class="text-xs text-slate-400 mt-1">Three-dot animation.</div>
+                </a>
+                <a href="/code/ai/agent-timeline.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">📊 Agent Timeline</div>
+                    <div class="text-xs text-slate-400 mt-1">Tool-call progress.</div>
+                </a>
+                <a href="/code/ai/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🤖 AI Hub</div>
+                    <div class="text-xs text-slate-400 mt-1">All AI content.</div>
+                </a>
+            </div>
+        </div>
+
+        <a href="/code/ai/index.html" class="back-link">← AI Hub</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
