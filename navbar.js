@@ -281,7 +281,7 @@
                         <li class="dropdown-category">
                             <a href="#" class="dropdown-category-btn">⚡ AI Snippets</a>
                             <ul class="dropdown-category-content">
-                                <li><a href="/code/ai/">Streaming Text</a></li>
+                                <li><a href="/code/ai/streaming-text.html">Streaming Text</a></li>
                                 
                                 <li><a href="#">📖 AI Reference</a></li>
                                 <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
