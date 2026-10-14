@@ -161,7 +161,7 @@
     </style>
 
     <header class="p-5 flex justify-between items-center border-b border-gray-800 sticky top-0 z-50">
-   
+  
         <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
             <span></span>
             <span></span>
@@ -175,6 +175,8 @@
             <li class="dropdown-nav">
                 <a href="#" class="dropbtn-nav">Snippets ▼</a>
                 <ul class="dropdown-nav-content">
+
+                    <!-- 🎨 UI Components (site-wide snippets) -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">🎨 UI Components</a>
                         <ul class="dropdown-category-content">
@@ -186,6 +188,8 @@
                             <li><a href="/navbar-snippet.html">📱 Navbar</a></li>
                         </ul>
                     </li>
+
+                    <!-- 📝 Forms & Input -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">📝 Forms & Input</a>
                         <ul class="dropdown-category-content">
@@ -194,6 +198,8 @@
                             <li><a href="/download-button.html">⬇️ Download Button</a></li>
                         </ul>
                     </li>
+
+                    <!-- ⚡ Interactive -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚡ Interactive</a>
                         <ul class="dropdown-category-content">
@@ -202,17 +208,7 @@
                             <li><a href="/ai-analyser.html">💬 Sentiment Analyser</a></li>
                         </ul>
                     </li>
-                    <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">🔧 Utilities</a>
-                        <ul class="dropdown-category-content">
-                            <li><a href="/password-gen.html">🔐 Password Generator</a></li>
-                        </ul>
-                    </li>
-               <!--</ul>
-            </li>-->
 
-            <!-- ==================== CODE SNIPPETS ==================== -->
-           
                     <!-- 🟨 HTML Snippets -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">🟨 HTML Snippets</a>
@@ -228,7 +224,7 @@
                             </li>
                         </ul>
                     </li>
-            
+
                     <!-- 🎨 CSS Snippets -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">🎨 CSS Snippets</a>
@@ -244,7 +240,7 @@
                             </li>
                         </ul>
                     </li>
-            
+
                     <!-- 🐍 Python Snippets -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">🐍 Python Snippets</a>
@@ -260,7 +256,7 @@
                             </li>
                         </ul>
                     </li>
-            
+
                     <!-- ⚡ JavaScript Snippets -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚡ JavaScript Snippets</a>
@@ -275,21 +271,25 @@
                                 <a href="/code/js/index.html" style="color: #60a5fa; font-weight: 700;">→ View all JS Snippets</a>
                             </li>
                         </ul>
-                                            </li>
-                        
-                        <!-- 🤖 AI Snippets -->
-                        <li class="dropdown-category">
-                            <a href="#" class="dropdown-category-btn">🤖 AI Snippets</a>
-                            <ul class="dropdown-category-content">
-                                <li><a href="/code/ai/streaming-text.html">⚡ Streaming Text</a></li>
-                                
-                                <li><a href="/code/ai/reference/index.html">📖 AI Reference</a></li>
-                                <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                                    <a href="/code/ai/index.html" style="color: #60a5fa; font-weight: 700;">→ View all AI Snippets</a>
-                                </li>
-                            </ul>
-                        </li>
-                    
+                    </li>
+
+                    <!-- 🤖 AI Snippets -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🤖 AI Snippets</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/code/ai/streaming-text.html">⚡ Streaming Text</a></li>
+                            <li><a href="/code/ai/chat-sidebar.html">📎 Chat Sidebar</a></li>
+                            <li><a href="/code/ai/agent-timeline.html">📊 Agent Timeline</a></li>
+                            <li><a href="/code/ai/typing-indicator.html">💭 Typing Indicator</a></li>
+                            <li><a href="/code/ai/source-citations.html">📚 Source Citations</a></li>
+                            <li><a href="/code/ai/model-picker.html">🎯 Model Picker</a></li>
+                            <li><a href="/code/ai/reference/index.html">📖 AI Reference</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/code/ai/index.html" style="color: #60a5fa; font-weight: 700;">→ View all AI Snippets</a>
+                            </li>
+                        </ul>
+                    </li>
+
                 </ul>
             </li>
 
@@ -297,26 +297,29 @@
             <li class="dropdown-nav">
                 <a href="#" class="dropbtn-nav">Guides ▼</a>
                 <ul class="dropdown-nav-content">
-           
-                    <!-- 🟨 Languages -->
+
+                    <!-- 🗺️ Learning Paths (NEW — future home of /learn/*) -->
                     <li class="dropdown-category">
-                        <a href="#" class="dropdown-category-btn">🟨 Languages</a>
+                        <a href="#" class="dropdown-category-btn">🗺️ Learning Paths</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/learn/python.html">🐍 Learn Python</a></li>
+                            <li><a href="/learn/javascript.html">⚡ Learn JavaScript</a></li>
+                            <li><a href="/learn/web-development.html">🌐 Learn Web Development</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 🟨 Language Guides -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🟨 Language Guides</a>
                         <ul class="dropdown-category-content">
                             <li><a href="/ultimate-html-guide.html">🌐 HTML Guide</a></li>
-                                                        
                             <li><a href="/ultimate-python-guide.html">🐍 Python Guide</a></li>
-                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
-                                <a href="/learn/python.html" style="color: #60a5fa; font-weight: 700;">→ Learn Python</a>
-                            </li>
-
-
-                            
                             <li><a href="/ultimate-ai-guide.html">🤖 AI Guide</a></li>
                             <li><a href="/how-to/what-is-typescript.html">🟦 TypeScript Guide</a></li>
                         </ul>
                     </li>
-           
-                    <!-- ⚛️ Frameworks & Concepts (5 + View all) -->
+
+                    <!-- ⚛️ Frameworks & Concepts -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚛️ Frameworks & Concepts</a>
                         <ul class="dropdown-category-content">
@@ -330,8 +333,8 @@
                             </li>
                         </ul>
                     </li>
-           
-                    <!-- ⚔️ Comparisons (5 + View all) -->
+
+                    <!-- ⚔️ Comparisons -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚔️ Comparisons</a>
                         <ul class="dropdown-category-content">
@@ -358,7 +361,7 @@
                     </li>
                 </ul>
             </li>
-           
+
             <!-- ==================== HOW-TO ==================== -->
             <li class="dropdown-nav">
                 <a href="/how-to/index.html" class="dropbtn-nav">How-to ▼</a>
@@ -391,8 +394,8 @@
                             <li><a href="/how-to/command-line-basics.html">⌨️ Command Line Basics</a></li>
                             <li><a href="/how-to/write-first-html-page.html">📝 Write First HTML Page</a></li>
                         </ul>
-                    </li>  
-               
+                    </li>
+
                     <!-- 🐍 Python & Streamlit -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">🐍 Python & Streamlit</a>
@@ -632,7 +635,6 @@
             hamburger.addEventListener('click', function(e) {
                 e.stopPropagation();
                 navMenu.classList.toggle('active');
-                // Close all dropdowns when hamburger toggles
                 document.querySelectorAll('.dropdown-nav-content').forEach(function(c) {
                     c.style.display = 'none';
                 });
@@ -660,7 +662,6 @@
                 const content = this.nextElementSibling;
                 const isOpen = content.style.display === 'block';
 
-                // Close all main dropdowns and reset category states
                 document.querySelectorAll('.dropdown-nav-content').forEach(function(c) {
                     c.style.display = 'none';
                 });
@@ -671,14 +672,13 @@
                     b.classList.remove('open');
                 });
 
-                // Toggle clicked
                 if (!isOpen) {
                     content.style.display = 'block';
                 }
             });
         });
 
-        // ====== LEVEL 2: Category click (opens sub-links) ======
+        // ====== LEVEL 2: Category click ======
         document.querySelectorAll('.dropdown-category-btn').forEach(function(btn) {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -687,7 +687,6 @@
                 const content = this.nextElementSibling;
                 const isOpen = content.style.display === 'block';
 
-                // Close sibling categories within the same dropdown
                 const parentDropdown = this.closest('.dropdown-nav-content');
                 parentDropdown.querySelectorAll('.dropdown-category-content').forEach(function(c) {
                     c.style.display = 'none';
@@ -696,7 +695,6 @@
                     b.classList.remove('open');
                 });
 
-                // Open clicked category
                 if (!isOpen) {
                     content.style.display = 'block';
                     this.classList.add('open');
