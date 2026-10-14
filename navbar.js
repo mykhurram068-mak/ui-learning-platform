@@ -562,10 +562,11 @@
             <!-- ==================== PROJECTS ==================== -->
             <li class="dropdown-nav dropdown-projects">
                 <a href="#" class="dropbtn-nav">Projects ▼</a>
-                <li style="padding: 4px 8px;">
+               
+                <ul class="dropdown-nav-content">
+                 <li style="padding: 4px 8px;">
                     <a href="/projects/index.html" style="color: #60a5fa; font-weight: 700; display:block; padding: 10px 14px; border-radius: 8px;">📚 All Projects Hub</a>
                 </li>
-                <ul class="dropdown-nav-content">
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">📐 Math & Money</a>
                         <ul class="dropdown-category-content">
