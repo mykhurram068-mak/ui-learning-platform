@@ -303,7 +303,14 @@
                         <a href="#" class="dropdown-category-btn">🟨 Languages</a>
                         <ul class="dropdown-category-content">
                             <li><a href="/ultimate-html-guide.html">🌐 HTML Guide</a></li>
+                                                        
                             <li><a href="/ultimate-python-guide.html">🐍 Python Guide</a></li>
+                            <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/learn/python.html" style="color: #60a5fa; font-weight: 700;">→ Learn Python</a>
+                            </li>
+
+
+                            
                             <li><a href="/ultimate-ai-guide.html">🤖 AI Guide</a></li>
                             <li><a href="/how-to/what-is-typescript.html">🟦 TypeScript Guide</a></li>
                         </ul>
