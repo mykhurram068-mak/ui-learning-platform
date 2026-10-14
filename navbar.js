@@ -504,10 +504,11 @@
             <!-- ==================== TOOLS ==================== -->
             <li class="dropdown-nav">
                 <a href="#" class="dropbtn-nav">Tools ▼</a>
-                 <li style="padding: 4px 8px;">
+                 
+                <ul class="dropdown-nav-content">
+                <li style="padding: 4px 8px;">
                     <a href="/tools/index.html" style="color: #60a5fa; font-weight: 700; display:block; padding: 10px 14px; border-radius: 8px;">🛠️ All Tools Hub</a>
                 </li>
-                <ul class="dropdown-nav-content">
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">📊 Calculators</a>
                         <ul class="dropdown-category-content">
