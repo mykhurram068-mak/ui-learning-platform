@@ -504,6 +504,9 @@
             <!-- ==================== TOOLS ==================== -->
             <li class="dropdown-nav">
                 <a href="#" class="dropbtn-nav">Tools ▼</a>
+                 <li style="padding: 4px 8px;">
+                    <a href="/tools/index.html" style="color: #60a5fa; font-weight: 700; display:block; padding: 10px 14px; border-radius: 8px;">🛠️ All Tools Hub</a>
+                </li>
                 <ul class="dropdown-nav-content">
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">📊 Calculators</a>
@@ -549,15 +552,18 @@
                             <li><a href="/tools/qr-code-generator.html">📱 QR Code Generator</a></li>
                         </ul>
                     </li>
-                    <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                    <!--<li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                         <a href="/tools/index.html" style="color: #60a5fa;">🛠️ View All Tools →</a>
-                    </li>
+                    </li>-->
                 </ul>
             </li>
 
             <!-- ==================== PROJECTS ==================== -->
             <li class="dropdown-nav dropdown-projects">
                 <a href="#" class="dropbtn-nav">Projects ▼</a>
+                <li style="padding: 4px 8px;">
+                    <a href="/projects/index.html" style="color: #60a5fa; font-weight: 700; display:block; padding: 10px 14px; border-radius: 8px;">📚 All Projects Hub</a>
+                </li>
                 <ul class="dropdown-nav-content">
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">📐 Math & Money</a>
@@ -602,9 +608,9 @@
                             <li><a href="/projects/build-streamlit-dashboard.html">📊 Streamlit Dashboard</a></li>
                         </ul>
                     </li>
-                    <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                    <!--<li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                         <a href="/projects/index.html" style="color: #60a5fa;">📚 View All Projects →</a>
-                    </li>
+                    </li>-->
                 </ul>
             </li>
 
