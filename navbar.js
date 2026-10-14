@@ -302,6 +302,7 @@
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">🗺️ Learning Paths</a>
                         <ul class="dropdown-category-content">
+                            <li><a href="/learn/index.html" style="color: #60a5fa; font-weight: 700;">📚 All Learning Paths</a></li>
                             <li><a href="/learn/python.html">🐍 Learn Python</a></li>
                             <li><a href="/learn/javascript.html">⚡ Learn JavaScript</a></li>
                             <li><a href="/learn/web-development.html">🌐 Learn Web Development</a></li>
