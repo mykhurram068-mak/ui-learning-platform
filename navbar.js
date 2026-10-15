@@ -289,6 +289,18 @@
                             </li>
                         </ul>
                     </li>
+                    <!-- NEW: Prompts category -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">📋 AI Prompts</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/code/ai/prompts.html" style="color: #60a5fa; font-weight: 700;">📋 All Prompts</a></li>
+                            <li><a href="/code/ai/prompt-debugging.html">🐛 Debugging</a></li>
+                            <!--<li><a href="/code/ai/prompt-refactoring.html">🔧 Refactoring</a></li>
+                            <li><a href="/code/ai/prompt-code-review.html">🔍 Code Review</a></li>
+                            <li><a href="/code/ai/prompt-architecture.html">🏗️ Architecture</a></li>-->
+                        </ul>
+                    </li>
+
 
                 </ul>
             </li>
