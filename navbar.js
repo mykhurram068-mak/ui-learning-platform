@@ -321,6 +321,19 @@
                         </ul>
                     </li>
 
+                    <!-- 🚨 Fix Errors — ADD THIS BLOCK -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🚨 Fix My Error</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/fix/index.html" style="color: #60a5fa; font-weight: 700;">🔍 All Error Fixes</a></li>
+                            <li><a href="/fix/js/cannot-read-property.html">🟨 Cannot read property</a></li>
+                            <li><a href="/fix/js/module-not-found.html">🟨 Module not found</a></li>
+                            <li><a href="/fix/js/object-not-iterable.html">🟨 X is not iterable</a></li>
+                            <li><a href="/fix/python/indentation-error.html">🐍 IndentationError</a></li>
+                            <li><a href="/fix/python/name-error.html">🐍 NameError</a></li>
+                        </ul>
+                    </li>
+
                     <!-- ⚛️ Frameworks & Concepts -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚛️ Frameworks & Concepts</a>
