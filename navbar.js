@@ -306,6 +306,7 @@
                             <li><a href="/learn/python.html">🐍 Learn Python</a></li>
                             <li><a href="/learn/javascript.html">⚡ Learn JavaScript</a></li>
                             <li><a href="/learn/web-development.html">🌐 Learn Web Development</a></li>
+                            <li><a href="/learn/ai-coding.html">🤖 Learn AI-Assisted Coding</a></li>
                         </ul>
                     </li>
 
