@@ -334,6 +334,17 @@
                         </ul>
                     </li>
 
+                    <!-- 🏗️ Build Projects — ADD THIS BLOCK -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🏗️ Build Projects</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/build/index.html" style="color: #60a5fa; font-weight: 700;">🏗️ All Build Projects</a></li>
+                            <li><a href="/build/web-apps/todo-app.html">✅ To-Do App</a></li>
+                            <li><a href="/build/web-apps/weather-app.html">🌤️ Weather App</a></li>
+                            <li><a href="/build/desktop-apps/electron-notes.html">📓 Notes App (Electron)</a></li>
+                        </ul>
+                    </li>
+
                     <!-- ⚛️ Frameworks & Concepts -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">⚛️ Frameworks & Concepts</a>
