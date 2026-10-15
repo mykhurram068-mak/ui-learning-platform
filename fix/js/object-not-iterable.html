@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fix: TypeError X is not iterable in JavaScript (2026)</title>
+    <meta name="description" content="Fix 'TypeError: X is not iterable' in JavaScript. Learn why spread, for-of, and destructuring fail on objects — and the three clean solutions.">
+    <meta name="keywords" content="typeerror is not iterable, object not iterable, spread object error, for of object error, javascript not iterable fix">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Fix: TypeError X is not iterable">
+    <meta property="og:description" content="Why spread, for-of, and destructuring fail on objects.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/fix/js/object-not-iterable.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/fix/js/object-not-iterable.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Fix: TypeError X is not iterable","description":"Why spread, for-of, and destructuring fail on objects.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-15","dateModified":"2026-10-15"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I fix TypeError X is not iterable in JavaScript?","acceptedAnswer":{"@type":"Answer","text":"The object you're trying to iterate (with spread, for-of, or destructuring) is a plain object, not an array or iterable. Convert it first: use Object.entries(obj) to iterate key-value pairs, Object.keys(obj) for keys, or Object.values(obj) for values."}},{"@type":"Question","name":"Why can't I spread a plain object with for-of?","acceptedAnswer":{"@type":"Answer","text":"for-of requires an object with a Symbol.iterator method. Plain objects don't have one by default. Arrays, strings, Maps, Sets, and TypedArrays do. To iterate an object, use Object.entries, Object.keys, or Object.values."}},{"@type":"Question","name":"What is the difference between spreading objects and spreading arrays?","acceptedAnswer":{"@type":"Answer","text":"Spreading an array ([...arr]) creates a new array with the same elements. Spreading an object ({...obj}) creates a shallow copy with the same properties. The error only occurs when you spread an object into an array context or iterate it with for-of."}},{"@type":"Question","name":"How do I convert an object to an array?","acceptedAnswer":{"@type":"Answer","text":"Use Object.entries(obj) to get an array of [key, value] pairs, Object.keys(obj) for keys, or Object.values(obj) for values. Each returns a real array you can iterate with any array method."}},{"@type":"Question","name":"Why does this error only happen sometimes?","acceptedAnswer":{"@type":"Answer","text":"The error depends on what value is assigned at runtime. If the variable holds an array on one code path and an object on another, only the object path throws. Log the value before iterating to confirm its actual type."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #3b82f6; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .fix-answer { background: #0f172a; border-left: 4px solid #22c55e; padding: 1.25rem; border-radius: 0.75rem; margin: 1.5rem 0; }
+        .fix-answer .label { color: #22c55e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-bottom: 0.5rem; }
+        .fix-answer p { color: #e2e8f0; font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #3b82f6; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .error-badge {
+            display: inline-block;
+            background: #450a0a;
+            color: #fca5a5;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid #7f1d1d;
+            margin-bottom: 1rem;
+            word-break: break-word;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Fix My Error</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stuck? Solved.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/fix/index.html" class="hover:text-blue-400">Fix Errors</a> ›
+            <a href="/fix/index.html#javascript" class="hover:text-blue-400">JavaScript</a> ›
+            <span class="text-slate-400">X is not iterable</span>
+        </div>
+
+        <div class="space-y-2">
+            <div class="error-badge">TypeError: object is not iterable (cannot read property Symbol(Symbol.iterator))</div>
+            <h1 class="text-3xl font-black">Fix: TypeError X is not iterable</h1>
+            <p class="text-slate-400">You tried to spread, loop, or destructure a plain object. Here's why it fails and three ways to fix it.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <!-- THE 30-SECOND FIX -->
+        <div class="fix-answer">
+            <div class="label">⚡ The 30-second fix</div>
+            <p><strong>Convert the object to an array first.</strong> Use one of these three methods depending on what you need:</p>
+            <pre style="margin: 0.75rem 0 0.5rem 0;"><code>// Iterate over key-value pairs
+for (const [key, value] of Object.entries(obj)) { ... }
+
+// Iterate over keys only
+for (const key of Object.keys(obj)) { ... }
+
+// Iterate over values only
+for (const value of Object.values(obj)) { ... }</code></pre>
+        </div>
+
+        <!-- WHAT IT MEANS -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">What the error means</h2>
+            <p class="text-sm text-slate-300 leading-relaxed">JavaScript has two kinds of collections: <strong>iterables</strong> (arrays, strings, Maps, Sets) and <strong>non-iterables</strong> (plain objects). Only iterables work with <code>for-of</code>, spread (<code>[...x]</code>), and array destructuring.</p>
+
+            <pre><code>// Iterable — works
+for (const x of [1, 2, 3]) { }
+for (const x of "abc") { }
+for (const x of new Set([1, 2])) { }
+for (const [k, v] of new Map([[1, 2]])) { }
+
+// Non-iterable — throws
+for (const x of { a: 1, b: 2 }) { }  // ❌ TypeError</code></pre>
+        </section>
+
+        <!-- WHY IT HAPPENS -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Why it happens</h2>
+            <p class="text-sm text-slate-300 leading-relaxed">Plain objects don't have a <code>Symbol.iterator</code> method. That's the mechanism <code>for-of</code>, spread, and array destructuring rely on. Arrays, strings, Maps, and Sets all implement it. Objects don't.</p>
+
+            <pre><code>// Arrays have it
+typeof [].constructor.prototype[Symbol.iterator];  // "function"
+
+// Objects don't
+typeof {}.constructor.prototype[Symbol.iterator];  // "undefined"
+
+// That's the entire reason for this error</code></pre>
+
+            <div class="info-box">
+                <p class="text-sm text-slate-300"><strong>Note:</strong> The spread operator <code>{...obj}</code> (object spread) works fine on objects. The error only occurs with array spread <code>[...obj]</code> or iteration.</p>
+            </div>
+        </section>
+
+        <!-- THREE FIXES -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Three fixes depending on what you need</h2>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">1</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">You need both keys and values</h3>
+                        <p class="text-sm text-slate-300 mb-2"><code>Object.entries()</code> returns an array of <code>[key, value]</code> pairs. Destructure inside the loop.</p>
+                        <pre><code>const config = { theme: "dark", lang: "en" };
+
+// Loop over entries
+for (const [key, value] of Object.entries(config)) {
+  console.log(key, value);
+  // theme dark
+  // lang en
+}
+
+// Or map over entries
+const html = Object.entries(config)
+  .map(([k, v]) =&gt; `&lt;div&gt;${k}: ${v}&lt;/div&gt;`)
+  .join("");</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">2</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">You only need the keys</h3>
+                        <p class="text-sm text-slate-300 mb-2"><code>Object.keys()</code> returns an array of the object's own enumerable property names.</p>
+                        <pre><code>const user = { name: "Alice", age: 30 };
+
+for (const key of Object.keys(user)) {
+  console.log(key);
+  // name
+  // age
+}
+
+// Check required fields
+const required = ["name", "email"];
+const missing = required.filter(
+  key =&gt; !Object.keys(user).includes(key)
+);</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">3</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">You only need the values</h3>
+                        <p class="text-sm text-slate-300 mb-2"><code>Object.values()</code> returns an array of the object's own enumerable property values.</p>
+                        <pre><code>const scores = { alice: 85, bob: 92, cara: 78 };
+
+// Sum all scores
+const total = Object.values(scores)
+  .reduce((sum, score) =&gt; sum + score, 0);
+// 255
+
+// Highest scorer
+const highest = Math.max(...Object.values(scores));
+// 92</code></pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- HOW TO PREVENT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ How to prevent it</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Log before you iterate.</strong> <code>console.log(typeof value, value)</code> reveals if it's an object or array.</li>
+                <li><strong>Use TypeScript.</strong> The compiler won't allow <code>for-of</code> on non-iterable types.</li>
+                <li><strong>Name objects differently from arrays.</strong> <code>userMap</code> vs <code>userList</code> makes the shape obvious.</li>
+                <li><strong>Return consistent types.</strong> Don't return an object on one path and an array on another.</li>
+                <li><strong>Remember <code>Object.entries</code> exists.</strong> It converts the shape for you — no need to force iteration on objects.</li>
+            </ul>
+        </section>
+
+        <!-- WHAT WORKS AND WHAT DOESN'T -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">What works on objects vs arrays</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-700">
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Operation</th>
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Object</th>
+                            <th class="text-left py-2 text-slate-400 font-medium">Array</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4"><code>for-of</code></td><td class="py-2 pr-4">❌</td><td class="py-2">✅</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4"><code>[...x]</code> spread</td><td class="py-2 pr-4">❌</td><td class="py-2">✅</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4"><code>{...x}</code> spread</td><td class="py-2 pr-4">✅</td><td class="py-2">⚠️ Spreads indices</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4"><code>Array.isArray(x)</code></td><td class="py-2 pr-4">false</td><td class="py-2">true</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4"><code>x.length</code></td><td class="py-2 pr-4">undefined</td><td class="py-2">number</td></tr>
+                        <tr><td class="py-2 pr-4"><code>Object.entries(x)</code></td><td class="py-2 pr-4">✅</td><td class="py-2">✅ (index-value pairs)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix TypeError X is not iterable in JavaScript?</summary>
+                    <p class="mt-2 text-sm text-slate-300">The object you're trying to iterate (with spread, for-of, or destructuring) is a plain object, not an array or iterable. Convert it first: use Object.entries(obj) to iterate key-value pairs, Object.keys(obj) for keys, or Object.values(obj) for values.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why can't I spread a plain object with for-of?</summary>
+                    <p class="mt-2 text-sm text-slate-300">for-of requires an object with a Symbol.iterator method. Plain objects don't have one by default. Arrays, strings, Maps, Sets, and TypedArrays do. To iterate an object, use Object.entries, Object.keys, or Object.values.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between spreading objects and spreading arrays?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Spreading an array ([...arr]) creates a new array with the same elements. Spreading an object ({...obj}) creates a shallow copy with the same properties. The error only occurs when you spread an object into an array context or iterate it with for-of.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I convert an object to an array?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Use Object.entries(obj) to get an array of [key, value] pairs, Object.keys(obj) for keys, or Object.values(obj) for values. Each returns a real array you can iterate with any array method.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does this error only happen sometimes?</summary>
+                    <p class="mt-2 text-sm text-slate-300">The error depends on what value is assigned at runtime. If the variable holds an array on one code path and an object on another, only the object path throws. Log the value before iterating to confirm its actual type.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED FIXES -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related fixes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/js/cannot-read-property.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-red-500/50 transition-all">
+                    <div class="font-mono text-xs text-red-400 mb-1">Cannot read property</div>
+                    <div class="font-semibold text-white text-sm">Fix: Undefined property access</div>
+                </a>
+                <a href="/fix/js/module-not-found.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-red-500/50 transition-all">
+                    <div class="font-mono text-xs text-red-400 mb-1">Module not found</div>
+                    <div class="font-semibold text-white text-sm">Fix: Can't resolve module</div>
+                </a>
+                <a href="/code/js/reference/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-blue-400 mb-1">Reference</div>
+                    <div class="font-semibold text-white text-sm">JavaScript methods</div>
+                </a>
+                <a href="/fix/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-red-500/50 transition-all">
+                    <div class="font-mono text-xs text-slate-400 mb-1">All Fixes</div>
+                    <div class="font-semibold text-white text-sm">Back to hub</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/index.html" class="back-link">← All Error Fixes</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
