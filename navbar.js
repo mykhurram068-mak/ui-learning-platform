@@ -340,9 +340,12 @@
                             <li><a href="/fix/index.html" style="color: #60a5fa; font-weight: 700;">🔍 All Error Fixes</a></li>
                             <li><a href="/fix/js/cannot-read-property.html">🟨 Cannot read property</a></li>
                             <li><a href="/fix/js/module-not-found.html">🟨 Module not found</a></li>
-                            <li><a href="/fix/js/object-not-iterable.html">🟨 X is not iterable</a></li>
+                            <!--<li><a href="/fix/js/object-not-iterable.html">🟨 X is not iterable</a></li>
                             <li><a href="/fix/python/indentation-error.html">🐍 IndentationError</a></li>
-                            <li><a href="/fix/python/name-error.html">🐍 NameError</a></li>
+                            <li><a href="/fix/python/name-error.html">🐍 NameError</a></li>-->
+                              <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
+                                <a href="/fix/wordpress/index.html" style="color: #60a5fa; font-weight: 700;">🌐 WordPress Fixes</a>
+                             </li>
                         </ul>
                     </li>
 
