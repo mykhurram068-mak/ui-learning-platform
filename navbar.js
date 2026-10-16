@@ -342,12 +342,25 @@
                             <li><a href="/fix/js/module-not-found.html">🟨 Module not found</a></li>
                             <!--<li><a href="/fix/js/object-not-iterable.html">🟨 X is not iterable</a></li>
                             <li><a href="/fix/python/indentation-error.html">🐍 IndentationError</a></li>
-                            <li><a href="/fix/python/name-error.html">🐍 NameError</a></li>-->
+                            <li><a href="/fix/python/name-error.html">🐍 NameError</a></li>
                               <li style="border-top: 1px solid #1e293b; margin-top: 6px; padding-top: 6px;">
                                 <a href="/fix/wordpress/index.html" style="color: #60a5fa; font-weight: 700;">🌐 WordPress Fixes</a>
-                             </li>
+                             </li>-->
                         </ul>
                     </li>
+
+                    <!-- 🌐 Platforms — after Fix My Error -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">🌐 Platform Fixes</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/fix/wordpress/index.html">🌐 WordPress Fixes</a></li>
+                            <li><a href="/fix/vscode/index.html">💻 VS Code Fixes</a></li>
+                            <li><a href="/fix/shopify/index.html">🛍️ Shopify Fixes</a></li>
+                            <li><a href="/fix/npm/index.html">📦 npm Fixes</a></li>
+                        </ul>
+                    </li>
+
+                    
                     <!-- NEW: WordPress How-to category — add after Fix My Error -->
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">📘 WordPress How-to</a>
