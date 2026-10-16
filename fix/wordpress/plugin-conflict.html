@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fix: WordPress Site Broke After Installing a Plugin (2026)</title>
+    <meta name="description" content="Fix WordPress plugin conflicts fast. Deactivate, bisect, and identify the culprit plugin in under 5 minutes. Full walkthrough with WP-CLI and file manager methods.">
+    <meta name="keywords" content="wordpress plugin conflict, fix wordpress plugin, wordpress site broke after plugin, deactivate all plugins, wordpress plugin conflict debug">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Fix: WordPress Plugin Conflict">
+    <meta property="og:description" content="Fix WordPress plugin conflicts in under 5 minutes.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/fix/wordpress/plugin-conflict.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/fix/wordpress/plugin-conflict.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Fix: WordPress Plugin Conflict","description":"Fix WordPress plugin conflicts fast.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I fix a WordPress plugin conflict?","acceptedAnswer":{"@type":"Answer","text":"Deactivate all plugins by renaming the wp-content/plugins folder, then reactivate them one at a time until the site breaks again. The last plugin you activated is the conflict."}},{"@type":"Question","name":"How do I access WordPress admin if I can't log in?","acceptedAnswer":{"@type":"Answer","text":"Use SFTP or your hosting file manager to rename wp-content/plugins to wp-content/plugins-disabled. This deactivates every plugin site-wide and restores admin access."}},{"@type":"Question","name":"Can I fix a plugin conflict without WP-CLI?","acceptedAnswer":{"@type":"Answer","text":"Yes. WP-CLI is faster, but the file manager method works on any host. Rename the plugins folder, then reactivate plugins one by one from wp-admin."}},{"@type":"Question","name":"What causes WordPress plugin conflicts?","acceptedAnswer":{"@type":"Answer","text":"Three things: two plugins registering the same WordPress hook, a plugin that assumes a different PHP or WordPress version, or a plugin that modifies global state that another plugin depends on."}},{"@type":"Question","name":"How do I prevent plugin conflicts in the future?","acceptedAnswer":{"@type":"Answer","text":"Test plugin updates on staging first, keep fewer plugins active, use plugins from active authors, and check the 'Tested up to' field before updating."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #21759b; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #21759b; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .fix-answer { background: #0f172a; border-left: 4px solid #22c55e; padding: 1.25rem; border-radius: 0.75rem; margin: 1.5rem 0; }
+        .fix-answer .label { color: #22c55e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-bottom: 0.5rem; }
+        .fix-answer p { color: #e2e8f0; font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #21759b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #21759b; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #21759b; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .error-badge {
+            display: inline-block;
+            background: #0c1e2b;
+            color: #7dd3fc;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid #21759b;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Fix My Error</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stuck? Solved.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/fix/index.html" class="hover:text-blue-400">Fix Errors</a> ›
+            <a href="/fix/wordpress/index.html" class="hover:text-blue-400">WordPress</a> ›
+            <span class="text-slate-400">Plugin Conflict</span>
+        </div>
+
+        <div class="space-y-2">
+            <div class="error-badge">Site broke after installing / updating a plugin</div>
+            <h1 class="text-3xl font-black">Fix: WordPress Plugin Conflict</h1>
+            <p class="text-slate-400">Your site worked. You installed a plugin. Now it doesn't. Here's how to find the culprit in under 5 minutes.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <!-- THE 30-SECOND FIX -->
+        <div class="fix-answer">
+            <div class="label">⚡ The 30-second fix</div>
+            <p><strong>Deactivate all plugins, then reactivate them one at a time.</strong> The plugin that breaks the site when reactivated is the conflict.</p>
+            <p>If you can't log in, use your hosting file manager to rename <code class="text-yellow-300">wp-content/plugins</code> to <code class="text-yellow-300">wp-content/plugins-disabled</code>. This disables every plugin site-wide and restores access.</p>
+        </div>
+
+        <!-- WHAT IT MEANS -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">What's actually happening</h2>
+            <p class="text-sm text-slate-300 leading-relaxed">Two plugins are fighting over the same WordPress hook, or one plugin assumes a PHP/WordPress version you don't have, or a plugin modifies global state that another plugin depends on. WordPress doesn't isolate plugins — they all run in the same PHP process, and the last one to modify a shared value wins.</p>
+
+            <pre><code>// Common conflict pattern
+Plugin A: add_action('init', 'setup_thing', 10);
+Plugin B: add_action('init', 'setup_thing', 10);
+// Both register the same function → fatal error or silent override</code></pre>
+        </section>
+
+        <!-- METHOD 1: WP-ADMIN -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">If you can still access wp-admin</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">The fastest path. Deactivate every plugin, then reactivate one by one.</p>
+                    <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                        <li>Go to <strong>Plugins → Installed Plugins</strong></li>
+                        <li>Select all plugins via the header checkbox</li>
+                        <li>Choose <strong>Deactivate</strong> from the Bulk Actions dropdown</li>
+                        <li>Click <strong>Apply</strong> — the site should recover</li>
+                        <li>Reactivate plugins <strong>one at a time</strong>, reloading the site after each</li>
+                        <li>The plugin that breaks the site is the conflict</li>
+                    </ol>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Start with the plugin you installed or updated most recently — it's the cause 80% of the time.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- METHOD 2: WP-CLI -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">If you have SSH access (WP-CLI)</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Faster and safer. Works even when wp-admin is completely broken.</p>
+                    <pre><code># Deactivate all plugins
+wp plugin deactivate --all
+
+# Verify the site loads
+# Then reactivate one at a time
+wp plugin activate plugin-slug
+
+# Reload the site after each
+# When it breaks, you've found the conflict
+
+# To identify the culprit faster (list by last updated)
+wp plugin list --fields=name,status,update</code></pre>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> <code>wp plugin list</code> shows which plugins have pending updates. Plugins recently updated are the most common culprits.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- METHOD 3: FILE MANAGER -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">If wp-admin is broken (file manager / SFTP)</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">When you can't log in at all. Works on every host including shared hosting.</p>
+                    <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                        <li>Open your hosting file manager (cPanel, Plesk) or connect via SFTP</li>
+                        <li>Navigate to <code>wp-content/</code></li>
+                        <li>Rename <code>plugins</code> → <code>plugins-disabled</code></li>
+                        <li>Reload your site — it should work</li>
+                        <li>Rename the folder back to <code>plugins</code></li>
+                        <li>Log into wp-admin and reactivate plugins one at a time</li>
+                    </ol>
+                    <div class="warning-box">
+                        <p class="text-sm text-slate-300"><strong>Warning:</strong> Renaming the plugins folder deactivates every plugin. If a plugin is critical (like a payment gateway), the site may still not load — but at least wp-admin will work.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- METHOD 4: DATABASE -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">4</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">If nothing else works (phpMyAdmin)</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Last resort — force-deactivates plugins at the database level.</p>
+                    <pre><code>-- In phpMyAdmin, run this on your WordPress database
+UPDATE wp_options
+SET option_value = 'a:0:{}'
+WHERE option_name = 'active_plugins';</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">The <code>wp_</code> prefix may differ. Check your <code>wp-config.php</code> for <code>$table_prefix</code>.</p>
+                    <div class="warning-box">
+                        <p class="text-sm text-slate-300"><strong>Backup first.</strong> Direct database edits are unforgiving. Export the <code>wp_options</code> table before running this query.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- IDENTIFYING THE EXACT CONFLICT -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Identifying the exact conflict (advanced)</h2>
+            <p class="text-sm text-slate-300 mb-3">Once you know which plugin is causing problems, you can often find the specific conflict. This lets you keep both plugins if they're both valuable.</p>
+
+            <pre><code># Enable debug logging in wp-config.php
+define('WP_DEBUG', true);
+define('WP_DEBUG_LOG', true);
+define('WP_DEBUG_DISPLAY', false);
+
+# Then reload the site and check:
+# wp-content/debug.log</code></pre>
+
+            <p class="text-sm text-slate-300 mt-3">The debug log will show the exact function or hook conflict, often with the file path of both plugins involved.</p>
+
+            <div class="pro-tip">
+                <p class="text-sm text-slate-300"><strong>Pro tip:</strong> If the log shows <code>Cannot redeclare function_name()</code>, both plugins define the same function. That's a hard conflict — one plugin must be replaced.</p>
+            </div>
+        </section>
+
+        <!-- HOW TO PREVENT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ How to prevent this next time</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Test on staging first.</strong> Never install or update plugins on production without testing. Every host has staging now — use it.</li>
+                <li><strong>Fewer plugins is better.</strong> Every plugin is a potential conflict. If a plugin does one thing, consider a custom function instead.</li>
+                <li><strong>Check "Tested up to" before installing.</strong> A plugin last tested on WordPress 5.8 may misbehave on 6.7.</li>
+                <li><strong>Look at last update date.</strong> Plugins not updated in 2+ years are riskier. Search the plugin slug on wordpress.org to check.</li>
+                <li><strong>Keep backups automated.</strong> If a plugin breaks the site, a 1-click restore is 10 seconds — bisecting takes 10 minutes.</li>
+                <li><strong>Disable auto-updates on critical plugins.</strong> Updates that run overnight give you a broken site at 8am.</li>
+            </ul>
+        </section>
+
+        <!-- COMMON VARIATIONS -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Common variations of this issue</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-700">
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Symptom</th>
+                            <th class="text-left py-2 text-slate-400 font-medium">Likely cause</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">White screen of death</td><td class="py-2">PHP fatal error from plugin incompatibility</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Site loads but styling broken</td><td class="py-2">Plugin conflicting with theme styles</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Specific pages 404 or blank</td><td class="py-2">Plugin intercepting a route</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Admin works, frontend broken</td><td class="py-2">Frontend-only plugin conflict</td></tr>
+                        <tr><td class="py-2 pr-4">Random intermittent errors</td><td class="py-2">Race condition in hook priority</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix a WordPress plugin conflict?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Deactivate all plugins by renaming the wp-content/plugins folder, then reactivate them one at a time until the site breaks again. The last plugin you activated is the conflict.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I access WordPress admin if I can't log in?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Use SFTP or your hosting file manager to rename wp-content/plugins to wp-content/plugins-disabled. This deactivates every plugin site-wide and restores admin access.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I fix a plugin conflict without WP-CLI?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. WP-CLI is faster, but the file manager method works on any host. Rename the plugins folder, then reactivate plugins one by one from wp-admin.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What causes WordPress plugin conflicts?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Three things: two plugins registering the same WordPress hook, a plugin that assumes a different PHP or WordPress version, or a plugin that modifies global state that another plugin depends on.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I prevent plugin conflicts in the future?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Test plugin updates on staging first, keep fewer plugins active, use plugins from active authors, and check the 'Tested up to' field before updating.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related fixes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/wordpress/plugin-broke-after-update.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Update broke site</div>
+                    <div class="font-semibold text-white text-sm">Fix: Roll back a plugin</div>
+                </a>
+                <a href="/fix/wordpress/theme-css-not-applying.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">CSS not applying</div>
+                    <div class="font-semibold text-white text-sm">Fix: Theme CSS</div>
+                </a>
+                <a href="/how-to/wordpress/diagnose-plugin-conflict.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-blue-400 mb-1">How-to</div>
+                    <div class="font-semibold text-white text-sm">Diagnose conflicts systematically</div>
+                </a>
+                <a href="/fix/wordpress/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-slate-400 mb-1">All Fixes</div>
+                    <div class="font-semibold text-white text-sm">Back to WordPress hub</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/wordpress/index.html" class="back-link">← All WordPress Fixes</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
