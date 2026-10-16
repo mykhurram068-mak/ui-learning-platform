@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fix: How to Remove WordPress Plugins Safely Without Breaking Site (2026)</title>
+    <meta name="description" content="Remove WordPress plugins without leaving orphaned data or breaking your site. Order of operations, database cleanup, and what to check before deleting.">
+    <meta name="keywords" content="remove wordpress plugin safely, delete wordpress plugin, wordpress plugin removal, wordpress orphaned plugin data">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Fix: Remove WordPress Plugins Safely">
+    <meta property="og:description" content="Order of operations for safe plugin removal.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/fix/wordpress/remove-plugins-safely.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/fix/wordpress/remove-plugins-safely.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Fix: Remove WordPress Plugins Safely","description":"Order of operations for safe plugin removal.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I remove a WordPress plugin safely?","acceptedAnswer":{"@type":"Answer","text":"Backup first. Check if the plugin has a 'Delete data on uninstall' setting — enable it if you don't plan to use the plugin again. Deactivate the plugin, verify the site still works, then delete it. Finally, check for orphaned database tables."}},{"@type":"Question","name":"Does deactivating a plugin remove its data?","acceptedAnswer":{"@type":"Answer","text":"No. Deactivating stops the plugin from running but leaves all its files and database entries. Data is only removed when you delete the plugin (and only if the plugin supports cleanup on uninstall)."}},{"type":"Question","name":"What happens if I delete a plugin that stored data?","acceptedAnswer":{"@type":"Answer","text":"The plugin's database tables and options may stay in the database as orphans. They don't affect site performance much but can add up. Use a plugin like WP-Optimize or manual SQL to clean them up later."}},{"@type":"Question","name":"Can I safely remove plugins that I'm not using?","acceptedAnswer":{"@type":"Answer","text":"Yes, after backing up. Deactivate first to confirm nothing breaks. Pay attention to plugins that other plugins depend on — like WooCommerce, which many extensions require."}},{"@type":"Question","name":"Should I use a plugin cleanup plugin?","acceptedAnswer":{"@type":"Answer","text":"Yes for identifying orphans (WP-Optimize, Advanced Database Cleaner). Be cautious with anything that auto-deletes database tables — review the list before confirming, and always have a backup."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #21759b; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #21759b; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .fix-answer { background: #0f172a; border-left: 4px solid #22c55e; padding: 1.25rem; border-radius: 0.75rem; margin: 1.5rem 0; }
+        .fix-answer .label { color: #22c55e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-bottom: 0.5rem; }
+        .fix-answer p { color: #e2e8f0; font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #21759b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #21759b; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #21759b; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .error-badge {
+            display: inline-block;
+            background: #0c1e2b;
+            color: #7dd3fc;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid #21759b;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Fix My Error</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stuck? Solved.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/fix/index.html" class="hover:text-blue-400">Fix Errors</a> ›
+            <a href="/fix/wordpress/index.html" class="hover:text-blue-400">WordPress</a> ›
+            <span class="text-slate-400">Remove Plugins Safely</span>
+        </div>
+
+        <div class="space-y-2">
+            <div class="error-badge">Unused plugins piling up. Don't want to break anything.</div>
+            <h1 class="text-3xl font-black">Fix: Remove WordPress Plugins Safely</h1>
+            <p class="text-slate-400">Deactivate, verify, delete, clean up. The correct order of operations, plus what to check before you hit the delete button.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <!-- THE 30-SECOND ANSWER -->
+        <div class="fix-answer">
+            <div class="label">⚡ The correct order</div>
+            <p><strong>Backup → Deactivate → Verify site works → Delete → Clean up orphans.</strong></p>
+            <p>Never delete a plugin without deactivating it first. Never deactivate without a backup. The order matters because each step lets you catch problems before they compound.</p>
+        </div>
+
+        <!-- THE 5 STEPS -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">The 5-step removal process</h2>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">1</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Backup before anything</h3>
+                        <p class="text-sm text-slate-300 mb-2">A plugin removal that goes wrong is much cheaper to fix if you have a recent backup. Both files and database.</p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li><strong>UpdraftPlus</strong> (free) — scheduled backups to Google Drive, Dropbox, etc.</li>
+                            <li><strong>BlogVault</strong> (paid) — offsite backups plus staging</li>
+                            <li><strong>Your host's built-in backup</strong> — most managed WordPress hosts have this</li>
+                        </ul>
+                        <div class="warning-box">
+                            <p class="text-sm text-slate-300"><strong>Faster option:</strong> If you have staging, take a snapshot there first, test the removal, then apply the same changes to production. Staging is faster than restoring a backup.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">2</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Check the plugin's uninstall behavior</h3>
+                        <p class="text-sm text-slate-300 mb-2">Before deleting, check whether the plugin cleans up its data on uninstall. This determines whether you'll need to clean up orphans later.</p>
+                        <p class="text-sm text-slate-300 mt-3 mb-2"><strong>Three possibilities:</strong></p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li><strong>Cleans up automatically</strong> — no orphans to worry about</li>
+                            <li><strong>Asks before cleanup</strong> — some plugins prompt you when you click Delete</li>
+                            <li><strong>Never cleans up</strong> — you'll need to manually remove the database tables and options</li>
+                        </ul>
+                        <div class="pro-tip">
+                            <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Look in the plugin's settings page for a "Delete data on uninstall" checkbox. If it exists, enable it before deactivating — otherwise it might not offer the option later.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">3</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Deactivate first — never skip this</h3>
+                        <p class="text-sm text-slate-300 mb-2">Deactivating stops the plugin from running but leaves its files and data intact. This is your safety net — if something breaks, you can reactivate.</p>
+                        <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                            <li>Go to <strong>Plugins → Installed Plugins</strong></li>
+                            <li>Click <strong>Deactivate</strong> next to the plugin</li>
+                            <li>Visit your homepage, a post, a page, and the wp-admin dashboard</li>
+                            <li>If everything works → proceed to delete</li>
+                            <li>If something breaks → reactivate and diagnose</li>
+                        </ol>
+                        <div class="warning-box">
+                            <p class="text-sm text-slate-300"><strong>Common gotcha:</strong> Some plugins are dependencies. WooCommerce is required by dozens of extensions. Deactivating WooCommerce will break those extensions. Check for dependencies before deactivating the parent.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">4</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Delete the plugin</h3>
+                        <p class="text-sm text-slate-300 mb-2">Only now — after deactivating and confirming the site works — click Delete.</p>
+                        <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                            <li>Still on <strong>Plugins → Installed Plugins</strong></li>
+                            <li>Click <strong>Delete</strong> under the deactivated plugin</li>
+                            <li>WordPress will confirm — some plugins show a final "Delete data" prompt</li>
+                            <li>Confirm, and the plugin files are removed</li>
+                        </ol>
+                        <pre><code># Or via WP-CLI
+wp plugin deactivate plugin-slug
+wp plugin delete plugin-slug</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">5</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Clean up orphaned data</h3>
+                        <p class="text-sm text-slate-300 mb-2">Most plugins leave something behind — options, custom tables, scheduled cron jobs. These orphans don't usually cause problems, but they add up.</p>
+                        <p class="text-sm text-slate-300 mt-3 mb-2"><strong>Install a cleanup plugin</strong> to identify orphans:</p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li><strong>WP-Optimize</strong> — free, shows orphaned tables and options</li>
+                            <li><strong>Advanced Database Cleaner</strong> — free, more aggressive, be careful</li>
+                            <li><strong>Plugins Garbage Collector</strong> — free, focuses on plugin orphans</li>
+                        </ul>
+                        <div class="warning-box">
+                            <p class="text-sm text-slate-300"><strong>Backup before cleaning.</strong> Orphan cleanup permanently deletes database rows. If a plugin used a generic table name that looks orphaned but is used by something else, you can lose real data.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- WHAT TO CHECK BEFORE DELETING -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Before you delete: 5 checks</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-700">
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Check</th>
+                            <th class="text-left py-2 text-slate-400 font-medium">Why it matters</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Is another plugin dependent on it?</td><td class="py-2">WooCommerce, Advanced Custom Fields, and Elementor are dependencies for many add-ons</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Does it output shortcodes used in content?</td><td class="py-2">Shortcodes in posts will show as raw text once the plugin is gone</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Does it register custom post types or taxonomies?</td><td class="py-2">Content disappears from admin, but data stays in the database</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Does it store data in widgets or menus?</td><td class="py-2">Some widgets disappear, and menu items may revert</td></tr>
+                        <tr><td class="py-2 pr-4">Is it referenced in your theme's functions.php?</td><td class="py-2">Your theme may call the plugin's functions directly</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- WHAT LEFTOVERS LOOK LIKE -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">What orphaned data looks like in the database</h2>
+            <p class="text-sm text-slate-300 mb-3">After deleting a plugin, these common patterns remain:</p>
+            <pre><code># wp_options rows
+wp_options: option_name LIKE 'plugin_slug_%'
+
+# Custom tables
+wp_plugin_slug_data
+wp_plugin_slug_logs
+wp_plugin_slug_cache
+
+# Scheduled cron events
+wp_options: option_name = 'cron'
+  → contains entries like 'plugin_slug_daily_cleanup'
+
+# User meta
+wp_usermeta: meta_key LIKE 'plugin_slug_%'</code></pre>
+            <div class="pro-tip">
+                <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Before deleting a plugin, search the database for its slug. Note what you find. After deletion, come back and confirm what's left. This tells you exactly what to clean up.</p>
+            </div>
+        </section>
+
+        <!-- HOW TO PREVENT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ How to keep a clean plugin list</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Quarterly plugin audit.</strong> Every 3 months, review all active plugins. Deactivate anything not used in the last quarter.</li>
+                <li><strong>Document what each plugin does.</strong> A simple spreadsheet: plugin name, purpose, last used. When in doubt, check the sheet.</li>
+                <li><strong>Test plugin dependencies before removal.</strong> Deactivate and let the site run for a week before deleting. Some issues only surface later.</li>
+                <li><strong>Watch for updates on abandoned plugins.</strong> If a plugin hasn't been updated in 12+ months, plan a replacement.</li>
+                <li><strong>Don't install plugins to test them.</strong> Use a staging site or a local environment. Installing and uninstalling leaves orphans even when the plugin "cleans up."</li>
+            </ul>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I remove a WordPress plugin safely?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Backup first. Check if the plugin has a 'Delete data on uninstall' setting — enable it if you don't plan to use the plugin again. Deactivate the plugin, verify the site still works, then delete it. Finally, check for orphaned database tables.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Does deactivating a plugin remove its data?</summary>
+                    <p class="mt-2 text-sm text-slate-300">No. Deactivating stops the plugin from running but leaves all its files and database entries. Data is only removed when you delete the plugin (and only if the plugin supports cleanup on uninstall).</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What happens if I delete a plugin that stored data?</summary>
+                    <p class="mt-2 text-sm text-slate-300">The plugin's database tables and options may stay in the database as orphans. They don't affect site performance much but can add up. Use a plugin like WP-Optimize or manual SQL to clean them up later.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I safely remove plugins that I'm not using?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes, after backing up. Deactivate first to confirm nothing breaks. Pay attention to plugins that other plugins depend on — like WooCommerce, which many extensions require.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use a plugin cleanup plugin?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes for identifying orphans (WP-Optimize, Advanced Database Cleaner). Be cautious with anything that auto-deletes database tables — review the list before confirming, and always have a backup.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related fixes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/wordpress/plugin-slowing-site.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Plugin slowing site</div>
+                    <div class="font-semibold text-white text-sm">Fix: Performance issues</div>
+                </a>
+                <a href="/fix/wordpress/plugin-conflict.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Plugin conflict</div>
+                    <div class="font-semibold text-white text-sm">Fix: Site broke after plugin</div>
+                </a>
+                <a href="/how-to/wordpress/audit-your-plugins.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-blue-400 mb-1">How-to</div>
+                    <div class="font-semibold text-white text-sm">Quarterly plugin audit</div>
+                </a>
+                <a href="/fix/wordpress/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-slate-400 mb-1">All Fixes</div>
+                    <div class="font-semibold text-white text-sm">Back to WordPress hub</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/wordpress/index.html" class="back-link">← All WordPress Fixes</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
