@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fix: npm ERESOLVE unable to resolve dependency tree (2026)</title>
+    <meta name="description" content="Fix npm ERESOLVE errors properly. Understand peer dependency conflicts, and learn when to use --legacy-peer-deps vs --force vs fixing the source.">
+    <meta name="keywords" content="npm eresolve, eresolve unable to resolve dependency tree, npm peer dependency error, npm legacy-peer-deps, fix eresolve">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Fix: npm ERESOLVE Dependency Conflict">
+    <meta property="og:description" content="Understand and fix peer dependency conflicts.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/fix/npm/eresolve.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/fix/npm/eresolve.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Fix: npm ERESOLVE Dependency Conflict","description":"Understand and fix peer dependency conflicts.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What does npm ERESOLVE mean?","acceptedAnswer":{"@type":"Answer","text":"ERESOLVE means npm can't find a compatible version of a peer dependency that satisfies every package's requirements. Two or more packages need different versions of the same dependency, and npm can't reconcile them."}},{"@type":"Question","name":"Should I use --legacy-peer-deps or --force to fix ERESOLVE?","acceptedAnswer":{"@type":"Answer","text":"--legacy-peer-deps is safer: it ignores peer dependency conflicts and installs anyway, letting packages resolve at runtime. --force is more aggressive and can install broken dependency trees. Use --legacy-peer-deps as a temporary fix, then resolve the root cause."}},{"@type":"Question","name":"How do I fix ERESOLVE permanently?","acceptedAnswer":{"@type":"Answer","text":"Identify which two packages have conflicting peer requirements by reading the error output. Then: upgrade one of them, downgrade the other, replace one with an alternative, or add an overrides field in package.json to force a single version."}},{"@type":"Question","name":"What is the overrides field in package.json?","acceptedAnswer":{"@type":"Answer","text":"overrides lets you force a specific version of a dependency for all packages that depend on it. Example: 'overrides': { 'react': '18.2.0' } forces every package to use React 18.2.0, resolving conflicts at the resolution level."}},{"@type":"Question","name":"Does ERESOLVE break my code?","acceptedAnswer":{"@type":"Answer","text":"Not directly — the install just fails. But if you use --force and end up with a broken dependency tree, your code may fail at runtime. Always test after forcing an install."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #cb3837; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #cb3837; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .fix-answer { background: #0f172a; border-left: 4px solid #22c55e; padding: 1.25rem; border-radius: 0.75rem; margin: 1.5rem 0; }
+        .fix-answer .label { color: #22c55e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-bottom: 0.5rem; }
+        .fix-answer p { color: #e2e8f0; font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #cb3837; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #cb3837; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #cb3837; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .error-badge {
+            display: inline-block;
+            background: #2b0f0f;
+            color: #fca5a5;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid #cb3837;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Fix My Error</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stuck? Solved.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/fix/index.html" class="hover:text-blue-400">Fix Errors</a> ›
+            <a href="/fix/npm/index.html" class="hover:text-blue-400">npm</a> ›
+            <span class="text-slate-400">ERESOLVE</span>
+        </div>
+
+        <div class="space-y-2">
+            <div class="error-badge">npm ERR! ERESOLVE unable to resolve dependency tree</div>
+            <h1 class="text-3xl font-black">Fix: npm ERESOLVE Error</h1>
+            <p class="text-slate-400">Two packages need different versions of the same dependency. Here's how to fix it properly — without creating a broken dependency tree.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <div class="fix-answer">
+            <div class="label">⚡ The 30-second fix</div>
+            <p><strong>Try this first — it resolves 60% of cases without side effects:</strong></p>
+            <pre style="margin: 0.75rem 0 0.5rem 0;"><code>npm install --legacy-peer-deps</code></pre>
+            <p>This tells npm to ignore peer dependency conflicts and install anyway. Your packages resolve at runtime using whatever version is actually installed.</p>
+            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #94a3b8;">Then read the "Permanent fix" section below — <code>--legacy-peer-deps</code> is a band-aid, not a cure.</p>
+        </div>
+
+        <!-- WHAT IT MEANS -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">What ERESOLVE actually means</h2>
+            <p class="text-sm text-slate-300 leading-relaxed mb-3">npm v7 changed how peer dependencies are installed. In older npm, missing or conflicting peer dependencies produced a warning and moved on. In npm v7+, they produce a hard error unless you explicitly allow it.</p>
+
+            <p class="text-sm text-slate-300 mb-3"><strong>A "peer dependency"</strong> is a dependency a package declares but doesn't bundle — it expects YOU to provide it. Example: a React component library declares <code>react</code> as a peer dependency, meaning "I need React, but you're using it too, so we share it."</p>
+
+            <p class="text-sm text-slate-300 mb-3"><strong>ERESOLVE happens when two packages</strong> each declare a peer dependency on the same package but require different versions:</p>
+
+            <pre><code>Package A: needs react >= 17 < 19
+Package B: needs react ^18.0.0
+
+You have: react@19.0.0
+
+→ npm can't find a version that satisfies both requirements
+→ ERESOLVE</code></pre>
+
+            <div class="info-box">
+                <p class="text-sm text-slate-300"><strong>Why npm changed:</strong> Version 7 tried to be stricter about dependency conflicts because silent mismatches caused runtime bugs. In practice, many libraries declare overly strict peer requirements and work fine at runtime regardless. That's why <code>--legacy-peer-deps</code> exists.</p>
+            </div>
+        </section>
+
+        <!-- THE 4 FIXES -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Four fixes, from quickest to most correct</h2>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">1</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Quickest — use --legacy-peer-deps</h3>
+                        <p class="text-sm text-slate-300 mb-2">Ignores peer conflicts and installs. Works 60% of the time, causes runtime problems 10% of the time. Use it to get unblocked, then plan a real fix.</p>
+                        <pre><code># One-time fix
+npm install --legacy-peer-deps
+
+# Set as default for this project
+# Add to .npmrc in the project root:
+legacy-peer-deps=true
+
+# Or install globally for all projects (last resort):
+npm config set legacy-peer-deps true</code></pre>
+                        <div class="warning-box">
+                            <p class="text-sm text-slate-300"><strong>Commit the .npmrc to your repo</strong> if you use this fix. Otherwise, CI and teammates will hit the same error without your workaround.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">2</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Slightly better — --force</h3>
+                        <p class="text-sm text-slate-300 mb-2">Installs anyway, ignoring ALL version constraints — not just peer dependencies. More aggressive than <code>--legacy-peer-deps</code>. Use only when <code>--legacy-peer-deps</code> fails.</p>
+                        <pre><code>npm install --force</code></pre>
+                        <div class="warning-box">
+                            <p class="text-sm text-slate-300"><strong>--force can install broken trees.</strong> It doesn't check version constraints. Test thoroughly. If your app starts behaving strangely after install, this is why.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">3</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Recommended — read the error and resolve the conflict</h3>
+                        <p class="text-sm text-slate-300 mb-2">The error output tells you exactly which packages conflict. Resolve the actual version mismatch:</p>
+                        <pre><code># ERESOLVE error output tells you:
+npm ERR! Could not resolve dependency:
+npm ERR! peer react@">=17 <18" from some-library@1.2.3
+npm ERR! node_modules/some-library
+npm ERR!   some-library@"*" from the root project
+npm ERR!
+npm ERR! Conflicting peer dependency: react@18.3.1
+npm ERR! peer react@"^18.0.0" from another-library@2.0.0
+
+# Resolution options:
+# 1. Upgrade some-library to a version that supports react@19
+#    → npm install some-library@latest
+# 2. Or downgrade react to ^18
+#    → npm install react@18
+# 3. Or replace one of the conflicting packages
+# 4. Or force a specific version with overrides (see below)</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">4</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Best long-term — use overrides</h3>
+                        <p class="text-sm text-slate-300 mb-2">Force a specific version across the whole dependency tree. This is npm's official mechanism for resolving conflicts and works in CI too.</p>
+                        <pre><code>// package.json
+{
+  "overrides": {
+    "react": "18.3.1",
+    "some-library": {
+      "react": "18.3.1"
+    }
+  }
+}
+
+# Or force a specific sub-dependency
+{
+  "overrides": {
+    "some-library": {
+      "another-library": "2.0.0"
+    }
+  }
+}</code></pre>
+                        <div class="pro-tip">
+                            <p class="text-sm text-slate-300"><strong>When to use overrides:</strong> When a package's peer requirement is wrong but the code actually works with the newer version. Overrides force the install without breaking the tree.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- REAL EXAMPLES -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Real conflicts you'll hit (and their fixes)</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-700">
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Conflict</th>
+                            <th class="text-left py-2 text-slate-400 font-medium">Fix</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">React 19 + old React component library</td>
+                            <td class="py-2"><code>--legacy-peer-deps</code> then upgrade the library</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">TypeScript version mismatch (project vs peer)</td>
+                            <td class="py-2">Align TypeScript versions; use overrides if needed</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">ESLint 9 + ESLint plugins not updated yet</td>
+                            <td class="py-2">Stay on ESLint 8 until the plugin ecosystem catches up</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">Node version incompatibility</td>
+                            <td class="py-2">Switch Node with nvm/fnm; check package.json engines field</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 pr-4">Peer package doesn't exist (renamed/removed)</td>
+                            <td class="py-2">Fork the package or find a maintained alternative</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- HOW TO PREVENT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ How to prevent ERESOLVE</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Keep dependencies updated regularly.</strong> Most ERESOLVE happens because one package is several majors behind.</li>
+                <li><strong>Use a lockfile and commit it.</strong> <code>package-lock.json</code> pins exact versions so installs are reproducible.</li>
+                <li><strong>Prefer packages with active maintenance.</strong> Look at the last update date and open issue count on npm.</li>
+                <li><strong>Read peer dependencies before installing.</strong> <code>npm info package-name peerDependencies</code> shows what a package expects.</li>
+                <li><strong>Use <code>overrides</code> instead of <code>--legacy-peer-deps</code> when you can.</strong> Overrides are checked into your project and work everywhere.</li>
+                <li><strong>Test installs in a fresh clone.</strong> Run <code>rm -rf node_modules package-lock.json && npm install</code> to catch issues before CI does.</li>
+            </ul>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What does npm ERESOLVE mean?</summary>
+                    <p class="mt-2 text-sm text-slate-300">ERESOLVE means npm can't find a compatible version of a peer dependency that satisfies every package's requirements. Two or more packages need different versions of the same dependency, and npm can't reconcile them.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use --legacy-peer-deps or --force to fix ERESOLVE?</summary>
+                    <p class="mt-2 text-sm text-slate-300">--legacy-peer-deps is safer: it ignores peer dependency conflicts and installs anyway, letting packages resolve at runtime. --force is more aggressive and can install broken dependency trees. Use --legacy-peer-deps as a temporary fix, then resolve the root cause.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix ERESOLVE permanently?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Identify which two packages have conflicting peer requirements by reading the error output. Then: upgrade one of them, downgrade the other, replace one with an alternative, or add an overrides field in package.json to force a single version.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the overrides field in package.json?</summary>;
+                    <p class="mt-2 text-sm text-slate-300">overrides lets you force a specific version of a dependency for all packages that depend on it. Example: 'overrides': { 'react': '18.2.0' } forces every package to use React 18.2.0, resolving conflicts at the resolution level.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Does ERESOLVE break my code?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Not directly — the install just fails. But if you use --force and end up with a broken dependency tree, your code may fail at runtime. Always test after forcing an install.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related fixes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/npm/enoent.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-red-400 mb-1">ENOENT</div>
+                    <div class="font-semibold text-white text-sm">Fix: No such file or directory</div>
+                </a>
+                <a href="/fix/npm/permission-denied.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-red-400 mb-1">EACCES</div>
+                    <div class="font-semibold text-white text-sm">Fix: Permission denied</div>
+                </a>
+                <a href="/fix/npm/command-not-found.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-red-400 mb-1">command not found</div>
+                    <div class="font-semibold text-white text-sm">Fix: npm not recognized</div>
+                </a>
+                <a href="/fix/npm/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-slate-400 mb-1">All Fixes</div>
+                    <div class="font-semibold text-white text-sm">Back to npm hub</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/npm/index.html" class="back-link">← All npm Fixes</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
