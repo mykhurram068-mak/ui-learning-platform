@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fix: VS Code IntelliSense Not Working — No Autocomplete (2026)</title>
+    <meta name="description" content="Fix VS Code IntelliSense that stopped working. No autocomplete, no error highlighting, no go-to-definition. Language server, extension, and TS/JS config fixes.">
+    <meta name="keywords" content="vscode intellisense not working, vscode autocomplete stopped, vscode no suggestions, vscode language server crash, fix vscode intellisense">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Fix: VS Code IntelliSense Not Working">
+    <meta property="og:description" content="Fix no autocomplete, no suggestions, no error highlighting.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/fix/vscode/intellisense-not-working.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/fix/vscode/intellisense-not-working.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Fix: VS Code IntelliSense Not Working","description":"Fix VS Code IntelliSense that stopped working.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why did my VS Code IntelliSense stop working?","acceptedAnswer":{"@type":"Answer","text":"Most common causes: the language server crashed, the file isn't recognized as the right language, there's a JavaScript/TypeScript tsconfig.json issue, or an extension is intercepting completions. Reload the window first, then check the language mode in the bottom-right corner."}},{"@type":"Question","name":"How do I restart the VS Code language server?","acceptedAnswer":{"@type":"Answer","text":"Open the Command Palette (Ctrl+Shift+P) and run 'Developer: Restart Extension Host'. For TypeScript specifically, run 'TypeScript: Restart TS Server'. For Python, run 'Python: Restart Language Server'."}},{"@type":"Question","name":"Why is my TypeScript IntelliSense not working?","acceptedAnswer":{"@type":"Answer","text":"Common causes: an invalid tsconfig.json, the TypeScript version mismatch between workspace and VS Code, or the TypeScript server running out of memory on large projects. Check the Output panel for TypeScript errors."}},{"@type":"Question","name":"Why doesn't autocomplete show for some files?","acceptedAnswer":{"@type":"Answer","text":"Check the file's language mode in the bottom-right corner of the status bar. If it says 'Plain Text' instead of 'JavaScript' or 'TypeScript', VS Code doesn't know to provide language features. Click it to change the language."}},{"@type":"Question","name":"Does VS Code IntelliSense work offline?","acceptedAnswer":{"@type":"Answer","text":"Yes. VS Code's built-in IntelliSense for JavaScript, TypeScript, CSS, and HTML works entirely offline. AI-powered completions like Copilot require internet, but core language features do not."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #007acc; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #007acc; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .fix-answer { background: #0f172a; border-left: 4px solid #22c55e; padding: 1.25rem; border-radius: 0.75rem; margin: 1.5rem 0; }
+        .fix-answer .label { color: #22c55e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-bottom: 0.5rem; }
+        .fix-answer p { color: #e2e8f0; font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #007acc; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #007acc; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #007acc; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .error-badge {
+            display: inline-block;
+            background: #0d2137;
+            color: #7dd3fc;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid #007acc;
+            margin-bottom: 1rem;
+        }
+        kbd {
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Fix My Error</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stuck? Solved.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/fix/index.html" class="hover:text-blue-400">Fix Errors</a> ›
+            <a href="/fix/vscode/index.html" class="hover:text-blue-400">VS Code</a> ›
+            <span class="text-slate-400">IntelliSense Not Working</span>
+        </div>
+
+        <div class="space-y-2">
+            <div class="error-badge">No autocomplete. No error highlighting. No go-to-definition.</div>
+            <h1 class="text-3xl font-black">Fix: IntelliSense Not Working</h1>
+            <p class="text-slate-400">Your code editor stopped being smart. Suggestions are gone, errors aren't highlighted, and Ctrl+Click does nothing. Here's the fix, in order.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <div class="fix-answer">
+            <div class="label">⚡ The 30-second fix</div>
+            <p><strong>Check the language mode first.</strong> Bottom-right of VS Code — does it say <strong>JavaScript</strong> / <strong>TypeScript</strong> / <strong>Python</strong>, or does it say <strong>Plain Text</strong>?</p>
+            <p>If it says Plain Text, VS Code doesn't know the file's language, so it doesn't run a language server. Click it and select the correct language.</p>
+            <p>If the language is correct, <strong>reload the window</strong>: Command Palette (<kbd>Ctrl+Shift+P</kbd>) → <strong>Developer: Reload Window</strong>.</p>
+        </div>
+
+        <!-- THE 5 CAUSES -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">The 5 real causes</h2>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">1</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Wrong language mode</h3>
+                        <p class="text-sm text-slate-300 mb-2">VS Code only runs language features for files it recognizes. If the language mode is wrong, no IntelliSense.</p>
+                        <p class="text-sm text-slate-300 mb-2"><strong>Check:</strong> Bottom-right corner shows the language. Click it to change.</p>
+                        <p class="text-sm text-slate-300 mb-2"><strong>Common cases:</strong></p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li><code>.vue</code> file shows "Plain Text" → change to "Vue"</li>
+                            <li><code>.jsx</code> file shows "JavaScript" instead of "JavaScript React"</li>
+                            <li><code>.tsx</code> file shows "TypeScript" instead of "TypeScript React"</li>
+                            <li><code>.mjs</code> or <code>.cjs</code> file shows "Plain Text"</li>
+                        </ul>
+                        <div class="pro-tip">
+                            <p class="text-sm text-slate-300"><strong>Pro tip:</strong> You can set the language permanently for a file pattern in settings: <code>"files.associations": { "*.vue": "vue" }</code>.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">2</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Language server crashed</h3>
+                        <p class="text-sm text-slate-300 mb-2">Each language has a "language server" — a background process that powers IntelliSense. If it crashes, all language features stop.</p>
+                        <p class="text-sm text-slate-300 mb-2"><strong>Restart by language:</strong></p>
+                        <pre><code>TypeScript/JavaScript:
+  Ctrl+Shift+P → "TypeScript: Restart TS Server"
+
+Python:
+  Ctrl+Shift+P → "Python: Restart Language Server"
+
+Any language:
+  Ctrl+Shift+P → "Developer: Restart Extension Host"</code></pre>
+                        <div class="warning-box">
+                            <p class="text-sm text-slate-300"><strong>Check the Output panel:</strong> View → Output → select the language server from the dropdown. Crashes show up as stack traces.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">3</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">tsconfig.json or jsconfig.json issue</h3>
+                        <p class="text-sm text-slate-300 mb-2">For JavaScript and TypeScript, the language server reads <code>tsconfig.json</code> (or <code>jsconfig.json</code>) to understand your project. A broken config disables IntelliSense.</p>
+                        <p class="text-sm text-slate-300 mb-2"><strong>Quick diagnostic — Open TS Server log:</strong></p>
+                        <ol class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li>Command Palette → "TypeScript: Open TS Server Log"</li>
+                            <li>Look for "Config file error" or "Cannot find module"</li>
+                            <li>Or check the status bar: it shows a warning icon if the config is broken</li>
+                        </ol>
+                        <p class="text-sm text-slate-300 mt-3 mb-2"><strong>Common config problems:</strong></p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li>JSON syntax error in tsconfig.json (trailing comma)</li>
+                            <li>Wrong <code>moduleResolution</code> setting</li>
+                            <li>Missing <code>paths</code> mapping that code imports rely on</li>
+                            <li><code>include</code> or <code>exclude</code> pattern that excludes the file</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">4</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Extension intercepting completions</h3>
+                        <p class="text-sm text-slate-300 mb-2">AI completion extensions (Copilot, Cursor Tab, Tabnine, Codeium) sometimes take over and suppress native IntelliSense. Or two AI extensions fight each other.</p>
+                        <p class="text-sm text-slate-300 mb-2"><strong>Test:</strong> Disable all AI completion extensions temporarily.</p>
+                        <pre><code># Quick test — disable all extensions
+code --disable-extensions
+
+# If IntelliSense works, one of your extensions was suppressing it
+# Re-enable one at a time to find which</code></pre>
+                        <p class="text-sm text-slate-300 mt-3 mb-2"><strong>Common setting to check:</strong></p>
+                        <pre><code>"editor.inlineSuggest.enabled": true   // enable Copilot-style suggestions
+"github.copilot.enable": { "*": true }  // global Copilot toggle
+
+// If Copilot is intercepting too aggressively:
+"github.copilot.enable": {
+  "*": true,
+  "markdown": false,
+  "plaintext": false
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">5</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Memory / project size</h3>
+                        <p class="text-sm text-slate-300 mb-2">On very large projects, the TS server or Python language server runs out of memory and stops responding. Symptoms: IntelliSense works at first, then dies after a few minutes.</p>
+                        <p class="text-sm text-slate-300 mb-2"><strong>Fix:</strong> Increase the memory limit.</p>
+                        <pre><code>// .vscode/settings.json
+{
+  "typescript.tsserver.maxTsServerMemory": 4096,
+  "python.analysis.memory": 4096
+}
+
+// Or exclude heavy folders from the project
+"typescript.tsserver.exclude": [
+  "**/node_modules",
+  "**/dist",
+  "**/build"
+]</code></pre>
+                        <div class="pro-tip">
+                            <p class="text-sm text-slate-300"><strong>Pro tip:</strong> For large monorepos, use a workspace with only the folders you actually work on. Opening a huge folder slows every feature.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- DEBUGGING WORKFLOW -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">The debugging workflow</h2>
+            <ol class="list-decimal list-inside text-sm text-slate-300 space-y-2">
+                <li><strong>Check the language mode</strong> (bottom-right corner) — is it correct?</li>
+                <li><strong>Reload the window</strong> — Command Palette → "Developer: Reload Window"</li>
+                <li><strong>Restart the language server</strong> — Command Palette → "Restart TS Server" / "Restart Language Server"</li>
+                <li><strong>Check the Output panel</strong> — View → Output → select the language server</li>
+                <li><strong>Disable AI completion extensions</strong> — do they conflict with native IntelliSense?</li>
+                <li><strong>Check config files</strong> — tsconfig.json or jsconfig.json valid?</li>
+                <li><strong>Bump memory limits</strong> if the project is large</li>
+                <li><strong>Reinstall VS Code</strong> as a last resort — rare, but sometimes settings files get corrupted</li>
+            </ol>
+        </section>
+
+        <!-- HOW TO PREVENT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ How to keep IntelliSense reliable</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Keep tsconfig.json clean.</strong> Validate it with <code>npx tsc --showConfig</code> — if it errors, IntelliSense breaks.</li>
+                <li><strong>Use a workspace file for monorepos.</strong> Open only the packages you work on.</li>
+                <li><strong>Bump memory limits on big projects.</strong> 4GB is a reasonable default for TS servers.</li>
+                <li><strong>Only one AI completion extension at a time.</strong> Disable others to avoid conflicts.</li>
+                <li><strong>Watch the Output panel.</strong> It tells you about crashes and errors before you notice lost features.</li>
+                <li><strong>Keep VS Code updated.</strong> Language server bugs are fixed every release.</li>
+            </ul>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why did my VS Code IntelliSense stop working?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Most common causes: the language server crashed, the file isn't recognized as the right language, there's a JavaScript/TypeScript tsconfig.json issue, or an extension is intercepting completions. Reload the window first, then check the language mode in the bottom-right corner.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I restart the VS Code language server?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Open the Command Palette (Ctrl+Shift+P) and run 'Developer: Restart Extension Host'. For TypeScript specifically, run 'TypeScript: Restart TS Server'. For Python, run 'Python: Restart Language Server'.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is my TypeScript IntelliSense not working?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Common causes: an invalid tsconfig.json, the TypeScript version mismatch between workspace and VS Code, or the TypeScript server running out of memory on large projects. Check the Output panel for TypeScript errors.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why doesn't autocomplete show for some files?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Check the file's language mode in the bottom-right corner of the status bar. If it says 'Plain Text' instead of 'JavaScript' or 'TypeScript', VS Code doesn't know to provide language features. Click it to change the language.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Does VS Code IntelliSense work offline?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. VS Code's built-in IntelliSense for JavaScript, TypeScript, CSS, and HTML works entirely offline. AI-powered completions like Copilot require internet, but core language features do not.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related fixes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/vscode/extension-conflict.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Extension conflict</div>
+                    <div class="font-semibold text-white text-sm">Fix: Two extensions fighting</div>
+                </a>
+                <a href="/fix/vscode/settings-not-applying.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Settings not applying</div>
+                    <div class="font-semibold text-white text-sm">Fix: settings.json ignored</div>
+                </a>
+                <a href="/fix/vscode/extension-not-loading.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Extension won't load</div>
+                    <div class="font-semibold text-white text-sm">Fix: Extension host crash</div>
+                </a>
+                <a href="/fix/vscode/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-slate-400 mb-1">All Fixes</div>
+                    <div class="font-semibold text-white text-sm">Back to VS Code hub</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/vscode/index.html" class="back-link">← All VS Code Fixes</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
