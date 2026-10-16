@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>How to Test a WordPress Theme Before Going Live — Safe Workflow (2026)</title>
+    <meta name="description" content="Test a WordPress theme safely before making it live. Staging setup, plugin compatibility, and the checks that catch problems before your users do.">
+    <meta name="keywords" content="test wordpress theme before live, wordpress staging theme, safe theme switch, wordpress theme testing checklist">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="How to Test a WordPress Theme Before Going Live">
+    <meta property="og:description" content="Safe workflow for testing themes before activating.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/how-to/wordpress/test-theme-before-live.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/how-to/wordpress/test-theme-before-live.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"HowTo","name":"How to Test a WordPress Theme Before Going Live","description":"Safe workflow for testing themes before activating them on production.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16","step":[{"@type":"HowToStep","name":"Set up staging","text":"Create a staging copy of the site with your host, or use a plugin like WP Staging."},{"@type":"HowToStep","name":"Install the theme on staging","text":"Install and activate the new theme on staging only. Never on production first."},{"@type":"HowToStep","name":"Test critical pages","text":"Test homepage, single posts, archives, contact form, checkout, and custom post types."},{"@type":"HowToStep","name":"Test plugin compatibility","text":"Check that all active plugins still work with the new theme. Some plugins hook into theme-specific locations."},{"@type":"HowToStep","name":"Run performance tests","text":"Measure Core Web Vitals on staging with the new theme. Compare against the current theme."},{"@type":"HowToStep","name":"Activate on production","text":"Once staging passes all checks, activate the theme on production during low-traffic hours."}]}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Do I need staging to test a WordPress theme?","acceptedAnswer":{"@type":"Answer","text":"Yes for any serious site. Activating a theme on production directly is risky because theme incompatibilities can break the site, and rolling back isn't always instant. Most hosts offer staging with one click."}},{"@type":"Question","name":"What should I test when switching WordPress themes?","acceptedAnswer":{"@type":"Answer","text":"Test: homepage, single post, archive pages, search results, 404 page, contact form, checkout (if ecommerce), custom post types, widget areas, menus, and mobile responsiveness. Also check performance and SEO metadata."}},{"@type":"Question","name":"Will switching themes lose my content?","acceptedAnswer":{"@type":"Answer","text":"No. Your posts, pages, and media live in the database, not the theme. However, theme-specific settings, customizer options, and widget locations won't carry over. Some themes register custom post types or taxonomies that disappear if the new theme doesn't support them."}},{"@type":"Question","name":"How do I roll back if the new theme breaks the site?","acceptedAnswer":{"@type":"Answer","text":"Reactivate the old theme via Appearance → Themes. If you can't access wp-admin, rename the new theme's folder via SFTP to force WordPress to fall back to a default theme. Always keep the old theme installed until the new one is confirmed working."}},{"@type":"Question","name":"Should I test a theme in a local environment first?","acceptedAnswer":{"@type":"Answer","text":"Local is fine for design review but doesn't catch plugin-specific issues that depend on production data, API keys, or server configuration. Staging is the right place for full testing."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #21759b; padding: 1.5rem; border-radius: 0.75rem; margin: 1.25rem 0; }
+        .step-badge { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; background: #21759b; color: white; font-weight: 900; border-radius: 0.75rem; margin-right: 0.75rem; font-size: 1rem; flex-shrink: 0; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.75rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #21759b; padding: 1rem 1.25rem; border-radius: 0.5rem; margin: 1.25rem 0; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #21759b; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #21759b; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">How-to Guide</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Workflows. Not guessing.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/how-to/index.html" class="hover:text-blue-400">How-to</a> ›
+            <a href="/fix/wordpress/index.html" class="hover:text-blue-400">WordPress</a> ›
+            <span class="text-slate-400">Test Theme Before Live</span>
+        </div>
+
+        <div class="space-y-3">
+            <h2 class="text-xs font-bold uppercase tracking-[0.2em]" style="color:#21759b;">WordPress · Workflow</h2>
+            <h1 class="text-3xl md:text-4xl font-black">How to Test a WordPress Theme Before Going Live</h1>
+            <p class="text-slate-400 text-base">Activating a theme on production directly is the most avoidable risk in WordPress. This is the safe workflow — staging, testing, and the checklist that catches problems before your users do.</p>
+            <div class="flex flex-wrap gap-3 text-xs text-slate-500 mt-2">
+                <span>⏱️ 30–60 minutes</span>
+                <span>·</span>
+                <span>🎯 Intermediate</span>
+                <span>·</span>
+                <span>🔧 Staging recommended</span>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <p class="text-sm text-slate-300"><strong>Why this matters:</strong> Theme switching is the highest-risk operation in WordPress. It can change layouts, break widgets, hide content, and disrupt SEO. Testing on staging eliminates the risk without slowing you down.</p>
+        </div>
+
+        <!-- STEP 1 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">1</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Set up staging</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">A staging site is an exact copy of your production site. You can break anything there without affecting real users.</p>
+
+                    <p class="text-sm text-slate-300 mb-2"><strong>If your host offers staging (most do):</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Kinsta: "Environments → Staging" in the dashboard</li>
+                        <li>WP Engine: "Sites → Staging" tab</li>
+                        <li>SiteGround: "Site Tools → Staging"</li>
+                        <li>Flywheel, Cloudways, Rocket.net: all have one-click staging</li>
+                    </ul>
+
+                    <p class="text-sm text-slate-300 mt-4 mb-2"><strong>If your host doesn't offer staging:</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Install <strong>WP Staging</strong> (free plugin) — creates a staging copy</li>
+                        <li>Or set up a subdomain manually with a copy of the database</li>
+                        <li>Or use Local (localwp.com) for a local test environment</li>
+                    </ul>
+
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Take a full backup of production before you even start. This is your true safety net — staging is for testing, backup is for emergencies.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">2</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Install the new theme on staging</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Never on production first. The point of staging is to break things without consequences.</p>
+                    <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                        <li>Log into the staging site's wp-admin</li>
+                        <li>Go to <strong>Appearance → Themes → Add New</strong></li>
+                        <li>Search for the theme by name, install, then activate</li>
+                        <li>Visit the frontend — what does it look like?</li>
+                    </ol>
+
+                    <p class="text-sm text-slate-300 mt-3 mb-2"><strong>Common issues after activation:</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Widgets disappear or move to default locations</li>
+                        <li>Menus appear empty or fall back to defaults</li>
+                        <li>Some page content looks different (theme-specific shortcodes missing)</li>
+                        <li>Custom post types from plugins might not have templates</li>
+                    </ul>
+
+                    <div class="warning-box">
+                        <p class="text-sm text-slate-300"><strong>Don't panic if it looks broken.</strong> Most of these are fixable by reassigning widgets and menus. Fix them on staging, not production.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 3 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">3</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Test every critical page and feature</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Don't just look at the homepage. Themes affect different page types differently.</p>
+
+                    <p class="text-sm text-slate-300 mb-2"><strong>The 10-page checklist:</strong></p>
+                    <div class="overflow-x-auto mt-3">
+                        <table class="w-full text-sm text-slate-300">
+                            <thead>
+                                <tr class="border-b border-slate-700">
+                                    <th class="text-left py-2 pr-4 text-slate-400 font-medium">Page</th>
+                                    <th class="text-left py-2 text-slate-400 font-medium">What to check</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">🏠 Homepage</td><td class="py-2">Hero, featured areas, layout matches intent</td></tr>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">📝 Single post</td><td class="py-2">Typography, sidebar, related posts, comments</td></tr>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">📚 Archive/category</td><td class="py-2">Pagination, grid/list layout, featured images</td></tr>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">🔍 Search results</td><td class="py-2">Result formatting, empty state handling</td></tr>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">❌ 404 page</td><td class="py-2">Custom 404 or fallback, recovery links</td></tr>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">📞 Contact form</td><td class="py-2">Form styling, submission works, confirmation message</td></tr>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">🛒 Checkout (if ecommerce)</td><td class="py-2">Cart, checkout, payment flow end-to-end</td></tr>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">📁 Custom post types</td><td class="py-2">All CPTs render correctly with new theme</td></tr>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">🧩 Widget areas</td><td class="py-2">Sidebar, footer widgets, all locations present</td></tr>
+                                <tr><td class="py-2 pr-4">📱 Mobile view</td><td class="py-2">All above on a phone, no horizontal scroll, tap targets OK</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 4 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">4</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Test plugin compatibility</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Themes and plugins interact in ways that aren't always obvious. This step catches most "theme broke my site" problems.</p>
+
+                    <p class="text-sm text-slate-300 mb-2"><strong>Test each plugin's front-end output:</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Form plugins (Contact Form 7, WPForms) — do forms render correctly?</li>
+                        <li>Page builders (Elementor, Beaver Builder) — do built pages look right?</li>
+                        <li>E-commerce (WooCommerce) — do product pages, cart, checkout work?</li>
+                        <li>SEO plugins (Yoast, Rank Math) — do meta boxes appear in the editor?</li>
+                        <li>Custom fields (ACF) — do field values render on the frontend?</li>
+                        <li>Membership plugins — do logged-in views work correctly?</li>
+                    </ul>
+
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Check the theme's documentation for a "compatible plugins" list. Reputable themes test against popular plugins and publish their results.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 5 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">5</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Run performance tests</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Themes vary hugely in performance. Measure before and after.</p>
+
+                    <p class="text-sm text-slate-300 mb-2"><strong>Tools:</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li><strong>PageSpeed Insights</strong> — Core Web Vitals, mobile score</li>
+                        <li><strong>WebPageTest</strong> — full waterfall, filmstrip view</li>
+                        <li><strong>GTmetrix</strong> — performance grades and recommendations</li>
+                    </ul>
+
+                    <p class="text-sm text-slate-300 mt-3 mb-2"><strong>What to compare:</strong></p>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-slate-300">
+                            <thead>
+                                <tr class="border-b border-slate-700">
+                                    <th class="text-left py-2 pr-4 text-slate-400 font-medium">Metric</th>
+                                    <th class="text-left py-2 text-slate-400 font-medium">Target</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">LCP (Largest Contentful Paint)</td><td class="py-2">Under 2.5s</td></tr>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">INP (Interaction to Next Paint)</td><td class="py-2">Under 200ms</td></tr>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">CLS (Cumulative Layout Shift)</td><td class="py-2">Under 0.1</td></tr>
+                                <tr class="border-b border-slate-800"><td class="py-2 pr-4">Total Blocking Time</td><td class="py-2">Under 200ms</td></tr>
+                                <tr><td class="py-2 pr-4">Page weight (HTML+CSS+JS)</td><td class="py-2">Under 1.5 MB</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="warning-box">
+                        <p class="text-sm text-slate-300"><strong>Disable caching plugins while measuring.</strong> Otherwise you're measuring the cache, not the theme. Measure twice: once with cache off for the theme's raw performance, once with cache on for real-world numbers.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 6 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">6</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Activate on production</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Once staging passes every check, activate on production. Do it during low-traffic hours and monitor for the first hour.</p>
+
+                    <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                        <li>Take a fresh backup of production</li>
+                        <li>Activate the theme during a low-traffic window</li>
+                        <li>Load the homepage in a fresh incognito window</li>
+                        <li>Test 3–5 critical pages immediately</li>
+                        <li>Watch your error log for 30 minutes</li>
+                        <li>Check Google Search Console for crawl errors after 24 hours</li>
+                    </ol>
+
+                    <p class="text-sm text-slate-300 mt-4 mb-2"><strong>Keep the old theme installed for at least a week.</strong> If something goes wrong, you can switch back in 10 seconds.</p>
+
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Announce the change to your team or clients. A theme change looks dramatic even when everything works, and "the site looks different" is a common panic moment when no one was warned.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- THE COMPLETE CHECKLIST -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">✅ The complete pre-launch checklist</h2>
+            <p class="text-sm text-slate-300 mb-3">Copy this into a document. Check off each item before activating on production.</p>
+
+            <div class="space-y-2 text-sm text-slate-300">
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Backup taken (files + database)</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Theme installed and active on staging</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Homepage tested</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Single post tested</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Archive/category pages tested</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Search results tested</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>404 page tested</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Contact form tested</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>E-commerce flow tested (if applicable)</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Custom post types tested</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Widget areas re-assigned</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Menus re-assigned if needed</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>All plugins tested</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Mobile view tested on real phone</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Performance measured (LCP, INP, CLS)</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>SEO metadata verified</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Old theme kept installed as fallback</span></div>
+                <div class="flex items-start gap-2"><span class="text-blue-400 font-bold">☐</span><span>Activation scheduled for low-traffic hours</span></div>
+            </div>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Do I need staging to test a WordPress theme?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes for any serious site. Activating a theme on production directly is risky because theme incompatibilities can break the site, and rolling back isn't always instant. Most hosts offer staging with one click.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What should I test when switching WordPress themes?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Test: homepage, single post, archive pages, search results, 404 page, contact form, checkout (if ecommerce), custom post types, widget areas, menus, and mobile responsiveness. Also check performance and SEO metadata.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Will switching themes lose my content?</summary>
+                    <p class="mt-2 text-sm text-slate-300">No. Your posts, pages, and media live in the database, not the theme. However, theme-specific settings, customizer options, and widget locations won't carry over. Some themes register custom post types or taxonomies that disappear if the new theme doesn't support them.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I roll back if the new theme breaks the site?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Reactivate the old theme via Appearance → Themes. If you can't access wp-admin, rename the new theme's folder via SFTP to force WordPress to fall back to a default theme. Always keep the old theme installed until the new one is confirmed working.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I test a theme in a local environment first?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Local is fine for design review but doesn't catch plugin-specific issues that depend on production data, API keys, or server configuration. Staging is the right place for full testing.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/wordpress/theme-css-not-applying.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🎨 Fix: Theme CSS Not Applying</div>
+                    <div class="text-xs text-slate-400 mt-1">When styles don't update after activation.</div>
+                </a>
+                <a href="/fix/wordpress/child-theme-not-working.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">👶 Fix: Child Theme Not Overriding</div>
+                    <div class="text-xs text-slate-400 mt-1">If child theme changes are ignored.</div>
+                </a>
+                <a href="/how-to/wordpress/choose-theme-for-speed.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">⚡ Choose a Theme for Speed</div>
+                    <div class="text-xs text-slate-400 mt-1">Evaluation criteria before you commit.</div>
+                </a>
+                <a href="/fix/wordpress/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🌐 WordPress Fixes Hub</div>
+                    <div class="text-xs text-slate-400 mt-1">All WordPress guides.</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/wordpress/index.html" class="back-link">← All WordPress Guides</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
