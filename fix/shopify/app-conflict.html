@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fix: Shopify App Conflicts — Broken Layout or Scripts (2026)</title>
+    <meta name="description" content="Fix Shopify app conflicts. Isolate which app broke your theme, prevent script collisions, and safely disable apps without losing data.">
+    <meta name="keywords" content="shopify app conflict, shopify app broke theme, shopify app scripts conflict, disable shopify app, shopify theme broken by app">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Fix: Shopify App Conflicts">
+    <meta property="og:description" content="Isolate which app broke your theme.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/fix/shopify/app-conflict.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/fix/shopify/app-conflict.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Fix: Shopify App Conflicts","description":"Isolate which app broke your theme.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I find which Shopify app is breaking my theme?","acceptedAnswer":{"@type":"Answer","text":"Disable apps one at a time (or in batches) via Apps → the app → Disable. Test your theme after each. Or check the browser console — app scripts usually have identifiable sources like cdn.someapp.com or app-embed.someapp.io."}},{"@type":"Question","name":"Does disabling a Shopify app delete its data?","acceptedAnswer":{"@type":"Answer","text":"No. Disabling stops the app from running but keeps all data. You can re-enable it later. Uninstalling removes the app entirely and typically schedules data deletion after a grace period. Prefer disabling for testing."}},{"@type":"Question","name":"Why do two Shopify apps conflict?","acceptedAnswer":{"@type":"Answer","text":"Both apps inject scripts on the same page, or both try to modify the same cart/checkout behavior. Common conflicts: two review apps, two currency converters, two upsell apps, or two analytics apps tracking the same events."}},{"@type":"Question","name":"How do I prevent app script conflicts?","acceptedAnswer":{"@type":"Answer","text":"Only install one app per function. If two apps do the same thing, pick one. Use Shopify's script tag management tools to load app scripts conditionally. And check the app's script location — some inject inline, others use a CDN, and inline scripts are harder to isolate."}},{"@type":"Question","name":"Does uninstalling a Shopify app remove its scripts?","acceptedAnswer":{"@type":"Answer","text":"Usually yes, but some apps leave lingering script tags in theme.liquid that need manual cleanup. Check theme.liquid, sections, and snippets for orphaned app code after uninstalling."}},{"@type":"Question","name":"How do I test apps on staging before installing?","acceptedAnswer":{"@type":"Answer","text":"Install apps on a development store first (free with a Shopify Partners account). Test the full customer flow. Then install on production. This avoids surprises when an app script breaks your live theme."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #95bf47; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #95bf47; color: #1a2e05; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .fix-answer { background: #0f172a; border-left: 4px solid #22c55e; padding: 1.25rem; border-radius: 0.75rem; margin: 1.5rem 0; }
+        .fix-answer .label { color: #22c55e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-bottom: 0.5rem; }
+        .fix-answer p { color: #e2e8f0; font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #95bf47; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #95bf47; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #95bf47; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .error-badge {
+            display: inline-block;
+            background: #1a2e05;
+            color: #bef264;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid #95bf47;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Fix My Error</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stuck? Solved.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/fix/index.html" class="hover:text-blue-400">Fix Errors</a> ›
+            <a href="/fix/shopify/index.html" class="hover:text-blue-400">Shopify</a> ›
+            <span class="text-slate-400">App Conflicts</span>
+        </div>
+
+        <div class="space-y-2">
+            <div class="error-badge">Theme worked yesterday. Installed an app. Now the layout is broken.</div>
+            <h1 class="text-3xl font-black">Fix: Shopify App Conflicts</h1>
+            <p class="text-slate-400">An app injected scripts that broke your theme. Here's how to find the culprit and safely disable it — without losing data.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <div class="fix-answer">
+            <div class="label">⚡ The 30-second fix</div>
+            <p><strong>Check the browser console</strong> (F12 → Console) on the broken page. Look for errors with app domains in the source path:</p>
+            <pre style="margin: 0.75rem 0 0.5rem 0;"><code>Uncaught TypeError: Cannot read property 'xyz' of undefined
+  at https://cdn.someapp.com/scripts/widget.js:42
+        ↑ that's your app</code></pre>
+            <p>Every app injects scripts from its own CDN. The error names it.</p>
+        </div>
+
+        <!-- THE 5 CAUSES -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">The 5 real causes</h2>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">1</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Two apps registering the same widget slot</h3>
+                        <p class="text-sm text-slate-300 mb-2">Both apps inject into the same theme hook — like a "product page widget" or "cart drawer extension". They fight over the same DOM element.</p>
+                        <p class="text-sm text-slate-300 mb-2"><strong>Common pairs:</strong></p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li>Two review apps (Judge.me + Yotpo) both injecting review widgets</li>
+                            <li>Two currency converters both rewriting prices</li>
+                            <li>Two upsell apps both modifying the cart</li>
+                            <li>Two analytics apps both firing on page load</li>
+                        </ul>
+                        <div class="pro-tip">
+                            <p class="text-sm text-slate-300"><strong>Rule:</strong> One app per function. If two apps do the same thing, pick one and uninstall the other.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">2</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">App script breaks theme JavaScript</h3>
+                        <p class="text-sm text-slate-300 mb-2">An app injects JavaScript that overrides a global variable or function your theme depends on. Common cases:</p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li>App defines <code>window.cart</code> or <code>window.product</code>, breaking theme code</li>
+                            <li>App monkeypatches <code>fetch</code> and intercepts theme requests</li>
+                            <li>App adds event listeners that prevent default on form submits</li>
+                            <li>App bundles its own jQuery, conflicting with theme's jQuery version</li>
+                        </ul>
+                        <div class="warning-box">
+                            <p class="text-sm text-slate-300"><strong>Silent breakage:</strong> The app script may not throw an error itself — it just clobbers something your theme expects. Check the console for <code>undefined</code> errors even when the app isn't mentioned.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">3</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">App injects CSS that overrides theme styles</h3>
+                        <p class="text-sm text-slate-300 mb-2">App stylesheets use high-specificity selectors that override your theme's CSS. Layout shifts, broken grids, wrong colors.</p>
+                        <p class="text-sm text-slate-300 mb-2"><strong>Check with DevTools:</strong></p>
+                        <ol class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li>Open DevTools → Elements tab</li>
+                            <li>Find the mis-styled element</li>
+                            <li>Look at the "Styles" panel — which rule is winning?</li>
+                            <li>If it comes from an app CDN, that's your culprit</li>
+                        </ol>
+                        <div class="pro-tip">
+                            <p class="text-sm text-slate-300"><strong>Pro tip:</strong> App CSS usually has a recognizable prefix (<code>.yotpo-widget</code>, <code>.judge-me-review</code>). Search the DevTools styles panel for those prefixes.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">4</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">App leaves orphaned code after removal</h3>
+                        <p class="text-sm text-slate-300 mb-2">You uninstalled the app, but its script tag, style tag, or Liquid snippet is still in your theme. The app is gone but its ghost is causing problems.</p>
+                        <p class="text-sm text-slate-300 mb-2"><strong>Search your theme for:</strong></p>
+                        <pre><code># In theme.liquid, snippets/, sections/
+{% comment %} Search for:
+# - App-name references: {{ 'app-name.js' | asset_url }}
+# - App-handle Liquid objects: shop.metafields.app_name
+# - App-specific CSS classes: .app-name-widget
+# - Script tags with app CDN URLs: cdn.app-name.com</code></pre>
+                        <p class="text-sm text-slate-300 mt-3"><strong>Orphaned code is common</strong> when apps uninstall uncleanly. The theme files reference an app that no longer exists, causing 404s or console errors.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">5</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">App ScriptTag timing</h3>
+                        <p class="text-sm text-slate-300 mb-2">Shopify's ScriptTag API loads app scripts asynchronously. If the app script assumes a theme element exists before the theme finishes rendering it, the app fails silently or throws errors.</p>
+                        <p class="text-sm text-slate-300 mb-2"><strong>Symptoms:</strong></p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li>App works sometimes, fails other times</li>
+                            <li>App breaks on slow connections but works on fast ones</li>
+                            <li>App errors appear right after page load, then disappear</li>
+                        </ul>
+                        <p class="text-sm text-slate-300 mt-3">This is an app-side bug, not yours. Report it to the app's support. In the meantime, some apps let you configure a DOM-ready delay in their settings.</p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ISOLATION METHOD -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Isolate the culprit app</h2>
+
+            <p class="text-sm text-slate-300 mb-3"><strong>Method 1 — console inspection (fastest)</strong></p>
+            <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                <li>Open DevTools → Console tab</li>
+                <li>Refresh the page</li>
+                <li>Note the domain in each error's source path (e.g., <code>cdn.judge.me</code>)</li>
+                <li>Match the domain to the app</li>
+            </ol>
+
+            <p class="text-sm text-slate-300 mt-5 mb-3"><strong>Method 2 — disable apps in batches (bisect)</strong></p>
+            <p class="text-sm text-slate-300 mb-2">If the console doesn't point to a specific app:</p>
+            <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                <li>Apps → select half your apps → Disable</li>
+                <li>Reload the broken page</li>
+                <li>If fixed → culprit is in the disabled half. Re-enable one at a time.</li>
+                <li>If still broken → culprit is in the enabled half. Disable those.</li>
+                <li>Repeat with the smaller half</li>
+            </ol>
+            <div class="pro-tip">
+                <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Apps → "Apps and sales channels" shows all installed apps. Disable is instant. Re-enable is instant. No data loss either way.</p>
+            </div>
+
+            <p class="text-sm text-slate-300 mt-5 mb-3"><strong>Method 3 — check theme.liquid for injected code</strong></p>
+            <p class="text-sm text-slate-300 mb-2">Some apps inject code directly into your theme instead of using ScriptTag API. Search theme files:</p>
+            <pre><code># Search for common app markers in your theme
+grep -r "shopify-app" sections/ snippets/ layout/
+grep -r "&lt;script.*app" layout/theme.liquid
+grep -r "app-block\|app-embed" sections/</code></pre>
+        </section>
+
+        <!-- SAFE DISABLE -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ Safely disable or uninstall an app</h2>
+
+            <p class="text-sm text-slate-300 mb-3"><strong>Disable (reversible):</strong></p>
+            <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                <li>Shopify Admin → Apps</li>
+                <li>Click the app</li>
+                <li>Choose <strong>Disable</strong> or <strong>Deactivate</strong></li>
+                <li>App stops injecting scripts immediately</li>
+                <li>Data stays intact; re-enable anytime</li>
+            </ol>
+
+            <p class="text-sm text-slate-300 mt-4 mb-3"><strong>Uninstall (removes app):</strong></p>
+            <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                <li>Same flow, but choose <strong>Uninstall</strong></li>
+                <li>App typically schedules data deletion after 30-60 days</li>
+                <li>Data is preserved during the grace period — you can reinstall and recover it</li>
+                <li>After the grace period, data is permanently deleted</li>
+            </ol>
+
+            <div class="warning-box mt-4">
+                <p class="text-sm text-slate-300"><strong>Before uninstalling:</strong> Export any data you need. Some apps let you export reviews, orders, customer data. Don't assume it'll be recoverable after 60 days.</p>
+            </div>
+
+            <p class="text-sm text-slate-300 mt-5 mb-3"><strong>After uninstalling, check for orphans:</strong></p>
+            <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                <li>Edit theme code (Online Store → Themes → Edit code)</li>
+                <li>Search for the app's name/handle in theme files</li>
+                <li>Remove any remaining script tags, style tags, or Liquid references</li>
+                <li>Test the theme in a duplicate first</li>
+            </ol>
+        </section>
+
+        <!-- HOW TO PREVENT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ How to prevent app conflicts</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>One app per function.</strong> Two review apps, two currency converters, two analytics — pick one of each.</li>
+                <li><strong>Test apps on a development store first.</strong> Free with a Shopify Partners account. Test the full customer journey before installing on production.</li>
+                <li><strong>Check the app's script weight.</strong> Look at the app's CDN domain in DevTools Network tab. If it loads 200KB+ of JS for one small widget, find a lighter alternative.</li>
+                <li><strong>Review installed apps quarterly.</strong> Uninstall apps you're not using — they're all injecting scripts, whether you use them or not.</li>
+                <li><strong>Prefer apps with theme app extensions.</strong> Modern Shopify apps use "theme app extensions" which require merchant approval before injecting code. This is cleaner than the old ScriptTag API.</li>
+                <li><strong>Keep a list of installed apps and what each does.</strong> When something breaks, you have a starting point.</li>
+                <li><strong>Watch Core Web Vitals after installing.</strong> If LCP or TBT jumps, the app is costing you SEO.</li>
+            </ul>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I find which Shopify app is breaking my theme?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Disable apps one at a time (or in batches) via Apps → the app → Disable. Test your theme after each. Or check the browser console — app scripts usually have identifiable sources like cdn.someapp.com or app-embed.someapp.io.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Does disabling a Shopify app delete its data?</summary>
+                    <p class="mt-2 text-sm text-slate-300">No. Disabling stops the app from running but keeps all data. You can re-enable it later. Uninstalling removes the app entirely and typically schedules data deletion after a grace period. Prefer disabling for testing.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why do two Shopify apps conflict?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Both apps inject scripts on the same page, or both try to modify the same cart/checkout behavior. Common conflicts: two review apps, two currency converters, two upsell apps, or two analytics apps tracking the same events.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I prevent app script conflicts?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Only install one app per function. If two apps do the same thing, pick one. Use Shopify's script tag management tools to load app scripts conditionally. And check the app's script location — some inject inline, others use a CDN, and inline scripts are harder to isolate.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Does uninstalling a Shopify app remove its scripts?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Usually yes, but some apps leave lingering script tags in theme.liquid that need manual cleanup. Check theme.liquid, sections, and snippets for orphaned app code after uninstalling.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I test apps on staging before installing?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Install apps on a development store first (free with a Shopify Partners account). Test the full customer flow. Then install on production. This avoids surprises when an app script breaks your live theme.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related fixes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/shopify/theme-not-saving.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-lime-400 mb-1">Theme not saving</div>
+                    <div class="font-semibold text-white text-sm">Fix: Changes disappear</div>
+                </a>
+                <a href="/fix/shopify/liquid-error.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-lime-400 mb-1">Liquid error</div>
+                    <div class="font-semibold text-white text-sm">Fix: Liquid syntax errors</div>
+                </a>
+                <a href="/fix/shopify/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-slate-400 mb-1">All Fixes</div>
+                    <div class="font-semibold text-white text-sm">Back to Shopify hub</div>
+                </a>
+                <a href="/code/js/reference/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-blue-400 mb-1">JS Reference</div>
+                    <div class="font-semibold text-white text-sm">JavaScript for Shopify themes</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/shopify/index.html" class="back-link">← All Shopify Fixes</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
