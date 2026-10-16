@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fix: WordPress Theme CSS Not Applying — Custom CSS Not Working (2026)</title>
+    <meta name="description" content="Fix WordPress custom CSS that isn't showing up. Cache, specificity, wrong file, and block theme issues. Find why your CSS changes aren't applying.">
+    <meta name="keywords" content="wordpress css not applying, wordpress custom css not working, theme css not loading, wordpress style.css changes not showing">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Fix: WordPress Theme CSS Not Applying">
+    <meta property="og:description" content="Why your custom CSS changes aren't showing up.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/fix/wordpress/theme-css-not-applying.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/fix/wordpress/theme-css-not-applying.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Fix: WordPress Theme CSS Not Applying","description":"Why your custom CSS changes aren't showing up.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why is my custom CSS not applying in WordPress?","acceptedAnswer":{"@type":"Answer","text":"The most common reasons are: browser cache, WordPress caching plugin, CSS specificity (something else overrides it), or the CSS is in the wrong file (like a parent theme's style.css). Check the browser DevTools first to see which rule is winning."}},{"@type":"Question","name":"How do I test if my CSS is being loaded?","acceptedAnswer":{"@type":"Answer","text":"Open browser DevTools (F12), go to the Network tab, reload the page, and filter by 'CSS'. If your stylesheet isn't listed, it's not being enqueued. If it is listed, check the Elements tab to see which styles are actually applied."}},{"@type":"Question","name":"Why does my CSS work in DevTools but not on the actual site?","acceptedAnswer":{"@type":"Answer","text":"If you can edit styles in DevTools and they work, but your changes disappear on reload, you're editing the live DOM. Your changes need to be saved into an actual CSS file, either via the Customizer, a child theme's style.css, or a code snippet plugin."}},{"@type":"Question","name":"What is the difference between theme style.css and Customizer CSS?","acceptedAnswer":{"@type":"Answer","text":"style.css is loaded by the theme itself and can be overridden by a child theme. Customizer CSS is stored in the database and loaded last, giving it higher priority. For small tweaks, Customizer is faster. For maintainable code, use a child theme."}},{"@type":"Question","name":"How do I fix CSS not applying in a block theme?","acceptedAnswer":{"@type":"Answer","text":"Block themes (FSE) work differently. Theme customizations go in theme.json, and block-specific styles go in the Site Editor's Additional CSS panel or per-block style panels. Editing style.css in a block theme is often ignored by the block editor's style system."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #21759b; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #21759b; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .fix-answer { background: #0f172a; border-left: 4px solid #22c55e; padding: 1.25rem; border-radius: 0.75rem; margin: 1.5rem 0; }
+        .fix-answer .label { color: #22c55e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-bottom: 0.5rem; }
+        .fix-answer p { color: #e2e8f0; font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #21759b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #21759b; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #21759b; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .error-badge {
+            display: inline-block;
+            background: #0c1e2b;
+            color: #7dd3fc;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid #21759b;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Fix My Error</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stuck? Solved.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/fix/index.html" class="hover:text-blue-400">Fix Errors</a> ›
+            <a href="/fix/wordpress/index.html" class="hover:text-blue-400">WordPress</a> ›
+            <span class="text-slate-400">Theme CSS Not Applying</span>
+        </div>
+
+        <div class="space-y-2">
+            <div class="error-badge">Edited style.css. Saved. Refreshed. Nothing changed.</div>
+            <h1 class="text-3xl font-black">Fix: Theme CSS Not Applying</h1>
+            <p class="text-slate-400">Your custom CSS isn't showing up. It's almost always caching, specificity, or the wrong file. Here's how to know which.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <!-- THE 30-SECOND FIX -->
+        <div class="fix-answer">
+            <div class="label">⚡ The 30-second fix</div>
+            <p><strong>Open DevTools (F12) and check three things:</strong></p>
+            <p>1. <strong>Network tab</strong> — Is your CSS file loading? Look for a 200 (loaded) or 404 (missing).<br>
+               2. <strong>Elements tab</strong> — Right-click the element, click "Inspect." Find the rule you wrote — is it crossed out? Something else is winning.<br>
+               3. <strong>Computed tab</strong> — See what the browser is actually applying. This is the truth.</p>
+            <p style="margin-top: 0.5rem; font-size: 0.9rem; color: #94a3b8;">If your rule isn't even visible in DevTools, it's a caching issue. If it's visible but crossed out, it's specificity.</p>
+        </div>
+
+        <!-- THE 5 REAL CAUSES -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">The 5 real causes</h2>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">1</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Browser cache (most common)</h3>
+                        <p class="text-sm text-slate-300 mb-2">Your browser is holding the old CSS. This is the #1 cause — always rule it out first.</p>
+                        <pre><code># Hard refresh (bypasses cache)
+Windows/Linux: Ctrl + Shift + R
+macOS:         Cmd + Shift + R
+
+# Or open DevTools → Network → check "Disable cache"</code></pre>
+                        <div class="pro-tip">
+                            <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Try Incognito/Private mode. If it works there, it's your browser cache.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">2</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Caching plugin or CDN</h3>
+                        <p class="text-sm text-slate-300 mb-2">WordPress caches CSS at multiple layers. If you have any of these, they need purging:</p>
+                        <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                            <li>WP Rocket, W3 Total Cache, LiteSpeed Cache, WP Super Cache — purge all caches</li>
+                            <li>Cloudflare, BunnyCDN, Fastly — purge the CDN cache separately</li>
+                            <li>Host-level caching (Kinsta, WP Engine) — click "Clear cache" in the host dashboard</li>
+                            <li>CSS minification/combination plugins — disable temporarily to test</li>
+                        </ul>
+                        <pre><code># WordPress Admin bar → Purge All Caches
+# Cloudflare → Caching → Purge Everything
+# Then hard refresh the page</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">3</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">CSS specificity — something else overrides it</h3>
+                        <p class="text-sm text-slate-300 mb-2">Your CSS is loading but a more specific rule is winning. DevTools shows this clearly — your rule appears with a strikethrough.</p>
+                        <pre><code>/* ❌ Loses to a more specific selector */
+.button { color: red; }
+
+/* A theme rule with higher specificity wins: */
+.theme-dark .container .button.primary {
+  color: blue;
+}
+
+/* ✅ Fix: match or increase specificity */
+.theme-dark .container .button.primary {
+  color: red;
+}
+
+/* ✅ Or use !important (last resort) */
+.button { color: red !important; }</code></pre>
+                        <div class="warning-box">
+                            <p class="text-sm text-slate-300"><strong>Avoid !important.</strong> It works, but it makes future CSS changes harder. Only use it when you're overriding inline styles or vendor CSS.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">4</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Wrong file — you edited the parent theme</h3>
+                        <p class="text-sm text-slate-300 mb-2">If you're using a child theme, editing the parent theme's <code>style.css</code> does nothing. The child theme's <code>style.css</code> is what loads.</p>
+                        <pre><code>wp-content/themes/
+├── parent-theme/
+│   └── style.css           ← ❌ Ignored if child exists
+└── parent-theme-child/
+    └── style.css           ← ✅ Edit this one
+
+# Also check the child theme has this at the top:
+/*
+Template: parent-theme
+*/</code></pre>
+                        <div class="pro-tip">
+                            <p class="text-sm text-slate-300"><strong>Pro tip:</strong> If you're not using a child theme, DON'T edit the parent theme's <code>style.css</code> — the next theme update will erase your changes. Create a child theme first.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">5</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Block theme (FSE) — style.css isn't used</h3>
+                        <p class="text-sm text-slate-300 mb-2">Block themes (Twenty Twenty-Four, Twenty Twenty-Five, and many modern themes) work differently. The <code>style.css</code> file is often ignored in favor of <code>theme.json</code> and block-level styles.</p>
+                        <pre><code># In a block theme, use one of these instead:
+
+# 1. Site Editor → Styles → Additional CSS
+#    (wp-admin → Appearance → Editor → Styles)
+
+# 2. theme.json for global styles
+{
+  "version": 2,
+  "styles": {
+    "color": {
+      "text": "#e2e8f0"
+    }
+  }
+}
+
+# 3. Per-block style panel in the block editor</code></pre>
+                        <div class="info-box">
+                            <p class="text-sm text-slate-300"><strong>How to check:</strong> Go to Appearance → Themes. If the theme says "Block Theme" or shows the FSE icon, this applies.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- DEBUGGING WORKFLOW -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">The debugging workflow (order matters)</h2>
+            <ol class="list-decimal list-inside text-sm text-slate-300 space-y-2">
+                <li><strong>Test in Incognito.</strong> If it works, it's browser cache. Done.</li>
+                <li><strong>Purge all WordPress caches.</strong> Plugin caches, host caches, CDN caches — all of them.</li>
+                <li><strong>Check DevTools Network tab.</strong> Is your CSS file loaded (200) or missing (404)?</li>
+                <li><strong>Check DevTools Elements tab.</strong> Is your rule visible but struck through? Specificity issue.</li>
+                <li><strong>Verify the file location.</strong> Are you editing the right file? Child theme vs parent? Block theme?</li>
+                <li><strong>Disable plugins one by one.</strong> A CSS minifier or optimizer plugin might be caching the old styles.</li>
+                <li><strong>Check your CSS syntax.</strong> One missing <code>}</code> can break the entire file from that point down.</li>
+            </ol>
+        </section>
+
+        <!-- HOW TO PREVENT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ How to prevent this next time</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Always use a child theme.</strong> Never edit the parent theme directly. Theme updates will wipe your changes.</li>
+                <li><strong>Add a version parameter to your enqueued CSS.</strong> This busts browser and CDN caches automatically.</li>
+                <li><strong>Enable "Disable cache" in DevTools while developing.</strong> Saves countless "why isn't this working" moments.</li>
+                <li><strong>Use a live-reload tool.</strong> Tools like Browsersync watch for file changes and reload automatically.</li>
+                <li><strong>Keep CSS specific and clean.</strong> High-specificity selectors cause pain later. Prefer classes over IDs and deep nesting.</li>
+                <li><strong>Test before pushing to production.</strong> Especially after CSS changes on busy sites.</li>
+            </ul>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is my custom CSS not applying in WordPress?</summary>
+                    <p class="mt-2 text-sm text-slate-300">The most common reasons are: browser cache, WordPress caching plugin, CSS specificity (something else overrides it), or the CSS is in the wrong file (like a parent theme's style.css). Check the browser DevTools first to see which rule is winning.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I test if my CSS is being loaded?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Open browser DevTools (F12), go to the Network tab, reload the page, and filter by 'CSS'. If your stylesheet isn't listed, it's not being enqueued. If it is listed, check the Elements tab to see which styles are actually applied.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does my CSS work in DevTools but not on the actual site?</summary>
+                    <p class="mt-2 text-sm text-slate-300">If you can edit styles in DevTools and they work, but your changes disappear on reload, you're editing the live DOM. Your changes need to be saved into an actual CSS file, either via the Customizer, a child theme's style.css, or a code snippet plugin.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between theme style.css and Customizer CSS?</summary>
+                    <p class="mt-2 text-sm text-slate-300">style.css is loaded by the theme itself and can be overridden by a child theme. Customizer CSS is stored in the database and loaded last, giving it higher priority. For small tweaks, Customizer is faster. For maintainable code, use a child theme.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix CSS not applying in a block theme?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Block themes (FSE) work differently. Theme customizations go in theme.json, and block-specific styles go in the Site Editor's Additional CSS panel or per-block style panels. Editing style.css in a block theme is often ignored by the block editor's style system.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related fixes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/wordpress/child-theme-not-working.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Child theme not working</div>
+                    <div class="font-semibold text-white text-sm">Fix: Theme overrides ignored</div>
+                </a>
+                <a href="/fix/wordpress/plugin-conflict.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Plugin conflict</div>
+                    <div class="font-semibold text-white text-sm">Fix: Plugin broke the site</div>
+                </a>
+                <a href="/code/css/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-blue-400 mb-1">CSS Reference</div>
+                    <div class="font-semibold text-white text-sm">CSS properties and snippets</div>
+                </a>
+                <a href="/fix/wordpress/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-slate-400 mb-1">All Fixes</div>
+                    <div class="font-semibold text-white text-sm">Back to WordPress hub</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/wordpress/index.html" class="back-link">← All WordPress Fixes</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
