@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fix: WordPress Child Theme Not Overriding Parent Theme (2026)</title>
+    <meta name="description" content="Fix a WordPress child theme that isn't overriding the parent. Five causes: missing Template header, wrong enqueue, cache, specificity, block theme issues.">
+    <meta name="keywords" content="wordpress child theme not working, child theme not overriding parent, child theme style.css ignored, wordpress child theme fix">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Fix: WordPress Child Theme Not Overriding">
+    <meta property="og:description" content="Five causes for child themes that don't override the parent.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/fix/wordpress/child-theme-not-working.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/fix/wordpress/child-theme-not-working.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Fix: WordPress Child Theme Not Overriding","description":"Five causes for child themes that don't override the parent.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why is my WordPress child theme not overriding the parent?","acceptedAnswer":{"@type":"Answer","text":"The most common cause is a missing 'Template:' header in the child theme's style.css, or forgetting to enqueue the parent stylesheet in functions.php. Other causes: browser caching, CSS specificity, or using a block theme where style.css is ignored."}},{"@type":"Question","name":"What must the child theme style.css contain?","acceptedAnswer":{"@type":"Answer","text":"A CSS comment header with at least Theme Name and Template. The Template value must exactly match the parent theme's folder name, or WordPress won't recognize the parent."}},{"@type":"Question","name":"How do I enqueue the parent theme styles correctly?","acceptedAnswer":{"@type":"Answer","text":"In the child theme's functions.php, use wp_enqueue_style to load the parent stylesheet before the child, and set the child's dependency to the parent's handle. Example: wp_enqueue_style('child', get_stylesheet_uri(), ['parent-handle']);"}},{"@type":"Question","name":"Does a child theme work with block themes?","acceptedAnswer":{"@type":"Answer","text":"Block themes use theme.json instead of style.css for most styling. A child theme can still work, but customizations should target theme.json and block-level styles rather than adding rules to style.css."}},{"@type":"Question","name":"How do I confirm the child theme is active?","acceptedAnswer":{"@type":"Answer","text":"Go to Appearance → Themes. The active theme should be the child theme, not the parent. Also, the child's folder should show up in the theme list with 'Child' typically appended or with the parent's screenshot."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #21759b; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #21759b; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .fix-answer { background: #0f172a; border-left: 4px solid #22c55e; padding: 1.25rem; border-radius: 0.75rem; margin: 1.5rem 0; }
+        .fix-answer .label { color: #22c55e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-bottom: 0.5rem; }
+        .fix-answer p { color: #e2e8f0; font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #21759b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #21759b; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #21759b; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .error-badge {
+            display: inline-block;
+            background: #0c1e2b;
+            color: #7dd3fc;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid #21759b;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Fix My Error</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stuck? Solved.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/fix/index.html" class="hover:text-blue-400">Fix Errors</a> ›
+            <a href="/fix/wordpress/index.html" class="hover:text-blue-400">WordPress</a> ›
+            <span class="text-slate-400">Child Theme Not Working</span>
+        </div>
+
+        <div class="space-y-2">
+            <div class="error-badge">Built a child theme. Parent styles still winning.</div>
+            <h1 class="text-3xl font-black">Fix: Child Theme Not Overriding</h1>
+            <p class="text-slate-400">Five causes, in order of likelihood. One of them is definitely your issue.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <!-- THE 30-SECOND FIX -->
+        <div class="fix-answer">
+            <div class="label">⚡ The 30-second check</div>
+            <p><strong>Open the child theme's <code class="text-yellow-300">style.css</code>.</strong> The first block of the file must contain a header like this:</p>
+            <pre style="margin: 0.75rem 0 0.5rem 0;"><code>/*
+Theme Name: My Child Theme
+Template:   parent-theme-folder-name
+*/</code></pre>
+            <p>If <code>Template:</code> is missing or doesn't match the parent theme's folder name exactly, that's your problem. Fix it, then reactivate the theme.</p>
+        </div>
+
+        <!-- THE 5 CAUSES -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">The 5 real causes</h2>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">1</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Missing or incorrect Template header</h3>
+                        <p class="text-sm text-slate-300 mb-2">WordPress identifies the parent theme through the <code>Template:</code> header. If it's missing, wrong, or has trailing whitespace, the child theme becomes a standalone theme — and only the child's styles load.</p>
+                        <pre><code>/* wp-content/themes/my-child/style.css */
+
+/*
+Theme Name: My Child Theme
+Template:   twentytwentyfour
+Version:    1.0
+*/
+
+/* Your overrides go below */</code></pre>
+                        <div class="warning-box">
+                            <p class="text-sm text-slate-300"><strong>Gotcha:</strong> <code>Template:</code> must match the parent's folder name, not the theme's display name. If the parent folder is <code>twentytwentyfour</code>, use exactly that — not "Twenty Twenty-Four".</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">2</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Parent stylesheet not enqueued</h3>
+                        <p class="text-sm text-slate-300 mb-2">Some child themes need to explicitly enqueue the parent theme's stylesheet. Without this, the child theme only loads its own CSS — so nothing looks like the parent.</p>
+                        <pre><code>// wp-content/themes/my-child/functions.php
+&lt;?php
+add_action('wp_enqueue_scripts', function () {
+    // Enqueue parent styles first
+    wp_enqueue_style(
+        'parent-style',
+        get_template_directory_uri() . '/style.css'
+    );
+
+    // Enqueue child styles second (they override)
+    wp_enqueue_style(
+        'child-style',
+        get_stylesheet_uri(),
+        ['parent-style'],  // Loads after parent
+        wp_get_theme()->get('Version')
+    );
+});
+</code></pre>
+                        <div class="pro-tip">
+                            <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Many modern themes (Twenty Twenty-Four, Astra, GeneratePress) already enqueue the parent. Check the theme's documentation before adding this.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">3</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Caching — plugin, browser, or CDN</h3>
+                        <p class="text-sm text-slate-300 mb-2">The styles are loading fine, but you're seeing the cached version. Rule this out before blaming the theme.</p>
+                        <pre><code># Browser hard refresh
+Ctrl+Shift+R (Windows/Linux)
+Cmd+Shift+R  (macOS)
+
+# Or open in Incognito/Private mode
+# Then check your WordPress cache
+# Admin bar → Purge All Caches
+# Cloudflare → Caching → Purge Everything</code></pre>
+                        <div class="pro-tip">
+                            <p class="text-sm text-slate-300"><strong>Pro tip:</strong> If it works in Incognito but not your normal browser, it's browser cache. If it works in neither, purge the WordPress/CDN cache.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">4</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">CSS specificity — parent rule is more specific</h3>
+                        <p class="text-sm text-slate-300 mb-2">Your CSS loads after the parent's, but the parent's selector has higher specificity, so it still wins. DevTools shows this clearly — your rule appears with a strikethrough.</p>
+                        <pre><code>/* Parent theme rule (loaded first) */
+.site-header .nav-menu > li > a {
+  color: blue;
+}
+
+/* Your child theme rule (loaded second) */
+.nav-menu a {
+  color: red;  /* ❌ Loses — parent has higher specificity */
+}
+
+/* ✅ Fix: match or exceed the parent's specificity */
+.site-header .nav-menu > li > a {
+  color: red;
+}</code></pre>
+                        <div class="pro-tip">
+                            <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Right-click the element in DevTools → Inspect. In the Styles panel, find your rule. If it's crossed out, specificity is the issue. Hover over the strikethrough to see which rule is winning.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="step-card">
+                <div class="flex items-start">
+                    <span class="step-number">5</span>
+                    <div>
+                        <h3 class="text-white font-bold text-base mb-1">Block theme (FSE) — style.css isn't used the same way</h3>
+                        <p class="text-sm text-slate-300 mb-2">If the parent is a block theme (Twenty Twenty-Four, Twenty Twenty-Five, Ollie), <code>style.css</code> is often ignored. Styles live in <code>theme.json</code> and block-level settings.</p>
+                        <pre><code>/* In a block theme, edit theme.json instead */
+
+// wp-content/themes/my-child/theme.json
+{
+  "version": 2,
+  "styles": {
+    "color": {
+      "text": "#e2e8f0",
+      "background": "#0f172a"
+    },
+    "typography": {
+      "fontSize": "16px"
+    }
+  }
+}</code></pre>
+                        <div class="info-box">
+                            <p class="text-sm text-slate-300"><strong>How to check:</strong> In Appearance → Themes, block themes show the FSE icon. If you're not sure, look for <code>theme.json</code> in the parent theme folder — if it exists, you're dealing with a block theme.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- DEBUGGING WORKFLOW -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">The debugging workflow</h2>
+            <ol class="list-decimal list-inside text-sm text-slate-300 space-y-2">
+                <li><strong>Check the Template header.</strong> 60% of cases. Open child theme's style.css — does the header exist and match the parent folder name?</li>
+                <li><strong>Check DevTools Network tab.</strong> Is your child's style.css loaded at all? If 404, the file isn't where you think it is.</li>
+                <li><strong>Hard refresh + Incognito.</strong> Rule out browser cache in 10 seconds.</li>
+                <li><strong>Purge all caches.</strong> WordPress plugin, host, and CDN. All of them.</li>
+                <li><strong>Check DevTools Elements → Styles.</strong> Find your rule. If crossed out, specificity is the issue.</li>
+                <li><strong>Verify the child theme is active.</strong> Appearance → Themes → active theme should say "My Child Theme", not the parent.</li>
+                <li><strong>Check for block theme.</strong> If parent has theme.json, style.css may be irrelevant.</li>
+            </ol>
+        </section>
+
+        <!-- COMPLETE WORKING EXAMPLE -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">📁 A complete working child theme</h2>
+            <p class="text-sm text-slate-300 mb-3">Everything you need in 3 files, from scratch:</p>
+
+            <pre><code>wp-content/themes/my-child/
+├── style.css
+└── functions.php</code></pre>
+
+            <span class="text-xs font-mono text-blue-400">style.css</span>
+            <pre><code>/*
+Theme Name:  My Child Theme
+Template:    twentytwentyfour
+Version:     1.0.0
+Text Domain: my-child
+*/
+
+/* Your overrides go here */
+.site-header {
+    background: #0f172a;
+}</code></pre>
+
+            <span class="text-xs font-mono text-blue-400">functions.php</span>
+            <pre><code>&lt;?php
+add_action('wp_enqueue_scripts', function () {
+    // Only enqueue if the parent theme doesn't already.
+    // Most modern themes handle this. Comment out if you see duplicates.
+
+    wp_enqueue_style(
+        'my-child-style',
+        get_stylesheet_uri(),
+        [],
+        wp_get_theme()->get('Version')
+    );
+});
+</code></pre>
+
+            <p class="text-sm text-slate-300 mt-4"><strong>Then:</strong> Appearance → Themes → Activate "My Child Theme". If the parent name in the header is wrong, WordPress shows it as a standalone theme (no "Parent Theme" indicator).</p>
+        </section>
+
+        <!-- HOW TO PREVENT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ How to avoid this next time</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Generate child themes with a tool.</strong> The "Child Theme Configurator" plugin or the official theme generator gets the header right every time.</li>
+                <li><strong>Check the header twice.</strong> Template: must match the parent's folder name, not its display name.</li>
+                <li><strong>Keep child theme CSS small.</strong> Only overrides. Inherit everything else from the parent.</li>
+                <li><strong>Version your CSS file.</strong> Add a version query parameter so browsers don't cache stale CSS.</li>
+                <li><strong>Use one child theme per parent.</strong> Nested children don't work the way most people expect.</li>
+                <li><strong>For block themes, use theme.json.</strong> Don't fight the block editor — work with it.</li>
+            </ul>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is my WordPress child theme not overriding the parent?</summary>
+                    <p class="mt-2 text-sm text-slate-300">The most common cause is a missing 'Template:' header in the child theme's style.css, or forgetting to enqueue the parent stylesheet in functions.php. Other causes: browser caching, CSS specificity, or using a block theme where style.css is ignored.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What must the child theme style.css contain?</summary>
+                    <p class="mt-2 text-sm text-slate-300">A CSS comment header with at least Theme Name and Template. The Template value must exactly match the parent theme's folder name, or WordPress won't recognize the parent.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I enqueue the parent theme styles correctly?</summary>
+                    <p class="mt-2 text-sm text-slate-300">In the child theme's functions.php, use wp_enqueue_style to load the parent stylesheet before the child, and set the child's dependency to the parent's handle. Example: wp_enqueue_style('child', get_stylesheet_uri(), ['parent-handle']);</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Does a child theme work with block themes?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Block themes use theme.json instead of style.css for most styling. A child theme can still work, but customizations should target theme.json and block-level styles rather than adding rules to style.css.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I confirm the child theme is active?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Go to Appearance → Themes. The active theme should be the child theme, not the parent. Also, the child's folder should show up in the theme list with 'Child' typically appended or with the parent's screenshot.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related fixes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/wordpress/theme-css-not-applying.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">CSS not applying</div>
+                    <div class="font-semibold text-white text-sm">Fix: Theme CSS</div>
+                </a>
+                <a href="/fix/wordpress/plugin-conflict.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Plugin conflict</div>
+                    <div class="font-semibold text-white text-sm">Fix: Site broke after plugin</div>
+                </a>
+                <a href="/how-to/wordpress/test-theme-before-live.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-blue-400 mb-1">How-to</div>
+                    <div class="font-semibold text-white text-sm">Test themes safely</div>
+                </a>
+                <a href="/fix/wordpress/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-slate-400 mb-1">All Fixes</div>
+                    <div class="font-semibold text-white text-sm">Back to WordPress hub</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/wordpress/index.html" class="back-link">← All WordPress Fixes</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
