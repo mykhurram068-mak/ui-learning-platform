@@ -348,6 +348,16 @@
                              </li>
                         </ul>
                     </li>
+                    <!-- NEW: WordPress How-to category — add after Fix My Error -->
+                    <li class="dropdown-category">
+                        <a href="#" class="dropdown-category-btn">📘 WordPress How-to</a>
+                        <ul class="dropdown-category-content">
+                            <li><a href="/how-to/wordpress/diagnose-plugin-conflict.html">🔍 Diagnose Plugin Conflict</a></li>
+                            <li><a href="/how-to/wordpress/rollback-plugin-update.html">⬆️ Rollback Plugin Update</a></li>
+                            <li><a href="/how-to/wordpress/test-theme-before-live.html">🧪 Test Theme Before Live</a></li>
+                            <li><a href="/how-to/wordpress/choose-theme-for-speed.html">⚡ Choose Theme for Speed</a></li>
+                        </ul>
+                    </li>
 
                     <!-- 🏗️ Build Projects — ADD THIS BLOCK -->
                     <li class="dropdown-category">
