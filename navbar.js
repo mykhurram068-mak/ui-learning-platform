@@ -132,7 +132,7 @@
         }
 
         /* ===== MOBILE ADJUSTMENTS ===== */
-       /* @media (max-width: 768px) {
+        @media (max-width: 768px) {
             .dropdown-nav-content {
                 position: static;
                 min-width: 100% !important;
@@ -157,75 +157,7 @@
                 padding: 10px 14px;
                 font-size: 0.83rem;
             }
-        }*/
-
-@media (max-width: 768px) {
-
-    /* ===== MOBILE MENU CONTAINER ===== */
-    .nav-links, .nav-menu {
-        display: none;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: #0f172a;
-        flex-direction: column;
-        padding: 1rem;
-        gap: 0.75rem;
-        border-bottom: 1px solid #1e293b;
-        z-index: 100;
-
-        /* KEY FIX: constrain height and enable scroll */
-        max-height: calc(100vh - 80px);
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        overscroll-behavior: contain;
-    }
-
-    .nav-links.active, .nav-menu.active {
-        display: flex;
-    }
-
-    /* ===== TOP-LEVEL DROPDOWN (Snippets, Guides, etc.) ===== */
-    .dropdown-nav-content {
-        position: static;
-        min-width: 100% !important;
-        width: 100%;
-        background: rgba(15, 23, 42, 0.9);
-        border: none;
-        border-radius: 10px;
-        box-shadow: none;
-        padding: 4px;
-        margin: 4px 0 8px 0;
-
-        /* KEY FIX: no max-height — let it grow, parent scrolls */
-        max-height: none;
-        overflow: visible;
-        animation: none;
-    }
-
-    /* ===== NESTED CATEGORY CONTENT (Roadmaps, etc.) ===== */
-    .dropdown-category-content {
-        /* KEY FIX: allow nested content to expand fully */
-        max-height: none !important;
-        overflow: visible !important;
-    }
-
-    .dropdown-category-btn {
-        padding: 12px 14px !important;
-        font-size: 0.88rem !important;
-    }
-
-    .dropdown-category-content a {
-        padding: 10px 14px;
-        font-size: 0.83rem;
-    }
-
-    /* ===== HEADER: prevent clipping ===== */
-    header {
-        overflow: visible !important;
-    }
-}
+        }
 
 
 
