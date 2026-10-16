@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>How to Diagnose a WordPress Plugin Conflict — Systematic Workflow (2026)</title>
+    <meta name="description" content="Systematic workflow for diagnosing WordPress plugin conflicts. WP_DEBUG, error logs, hook tracing, and the bisect method — works on live sites.">
+    <meta name="keywords" content="diagnose wordpress plugin conflict, wordpress plugin debug, wp_debug tutorial, wordpress hook tracing, wordpress conflict testing">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="How to Diagnose a WordPress Plugin Conflict">
+    <meta property="og:description" content="Systematic workflow for finding plugin conflicts.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/how-to/wordpress/diagnose-plugin-conflict.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/how-to/wordpress/diagnose-plugin-conflict.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"HowTo","name":"How to Diagnose a WordPress Plugin Conflict","description":"Systematic workflow for diagnosing WordPress plugin conflicts.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16","step":[{"@type":"HowToStep","name":"Enable WP_DEBUG","text":"Turn on WP_DEBUG, WP_DEBUG_LOG, and WP_DEBUG_DISPLAY in wp-config.php to capture errors."},{"@type":"HowToStep","name":"Reproduce the error","text":"Visit the page or trigger the action that breaks the site and check wp-content/debug.log."},{"@type":"HowToStep","name":"Read the stack trace","text":"Identify the last plugin file in the stack trace — that's the first suspect."},{"@type":"HowToStep","name":"Check hook conflicts","text":"Use Query Monitor to see if two plugins register the same hook with the same priority."},{"@type":"HowToStep","name":"Bisect plugin list","text":"Deactivate half the plugins, test, and narrow down. Repeat until one plugin remains."},{"@type":"HowToStep","name":"Report or replace","text":"If the plugin is actively maintained, report the conflict. Otherwise replace it."}]}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the fastest way to find a WordPress plugin conflict?","acceptedAnswer":{"@type":"Answer","text":"Enable WP_DEBUG_LOG, reproduce the error, and read the last plugin file in wp-content/debug.log. That file names the culprit in 80% of cases. If the log doesn't help, use the bisect method on plugins."}},{"@type":"Question","name":"Do I need to take the site offline to diagnose a plugin conflict?","acceptedAnswer":{"@type":"Answer","text":"No. If you use the bisect method on staging, the live site stays up. If you're debugging on production, do it during low-traffic hours and have a backup ready."}},{"@type":"Question","name":"What is Query Monitor used for?","acceptedAnswer":{"@type":"Answer","text":"Query Monitor shows which plugin fired which hook, ran which query, and enqueued which script on each page. It's the fastest way to see exactly what a plugin is doing on the page that's breaking."}},{"@type":"Question","name":"How do I read a WordPress stack trace?","acceptedAnswer":{"@type":"Answer","text":"Look at the frames from top to bottom. The top frame is where the error occurred. The bottom frames are the calling code. Look for plugin paths (wp-content/plugins/) in the middle — that's usually where the conflict lives."}},{"@type":"Question","name":"Can I fix a plugin conflict without touching code?","acceptedAnswer":{"@type":"Answer","text":"Usually yes. Deactivating one of the two conflicting plugins resolves it immediately. If both plugins are required, you'll need to either update one of them, report the conflict to the plugin author, or find a replacement for one of them."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #21759b; padding: 1.5rem; border-radius: 0.75rem; margin: 1.25rem 0; }
+        .step-badge { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; background: #21759b; color: white; font-weight: 900; border-radius: 0.75rem; margin-right: 0.75rem; font-size: 1rem; flex-shrink: 0; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.75rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #21759b; padding: 1rem 1.25rem; border-radius: 0.5rem; margin: 1.25rem 0; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #21759b; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #21759b; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">How-to Guide</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Workflows. Not guessing.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/how-to/index.html" class="hover:text-blue-400">How-to</a> ›
+            <a href="/fix/wordpress/index.html" class="hover:text-blue-400">WordPress</a> ›
+            <span class="text-slate-400">Diagnose Plugin Conflict</span>
+        </div>
+
+        <div class="space-y-3">
+            <h2 class="text-xs font-bold uppercase tracking-[0.2em]" style="color:#21759b;">WordPress · Debugging Workflow</h2>
+            <h1 class="text-3xl md:text-4xl font-black">How to Diagnose a WordPress Plugin Conflict</h1>
+            <p class="text-slate-400 text-base">A systematic workflow for finding which plugin is causing the problem. Not guessing. Follow the steps in order and you'll have the answer in 10 minutes.</p>
+            <div class="flex flex-wrap gap-3 text-xs text-slate-500 mt-2">
+                <span>⏱️ 10–15 minutes</span>
+                <span>·</span>
+                <span>🎯 Intermediate</span>
+                <span>·</span>
+                <span>🔧 Requires file access</span>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <p class="text-sm text-slate-300"><strong>When to use this:</strong> When your site breaks and you suspect a plugin, but you don't know which one. The <a href="/fix/wordpress/plugin-conflict.html" class="text-blue-400 hover:underline">plugin conflict fix page</a> covers the emergency deactivation. This guide is the deeper diagnostic when you want to know <em>why</em>.</p>
+        </div>
+
+        <!-- STEP 1 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">1</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Enable WP_DEBUG</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">By default, WordPress hides PHP errors. Turn on debug logging so you can see what's happening.</p>
+                    <p class="text-sm text-slate-300 mb-2">Edit <code>wp-config.php</code> in your WordPress root. Find this line:</p>
+                    <pre><code>define('WP_DEBUG', false);</code></pre>
+                    <p class="text-sm text-slate-300 mt-3 mb-2">Replace it with these four lines:</p>
+                    <pre><code>define('WP_DEBUG', true);
+define('WP_DEBUG_LOG', true);
+define('WP_DEBUG_DISPLAY', false);
+define('SCRIPT_DEBUG', true);</code></pre>
+                    <p class="text-sm text-slate-300 mt-3">What each does:</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li><code>WP_DEBUG</code> — turns on error reporting</li>
+                        <li><code>WP_DEBUG_LOG</code> — writes errors to <code>wp-content/debug.log</code></li>
+                        <li><code>WP_DEBUG_DISPLAY</code> — hides errors from visitors (important for production)</li>
+                        <li><code>SCRIPT_DEBUG</code> — loads unminified CSS/JS so conflicts are easier to trace</li>
+                    </ul>
+                    <div class="warning-box">
+                        <p class="text-sm text-slate-300"><strong>Turn this off when done.</strong> Leaving WP_DEBUG on in production fills the log with notices and can expose file paths to visitors.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">2</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Reproduce the error</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Visit the exact page or trigger the exact action that breaks the site. Then check the log file.</p>
+                    <p class="text-sm text-slate-300 mb-2"><strong>Where to find the log:</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Via SFTP: <code>wp-content/debug.log</code></li>
+                        <li>Via your host's file manager: same path</li>
+                        <li>Via WP-CLI: <code>wp log show --lines=50</code> (if the WP-CLI log command is available)</li>
+                    </ul>
+                    <p class="text-sm text-slate-300 mt-3 mb-2"><strong>Open the last ~50 lines.</strong> You're looking for:</p>
+                    <pre><code>[16-Oct-2026 14:22:01 UTC] PHP Fatal error: Uncaught TypeError:
+Cannot access offset of type string on string in
+/home/user/public_html/wp-content/plugins/some-plugin/includes/class-handler.php:142
+
+[16-Oct-2026 14:22:01 UTC] PHP Stack trace:
+[16-Oct-2026 14:22:01 UTC] PHP   1. {main}() /index.php:0
+[16-Oct-2026 14:22:01 UTC] PHP   2. do_action() /wp-includes/plugin.php:517
+[16-Oct-2026 14:22:01 UTC] PHP   3. some_plugin_init() /wp-content/plugins/some-plugin/hooks.php:88
+[16-Oct-2026 14:22:01 UTC] PHP   4. Some_Plugin_Handler::render() /wp-content/plugins/some-plugin/class-handler.php:142</code></pre>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> If the log is empty, no PHP error is being thrown. That usually means it's a CSS/JS conflict, not a PHP conflict — jump to step 4.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 3 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">3</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Read the stack trace</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">The stack trace tells you exactly which file threw the error and which files called into it.</p>
+                    <p class="text-sm text-slate-300 mb-2"><strong>Reading order:</strong></p>
+                    <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                        <li><strong>Top frame</strong> — the fatal line and file (the actual crash site)</li>
+                        <li><strong>Bottom frame</strong> — the entry point (usually <code>index.php</code> or <code>wp-blog-header.php</code>)</li>
+                        <li><strong>Middle frames</strong> — the call chain (this is where the plugin interaction lives)</li>
+                    </ol>
+                    <p class="text-sm text-slate-300 mt-3 mb-2">Look for plugin paths in the middle frames:</p>
+                    <pre><code>wp-content/plugins/plugin-a/...   ← Plugin A involved
+wp-content/plugins/plugin-b/...   ← Plugin B involved</code></pre>
+                    <p class="text-sm text-slate-300 mt-3"><strong>If two different plugins appear in the stack trace, you've found your conflict.</strong> Plugin A called a function that Plugin B was also hooking into, and one of them modified something the other expected.</p>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Note the exact function names in the trace. When you search for a fix, those names are more useful than the plugin names.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 4 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">4</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Check hook conflicts with Query Monitor</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">If the log doesn't reveal the culprit, Query Monitor shows exactly which plugin is doing what on each page.</p>
+                    <p class="text-sm text-slate-300 mb-2"><strong>Install and activate Query Monitor.</strong> It adds a "Query Monitor" menu to the admin bar with these tabs:</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li><strong>Queries</strong> — every database query with the plugin that ran it</li>
+                        <li><strong>Hooks</strong> — every WordPress hook fired, sorted by priority</li>
+                        <li><strong>Scripts & Styles</strong> — what CSS/JS loads on this page</li>
+                        <li><strong>HTTP API</strong> — outgoing external requests</li>
+                    </ul>
+                    <p class="text-sm text-slate-300 mt-3 mb-2"><strong>Look for these patterns in the Hooks tab:</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Two plugins hooking the same action at the same priority</li>
+                        <li>A plugin removing another plugin's hook (search for <code>remove_action</code>)</li>
+                        <li>Duplicate function names (search for <code>function_exists</code> patterns)</li>
+                    </ul>
+                    <div class="warning-box">
+                        <p class="text-sm text-slate-300"><strong>Performance warning:</strong> Query Monitor slows the site down while it's active. Deactivate it when you're not debugging.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 5 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">5</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Bisect the plugin list</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">When you still don't know which plugin is causing the issue, bisect. Faster than testing one at a time.</p>
+                    <p class="text-sm text-slate-300 mb-2"><strong>The bisect method:</strong></p>
+                    <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                        <li>List all active plugins in a spreadsheet</li>
+                        <li>Deactivate the bottom half</li>
+                        <li>Reproduce the error</li>
+                        <li>If the error is gone, it's in the bottom half — restore, deactivate the other half</li>
+                        <li>If the error is still there, it's in the top half — keep the bottom active, deactivate the top half</li>
+                        <li>Repeat with the smaller half</li>
+                    </ol>
+                    <p class="text-sm text-slate-300 mt-3 mb-2">Bisect math:</p>
+                    <pre><code>32 plugins → 5 rounds of testing
+16 plugins → 4 rounds
+8 plugins  → 3 rounds
+4 plugins  → 2 rounds
+
+# vs testing one at a time = up to 32 tests</code></pre>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Do this on staging. If you must do it on production, do it during low-traffic hours and announce it in advance.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 6 -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-badge">6</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-xl">Resolve and prevent</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Once you've identified the culprit plugin, here's what to do:</p>
+
+                    <p class="text-sm text-slate-300 mb-2"><strong>If both plugins are required:</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Check if there's a newer version of either plugin. Conflicts are often fixed in point releases.</li>
+                        <li>Search the plugin support forums on wordpress.org for the exact error</li>
+                        <li>Report the conflict with a stack trace — the plugin author may not know</li>
+                        <li>Check the plugin's GitHub issues if it has one</li>
+                    </ul>
+
+                    <p class="text-sm text-slate-300 mt-3 mb-2"><strong>If you can replace one:</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Find an alternative plugin that does the same thing without the conflict</li>
+                        <li>Or write a small custom function — often faster than dealing with a bloated plugin</li>
+                    </ul>
+
+                    <p class="text-sm text-slate-300 mt-3 mb-2"><strong>Prevent future conflicts:</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Test plugin updates on staging first</li>
+                        <li>Check the plugin's "Tested up to" version before updating</li>
+                        <li>Keep fewer plugins active overall</li>
+                        <li>Read changelogs before updating</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- QUICK REFERENCE -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">📋 Quick reference — where to look for what</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-700">
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Symptom</th>
+                            <th class="text-left py-2 text-slate-400 font-medium">Where to look first</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">White screen of death</td><td class="py-2"><code>wp-content/debug.log</code></td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Site loads but looks broken</td><td class="py-2">Query Monitor → Scripts & Styles</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Page slow but functional</td><td class="py-2">Query Monitor → Queries</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Something doesn't work on one page</td><td class="py-2">Query Monitor → Hooks</td></tr>
+                        <tr><td class="py-2 pr-4">Only some plugins fail</td><td class="py-2">Bisect method</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the fastest way to find a WordPress plugin conflict?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Enable WP_DEBUG_LOG, reproduce the error, and read the last plugin file in wp-content/debug.log. That file names the culprit in 80% of cases. If the log doesn't help, use the bisect method on plugins.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Do I need to take the site offline to diagnose a plugin conflict?</summary>
+                    <p class="mt-2 text-sm text-slate-300">No. If you use the bisect method on staging, the live site stays up. If you're debugging on production, do it during low-traffic hours and have a backup ready.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is Query Monitor used for?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Query Monitor shows which plugin fired which hook, ran which query, and enqueued which script on each page. It's the fastest way to see exactly what a plugin is doing on the page that's breaking.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I read a WordPress stack trace?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Look at the frames from top to bottom. The top frame is where the error occurred. The bottom frames are the calling code. Look for plugin paths (wp-content/plugins/) in the middle — that's usually where the conflict lives.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I fix a plugin conflict without touching code?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Usually yes. Deactivating one of the two conflicting plugins resolves it immediately. If both plugins are required, you'll need to either update one of them, report the conflict to the plugin author, or find a replacement for one of them.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/wordpress/plugin-conflict.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🚨 Fix: Plugin Conflict</div>
+                    <div class="text-xs text-slate-400 mt-1">Emergency deactivation walkthrough.</div>
+                </a>
+                <a href="/fix/wordpress/plugin-slowing-site.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🐌 Fix: Plugin Slowing Site</div>
+                    <div class="text-xs text-slate-400 mt-1">Performance diagnosis.</div>
+                </a>
+                <a href="/how-to/wordpress/rollback-plugin-update.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">⬆️ Rollback a Plugin Update</div>
+                    <div class="text-xs text-slate-400 mt-1">When an update caused the conflict.</div>
+                </a>
+                <a href="/fix/wordpress/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white">🌐 WordPress Fixes Hub</div>
+                    <div class="text-xs text-slate-400 mt-1">All WordPress guides.</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/wordpress/index.html" class="back-link">← All WordPress Guides</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
