@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fix: VS Code Settings Not Applying — settings.json Ignored (2026)</title>
+    <meta name="description" content="Fix VS Code settings that aren't taking effect. Workspace vs user settings, JSON syntax errors, and settings precedence rules.">
+    <meta name="keywords" content="vscode settings not applying, vscode settings.json not working, vscode workspace settings override, vscode settings precedence">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Fix: VS Code Settings Not Applying">
+    <meta property="og:description" content="Why your settings.json changes aren't taking effect.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/fix/vscode/settings-not-applying.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/fix/vscode/settings-not-applying.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Fix: VS Code Settings Not Applying","description":"Why your settings.json changes aren't taking effect.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why are my VS Code settings not applying?","acceptedAnswer":{"@type":"Answer","text":"Most common causes: you edited User settings but a Workspace setting is overriding it, there's a JSON syntax error (trailing comma, missing quote), or an extension has injected its own setting. Check the Settings UI to see which scope is winning."}},{"@type":"Question","name":"What is the difference between User and Workspace settings?","acceptedAnswer":{"@type":"Answer","text":"User settings apply globally to every VS Code window. Workspace settings apply only to the current project and live in .vscode/settings.json inside the project folder. Workspace settings always override user settings."}},{"@type":"Question","name":"How do I know which settings file is winning?","acceptedAnswer":{"@type":"Answer","text":"Open the Settings UI (Ctrl+,). Settings that are overridden by a workspace show 'Modified in Workspace'. Settings you edited in User settings but that aren't applying are usually being overridden by a workspace file."}},{"@type":"Question","name":"What are VS Code setting scopes?","acceptedAnswer":{"@type":"Answer","text":"There are four scopes, in order of priority: Default (built-in), User (your global settings.json), Workspace (.vscode/settings.json in the project), Workspace Folder (for multi-root workspaces). Higher scope wins."}},{"@type":"Question","name":"How do I reset VS Code settings to default?","acceptedAnswer":{"@type":"Answer","text":"Open Settings UI, search for the setting, and click the gear icon → 'Reset Setting'. For a full reset, delete ~/Library/Application Support/Code/User/settings.json on macOS, or %APPDATA%/Code/User/settings.json on Windows."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #007acc; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #007acc; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .fix-answer { background: #0f172a; border-left: 4px solid #22c55e; padding: 1.25rem; border-radius: 0.75rem; margin: 1.5rem 0; }
+        .fix-answer .label { color: #22c55e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-bottom: 0.5rem; }
+        .fix-answer p { color: #e2e8f0; font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #007acc; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #007acc; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #007acc; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .error-badge {
+            display: inline-block;
+            background: #0d2137;
+            color: #7dd3fc;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid #007acc;
+            margin-bottom: 1rem;
+        }
+        kbd {
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Fix My Error</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stuck? Solved.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/fix/index.html" class="hover:text-blue-400">Fix Errors</a> ›
+            <a href="/fix/vscode/index.html" class="hover:text-blue-400">VS Code</a> ›
+            <span class="text-slate-400">Settings Not Applying</span>
+        </div>
+
+        <div class="space-y-2">
+            <div class="error-badge">Changed settings.json. Saved. Reloaded. Nothing changed.</div>
+            <h1 class="text-3xl font-black">Fix: VS Code Settings Not Applying</h1>
+            <p class="text-slate-400">Your settings changes are being ignored. It's almost always scope — User vs Workspace — or a JSON syntax error.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <div class="fix-answer">
+            <div class="label">⚡ The 30-second fix</div>
+            <p><strong>Open Settings UI</strong> with <kbd>Ctrl+,</kbd> (or <kbd>Cmd+,</kbd>). Search for the setting you changed.</p>
+            <p>If it shows <strong>"Modified in Workspace"</strong> or has a blue line, the workspace overrides your user setting. Edit the workspace value, or copy it back to your user settings after removing the workspace override.</p>
+        </div>
+
+        <!-- WHAT'S HAPPENING -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Why this happens</h2>
+            <p class="text-sm text-slate-300 mb-3">VS Code settings are resolved in four layers, from lowest to highest priority:</p>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-700">
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Scope</th>
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">File location</th>
+                            <th class="text-left py-2 text-slate-400 font-medium">Applies to</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Default</td><td class="py-2 pr-4">Built-in</td><td class="py-2">Everything (lowest priority)</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">User</td><td class="py-2 pr-4"><code>~/Library/.../Code/User/settings.json</code> (macOS)<br><code>%APPDATA%/Code/User/settings.json</code> (Win)</td><td class="py-2">All VS Code windows</td></tr>
+                        <tr class="border-b border-slate-800"><td class="py-2 pr-4">Workspace</td><td class="py-2 pr-4"><code>.vscode/settings.json</code> inside the project</td><td class="py-2">Only that project</td></tr>
+                        <tr><td class="py-2 pr-4">Workspace Folder</td><td class="py-2 pr-4"><code>.vscode/settings.json</code> in multi-root folders</td><td class="py-2">Specific folder in multi-root</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="info-box mt-4">
+                <p class="text-sm text-slate-300"><strong>Higher priority wins.</strong> If a workspace setting conflicts with a user setting, the workspace wins — silently. That's usually why "my setting isn't working."</p>
+            </div>
+        </section>
+
+        <!-- CAUSE 1: SCOPE -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">Workspace override (most common)</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">You changed a setting in User settings, but the workspace has a different value that's overriding it.</p>
+                    <p class="text-sm text-slate-300 mb-2"><strong>How to check:</strong></p>
+                    <ol class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Open Settings UI with <kbd>Ctrl+,</kbd></li>
+                        <li>Search for the setting</li>
+                        <li>Look for a blue line under the input — that indicates a Workspace override</li>
+                        <li>Click the gear icon → "Reset Setting" to remove the workspace value</li>
+                    </ol>
+                    <p class="text-sm text-slate-300 mt-3 mb-2"><strong>Or inspect the file directly:</strong></p>
+                    <pre><code># In your project folder
+ls -la .vscode/settings.json
+
+# If it exists, open it — see what's overriding your user settings</code></pre>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Workspace settings are intentional. They exist so a project can enforce its own rules — like 2-space indentation for a specific repo. If you want your user setting to win, remove the workspace value.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CAUSE 2: SYNTAX -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">JSON syntax error</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">A single broken character makes VS Code ignore the entire settings file. VS Code usually highlights this, but not always.</p>
+                    <p class="text-sm text-slate-300 mb-2"><strong>Common syntax errors:</strong></p>
+                    <pre><code>// ❌ Trailing comma — invalid JSON
+{
+  "editor.fontSize": 14,
+  "editor.tabSize": 2,
+}
+
+// ❌ Missing quote
+{
+  editor.fontSize: 14
+}
+
+// ❌ Comment in a strict JSON file
+{
+  // this comment breaks the file
+  "editor.fontSize": 14
+}
+
+// ✅ Valid JSON
+{
+  "editor.fontSize": 14,
+  "editor.tabSize": 2
+}</code></pre>
+                    <div class="warning-box">
+                        <p class="text-sm text-slate-300"><strong>Wait — doesn't VS Code support comments in settings.json?</strong>; Yes, VS Code uses "JSON with Comments" for its own config files. But if you're editing a different file (like <code>package.json</code>), comments will break it. Check which file you're editing.</p>
+                    </div>
+                    <p class="text-sm text-slate-300 mt-3"><strong>How to verify:</strong> Paste the file contents into <a href="https://jsonlint.com" class="text-blue-400 hover:underline">jsonlint.com</a>. If it fails, that's your problem.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- CAUSE 3: EXTENSION SETTINGS -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">Extension has a companion setting</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">You changed a setting, but an extension's own setting is overriding it. Extensions can register their own settings that behave differently.</p>
+                    <p class="text-sm text-slate-300 mb-2"><strong>Example:</strong> You set <code>editor.formatOnSave: true</code>. But Prettier's <code>prettier.requireConfig</code> is <code>true</code>, so it only formats files that have a Prettier config. If the file doesn't have one, formatting is skipped.</p>
+                    <p class="text-sm text-slate-300 mt-3 mb-2"><strong>How to check:</strong></p>
+                    <ol class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Search Settings UI for the same key prefix (e.g., <code>prettier.</code>, <code>eslint.</code>, <code>github.copilot.</code>)</li>
+                        <li>Read what each setting does</li>
+                        <li>Look for settings that gate behavior (enable/disable toggles)</li>
+                    </ol>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Right-click the setting in Settings UI and choose "Copy Setting as JSON". This shows you the exact key path, so you can search for related settings.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CAUSE 4: RELOAD -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">4</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">Window needs a reload</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Some settings apply immediately. Others need a window reload to take effect. If you're not sure, reload.</p>
+                    <pre><code># Open the Command Palette
+Ctrl+Shift+P (Windows/Linux)
+Cmd+Shift+P (macOS)
+
+# Run:
+> Developer: Reload Window</code></pre>
+                    <p class="text-sm text-slate-300 mt-3"><strong>Settings that need a reload:</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Language server settings</li>
+                        <li>Extension toggles</li>
+                        <li>Terminal profile changes</li>
+                        <li>Font changes (sometimes)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- CAUSE 5: EXTENSION HOST CRASH -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">5</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">Extension host crashed</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">If extension-related settings aren't applying, the extension host process may have crashed silently.</p>
+                    <p class="text-sm text-slate-300 mb-2"><strong>Check:</strong></p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li>Bottom status bar — does it show "Extension host not responding"?</li>
+                        <li>Command Palette → "Developer: Show Running Extensions" — are they all listed?</li>
+                        <li>Command Palette → "Developer: Open Extension Logs Folder" — check for crash reports</li>
+                    </ul>
+                    <pre><code># Restart the extension host without restarting VS Code
+Command Palette → Developer: Restart Extension Host</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- HOW TO PREVENT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ How to prevent settings confusion</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Commit workspace settings to git.</strong> If your project has <code>.vscode/settings.json</code>, commit it so the whole team gets the same config.</li>
+                <li><strong>Comment your settings.</strong> VS Code settings files support comments (it's technically JSONC). Add a comment explaining <em>why</em> each setting exists.</li>
+                <li><strong>Keep user settings small.</strong> Only put truly global preferences in user settings. Project-specific stuff belongs in the workspace.</li>
+                <li><strong>Use Settings Sync.</strong> Enable VS Code Settings Sync (built-in) so user settings follow you across machines.</li>
+                <li><strong>Know the scope you're editing.</strong> Settings UI shows "User" or "Workspace" tabs — always check which one you're on.</li>
+            </ul>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why are my VS Code settings not applying?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Most common causes: you edited User settings but a Workspace setting is overriding it, there's a JSON syntax error (trailing comma, missing quote), or an extension has injected its own setting. Check the Settings UI to see which scope is winning.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between User and Workspace settings?</summary>
+                    <p class="mt-2 text-sm text-slate-300">User settings apply globally to every VS Code window. Workspace settings apply only to the current project and live in .vscode/settings.json inside the project folder. Workspace settings always override user settings.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I know which settings file is winning?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Open the Settings UI (Ctrl+,). Settings that are overridden by a workspace show 'Modified in Workspace'. Settings you edited in User settings but that aren't applying are usually being overridden by a workspace file.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What are VS Code setting scopes?</summary>
+                    <p class="mt-2 text-sm text-slate-300">There are four scopes, in order of priority: Default (built-in), User (your global settings.json), Workspace (.vscode/settings.json in the project), Workspace Folder (for multi-root workspaces). Higher scope wins.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I reset VS Code settings to default?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Open Settings UI, search for the setting, and click the gear icon → 'Reset Setting'. For a full reset, delete ~/Library/Application Support/Code/User/settings.json on macOS, or %APPDATA%/Code/User/settings.json on Windows.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related fixes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/vscode/extension-conflict.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Extension conflict</div>
+                    <div class="font-semibold text-white text-sm">Fix: Two extensions fighting</div>
+                </a>
+                <a href="/fix/vscode/intellisense-not-working.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">IntelliSense</div>
+                    <div class="font-semibold text-white text-sm">Fix: No autocomplete</div>
+                </a>
+                <a href="/fix/vscode/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-slate-400 mb-1">All Fixes</div>
+                    <div class="font-semibold text-white text-sm">Back to VS Code hub</div>
+                </a>
+                <a href="/how-to/install-vs-code.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-blue-400 mb-1">How-to</div>
+                    <div class="font-semibold text-white text-sm">Install VS Code</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/vscode/index.html" class="back-link">← All VS Code Fixes</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
