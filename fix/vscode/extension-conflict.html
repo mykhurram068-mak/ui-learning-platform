@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fix: VS Code Extension Conflict — Extensions Fighting (2026)</title>
+    <meta name="description" content="Fix VS Code extension conflicts fast. Find which of your extensions is causing formatting, autocomplete, or IntelliSense problems. Extension bisect walkthrough.">
+    <meta name="keywords" content="vscode extension conflict, vscode extensions not working, vscode extension bisect, vscode format on save conflict, vscode broken extensions">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Fix: VS Code Extension Conflict">
+    <meta property="og:description" content="Find which extension is fighting the others.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/fix/vscode/extension-conflict.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/fix/vscode/extension-conflict.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Fix: VS Code Extension Conflict","description":"Find which extension is causing formatting or autocomplete problems.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I find which VS Code extension is causing problems?","acceptedAnswer":{"@type":"Answer","text":"Use the built-in Extension Bisect feature: Command Palette → 'Help: Start Extension Bisect'. VS Code disables half your extensions and asks if the problem persists. Repeat until one extension remains."}},{"@type":"Question","name":"Why do two formatter extensions conflict?","acceptedAnswer":{"@type":"Answer","text":"Multiple extensions can register as formatters for the same language. VS Code only uses one, but if the wrong one is picked, formatting looks broken. Set editor.defaultFormatter per language to fix it."}},{"@type":"Question","name":"What is the difference between disabling and uninstalling extensions?","acceptedAnswer":{"@type":"Answer","text":"Disabling stops an extension from activating but keeps it installed. This is reversible in seconds. Uninstalling removes it entirely and requires a reinstall. Always disable first when debugging."}},{"@type":"Question","name":"Can I have two autocomplete extensions installed?","acceptedAnswer":{"@type":"Answer","text":"Yes, but they'll fight. AI autocomplete extensions (Copilot, Cursor, Tabnine) all register as inline completion providers. Enable only one at a time or configure each to only activate in specific file types."}},{"@type":"Question","name":"How do I reset VS Code to find the problem?","acceptedAnswer":{"@type":"Answer","text":"Run 'Developer: Reload Window' first. If that fails, run code --disable-extensions from the terminal to launch VS Code without any extensions. If the problem disappears, it's an extension. If it persists, it's a setting or VS Code itself."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #007acc; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #007acc; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .fix-answer { background: #0f172a; border-left: 4px solid #22c55e; padding: 1.25rem; border-radius: 0.75rem; margin: 1.5rem 0; }
+        .fix-answer .label { color: #22c55e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-bottom: 0.5rem; }
+        .fix-answer p { color: #e2e8f0; font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #007acc; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #007acc; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #007acc; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .error-badge {
+            display: inline-block;
+            background: #0d2137;
+            color: #7dd3fc;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid #007acc;
+            margin-bottom: 1rem;
+        }
+        kbd {
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.25rem;
+            font-family: monospace;
+            font-size: 0.8rem;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Fix My Error</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stuck? Solved.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/fix/index.html" class="hover:text-blue-400">Fix Errors</a> ›
+            <a href="/fix/vscode/index.html" class="hover:text-blue-400">VS Code</a> ›
+            <span class="text-slate-400">Extension Conflict</span>
+        </div>
+
+        <div class="space-y-2">
+            <div class="error-badge">Two extensions fighting, editor acts strange</div>
+            <h1 class="text-3xl font-black">Fix: VS Code Extension Conflict</h1>
+            <p class="text-slate-400">Formatting fights itself, autocomplete stopped working, or saving does something weird. Two extensions are fighting. Here's how to find the culprit in 5 minutes.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <div class="fix-answer">
+            <div class="label">⚡ The 30-second fix</div>
+            <p><strong>Use Extension Bisect.</strong> Open the Command Palette (<kbd>Ctrl+Shift+P</kbd> / <kbd>Cmd+Shift+P</kbd>) and run <strong>Help: Start Extension Bisect</strong>.</p>
+            <p>VS Code will disable half your extensions and ask "does the problem still happen?" Answer each prompt honestly. It narrows down to the culprit in 3–6 steps.</p>
+        </div>
+
+        <!-- WHAT IT MEANS -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Why extension conflicts happen</h2>
+            <p class="text-sm text-slate-300 mb-3">VS Code extensions can register as providers for the same feature. When two extensions register for the same thing, VS Code picks one — sometimes the wrong one.</p>
+
+            <pre><code>// Common conflict patterns
+// 1. Two formatters registered for the same language
+//    - Prettier + ESLint
+//    - Prettier + Biome
+//    - Prettier + built-in formatter
+
+// 2. Two inline completions registered
+//    - GitHub Copilot + Cursor Tab
+//    - Copilot + Tabnine
+//    - Copilot + Codeium
+
+// 3. Two language servers registered
+//    - Vetur + Vue Language Features (Volar)
+//    - TypeScript + Deno
+
+// 4. Two linters registered
+//    - ESLint + StandardJS
+//    - Biome + ESLint</code></pre>
+
+            <div class="info-box">
+                <p class="text-sm text-slate-300"><strong>Important:</strong> "Conflict" doesn't mean either extension is broken. It means they're both trying to do the same job. You need to pick one — or configure each to only run in specific contexts.</p>
+            </div>
+        </section>
+
+        <!-- METHOD 1: EXTENSION BISECT -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">Extension Bisect (built-in, best method)</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">VS Code has a built-in tool for exactly this. Fastest way to find the culprit.</p>
+                    <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                        <li>Open Command Palette (<kbd>Ctrl+Shift+P</kbd> / <kbd>Cmd+Shift+P</kbd>)</li>
+                        <li>Type <strong>Help: Start Extension Bisect</strong></li>
+                        <li>Click "Start" — VS Code disables half your extensions</li>
+                        <li>Try to reproduce the problem</li>
+                        <li>Click "Good Now" or "Bad Now" based on the result</li>
+                        <li>Repeat until one extension remains — that's the culprit</li>
+                    </ol>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Bisect pauses when it finds a single extension. At that point, you can either disable it permanently or reconfigure it to play nicely with the others.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- METHOD 2: DISABLE ALL -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">Nuke it: run without extensions</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">If bisect is too slow, disable all extensions at once to confirm it's an extension problem.</p>
+                    <pre><code># From the terminal — launches VS Code without any extensions
+code --disable-extensions
+
+# Or in VS Code: Command Palette → "Developer: Reload Window"</code></pre>
+                    <p class="text-sm text-slate-300 mt-3 mb-2">Then test your scenario:</p>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li><strong>Problem gone?</strong> It's an extension. Use Extension Bisect to find which.</li>
+                        <li><strong>Problem persists?</strong> It's a setting, a VS Code bug, or an external tool (like a shell or language server). See the settings fix page.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- METHOD 3: MANUAL BISECT -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">Manual bisect (if extension bisect is stuck)</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Sometimes Extension Bisect is confused because the problem is intermittent. Manual bisect is slower but more reliable.</p>
+                    <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                        <li>Go to Extensions panel (<kbd>Ctrl+Shift+X</kbd> / <kbd>Cmd+Shift+X</kbd>)</li>
+                        <li>Disable the <strong>bottom half</strong> of your extensions</li>
+                        <li>Reload VS Code (Command Palette → "Developer: Reload Window")</li>
+                        <li>Try to reproduce</li>
+                        <li>If gone → culprit is in the bottom half. Restore, disable top half.</li>
+                        <li>If persists → culprit is in the top half. Keep bottom disabled.</li>
+                        <li>Repeat with the smaller half</li>
+                    </ol>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> VS Code has a "Disable All Installed Extensions" command. Use it, then enable extensions one at a time in the order you most depend on them.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COMMON CONFLICT PAIRS -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Common conflict pairs (and the fix)</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-slate-300">
+                    <thead>
+                        <tr class="border-b border-slate-700">
+                            <th class="text-left py-2 pr-4 text-slate-400 font-medium">Conflict</th>
+                            <th class="text-left py-2 text-slate-400 font-medium">Fix</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">Prettier + ESLint both formatting</td>
+                            <td class="py-2">Disable ESLint's formatting (<code>eslint.format.enable: false</code>), let Prettier handle it</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">Prettier + Biome</td>
+                            <td class="py-2">Pick one. If using Biome, uninstall Prettier</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">Copilot + Cursor Tab / Tabnine / Codeium</td>
+                            <td class="py-2">Only one inline completion provider at a time</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">Vetur + Volar (Vue)</td>
+                            <td class="py-2">Uninstall Vetur — Volar is the modern replacement</td>
+                        </tr>
+                        <tr class="border-b border-slate-800">
+                            <td class="py-2 pr-4">ESLint + StandardJS</td>
+                            <td class="py-2">Pick one linter. Both can't win</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 pr-4">TypeScript + Deno</td>
+                            <td class="py-2">Disable Deno for non-Deno workspaces</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- PICK A WINNER -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Picking a winner (configuring both to coexist)</h2>
+            <p class="text-sm text-slate-300 mb-3">You don't always have to uninstall. In most cases you can configure one extension to defer to the other.</p>
+
+            <pre><code>// .vscode/settings.json
+
+// Format with Prettier, ignore ESLint's formatting
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "eslint.format.enable": false
+}
+
+// Disable Copilot in specific file types
+{
+  "github.copilot.enable": {
+    "*": true,
+    "yaml": false,
+    "markdown": false
+  }
+}
+
+// Disable Cursor Tab when Copilot is active
+// (use one or the other, not both)</code></pre>
+
+            <div class="pro-tip">
+                <p class="text-sm text-slate-300"><strong>Pro tip:</strong> Use <strong>workspace settings</strong> (<code>.vscode/settings.json</code>) instead of user settings. That way, conflicts are resolved per-project, not globally. Different projects can have different winners.</p>
+            </div>
+        </section>
+
+        <!-- HOW TO PREVENT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ How to prevent extension conflicts</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>One formatter, one linter, one completion engine.</strong> Pick your stack and stick to it.</li>
+                <li><strong>Don't install extensions "just in case."</strong> Every extension is a potential conflict and a performance cost.</li>
+                <li><strong>Use Extension Bisect early.</strong> When something breaks, don't guess — bisect.</li>
+                <li><strong>Prefer extensions by the same author.</strong> ESLint + ESLint-plugin from the same author are less likely to fight.</li>
+                <li><strong>Disable extensions per-workspace.</strong> Use workspace settings to enable only what each project needs.</li>
+                <li><strong>Review installed extensions quarterly.</strong> Uninstall anything you haven't used in 3 months.</li>
+            </ul>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I find which VS Code extension is causing problems?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Use the built-in Extension Bisect feature: Command Palette → 'Help: Start Extension Bisect'. VS Code disables half your extensions and asks if the problem persists. Repeat until one extension remains.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why do two formatter extensions conflict?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Multiple extensions can register as formatters for the same language. VS Code only uses one, but if the wrong one is picked, formatting looks broken. Set editor.defaultFormatter per language to fix it.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between disabling and uninstalling extensions?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Disabling stops an extension from activating but keeps it installed. This is reversible in seconds. Uninstalling removes it entirely and requires a reinstall. Always disable first when debugging.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I have two autocomplete extensions installed?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes, but they'll fight. AI autocomplete extensions (Copilot, Cursor, Tabnine) all register as inline completion providers. Enable only one at a time or configure each to only activate in specific file types.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I reset VS Code to find the problem?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Run 'Developer: Reload Window' first. If that fails, run code --disable-extensions from the terminal to launch VS Code without any extensions. If the problem disappears, it's an extension. If it persists, it's a setting or VS Code itself.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related fixes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/vscode/settings-not-applying.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Settings not applying</div>
+                    <div class="font-semibold text-white text-sm">Fix: settings.json ignored</div>
+                </a>
+                <a href="/fix/vscode/intellisense-not-working.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">IntelliSense not working</div>
+                    <div class="font-semibold text-white text-sm">Fix: no autocomplete</div>
+                </a>
+                <a href="/fix/vscode/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-slate-400 mb-1">All Fixes</div>
+                    <div class="font-semibold text-white text-sm">Back to VS Code hub</div>
+                </a>
+                <a href="/how-to/install-vs-code.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-blue-400 mb-1">How-to</div>
+                    <div class="font-semibold text-white text-sm">Install VS Code</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/vscode/index.html" class="back-link">← All VS Code Fixes</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
