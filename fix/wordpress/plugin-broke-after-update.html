@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Fix: WordPress Plugin Update Broke the Site — Roll Back Safely (2026)</title>
+    <meta name="description" content="Roll back a WordPress plugin update that broke your site. Restore the previous version without losing data. Manual, WP-CLI, and rollback plugin methods.">
+    <meta name="keywords" content="wordpress plugin update broke site, rollback wordpress plugin, restore previous plugin version, wordpress update error fix">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Fix: WordPress Plugin Update Broke the Site">
+    <meta property="og:description" content="Roll back a broken plugin update safely.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/fix/wordpress/plugin-broke-after-update.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/fix/wordpress/plugin-broke-after-update.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Fix: WordPress Plugin Update Broke the Site","description":"Roll back a broken plugin update safely.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-16","dateModified":"2026-10-16"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I roll back a WordPress plugin update?","acceptedAnswer":{"@type":"Answer","text":"Download the previous version from the plugin's wordpress.org page (click Advanced View → Previous Versions), then upload it via Plugins → Add New → Upload. Or install the WP Rollback plugin and click Rollback next to the plugin."}},{"@type":"Question","name":"Will rolling back lose my plugin settings?","acceptedAnswer":{"@type":"Answer","text":"No. Plugin settings live in the database, not the plugin files. Rolling back the files doesn't touch wp_options. The only risk is if the newer version changed the database schema — in that case, some settings may not be readable by the older version."}},{"@type":"Question","name":"What if the plugin developer has already released a fix?","acceptedAnswer":{"@type":"Answer","text":"Check the plugin's changelog. If a hotfix is out, update to the fix instead of rolling back. If not, roll back and disable auto-updates until the developer responds."}},{"@type":"Question","name":"How do I prevent plugin updates from breaking my site?","acceptedAnswer":{"@type":"Answer","text":"Test on staging first, disable auto-updates on critical plugins, keep automatic backups, and check the plugin's support forum for reports after each update. Follow the plugin's changelog before updating."}},{"@type":"Question","name":"Can I roll back if I don't have a backup?","acceptedAnswer":{"@type":"Answer","text":"Yes. The previous version is available on wordpress.org for free plugins. For premium plugins, download the previous version from your account dashboard on the vendor's site."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="/style.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 {padding: 0;}
+        .step-card { background: #0f172a; border-left: 4px solid #21759b; padding: 1.25rem; border-radius: 0.75rem; margin: 1rem 0; }
+        .step-number { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; background: #21759b; color: white; font-weight: 700; border-radius: 50%; margin-right: 0.75rem; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.5rem 0; }
+        .fix-answer { background: #0f172a; border-left: 4px solid #22c55e; padding: 1.25rem; border-radius: 0.75rem; margin: 1.5rem 0; }
+        .fix-answer .label { color: #22c55e; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.7rem; margin-bottom: 0.5rem; }
+        .fix-answer p { color: #e2e8f0; font-size: 1rem; line-height: 1.6; margin-bottom: 0.5rem; }
+        .warning-box { background: #0f172a; border-left: 4px solid #ef4444; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .info-box { background: #0f172a; border-left: 4px solid #21759b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 1rem 0; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #21759b; text-decoration: none; }
+        footer { text-align: center; padding: 2rem; border-top: 1px solid #334155; margin-top: 3rem; color: #94a3b8; }
+        footer a { color: #21759b; text-decoration: none; }
+        pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.78rem; margin: 1rem 0; max-width: 100%; }
+        .error-badge {
+            display: inline-block;
+            background: #0c1e2b;
+            color: #7dd3fc;
+            font-family: monospace;
+            font-size: 0.85rem;
+            padding: 0.5rem 0.85rem;
+            border-radius: 0.5rem;
+            border: 1px solid #21759b;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Fix My Error</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stuck? Solved.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/fix/index.html" class="hover:text-blue-400">Fix Errors</a> ›
+            <a href="/fix/wordpress/index.html" class="hover:text-blue-400">WordPress</a> ›
+            <span class="text-slate-400">Plugin Update Broke Site</span>
+        </div>
+
+        <div class="space-y-2">
+            <div class="error-badge">Site worked yesterday. A plugin updated overnight. Now nothing loads.</div>
+            <h1 class="text-3xl font-black">Fix: WordPress Plugin Update Broke Site</h1>
+            <p class="text-slate-400">Roll back to the previous version without losing settings. Three methods depending on your access level.</p>
+            <p class="text-xs text-slate-500 mt-2">Last updated: October 2026</p>
+        </div>
+
+        <!-- THE 30-SECOND FIX -->
+        <div class="fix-answer">
+            <div class="label">⚡ The 30-second fix</div>
+            <p><strong>Install the free "WP Rollback" plugin</strong> if you can still access wp-admin. It adds a "Rollback" link next to every plugin, letting you revert to any previous version in one click.</p>
+            <p>If wp-admin is inaccessible, use the file manager method below.</p>
+        </div>
+
+        <!-- WHAT IT MEANS -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">What's actually happening</h2>
+            <p class="text-sm text-slate-300 leading-relaxed">A plugin updated itself (or was updated automatically) and the new version has a bug, a breaking change, or an incompatibility with another plugin/theme/PHP version. Your settings are safe — they live in the database. Only the plugin files changed.</p>
+
+            <div class="info-box">
+                <p class="text-sm text-slate-300"><strong>Good news:</strong> Rolling back the plugin files won't touch your settings. Your content, options, and database are unaffected. The fix is just swapping files.</p>
+            </div>
+        </section>
+
+        <!-- METHOD 1: WP-ADMIN WITH WP ROLLBACK -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">1</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">If you can access wp-admin — WP Rollback (easiest)</h3>
+                    <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1 mt-2">
+                        <li>Install and activate the free <strong>WP Rollback</strong> plugin</li>
+                        <li>Go to <strong>Plugins → Installed Plugins</strong></li>
+                        <li>Click <strong>Rollback</strong> next to the plugin that broke the site</li>
+                        <li>Select the previous version from the dropdown</li>
+                        <li>Click <strong>Rollback</strong> — WordPress replaces the files automatically</li>
+                    </ol>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> WP Rollback also works for themes. Same flow, different menu.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- METHOD 2: MANUAL FILE REPLACEMENT -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">2</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">If you can access wp-admin — manual replacement</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">When you don't want to install another plugin. Works for any plugin on wordpress.org.</p>
+                    <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                        <li>Go to <code>wordpress.org/plugins/[plugin-slug]/</code></li>
+                        <li>Click the <strong>Advanced View</strong> link at the bottom</li>
+                        <li>Scroll to <strong>Previous Versions</strong></li>
+                        <li>Download the version you want as a ZIP</li>
+                        <li>In wp-admin, go to <strong>Plugins → Add New → Upload Plugin</strong></li>
+                        <li>Upload the ZIP, choose <strong>Replace current with uploaded</strong></li>
+                        <li>WordPress installs the older version over the newer one</li>
+                    </ol>
+                    <div class="warning-box">
+                        <p class="text-sm text-slate-300"><strong>Warning:</strong> Don't deactivate the plugin first. Uploading over the active plugin preserves your settings. Deactivating risks losing plugin-registered data in some edge cases.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- METHOD 3: WP-CLI -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">3</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">If you have SSH access — WP-CLI</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Fastest method if you're comfortable with the terminal.</p>
+                    <pre><code># List plugins with available versions
+wp plugin list
+
+# Roll back a specific plugin
+wp plugin install plugin-slug --version=1.2.3 --force
+
+# Example
+wp plugin install woocommerce --version=8.4.0 --force
+
+# Deactivate auto-updates for this plugin
+wp plugin auto-updates disable plugin-slug</code></pre>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> The <code>--force</code> flag is required to overwrite an existing plugin. Without it, WP-CLI skips the install because the plugin is already present.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- METHOD 4: RECOVERY WHEN ADMIN IS BROKEN -->
+        <div class="step-card">
+            <div class="flex items-start">
+                <span class="step-number">4</span>
+                <div class="flex-1">
+                    <h3 class="text-white font-bold text-lg">If wp-admin is completely inaccessible</h3>
+                    <p class="text-sm text-slate-300 mt-2 mb-3">Recovery requires file access. This works even when nothing loads.</p>
+                    <ol class="list-decimal list-inside text-sm text-slate-300 space-y-1">
+                        <li>Connect to your host via SFTP or the hosting file manager</li>
+                        <li>Rename <code>wp-content/plugins/[plugin-slug]</code> to <code>[plugin-slug]-broken</code></li>
+                        <li>This disables only that plugin, not all plugins — the site should load</li>
+                        <li>Download the previous version from wordpress.org</li>
+                        <li>Extract and upload the old version, replacing the renamed folder</li>
+                        <li>Reactivate the plugin in wp-admin</li>
+                    </ol>
+                    <div class="pro-tip">
+                        <p class="text-sm text-slate-300"><strong>Pro tip:</strong> If you don't know which plugin broke it, rename the whole <code>wp-content/plugins</code> folder to <code>plugins-disabled</code> first to restore access, then bisect.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AFTER RECOVERY -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">After you roll back — the follow-up steps</h2>
+            <ol class="list-decimal list-inside text-sm text-slate-300 space-y-2">
+                <li><strong>Disable auto-updates for the rolled-back plugin.</strong> Otherwise it'll update again tonight and break the site again.</li>
+                <li><strong>Check the plugin's support forum.</strong> Search for reports from other users — usually someone reports the same bug within 24 hours.</li>
+                <li><strong>Subscribe to the plugin's changelog.</strong> When a fix is released, update deliberately.</li>
+                <li><strong>Consider a replacement.</strong> If a plugin updates slowly and breaks often, that's a signal to find a better-maintained alternative.</li>
+                <li><strong>Write down what broke.</strong> If you have a log of past plugin updates that broke things, you'll update more cautiously in the future.</li>
+            </ol>
+        </section>
+
+        <!-- HOW TO PREVENT -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🛡️ How to prevent this next time</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Disable auto-updates site-wide.</strong> Add <code>define('AUTOMATIC_UPDATER_DISABLED', true);</code> to <code>wp-config.php</code>.</li>
+                <li><strong>Test on staging first.</strong> Every serious host has staging. Update there, wait a day, then push to production.</li>
+                <li><strong>Backup automatically before every update.</strong> UpdraftPlus, BlogVault, or your host's built-in backup.</li>
+                <li><strong>Update in batches.</strong> Don't update 15 plugins at once. Update 2–3, verify, next batch.</li>
+                <li><strong>Read the changelog before updating.</strong> "Breaking changes" in the changelog is a red flag — wait a week.</li>
+                <li><strong>Watch for "Tested up to" behind your WP version.</strong> If the plugin isn't tested on your WP version, wait.</li>
+                <li><strong>Join the plugin's Slack or forum.</strong> Most maintainers announce breaking changes before release.</li>
+            </ul>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I roll back a WordPress plugin update?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Download the previous version from the plugin's wordpress.org page (click Advanced View → Previous Versions), then upload it via Plugins → Add New → Upload. Or install the WP Rollback plugin and click Rollback next to the plugin.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Will rolling back lose my plugin settings?</summary>
+                    <p class="mt-2 text-sm text-slate-300">No. Plugin settings live in the database, not the plugin files. Rolling back the files doesn't touch wp_options. The only risk is if the newer version changed the database schema — in that case, some settings may not be readable by the older version.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What if the plugin developer has already released a fix?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Check the plugin's changelog. If a hotfix is out, update to the fix instead of rolling back. If not, roll back and disable auto-updates until the developer responds.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I prevent plugin updates from breaking my site?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Test on staging first, disable auto-updates on critical plugins, keep automatic backups, and check the plugin's support forum for reports after each update. Follow the plugin's changelog before updating.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I roll back if I don't have a backup?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. The previous version is available on wordpress.org for free plugins. For premium plugins, download the previous version from your account dashboard on the vendor's site.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related fixes</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/fix/wordpress/plugin-conflict.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">Plugin conflict</div>
+                    <div class="font-semibold text-white text-sm">Fix: Which plugin broke it</div>
+                </a>
+                <a href="/fix/wordpress/theme-css-not-applying.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-sky-400 mb-1">CSS not applying</div>
+                    <div class="font-semibold text-white text-sm">Fix: Theme CSS</div>
+                </a>
+                <a href="/how-to/wordpress/rollback-plugin-update.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-blue-400 mb-1">How-to</div>
+                    <div class="font-semibold text-white text-sm">Full rollback workflow</div>
+                </a>
+                <a href="/fix/wordpress/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-mono text-xs text-slate-400 mb-1">All Fixes</div>
+                    <div class="font-semibold text-white text-sm">Back to WordPress hub</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/fix/wordpress/index.html" class="back-link">← All WordPress Fixes</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
