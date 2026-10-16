@@ -132,7 +132,7 @@
         }
 
         /* ===== MOBILE ADJUSTMENTS ===== */
-        @media (max-width: 768px) {
+        /*@media (max-width: 768px) {
             .dropdown-nav-content {
                 position: static;
                 min-width: 100% !important;
@@ -157,7 +157,60 @@
                 padding: 10px 14px;
                 font-size: 0.83rem;
             }
-        }
+        }*/
+
+        /* ===== MOBILE ADJUSTMENTS ===== */
+@media (max-width: 768px) {
+
+    /* Header must not clip the menu */
+    header {
+        overflow: visible !important;
+    }
+
+    /* The mobile menu itself — this is the scroll container */
+    .nav-menu {
+        max-height: calc(100vh - 80px);
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        padding-bottom: 2rem;  /* breathing room at bottom */
+    }
+
+    /* Top-level dropdown (Snippets, Guides, etc.) */
+    .dropdown-nav-content {
+        position: static;
+        min-width: 100% !important;
+        width: 100%;
+        background: rgba(15, 23, 42, 0.9);
+        border: none;
+        border-radius: 10px;
+        box-shadow: none;
+        padding: 4px;
+        margin: 4px 0 8px 0;
+        max-height: none;
+        overflow: visible;      /* parent .nav-menu handles scroll */
+        animation: none;
+    }
+
+    /* Nested categories (Roadmaps, Comparisons, etc.) */
+    /* Explicitly ensure they expand fully and don't clip */
+    .dropdown-category-content {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    /* Visual sizing */
+    .dropdown-category-btn {
+        padding: 12px 14px !important;
+        font-size: 0.88rem !important;
+    }
+
+    .dropdown-category-content a {
+        padding: 10px 14px;
+        font-size: 0.83rem;
+    }
+}
 
 
 
