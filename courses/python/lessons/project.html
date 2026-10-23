@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Python Project — Build a CLI Expense Tracker (2026)</title>
+<meta name="description" content="Build a real Python project from scratch: a CLI expense tracker with JSON persistence, argparse commands, and clean module structure. Complete walkthrough.">
+<meta name="keywords" content="python project for beginners, python cli project, python expense tracker, python argparse, python project walkthrough">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Python Project — Build a CLI Expense Tracker">
+<meta property="og:description" content="Build a real Python project from scratch: a CLI expense tracker with JSON persistence and clean module structure.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/lessons/project.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Python Project — Build a CLI Expense Tracker">
+<meta name="twitter:description" content="Build a real Python project from scratch: a CLI expense tracker with JSON persistence.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/lessons/project.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"Python Project — Build a CLI Expense Tracker","description":"Build a real Python project from scratch: a CLI expense tracker with JSON persistence, argparse commands, and clean module structure. Complete walkthrough.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-23","dateModified":"2026-10-23","proficiencyLevel":"Beginner","dependencies":"Python 3.x"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the best first Python project?","acceptedAnswer":{"@type":"Answer","text":"A CLI tool that does something real: expense tracker, to-do list, password manager, markdown converter, or file organizer. What makes it a good first project: uses only concepts you've learned, produces immediate visible output, is small enough to finish in a weekend, and is something you'd actually use. Avoid project tutorials that are 40 hours long or that use frameworks you haven't learned yet."}},{"@type":"Question","name":"How should I structure a Python project?","acceptedAnswer":{"@type":"Answer","text":"For a small project, three files are enough: main.py for the entry point and CLI parsing, helpers.py or core.py for the logic, and a data file (JSON, CSV, SQLite). Add requirements.txt if you install any packages. Once the project grows, convert to a package: move files into a project/ folder with init.py, then split helpers further as needed. Don't over-engineer the structure for a 500-line project."}},{"@type":"Question","name":"Should I use argparse or click for CLI tools?","acceptedAnswer":{"@type":"Answer","text":"Use argparse for your first project — it's built into the standard library and teaches you how CLI parsing works. Use click or typer for larger projects where argparse's verbosity becomes painful. argparse handles subcommands (myapp add, myapp list), flags (--verbose), positional arguments, and automatic --help generation. It's enough for 90% of CLI tools."}},{"@type":"Question","name":"How do I persist data in a Python CLI app?","acceptedAnswer":{"@type":"Answer","text":"Use JSON for small data sets (a few thousand records). Use SQLite for anything larger or with relational structure. JSON is simpler — one file, human-readable, json.dump() and json.load(). Pattern: load everything at startup, modify the in-memory list, save the whole thing on every change. For 10,000 records this is instantaneous; for 1,000,000 it's slow, but you won't hit that with a personal CLI tool."}},{"@type":"Question","name":"How do I make a Python script runnable from anywhere?","acceptedAnswer":{"@type":"Answer","text":"Three options: (1) Run python path/to/script.py from anywhere. (2) Add a shebang (#!/usr/bin/env python3) and chmod +x, then ./script.py works. (3) Best for a real project: add a setup.py or pyproject.toml with a console_scripts entry point, then pip install -e . installs your tool as a command. Option 3 is what production CLI tools do."}},{"@type":"Question","name":"How do I handle errors in a CLI app?","acceptedAnswer":{"@type":"Answer","text":"Validate at the boundary — when parsing arguments and when loading data. Use argparse's built-in validation for arguments (type=int, choices=[...], required=True). Wrap file operations in try/except for FileNotFoundError and json.JSONDecodeError. Let unexpected exceptions crash loudly with a traceback — silent failures in CLI tools are worse than crashes because the user doesn't know their data is corrupt."}},{"@type":"Question","name":"How do I test a Python CLI project?","acceptedAnswer":{"@type":"Answer","text":"Split your code so that all logic is in pure functions that take and return data, and only main.py touches sys.argv and print(). Then test the pure functions with simple assert statements or pytest. For the CLI layer, use subprocess to run the script and check stdout. The key: 90% of your tests should hit pure functions that need no special setup."}},{"@type":"Question","name":"Should I publish my Python project to PyPI?","acceptedAnswer":{"@type":"Answer","text":"Not for your first project — local use is the goal. If people ask to use your tool, publish to PyPI later: add pyproject.toml with name, version, entry_points, then python -m build && twine upload dist/*. Publishing is a skill worth learning, but it's a distraction from finishing your first project. Ship it locally first."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#FFD43B !important;">Lesson 9</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Build a real project</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#4B8BBE;">Home</a> ›
+<a href="/courses/index.html" style="color:#4B8BBE;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#4B8BBE;">Python</a> ›
+<span style="color:#FFD43B; font-weight:700;">Lesson 9</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Lesson 9 · 30 minutes</div>
+<h1>Build a real project.<br><span class="py-accent">Stop learning. Start shipping.</span></h1>
+<p class="lead">
+You've covered every beginner concept. This is the project that turns knowledge into skill. You'll build an expense tracker — a command-line tool that records, lists, and summarizes expenses, saved to a JSON file. It uses functions, files, dicts, loops, error handling, and modules — all at once, exactly the way real code does.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~30 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> Python 3.x · stdlib only</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/python/index.html"><i class="fa-solid fa-map"></i> Python path</a>
+<a href="/courses/python/lessons/modules.html"><i class="fa-solid fa-arrow-left"></i> Lesson 8</a>
+<a href="#plan"><i class="fa-solid fa-clipboard-list"></i> Plan</a>
+<a href="#code"><i class="fa-solid fa-code"></i> Full code</a>
+<a href="#walkthrough"><i class="fa-solid fa-magnifying-glass"></i> Walkthrough</a>
+<a href="#extend"><i class="fa-solid fa-arrow-up-right-dots"></i> Extend it</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+This project is a command-line expense tracker. You run <code>python expenses.py add 12.50 "Coffee"</code> to log an expense, <code>python expenses.py list</code> to see them all, and <code>python expenses.py summary</code> to see totals. Data persists in <code>expenses.json</code>. The code uses <code>argparse</code> for the CLI, <code>json</code> for persistence, and functions for clean structure.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#FFD43B !important;">Before this project:</strong> complete Lessons 1–8. You need to be comfortable with functions, dicts, files, errors, and modules. This project uses all five.
+</p>
+</div>
+
+<section id="plan">
+<h2 class="section-title">📋 Plan first, code second</h2>
+<p class="section-sub">The five-minute plan that saves an hour of refactoring.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Before writing any code, answer three questions. Every project — from a CLI tool to a startup — starts with these:</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>1. What does it do?</h4>
+<p>Record an expense (amount, description, date). List all expenses. Show a summary (total, count, breakdown by month). That's three commands.</p>
+</div>
+<div class="concept-card">
+<h4>2. Where does data live?</h4>
+<p>A JSON file called <code>expenses.json</code> in the current directory. Read on startup, save on every change. Small enough that JSON is fine.</p>
+</div>
+<div class="concept-card">
+<h4>3. How is it structured?</h4>
+<p>One file for simplicity, split into functions: <code>load()</code>, <code>save()</code>, <code>add_expense()</code>, <code>list_expenses()</code>, <code>summary()</code>, plus a <code>main()</code> that parses args.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Write the CLI help first.</strong> Before writing any logic, sketch what the user will type:</p>
+<pre style="background:#0d1b2e; padding:0.5rem; border-radius:0.4rem; font-size:0.75rem; color:#86efac; margin-top:0.5rem;"> python expenses.py list
+$` python expenses.py summary</pre>
+<p style="margin-top:0.5rem;">If the commands feel natural, the code will too. If they feel awkward, redesign now — not after 200 lines of code.</p>
+</div>
+</section>
+
+<section id="code">
+<h2 class="section-title">💻 The full code</h2>
+<p class="section-sub">Save as <code>expenses.py</code> and run it. Then read the walkthrough below.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">expenses.py</span>
+<button class="copy-btn" onclick="copyCode('py-full-project', this)">Copy</button>
+</div>
+<pre id="py-full-project"><code><span class="com">#!/usr/bin/env python3</span>
+<span class="com">"""expenses.py — a command-line expense tracker."""</span>
+
+<span class="kw">import</span> argparse
+<span class="kw">import</span> json
+<span class="kw">from</span> datetime <span class="kw">import</span> date
+<span class="kw">from</span> pathlib <span class="kw">import</span> Path
+
+FILE = Path(<span class="str">"expenses.json"</span>)
+
+<span class="com"># ---------- persistence ----------</span>
+
+<span class="kw">def</span> <span class="fn">load</span>():
+<span class="str">"""Load expenses from JSON. Return empty list if file missing."""</span>
+<span class="kw">if</span> <span class="kw">not</span> FILE.<span class="fn">exists</span>():
+<span class="kw">return</span> []
+<span class="kw">try</span>:
+<span class="kw">with</span> FILE.<span class="fn">open</span>() <span class="kw">as</span> f:
+<span class="kw">return</span> json.<span class="fn">load</span>(f)
+<span class="kw">except</span> json.<span class="fn">JSONDecodeError</span>:
+<span class="fn">print</span>(<span class="str">f"Warning: {FILE} is corrupt. Starting fresh."</span>)
+<span class="kw">return</span> []
+
+<span class="kw">def</span> <span class="fn">save</span>(expenses):
+<span class="str">"""Write expenses to JSON."""</span>
+<span class="kw">with</span> FILE.<span class="fn">open</span>(<span class="str">"w"</span>) <span class="kw">as</span> f:
+json.<span class="fn">dump</span>(expenses, f, indent=<span class="num">2</span>)
+
+<span class="com"># ---------- commands ----------</span>
+
+<span class="kw">def</span> <span class="fn">add_expense</span>(amount, description, category=<span class="str">"general"</span>):
+<span class="str">"""Add an expense and save."""</span>
+expenses = <span class="fn">load</span>()
+expenses.<span class="fn">append</span>({
+<span class="str">"date"</span>: date.<span class="fn">today</span>().<span class="fn">isoformat</span>(),
+<span class="str">"amount"</span>: amount,
+<span class="str">"description"</span>: description,
+<span class="str">"category"</span>: category,
+})
+<span class="fn">save</span>(expenses)
+<span class="fn">print</span>(<span class="str">f"Added: `${amount:.2f} — {description} ({category})"</span>)
+
+<span class="kw">def</span> <span class="fn">list_expenses</span>():
+<span class="str">"""Print all expenses."""</span>
+expenses = <span class="fn">load</span>()
+<span class="kw">if</span> <span class="kw">not</span> expenses:
+<span class="fn">print</span>(<span class="str">"No expenses yet. Use 'add' to create one."</span>)
+<span class="kw">return</span>
+<span class="fn">print</span>(<span class="str">f"{'Date':12} {'Amount':>10} {'Category':12} Description"</span>)
+<span class="fn">print</span>(<span class="str">"-"</span> * <span class="num">70</span>)
+<span class="kw">for</span> e <span class="kw">in</span> expenses:
+<span class="fn">print</span>(<span class="str">f"{e['date']:12} $`{e['amount']:>9.2f} {e['category']:12} {e['description']}"</span>)
+
+<span class="kw">def</span> <span class="fn">summary</span>():
+<span class="str">"""Print total, count, and per-category breakdown."""</span>
+expenses = <span class="fn">load</span>()
+<span class="kw">if</span> <span class="kw">not</span> expenses:
+<span class="fn">print</span>(<span class="str">"No expenses to summarize."</span>)
+<span class="kw">return</span>
+
+total = <span class="fn">sum</span>(e[<span class="str">"amount"</span>] <span class="kw">for</span> e <span class="kw">in</span> expenses)
+<span class="fn">print</span>(<span class="str">f"Total spent: `${total:.2f} across {len(expenses)} expenses"</span>)
+<span class="fn">print</span>()
+
+by_category = {}
+<span class="kw">for</span> e <span class="kw">in</span> expenses:
+cat = e[<span class="str">"category"</span>]
+by_category[cat] = by_category.<span class="fn">get</span>(cat, <span class="num">0</span>) + e[<span class="str">"amount"</span>]
+
+<span class="fn">print</span>(<span class="str">"By category:"</span>)
+<span class="kw">for</span> cat, amt <span class="kw">in</span> <span class="fn">sorted</span>(by_category.<span class="fn">items</span>(), key=<span class="kw">lambda</span> kv: kv[<span class="num">1</span>], reverse=<span class="kw">True</span>):
+pct = (amt / total) * <span class="num">100</span>
+<span class="fn">print</span>(<span class="str">f" {cat:15} $`{amt:>8.2f} ({pct:.0f}%)"</span>)
+
+<span class="com"># ---------- CLI ----------</span>
+
+<span class="kw">def</span> <span class="fn">main</span>():
+parser = argparse.<span class="fn">ArgumentParser</span>(description=<span class="str">"Track your expenses from the command line."</span>)
+sub = parser.<span class="fn">add_subparsers</span>(dest=<span class="str">"command"</span>, required=<span class="kw">True</span>)
+
+add = sub.<span class="fn">add_parser</span>(<span class="str">"add"</span>, help=<span class="str">"Add an expense"</span>)
+add.<span class="fn">add_argument</span>(<span class="str">"amount"</span>, type=<span class="fn">float</span>, <span class="kw">help</span>=<span class="str">"Amount in dollars"</span>)
+add.<span class="fn">add_argument</span>(<span class="str">"description"</span>, <span class="kw">help</span>=<span class="str">"Description"</span>)
+add.<span class="fn">add_argument</span>(<span class="str">"--category"</span>, default=<span class="str">"general"</span>, <span class="kw">help</span>=<span class="str">"Category (default: general)"</span>)
+
+sub.<span class="fn">add_parser</span>(<span class="str">"list"</span>, help=<span class="str">"List all expenses"</span>)
+sub.<span class="fn">add_parser</span>(<span class="str">"summary"</span>, help=<span class="str">"Show summary"</span>)
+
+args = parser.<span class="fn">parse_args</span>()
+
+<span class="kw">if</span> args.command == <span class="str">"add"</span>:
+<span class="fn">add_expense</span>(args.amount, args.description, args.category)
+<span class="kw">elif</span> args.command == <span class="str">"list"</span>:
+<span class="fn">list_expenses</span>()
+<span class="kw">elif</span> args.command == <span class="str">"summary"</span>:
+<span class="fn">summary</span>()
+
+<span class="kw">if</span> name == <span class="str">"main"</span>:
+<span class="fn">main</span>()</code></pre>
+</div>
+</section>
+
+<section id="walkthrough">
+<h2 class="section-title">🔍 Walkthrough — why each part exists</h2>
+<p class="section-sub">The code is short. The decisions behind it are what you're learning.</p>
+
+<div class="step">
+<div class="step-num">1</div>
+<div class="step-body">
+<h4>The <code>FILE</code> constant</h4>
+<p><code>FILE = Path("expenses.json")</code> at the top means the filename appears exactly once. If you later want to change it to <code>~/.expenses.json</code>, you edit one line. Constants at the top of a file are a habit worth building — they turn "magic values scattered through code" into "one place to change."</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-num">2</div>
+<div class="step-body">
+<h4>load() and save() are the only functions that touch the file</h4>
+<p>Every other function calls these. That means if you later switch from JSON to SQLite, or add encryption, you change two functions. This is called <strong>separating I/O from logic</strong> — a pattern every serious application follows.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-num">3</div>
+<div class="step-body">
+<h4>load() handles missing and corrupt files</h4>
+<p>Three cases: file exists and is valid → load it. File doesn't exist → return <code>[]</code>. File exists but is corrupt JSON → print a warning and return <code>[]</code>. All three are handled in one function, and every caller gets a valid list. That's defensive programming — the rest of the code never has to wonder if the file is broken.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-num">4</div>
+<div class="step-body">
+<h4>add_expense() loads, modifies, saves</h4>
+<p>The three-step pattern from Lesson 6: read everything, change the in-memory list, write everything back. For a personal tracker, this is instantaneous and safe. If two processes run <code>add</code> at the same instant, one loses — but that's not a real concern for a CLI tool. A database solves concurrency; a JSON file doesn't need to.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-num">5</div>
+<div class="step-body">
+<h4>list_expenses() uses format specifiers</h4>
+<p><code>{e['amount']:>9.2f}</code> right-aligns the amount in a 9-character field with 2 decimal places. This is how CLI tables stay readable — the columns line up regardless of whether a value is <code>$3.50&lt;/code&gt; or &lt;code&gt;$1250.00</code>. Format specifiers are worth learning early; you'll use them every time you print a table.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-num">6</div>
+<div class="step-body">
+<h4>summary() uses the aggregation patterns from Lessons 5 and 7</h4>
+<p><code>sum(e["amount"] for e in expenses)</code> is a generator expression — memory-efficient, readable. <code>by_category.get(cat, 0) + e["amount"]</code> is the accumulation pattern from Lesson 5. <code>sorted(items, key=lambda kv: kv[1], reverse=True)</code> sorts by value, descending. Three patterns from prior lessons, combined into one function — this is what "using what you've learned" looks like.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-num">7</div>
+<div class="step-body">
+<h4>argparse handles the CLI for you</h4>
+<p><code>add_subparsers()</code> creates the <code>add</code> / <code>list</code> / <code>summary</code> commands. <code>required=True</code> means the user must specify one. <code>type=float</code> automatically converts the string to a float and errors if it can't. Every argument gets a <code>--help</code> line generated for free. You write 10 lines of argparse; you get a real CLI with help text, subcommands, and argument validation.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-num">8</div>
+<div class="step-body">
+<h4>The <code>if name == "main"</code> guard</h4>
+<p>This line means "only run main() if this file is executed directly, not if it's imported as a module." Without it, anyone who imports <code>expenses.py</code> would trigger the CLI. With it, the file is both a script and a library. Every Python file that's meant to be both should have this guard.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">🧪 Try it out</h2>
+<p class="section-sub">Five commands that exercise every part of the tool.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Terminal</span>
+<button class="copy-btn" onclick="copyCode('py-try-project', this)">Copy</button>
+</div>
+<pre id="py-try-project"><code><span class="com"># Add three expenses</span>
+<span class="cmd">python expenses.py add 12.50 "Coffee" --category food</span>
+<span class="cmd">python expenses.py add 45.00 "Gas" --category transport</span>
+<span class="cmd">python expenses.py add 8.99 "Streaming" --category entertainment</span>
+
+<span class="com"># List them</span>
+<span class="cmd">python expenses.py list</span>
+<span class="out">Date Amount Category Description</span>
+<span class="out">----------------------------------------------------------------------</span>
+<span class="out">2026-10-23 $ 12.50 food Coffee&lt;/span&gt; &lt;span class="out"&gt;2026-10-23 $ 45.00 transport Gas</span>
+<span class="out">2026-10-23 `$ 8.99 entertainment Streaming</span>
+
+<span class="com"># Summarize</span>
+<span class="cmd">python expenses.py summary</span>
+<span class="out">Total spent:  45.00 (68%)</span>
+<span class="out"> food  8.99 (14%)</span>
+
+<span class="com"># See the auto-generated help</span>
+<span class="cmd">python expenses.py --help</span>
+<span class="cmd">python expenses.py add --help</span></code></pre>
+</div>
+</section>
+
+<section id="extend">
+<h2 class="section-title">🚀 Extend it — five upgrades, in order</h2>
+<p class="section-sub">Each one is a mini-project. Do them in order; they build on each other.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>1. Delete command</h4>
+<p>Add <code>delete</code> that removes an expense by index. Requires loading, removing by position, saving. Teaches you list mutation and CLI argument design.</p>
+</div>
+<div class="concept-card">
+<h4>2. Date filtering</h4>
+<p>Add <code>--since YYYY-MM-DD</code> to the list and summary commands. Parse with <code>datetime.strptime</code>, filter with a loop. Teaches argument types and date parsing.</p>
+</div>
+<div class="concept-card">
+<h4>3. Monthly summary</h4>
+<p>Group expenses by month (<code>e["date"][:7]</code> gives <code>"2026-10"</code>) and print per-month totals. Uses the same aggregation pattern as category grouping.</p>
+</div>
+<div class="concept-card">
+<h4>4. CSV export</h4>
+<p>Add <code>export</code> that writes to CSV. Import <code>csv</code>, use <code>csv.DictWriter</code>. Teaches file format conversion.</p>
+</div>
+<div class="concept-card">
+<h4>5. Budget alerts</h4>
+<p>Add <code>budget set 500</code> and warn when monthly spending exceeds it. Requires a second data file (<code>config.json</code>) and reading two files. Teaches config management.</p>
+</div>
+<div class="concept-card">
+<h4>6. Tests with pytest</h4>
+<p>Install <code>pytest</code>. Write tests for <code>add_expense</code>, <code>summary</code>, and the date filtering. Teaches you why pure functions matter — they're trivial to test.</p>
+</div>
+</div>
+
+<div class="pro-tip" style="margin-top:1.5rem;">
+<p><strong>Do at least one upgrade before moving on.</strong> Reading this project teaches you what's possible. Extending it teaches you what you actually know. Pick the upgrade that excites you most and build it end-to-end — you'll hit bugs you didn't expect, and fixing them is the real education. That's why real developers say "I learned more from my own projects than from any tutorial."</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Final challenges</h2>
+<p class="section-sub">Three things to prove you've graduated from this track.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Challenge 1 — Ship it</h4>
+<p>Make the tool runnable from anywhere on your machine:</p>
+<p>1. Add <code>#!/usr/bin/env python3</code> as the first line (already there).<br>
+2. Run <code>chmod +x expenses.py</code> (Mac/Linux).<br>
+3. Move it to <code>~/bin/</code> or add the folder to your PATH.<br>
+4. Run <code>expenses add 5 "Test"</code> from any directory.</p>
+<p>You now have a real CLI tool installed. Not a script — a tool.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Challenge 2 — Put it on GitHub</h4>
+<p>Create a repo, add the file, write a README that explains:</p>
+<p>1. What the tool does (one paragraph).<br>
+2. How to install it (three commands).<br>
+3. How to use it (examples of each command).<br>
+4. What you might add next (the "extend" ideas).</p>
+<p>Add <code>expenses.json</code> and <code>venv/</code> and <code>pycache/</code> to <code>.gitignore</code>. Commit. Push.</p>
+<p>This is your first real Python project on your GitHub. From this point on, when someone asks "what have you built?", you have an answer.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Challenge 3 — Build the next thing</h4>
+<p>Choose one project from the list below. Each one uses the same structure (argparse, JSON/SQLite, functions) but for a different problem:</p>
+<p>• A book tracker (<code>add</code>, <code>list</code>, <code>rate</code>, <code>stats</code>)<br>
+• A password generator (<code>generate --length 20</code>)<br>
+• A markdown-to-HTML converter (<code>convert file.md</code>)<br>
+• A file organizer (<code>sort downloads/</code> — moves files into folders by extension)<br>
+• A habit tracker (<code>check running</code>, <code>streaks</code>)</p>
+<p>Pick the one you'd actually use. Build it in a weekend. Put it on GitHub. Repeat.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">🎓 You're done with the beginner + early-intermediate track</h2>
+<p class="section-sub">Nine lessons. One real project. That's more than most people finish.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>You can now build CLI tools</h4>
+<p>argparse, JSON persistence, error handling, module organization. This is the shape of half the scripts on GitHub — you can write them.</p>
+</div>
+<div class="concept-card">
+<h4>You can read real code</h4>
+<p>Open any small Python project on GitHub and follow along. You'll recognize the patterns — functions, files, error handling, modules — in whatever you read.</p>
+</div>
+<div class="concept-card">
+<h4>You can learn independently</h4>
+<p>You don't need a tutorial anymore. You need a goal and the docs. "How do I write a CSV?" → search + read. That's how you keep going from here.</p>
+</div>
+<div class="concept-card">
+<h4>You know what to learn next</h4>
+<p>Classes (object-oriented Python). Testing (pytest). Web frameworks (Flask, Django). Data (pandas, numpy). The rest of Python is discovery, not prerequisites.</p>
+</div>
+</div>
+
+<div class="pro-tip" style="margin-top:1.5rem;">
+<p><strong>The most important milestone is behind you.</strong> The gap between "has never written code" and "has shipped a real project" is a hundred times larger than the gap between "shipped one project" and "shipped ten." You've crossed the big one. Everything from here is accumulation — faster, easier, and more interesting than the first step.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">Three directions from here. All of them are valid.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">Review the roadmap + projects</div>
+</a>
+<a href="/courses/python/lessons/modules.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📦 Lesson 8: Modules</div>
+<div class="text-xs text-slate-400 mt-1">Review import, pip, venv</div>
+</a>
+<a href="/courses/ai/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🤖 AI track</div>
+<div class="text-xs text-slate-400 mt-1">Apply your Python to ML</div>
+</a>
+<a href="/courses/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All courses</div>
+<div class="text-xs text-slate-400 mt-1">Start another language track</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the best first Python project?</summary>
+<p class="mt-2 text-sm text-slate-300">A CLI tool that does something real: expense tracker, to-do list, password manager, markdown converter, or file organizer. What makes it a good first project: uses only concepts you've learned, produces immediate visible output, is small enough to finish in a weekend, and is something you'd actually use. Avoid project tutorials that are 40 hours long or that use frameworks you haven't learned yet.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How should I structure a Python project?</summary>
+<p class="mt-2 text-sm text-slate-300">For a small project, three files are enough: main.py for the entry point and CLI parsing, helpers.py or core.py for the logic, and a data file (JSON, CSV, SQLite). Add requirements.txt if you install any packages. Once the project grows, convert to a package: move files into a project/ folder with init.py, then split helpers further as needed. Don't over-engineer the structure for a 500-line project.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use argparse or click for CLI tools?</summary>
+<p class="mt-2 text-sm text-slate-300">Use argparse for your first project — it's built into the standard library and teaches you how CLI parsing works. Use click or typer for larger projects where argparse's verbosity becomes painful. argparse handles subcommands (myapp add, myapp list), flags (--verbose), positional arguments, and automatic --help generation. It's enough for 90% of CLI tools.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I persist data in a Python CLI app?</summary>
+<p class="mt-2 text-sm text-slate-300">Use JSON for small data sets (a few thousand records). Use SQLite for anything larger or with relational structure. JSON is simpler — one file, human-readable, json.dump() and json.load(). Pattern: load everything at startup, modify the in-memory list, save the whole thing on every change. For 10,000 records this is instantaneous; for 1,000,000 it's slow, but you won't hit that with a personal CLI tool.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I make a Python script runnable from anywhere?</summary>
+<p class="mt-2 text-sm text-slate-300">Three options: (1) Run python path/to/script.py from anywhere. (2) Add a shebang (#!/usr/bin/env python3) and chmod +x, then ./script.py works. (3) Best for a real project: add a setup.py or pyproject.toml with a console_scripts entry point, then pip install -e . installs your tool as a command. Option 3 is what production CLI tools do.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I handle errors in a CLI app?</summary>
+<p class="mt-2 text-sm text-slate-300">Validate at the boundary — when parsing arguments and when loading data. Use argparse's built-in validation for arguments (type=int, choices=[...], required=True). Wrap file operations in try/except for FileNotFoundError and json.JSONDecodeError. Let unexpected exceptions crash loudly with a traceback — silent failures in CLI tools are worse than crashes because the user doesn't know their data is corrupt.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I test a Python CLI project?</summary>
+<p class="mt-2 text-sm text-slate-300">Split your code so that all logic is in pure functions that take and return data, and only main.py touches sys.argv and print(). Then test the pure functions with simple assert statements or pytest. For the CLI layer, use subprocess to run the script and check stdout. The key: 90% of your tests should hit pure functions that need no special setup.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I publish my Python project to PyPI?</summary>
+<p class="mt-2 text-sm text-slate-300">Not for your first project — local use is the goal. If people ask to use your tool, publish to PyPI later: add pyproject.toml with name, version, entry_points, then python -m build && twine upload dist/*. Publishing is a skill worth learning, but it's a distraction from finishing your first project. Ship it locally first.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://docs.python.org/3/library/argparse.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Python Docs: argparse</a></li>
+<li>→ <a href="https://docs.python.org/3/howto/argparse.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Python.org: Argparse tutorial</a></li>
+<li>→ <a href="https://github.com/vinta/awesome-python" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Awesome Python — curated list of packages</a></li>
+</ul>
+</section>
+
+<a href="/courses/python/index.html" class="back-link">← Back to Python track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the Python track · Lesson 9 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
