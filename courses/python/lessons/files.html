@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Python File Handling — Read, Write & JSON (2026)</title>
+<meta name="description" content="Learn Python file I/O. open(), read, write, append, with statement, and JSON. The 8 file-handling patterns you need, plus the errors that break them.">
+<meta name="keywords" content="python read file, python write file, python open file, python with open, python json read, python file handling">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Python File Handling — Read, Write & JSON">
+<meta property="og:description" content="Learn Python file I/O. open(), read, write, append, with statement, and JSON. The 8 patterns you need.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/lessons/files.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Python File Handling — Read, Write & JSON">
+<meta name="twitter:description" content="Learn Python file I/O. open(), read, write, append, with statement, and JSON. The 8 patterns you need.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/lessons/files.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"Python File Handling — Read, Write & JSON","description":"Learn Python file I/O. open(), read, write, append, with statement, and JSON. The 8 file-handling patterns you need, plus the errors that break them.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-23","dateModified":"2026-10-23","proficiencyLevel":"Beginner","dependencies":"Python 3.x"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I read a file in Python?","acceptedAnswer":{"@type":"Answer","text":"Use the with statement: with open('file.txt', 'r') as f: content = f.read(). This opens the file, reads everything into a string, and closes it automatically when the with block exits. For large files, iterate line by line: for line in f: process(line). For a list of lines: f.readlines(). Always use with — without it, the file stays open and can be locked or leak file handles."}},{"@type":"Question","name":"How do I write to a file in Python?","acceptedAnswer":{"@type":"Answer","text":"Open with mode 'w' for overwrite or 'a' for append, then call f.write('text'): with open('file.txt', 'w') as f: f.write('Hello'). Mode 'w' truncates the file first — any existing content is gone. Mode 'a' adds to the end. Use 'w' when you're creating a fresh file, 'a' when you're adding to an existing log or data file."}},{"@type":"Question","name":"What is the difference between 'w' and 'a' file modes?","acceptedAnswer":{"@type":"Answer","text":"'w' (write) truncates the file to zero bytes before writing — any existing content is destroyed. 'a' (append) keeps existing content and adds new data at the end. For logs, append. For output files you regenerate each run, write. There's also 'x' (exclusive create) which fails if the file exists, useful for preventing accidental overwrites."}},{"@type":"Question","name":"Why do I need the 'with' statement for files?","acceptedAnswer":{"@type":"Answer","text":"The with statement ensures the file is closed properly, even if an error occurs inside the block. Without it, you must call f.close() manually — and if an exception happens before that line, the file stays open and locked. On Windows, an open file can't be deleted or renamed. Use with — always, no exceptions."}},{"@type":"Question","name":"How do I read a JSON file in Python?","acceptedAnswer":{"@type":"Answer","text":"Import the json module, then: import json; with open('data.json') as f: data = json.load(f). The result is a Python dict (or list, depending on the JSON). To write JSON: with open('out.json', 'w') as f: json.dump(data, f, indent=2). Use json.dumps() to get a string, json.dump() to write directly to a file. Use indent=2 for human-readable output."}},{"@type":"Question","name":"How do I read a CSV file in Python?","acceptedAnswer":{"@type":"Answer","text":"Use the csv module: import csv; with open('data.csv') as f: reader = csv.reader(f); for row in reader: print(row). Each row is a list of strings. Use csv.DictReader for dict-based rows with header keys: reader = csv.DictReader(f); for row in reader: print(row['name']). Writing works the same way with csv.writer or csv.DictWriter. Always open CSV files with newline='' to handle line endings correctly on all platforms."}},{"@type":"Question","name":"What is FileNotFoundError and how do I avoid it?","acceptedAnswer":{"@type":"Answer","text":"FileNotFoundError is raised when you open a file that doesn't exist. To avoid it: check with os.path.exists('file.txt') first, or wrap in try/except FileNotFoundError. For reading files that might not exist, use a default: try: with open(path) as f: return f.read() except FileNotFoundError: return ''. Never assume a file exists — always handle the missing case."}},{"@type":"Question","name":"What is the difference between text and binary mode?","acceptedAnswer":{"@type":"Answer","text":"Text mode ('r', 'w', 'a') reads/writes strings, handles encoding (UTF-8 by default in Python 3), and translates line endings. Binary mode ('rb', 'wb', 'ab') reads/writes bytes, no encoding, no translation. Use text mode for human-readable content, binary mode for images, PDFs, audio, or any non-text file. Reading a binary file in text mode or vice versa corrupts the data."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#FFD43B !important;">Lesson 6</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Files</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<!-- BREADCRUMB -->
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#4B8BBE;">Home</a> ›
+<a href="/courses/index.html" style="color:#4B8BBE;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#4B8BBE;">Python</a> ›
+<span style="color:#FFD43B; font-weight:700;">Lesson 6</span>
+</div>
+
+<!-- HERO -->
+<div class="py-hero">
+<div class="badge">🐍 Lesson 6 · 15 minutes</div>
+<h1>Files.<br><span class="py-accent">Persist your data.</span></h1>
+<p class="lead">
+Every variable you create lives in memory and disappears when the program ends. Files don't. Reading a config, saving user data, processing a CSV, appending to a log — the moment your code touches the disk, it stops being a script and starts being a tool. This lesson covers the exact patterns you'll use for every file operation in Python.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~15 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Beginner → Intermediate</span>
+<span><i class="fa-solid fa-code"></i> Python 3.x</span>
+</div>
+</div>
+
+<!-- QUICK NAV -->
+<div class="quick-nav">
+<a href="/courses/python/index.html"><i class="fa-solid fa-map"></i> Python path</a>
+<a href="/courses/python/lessons/dicts.html"><i class="fa-solid fa-arrow-left"></i> Lesson 5</a>
+<a href="#read"><i class="fa-solid fa-book-open"></i> Read</a>
+<a href="#write"><i class="fa-solid fa-pen"></i> Write</a>
+<a href="#with"><i class="fa-solid fa-shield"></i> with</a>
+<a href="#paths"><i class="fa-solid fa-folder"></i> Paths</a>
+<a href="#json"><i class="fa-solid fa-file-code"></i> JSON</a>
+<a href="#challenge"><i class="fa-solid fa-trophy"></i> Challenge</a>
+</div>
+
+<!-- OPENING ANSWER -->
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+To read a file in Python: <code>with open("file.txt", "r") as f: content = f.read()</code>. To write: <code>with open("file.txt", "w") as f: f.write("text")</code>. Use mode <code>"a"</code> to append instead of overwrite. <strong>Always use <code>with</code></strong> — it closes the file automatically, even if an error occurs. For JSON, use <code>json.load()</code> / <code>json.dump()</code>. For CSV, use the <code>csv</code> module.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#FFD43B !important;">Before this lesson:</strong> you should be comfortable with dicts and functions. If not, read <a href="/courses/python/lessons/dicts.html" style="color:#FFD43B; text-decoration:underline;">Lesson 5</a> and <a href="/courses/python/lessons/functions.html" style="color:#FFD43B; text-decoration:underline;">Lesson 4</a> first.
+</p>
+</div>
+
+<!-- READ -->
+<section id="read">
+<h2 class="section-title">📖 Reading files</h2>
+<p class="section-sub">Four patterns — pick the one that matches your file size.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Python</span>
+<button class="copy-btn" onclick="copyCode('py-read', this)">Copy</button>
+</div>
+<pre id="py-read"><code><span class="com"># 1. Read the whole file as a single string</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"notes.txt"</span>, <span class="str">"r"</span>) <span class="kw">as</span> f:
+content = f.<span class="fn">read</span>()
+<span class="fn">print</span>(content)
+
+<span class="com"># 2. Read all lines into a list</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"notes.txt"</span>, <span class="str">"r"</span>) <span class="kw">as</span> f:
+lines = f.<span class="fn">readlines</span>()
+<span class="com"># lines is like ['line 1\n', 'line 2\n', 'line 3\n']</span>
+
+<span class="com"># 3. Loop line by line (best for large files)</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"notes.txt"</span>, <span class="str">"r"</span>) <span class="kw">as</span> f:
+<span class="kw">for</span> line <span class="kw">in</span> f:
+<span class="fn">print</span>(line.<span class="fn">strip</span>()) <span class="com"># .strip() removes trailing newline</span>
+
+<span class="com"># 4. Read a specific number of characters</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"notes.txt"</span>, <span class="str">"r"</span>) <span class="kw">as</span> f:
+first_100 = f.<span class="fn">read</span>(<span class="num">100</span>)</code></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>f.read()</h4>
+<p>Returns the entire file as one string. Simple but uses memory proportional to file size. Fine for small files, bad for 1GB logs.</p>
+</div>
+<div class="concept-card">
+<h4>f.readlines()</h4>
+<p>Returns a list of lines, each ending in <code>\n</code> (except maybe the last). Fine for small-to-medium files. Use <code>.strip()</code> on each line to clean it.</p>
+</div>
+<div class="concept-card">
+<h4>for line in f:</h4>
+<p>The idiomatic way to read line by line. Uses constant memory regardless of file size. This is what you should use for anything but tiny files.</p>
+</div>
+<div class="concept-card">
+<h4>Encoding</h4>
+<p>Python 3 defaults to UTF-8 on most systems. For guaranteed behavior, specify: <code>open("f.txt", "r", encoding="utf-8")</code>. This avoids errors with non-ASCII characters.</p>
+</div>
+</div>
+</section>
+
+<!-- WRITE -->
+<section id="write">
+<h2 class="section-title">✍️ Writing files</h2>
+<p class="section-sub">Three modes: overwrite, append, exclusive-create.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Python</span>
+<button class="copy-btn" onclick="copyCode('py-write', this)">Copy</button>
+</div>
+<pre id="py-write"><code><span class="com"># Mode "w" — OVERWRITE (truncates the file first)</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"output.txt"</span>, <span class="str">"w"</span>) <span class="kw">as</span> f:
+f.<span class="fn">write</span>(<span class="str">"Hello, file!\n"</span>)
+f.<span class="fn">write</span>(<span class="str">"Second line\n"</span>)
+<span class="com"># Any previous content in output.txt is gone.</span>
+
+<span class="com"># Mode "a" — APPEND (adds to the end, keeps existing content)</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"log.txt"</span>, <span class="str">"a"</span>) <span class="kw">as</span> f:
+f.<span class="fn">write</span>(<span class="str">"New log entry\n"</span>)
+<span class="com"># Existing content preserved.</span>
+
+<span class="com"># Mode "x" — EXCLUSIVE CREATE (fails if file exists)</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"newfile.txt"</span>, <span class="str">"x"</span>) <span class="kw">as</span> f:
+f.<span class="fn">write</span>(<span class="str">"Created fresh\n"</span>)
+<span class="com"># Raises FileExistsError if file already exists.</span>
+
+<span class="com"># Write multiple lines at once</span>
+lines = [<span class="str">"Alice\n"</span>, <span class="str">"Bob\n"</span>, <span class="str">"Charlie\n"</span>]
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"names.txt"</span>, <span class="str">"w"</span>) <span class="kw">as</span> f:
+f.<span class="fn">writelines</span>(lines)
+
+<span class="com"># Common idiom: write lines from a loop</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"squares.txt"</span>, <span class="str">"w"</span>) <span class="kw">as</span> f:
+<span class="kw">for</span> n <span class="kw">in</span> <span class="fn">range</span>(<span class="num">10</span>):
+f.<span class="fn">write</span>(<span class="str">f"{n} squared = {n*n}\n"</span>)</code></pre>
+</div>
+
+<div class="warning-box">
+<p><strong>Mode <code>"w"</code> destroys existing files.</strong> If <code>output.txt</code> had 10,000 lines of data and you open it with <code>"w"</code>, those 10,000 lines are gone before your first <code>write()</code> call. If you want to add data, use <code>"a"</code>. If you want to overwrite, mean it. There's no undo — the OS doesn't save a backup.</p>
+</div>
+
+<div class="pro-tip">
+<p><strong>Always add <code>\n</code> to your strings when writing.</strong> <code>f.write("Hello")</code> followed by <code>f.write("World")</code> produces <code>"HelloWorld"</code> on one line, not two lines. <code>write()</code> doesn't add line breaks — you do. This trips up everyone coming from <code>print()</code>, which adds a newline automatically.</p>
+</div>
+</section>
+
+<!-- WITH -->
+<section id="with">
+<h2 class="section-title">🛡️ The with statement — why it's mandatory</h2>
+<p class="section-sub">The single most important rule of file handling.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The <code>with</code> statement guarantees the file is closed when the block exits — even if an exception is raised, even if you return early, even if the program crashes inside the block. Without <code>with</code>, you must call <code>f.close()</code> manually, and if anything goes wrong before that line, the file stays open. On Windows, an open file can't be deleted or renamed. On any OS, open files leak resources.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Python</span>
+<button class="copy-btn" onclick="copyCode('py-with', this)">Copy</button>
+</div>
+<pre id="py-with"><code><span class="com"># BAD — the file stays open if an error occurs</span>
+f = <span class="fn">open</span>(<span class="str">"data.txt"</span>, <span class="str">"r"</span>)
+content = f.<span class="fn">read</span>() <span class="com"># what if this fails?</span>
+f.<span class="fn">close</span>() <span class="com"># never reached</span>
+
+<span class="com"># GOOD — file closed automatically, even on error</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"data.txt"</span>, <span class="str">"r"</span>) <span class="kw">as</span> f:
+content = f.<span class="fn">read</span>()
+<span class="com"># file is closed here, guaranteed</span>
+
+<span class="com"># The with statement is equivalent to try/finally</span>
+f = <span class="fn">open</span>(<span class="str">"data.txt"</span>, <span class="str">"r"</span>)
+<span class="kw">try</span>:
+content = f.<span class="fn">read</span>()
+<span class="kw">finally</span>:
+f.<span class="fn">close</span>()
+
+<span class="com"># Multiple files in one with</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"input.txt"</span>) <span class="kw">as</span> src, <span class="fn">open</span>(<span class="str">"output.txt"</span>, <span class="str">"w"</span>) <span class="kw">as</span> dst:
+<span class="kw">for</span> line <span class="kw">in</span> src:
+dst.<span class="fn">write</span>(line.<span class="fn">upper</span>())</code></pre>
+</div>
+
+<div class="pro-tip">
+<p><strong>You should never write <code>f = open(...)</code> without <code>with</code>.</strong> If you see it in a tutorial or in your own code, treat it as a bug. The only valid exception is when you intentionally need the file handle to outlive the current block — which is rare and usually wrong. Use <code>with</code>. Always.</p>
+</div>
+</section>
+
+<!-- PATHS -->
+<section id="paths">
+<h2 class="section-title">📁 Paths — where files actually live</h2>
+<p class="section-sub">Relative vs absolute, forward vs backslash, and the <code>pathlib</code> module.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When you write <code>open("data.txt")</code>, Python looks for <code>data.txt</code> in the <strong>current working directory</strong> — the folder you were in when you ran the script, not the folder the script lives in. This distinction confuses everyone at some point.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Python</span>
+<button class="copy-btn" onclick="copyCode('py-paths', this)">Copy</button>
+</div>
+<pre id="py-paths"><code><span class="kw">import</span> os
+<span class="kw">from</span> pathlib <span class="kw">import</span> Path
+
+<span class="com"># Relative path — from current working directory</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"data.txt"</span>) <span class="kw">as</span> f:
+...
+
+<span class="com"># Same file, using subfolder</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"data/notes.txt"</span>) <span class="kw">as</span> f:
+...
+
+<span class="com"># Check current working directory</span>
+<span class="fn">print</span>(os.<span class="fn">getcwd</span>()) <span class="com"># /Users/you/projects/my-app</span>
+
+<span class="com"># Absolute path — works from anywhere</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"/Users/you/data.txt"</span>) <span class="kw">as</span> f:
+...
+
+<span class="com"># Modern way — pathlib (Python 3.4+)</span>
+path = Path(<span class="str">"data"</span>) / <span class="str">"notes.txt"</span> <span class="com"># data/notes.txt, works on Windows too</span>
+<span class="kw">with</span> path.<span class="fn">open</span>() <span class="kw">as</span> f:
+content = f.<span class="fn">read</span>()
+
+<span class="com"># Useful pathlib operations</span>
+p = Path(<span class="str">"data.txt"</span>)
+<span class="fn">print</span>(p.<span class="fn">exists</span>()) <span class="com"># True or False</span>
+<span class="fn">print</span>(p.<span class="fn">name</span>) <span class="com"># "data.txt"</span>
+<span class="fn">print</span>(p.<span class="fn">suffix</span>) <span class="com"># ".txt"</span>
+<span class="fn">print</span>(p.<span class="fn">stem</span>) <span class="com"># "data"</span>
+<span class="fn">print</span>(p.<span class="fn">parent</span>) <span class="com"># Path('.') — the folder containing it</span>
+<span class="fn">print</span>(p.<span class="fn">resolve</span>()) <span class="com"># absolute path</span>
+
+<span class="com"># Create a directory if it doesn't exist</span>
+Path(<span class="str">"output"</span>).<span class="fn">mkdir</span>(exist_ok=<span class="kw">True</span>)</code></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Relative path</h4>
+<p>Starts from wherever the script was run. <code>"data.txt"</code> means "in the current folder." Simple, portable, but breaks if run from a different directory.</p>
+</div>
+<div class="concept-card">
+<h4>Absolute path</h4>
+<p>Starts from the filesystem root. <code>"/home/user/file.txt"</code> or <code>"C:\Users\me\file.txt"</code>. Works from anywhere but is machine-specific.</p>
+</div>
+<div class="concept-card">
+<h4>Forward vs backslash</h4>
+<p>Python accepts forward slashes (<code>/</code>) on all platforms, including Windows. Use them. Backslashes in strings need escaping: <code>"C:\Users\me"</code> or raw strings <code>r"C:\Users\me"</code>.</p>
+</div>
+<div class="concept-card">
+<h4>pathlib</h4>
+<p>Modern, cross-platform path handling. <code>Path("a") / "b"</code> joins paths correctly. Use it for anything complex — string concatenation of paths is a bug waiting to happen.</p>
+</div>
+</div>
+</section>
+
+<!-- JSON -->
+<section id="json">
+<h2 class="section-title">🗂️ JSON — the format of the web</h2>
+<p class="section-sub">Every API response, every config file, every saved state.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">JSON is how data moves between programs. Every web API returns it. Every config file uses it. Every language parses it. Python has built-in support — <code>json.load()</code> reads from a file, <code>json.dump()</code> writes to a file. The result is always a Python dict (or list, depending on the JSON structure).</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Python</span>
+<button class="copy-btn" onclick="copyCode('py-json', this)">Copy</button>
+</div>
+<pre id="py-json"><code><span class="kw">import</span> json
+
+<span class="com"># WRITE JSON to a file</span>
+user = {
+<span class="str">"name"</span>: <span class="str">"Alice"</span>,
+<span class="str">"age"</span>: <span class="num">30</span>,
+<span class="str">"hobbies"</span>: [<span class="str">"reading"</span>, <span class="str">"hiking"</span>],
+}
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"user.json"</span>, <span class="str">"w"</span>) <span class="kw">as</span> f:
+json.<span class="fn">dump</span>(user, f, indent=<span class="num">2</span>)
+<span class="com"># Creates a human-readable JSON file.</span>
+
+<span class="com"># READ JSON from a file</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"user.json"</span>) <span class="kw">as</span> f:
+loaded = json.<span class="fn">load</span>(f)
+<span class="fn">print</span>(loaded[<span class="str">"name"</span>]) <span class="com"># Alice</span>
+<span class="fn">print</span>(loaded[<span class="str">"hobbies"</span>][<span class="num">0</span>]) <span class="com"># reading</span>
+
+<span class="com"># CONVERT to/from strings (not files)</span>
+json_string = json.<span class="fn">dumps</span>(user) <span class="com"># dict → string</span>
+back_to_dict = json.<span class="fn">loads</span>(json_string) <span class="com"># string → dict</span>
+
+<span class="com"># Handling missing/invalid JSON</span>
+<span class="kw">try</span>:
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"config.json"</span>) <span class="kw">as</span> f:
+config = json.<span class="fn">load</span>(f)
+<span class="kw">except</span> FileNotFoundError:
+config = {} <span class="com"># default when file is missing</span>
+<span class="kw">except</span> json.JSONDecodeError:
+config = {} <span class="com"># default when file is corrupt</span>
+
+<span class="com"># Update and save back</span>
+config[<span class="str">"last_run"</span>] = <span class="str">"2026-10-23"</span>
+<span class="kw">with</span> <span class="fn">open</span>(<span class="str">"config.json"</span>, <span class="str">"w"</span>) <span class="kw">as</span> f:
+json.<span class="fn">dump</span>(config, f, indent=<span class="num">2</span>)</code></pre>
+</div>
+
+<div class="pro-tip">
+<p><strong>Always use <code>indent=2</code> when writing JSON meant for humans.</strong> <code>json.dump(data, f)</code> produces one unreadable line. <code>json.dump(data, f, indent=2)</code> produces the nicely formatted JSON you see in API docs and config files. For machine-to-machine files (data caches, network payloads), skip the indent — it saves bytes. For anything a human will read, use it.</p>
+</div>
+
+<div class="warning-box">
+<p><strong>JSON keys are always strings.</strong> If you have a dict with integer keys like <code>{1: "one", 2: "two"}</code> and call <code>json.dumps()</code>, they become strings: <code>{"1": "one", "2": "two"}</code>. When you load them back, the keys are strings, not ints. This is one of the most confusing JSON round-trip bugs.</p>
+</div>
+</section>
+
+<!-- WORKING EXAMPLE -->
+<section>
+<h2 class="section-title">💻 A complete example</h2>
+<p class="section-sub">A mini to-do app that persists data to disk.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Python</span>
+<button class="copy-btn" onclick="copyCode('py-todo', this)">Copy</button>
+</div>
+<pre id="py-todo"><code><span class="com"># todo.py — persistent to-do list</span>
+<span class="kw">import</span> json
+
+FILE = <span class="str">"todos.json"</span>
+
+<span class="kw">def</span> <span class="fn">load_todos</span>():
+<span class="str">"""Load todos from disk. Return empty list if file missing."""</span>
+<span class="kw">try</span>:
+<span class="kw">with</span> <span class="fn">open</span>(FILE, <span class="str">"r"</span>, encoding=<span class="str">"utf-8"</span>) <span class="kw">as</span> f:
+<span class="kw">return</span> json.<span class="fn">load</span>(f)
+<span class="kw">except</span> FileNotFoundError:
+<span class="kw">return</span> []
+
+<span class="kw">def</span> <span class="fn">save_todos</span>(todos):
+<span class="str">"""Write todos to disk."""</span>
+<span class="kw">with</span> <span class="fn">open</span>(FILE, <span class="str">"w"</span>, encoding=<span class="str">"utf-8"</span>) <span class="kw">as</span> f:
+json.<span class="fn">dump</span>(todos, f, indent=<span class="num">2</span>)
+
+<span class="kw">def</span> <span class="fn">add_todo</span>(todos, text):
+todos.<span class="fn">append</span>({<span class="str">"text"</span>: text, <span class="str">"done"</span>: <span class="kw">False</span>})
+<span class="fn">save_todos</span>(todos)
+
+<span class="kw">def</span> <span class="fn">mark_done</span>(todos, index):
+<span class="kw">if</span> <span class="num">0</span> <= index < <span class="fn">len</span>(todos):
+todos[index][<span class="str">"done"</span>] = <span class="kw">True</span>
+<span class="fn">save_todos</span>(todos)
+
+<span class="kw">def</span> <span class="fn">show_todos</span>(todos):
+<span class="kw">for</span> i, todo <span class="kw">in</span> <span class="fn">enumerate</span>(todos):
+mark = <span class="str">"✓"</span> <span class="kw">if</span> todo[<span class="str">"done"</span>] <span class="kw">else</span> <span class="str">" "</span>
+<span class="fn">print</span>(<span class="str">f"[{mark}] {i}. {todo['text']}"</span>)
+
+<span class="com"># Use it</span>
+todos = <span class="fn">load_todos</span>()
+<span class="fn">add_todo</span>(todos, <span class="str">"Learn Python files"</span>)
+<span class="fn">add_todo</span>(todos, <span class="str">"Write a to-do app"</span>)
+<span class="fn">add_todo</span>(todos, <span class="str">"Ship it"</span>)
+<span class="fn">mark_done</span>(todos, <span class="num">0</span>)
+<span class="fn">show_todos</span>(todos)
+
+<span class="com"># Output:</span>
+<span class="com"># [✓] 0. Learn Python files</span>
+<span class="com"># [ ] 1. Write a to-do app</span>
+<span class="com"># [ ] 2. Ship it</span>
+
+<span class="com"># Run again — data persists between runs.</span></code></pre>
+</div>
+
+<div class="pro-tip">
+<p><strong>Notice the pattern: load → modify → save.</strong> Every persistent app follows this shape. You don't keep the file open and mutate it in place — you read it all into memory, change it, write it all back. This is fast, safe, and how 95% of real applications work with small data. For very large data, use a database.</p>
+</div>
+</section>
+
+<!-- CHALLENGE -->
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each builds on the one before it.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Line counter</h4>
+<p>Write a function <code>count_lines(filename)</code> that returns the number of lines in a text file. Use a <code>for line in f:</code> loop. Handle <code>FileNotFoundError</code> by returning <code>-1</code>.</p>
+<p>Test: create a file with 5 lines, verify <code>count_lines("test.txt") == 5</code>. Then test with a non-existent file: <code>count_lines("missing.txt") == -1</code>.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Word frequency to file</h4>
+<p>Read a text file, count word frequencies using the <code>.get(key, 0) + 1</code> pattern (from Lesson 5), and write the top 10 words and their counts to a new file, one per line.</p>
+<p>Format: <code>word: count</code>. Hint: use <code>sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:10]</code>.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Config manager</h4>
+<p>Build a tiny config system:</p>
+<p>1. <code>load_config(path)</code> — reads a JSON file, returns dict, empty dict if missing.<br>
+2. <code>save_config(path, config)</code> — writes the dict to JSON with indent=2.<br>
+3. <code>set_config(path, key, value)</code> — loads, sets the key, saves. Returns the updated dict.<br>
+4. Test: <code>set_config("config.json", "theme", "dark")</code>, then <code>set_config("config.json", "lang", "en")</code>. Verify both keys exist after reloading.</p>
+</div>
+</section>
+
+<!-- MISTAKES -->
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The eight file errors that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Not using with</div>
+<p><code>f = open(...)</code> without <code>with</code> — if an error occurs before <code>f.close()</code>, the file stays open. On Windows, it can't be deleted. Always use <code>with open(...) as f:</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Overwriting when you meant to append</div>
+<p>Opened with <code>"w"</code> when you meant <code>"a"</code>. The existing file content is destroyed the moment you open it. There's no undo. Check your mode before you click run on anything that writes files.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Forgetting the newline in write()</div>
+<p><code>f.write("a")</code> then <code>f.write("b")</code> produces <code>"ab"</code>, not two lines. Add <code>\n</code> to each string: <code>f.write("a\n")</code>. Unlike <code>print()</code>, <code>write()</code> doesn't add line breaks.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. FileNotFoundError on a relative path</div>
+<p><code>open("data.txt")</code> looks in the current working directory, not the script folder. If the script was run from a different folder, the file "isn't there." Fix: use <code>Path(file).parent / "data.txt"</code> for paths relative to the script.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Not closing the file after reading</div>
+<p>If you use <code>open()</code> without <code>with</code>, Python keeps the file handle open until garbage collection — which might not happen until the program exits. Files stay locked, resources leak. Use <code>with</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Reading a binary file in text mode</div>
+<p><code>open("image.jpg", "r")</code> fails with <code>UnicodeDecodeError</code> — you can't decode JPEG bytes as text. Fix: open in binary mode: <code>open("image.jpg", "rb")</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Corrupt JSON after a write</div>
+<p>Write JSON with <code>json.dump()</code>, not <code>f.write(str(data))</code>. <code>str(dict)</code> uses single quotes and isn't valid JSON. The json module guarantees round-trip compatibility with any JSON parser.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Assuming an encoding</div>
+<p>On Windows, Python defaults to the system encoding (often cp1252). On macOS/Linux, it's typically UTF-8. Same script, different behavior. Fix: always specify <code>encoding="utf-8"</code> explicitly in your <code>open()</code> calls.</p>
+</div>
+</section>
+
+<!-- NEXT -->
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">One lesson left in the beginner tier — error handling.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/python/lessons/errors.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🚨 Lesson 7: Errors</div>
+<div class="text-xs text-slate-400 mt-1">try/except and error handling</div>
+</a>
+<a href="/courses/python/lessons/dicts.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗂️ Lesson 5: Dictionaries</div>
+<div class="text-xs text-slate-400 mt-1">Review the main JSON structure</div>
+</a>
+<a href="/courses/python/lessons/functions.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚙️ Lesson 4: Functions</div>
+<div class="text-xs text-slate-400 mt-1">The to-do app pattern uses these</div>
+</a>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 8-week roadmap</div>
+</a>
+</div>
+</section>
+
+<!-- FAQ -->
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I read a file in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">Use the with statement: with open('file.txt', 'r') as f: content = f.read(). This opens the file, reads everything into a string, and closes it automatically when the with block exits. For large files, iterate line by line: for line in f: process(line). For a list of lines: f.readlines(). Always use with — without it, the file stays open and can be locked or leak file handles.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I write to a file in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">Open with mode 'w' for overwrite or 'a' for append, then call f.write('text'): with open('file.txt', 'w') as f: f.write('Hello'). Mode 'w' truncates the file first — any existing content is gone. Mode 'a' adds to the end. Use 'w' when you're creating a fresh file, 'a' when you're adding to an existing log or data file.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between 'w' and 'a' file modes?</summary>
+<p class="mt-2 text-sm text-slate-300">'w' (write) truncates the file to zero bytes before writing — any existing content is destroyed. 'a' (append) keeps existing content and adds new data at the end. For logs, append. For output files you regenerate each run, write. There's also 'x' (exclusive create) which fails if the file exists, useful for preventing accidental overwrites.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why do I need the 'with' statement for files?</summary>
+<p class="mt-2 text-sm text-slate-300">The with statement ensures the file is closed properly, even if an error occurs inside the block. Without it, you must call f.close() manually — and if an exception happens before that line, the file stays open and locked. On Windows, an open file can't be deleted or renamed. Use with — always, no exceptions.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I read a JSON file in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">Import the json module, then: import json; with open('data.json') as f: data = json.load(f). The result is a Python dict (or list, depending on the JSON). To write JSON: with open('out.json', 'w') as f: json.dump(data, f, indent=2). Use json.dumps() to get a string, json.dump() to write directly to a file. Use indent=2 for human-readable output.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I read a CSV file in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">Use the csv module: import csv; with open('data.csv') as f: reader = csv.reader(f); for row in reader: print(row). Each row is a list of strings. Use csv.DictReader for dict-based rows with header keys: reader = csv.DictReader(f); for row in reader: print(row['name']). Writing works the same way with csv.writer or csv.DictWriter. Always open CSV files with newline='' to handle line endings correctly on all platforms.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is FileNotFoundError and how do I avoid it?</summary>
+<p class="mt-2 text-sm text-slate-300">FileNotFoundError is raised when you open a file that doesn't exist. To avoid it: check with os.path.exists('file.txt') first, or wrap in try/except FileNotFoundError. For reading files that might not exist, use a default: try: with open(path) as f: return f.read() except FileNotFoundError: return ''. Never assume a file exists — always handle the missing case.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between text and binary mode?</summary>
+<p class="mt-2 text-sm text-slate-300">Text mode ('r', 'w', 'a') reads/writes strings, handles encoding (UTF-8 by default in Python 3), and translates line endings. Binary mode ('rb', 'wb', 'ab') reads/writes bytes, no encoding, no translation. Use text mode for human-readable content, binary mode for images, PDFs, audio, or any non-text file. Reading a binary file in text mode or vice versa corrupts the data.</p>
+</details>
+</div>
+</section>
+
+<!-- EXTERNAL -->
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://docs.python.org/3/tutorial/inputoutput.html#reading-and-writing-files" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Python.org: Reading and Writing Files</a></li>
+<li>→ <a href="https://docs.python.org/3/library/json.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Python Docs: json module</a></li>
+<li>→ <a href="https://docs.python.org/3/library/pathlib.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Python Docs: pathlib</a></li>
+</ul>
+</section>
+
+<a href="/courses/python/index.html" class="back-link">← Back to Python track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the Python track · Lesson 6 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
