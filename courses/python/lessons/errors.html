@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Python Errors & Exceptions — try/except, raise, finally (2026)</title>
+<meta name="description" content="Learn Python error handling. try/except, raise, finally, and custom exceptions. Read tracebacks, catch specific errors, and handle failures without hiding bugs.">
+<meta name="keywords" content="python try except, python exceptions, python error handling, python raise, python traceback, python finally">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Python Errors & Exceptions — try/except, raise, finally">
+<meta property="og:description" content="Learn Python error handling. try/except, raise, finally, and custom exceptions. Read tracebacks and handle failures without hiding bugs.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/lessons/errors.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Python Errors & Exceptions — try/except, raise, finally">
+<meta name="twitter:description" content="Learn Python error handling. try/except, raise, finally, and custom exceptions.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/lessons/errors.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"Python Errors & Exceptions — try/except, raise, finally","description":"Learn Python error handling. try/except, raise, finally, and custom exceptions. Read tracebacks, catch specific errors, and handle failures without hiding bugs.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-23","dateModified":"2026-10-23","proficiencyLevel":"Beginner","dependencies":"Python 3.x"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I handle errors in Python?","acceptedAnswer":{"@type":"Answer","text":"Wrap the risky code in try and catch it with except: try: risky() except ValueError: handle_error(). Catch specific exception types, not bare except. To run cleanup code regardless of outcome, add a finally block. To raise your own errors, use raise ExceptionType('message'). The pattern is try / except / else / finally — but you rarely need all four."}},{"@type":"Question","name":"What is the difference between SyntaxError and Exception?","acceptedAnswer":{"@type":"Answer","text":"SyntaxError happens at parse time — the code can't even start running because it's malformed (missing colon, unmatched parenthesis). It cannot be caught by try/except in the same file. All other exceptions (ValueError, KeyError, TypeError) happen at runtime and can be caught. If you see SyntaxError, fix the code — don't try to catch it."}},{"@type":"Question","name":"Should I use bare except: in Python?","acceptedAnswer":{"@type":"Answer","text":"Almost never. A bare except catches everything, including KeyboardInterrupt (Ctrl+C) and SystemExit — so users can't stop your program. It also hides real bugs. Catch specific exceptions instead: except ValueError: or except (ValueError, KeyError):. The only valid use is a top-level catch-all in a long-running server that logs the error and continues."}},{"@type":"Question","name":"What is the difference between except Exception and bare except?","acceptedAnswer":{"@type":"Answer","text":"except Exception: catches all normal exceptions (everything that inherits from Exception) but not KeyboardInterrupt or SystemExit, which inherit from BaseException. Bare except: catches literally everything including those two. Use except Exception: when you truly need a catch-all — it's much safer than bare except and lets Ctrl+C work."}},{"@type":"Question","name":"What does the else clause in try/except do?","acceptedAnswer":{"@type":"Answer","text":"Code in else runs only if no exception was raised in the try block. It's a way to separate 'this is the risky part' from 'this is what to do when it succeeds.' Try to keep the try block as small as possible — move successful-path logic to else. This prevents accidentally catching errors from code that shouldn't be inside try."}},{"@type":"Question","name":"What does finally do in Python?","acceptedAnswer":{"@type":"Answer","text":"finally runs no matter what — whether the try succeeded, failed, or raised something you didn't catch. It's for cleanup: closing files, releasing locks, disconnecting from databases. Even a return statement inside try doesn't skip finally. The with statement is built on this — it's finally that guarantees the file closes."}},{"@type":"Question","name":"How do I create a custom exception in Python?","acceptedAnswer":{"@type":"Answer","text":"Subclass Exception: class ValidationError(Exception): pass. Then raise it like any other: raise ValidationError('Email is invalid'). Give it a docstring and, if you need extra fields, override init. Custom exceptions make code more readable — callers can catch ValidationError specifically instead of guessing at ValueError. Subclass from Exception, not BaseException."}},{"@type":"Question","name":"What does 'raise X from Y' do in Python?","acceptedAnswer":{"@type":"Answer","text":"It chains exceptions. raise NewError('...') from original_error sets cause on the new exception, so the traceback shows 'The above exception was the direct cause of the following exception' and preserves both. Use it when catching an error and re-raising a different type — the caller sees your clean error, but the original cause is still visible in the traceback. Bare raise re-raises the current exception; raise X from None suppresses the chain."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#FFD43B !important;">Lesson 7</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Errors & exceptions</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<!-- BREADCRUMB -->
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#4B8BBE;">Home</a> ›
+<a href="/courses/index.html" style="color:#4B8BBE;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#4B8BBE;">Python</a> ›
+<span style="color:#FFD43B; font-weight:700;">Lesson 7</span>
+</div>
+
+<!-- HERO -->
+<div class="py-hero">
+<div class="badge">🐍 Lesson 7 · 15 minutes</div>
+<h1>Errors.<br><span class="py-accent">Read them. Catch them. Raise them.</span></h1>
+<p class="lead">
+Every programmer sees more error messages than success messages. The difference between a beginner and an experienced developer isn't fewer errors — it's reading them faster, catching them in the right places, and letting the rest crash loudly. This lesson teaches you to do all three. It's the last beginner lesson, and it's the one that changes how you write every program after it.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~15 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Beginner</span>
+<span><i class="fa-solid fa-code"></i> Python 3.x</span>
+</div>
+</div>
+
+<!-- QUICK NAV -->
+<div class="quick-nav">
+<a href="/courses/python/index.html"><i class="fa-solid fa-map"></i> Python path</a>
+<a href="/courses/python/lessons/files.html"><i class="fa-solid fa-arrow-left"></i> Lesson 6</a>
+<a href="#traceback"><i class="fa-solid fa-magnifying-glass"></i> Read tracebacks</a>
+<a href="#try"><i class="fa-solid fa-shield-halved"></i> try/except</a>
+<a href="#raise"><i class="fa-solid fa-bullhorn"></i> raise</a>
+<a href="#finally"><i class="fa-solid fa-broom"></i> finally</a>
+<a href="#custom"><i class="fa-solid fa-puzzle-piece"></i> Custom errors</a>
+<a href="#challenge"><i class="fa-solid fa-trophy"></i> Challenge</a>
+</div>
+
+<!-- OPENING ANSWER -->
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+Python errors come in two kinds: <strong>syntax errors</strong> (the code can't parse — fix immediately) and <strong>exceptions</strong> (the code parsed but failed at runtime). Handle exceptions with <code>try/except</code>. Catch specific types, not bare <code>except</code>. Use <code>finally</code> for cleanup. Use <code>raise</code> to signal failures your code detects. The best error handling is the least — let bugs crash loudly, catch only what you can actually handle.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#FFD43B !important;">Before this lesson:</strong> you should be comfortable with functions and files. If not, read <a href="/courses/python/lessons/functions.html" style="color:#FFD43B; text-decoration:underline;">Lesson 4</a> and <a href="/courses/python/lessons/files.html" style="color:#FFD43B; text-decoration:underline;">Lesson 6</a> first.
+</p>
+</div>
+
+<!-- TRACEBACK -->
+<section id="traceback">
+<h2 class="section-title">🔍 Reading tracebacks — the fastest debugging skill</h2>
+<p class="section-sub">The error message tells you exactly what's wrong. You just have to read it correctly.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When Python hits an error, it prints a <strong>traceback</strong> — a stack of function calls leading to the failure, plus the exception type and message. Beginners often panic and skim; experienced developers read it top-to-bottom (which is rare for any document) or bottom-to-top, depending on what they need.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Traceback</span>
+<button class="copy-btn" onclick="copyCode('py-traceback', this)">Copy</button>
+</div>
+<pre id="py-traceback"><code><span class="out">Traceback (most recent call last):</span>
+<span class="out"> File "app.py", line 15, in <module></span>
+<span class="out"> main()</span>
+<span class="out"> File "app.py", line 8, in main</span>
+<span class="out"> process(data)</span>
+<span class="out"> File "app.py", line 3, in process</span>
+<span class="out"> return items[10]</span>
+<span class="out">IndexError: list index out of range</span></code></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Read the last line first</h4>
+<p>It tells you the exception type (<code>IndexError</code>) and message (<code>list index out of range</code>). That's your answer 80% of the time.</p>
+</div>
+<div class="concept-card">
+<h4>Then read the line above</h4>
+<p>It shows the exact line of code that raised the error. In the example above, <code>return items[10]</code>. That's where you look.</p>
+</div>
+<div class="concept-card">
+<h4>Then the file and line number</h4>
+<p><code>app.py, line 3</code> tells you where. Open that file, jump to that line. Done — you've located the bug.</p>
+</div>
+<div class="concept-card">
+<h4>The full stack is context</h4>
+<p>The lines above the exception show the chain of calls that got there. Useful for "how did we end up here?" — but usually only the last three lines matter.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Eight exception types cover 90% of what you'll see.</strong> <code>SyntaxError</code> — malformed code. <code>NameError</code> — variable doesn't exist. <code>TypeError</code> — wrong type for the operation. <code>ValueError</code> — right type, wrong value. <code>IndexError</code> — list index out of range. <code>KeyError</code> — dict key missing. <code>AttributeError</code> — object has no such attribute. <code>FileNotFoundError</code> — file missing. Learn to recognize these eight and you'll debug 90% of your own errors in seconds.</p>
+</div>
+</section>
+
+<!-- TRY -->
+<section id="try">
+<h2 class="section-title">🛡️ try / except — catch what you can handle</h2>
+<p class="section-sub">Wrap the risky code. Catch only the errors you know how to fix.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The <code>try/except</code> block lets you say "I know this might fail, and here's what to do if it does." The <code>try</code> block contains the code that might raise. The <code>except</code> block contains the recovery. If no exception is raised, the <code>except</code> block is skipped entirely.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Python</span>
+<button class="copy-btn" onclick="copyCode('py-try-except', this)">Copy</button>
+</div>
+<pre id="py-try-except"><code><span class="com"># Basic try/except</span>
+<span class="kw">try</span>:
+n = <span class="fn">int</span>(<span class="fn">input</span>(<span class="str">"Enter a number: "</span>))
+<span class="fn">print</span>(<span class="str">f"Double: {n * 2}"</span>)
+<span class="kw">except</span> <span class="fn">ValueError</span>:
+<span class="fn">print</span>(<span class="str">"That wasn't a number."</span>)
+
+<span class="com"># Catch multiple specific types</span>
+<span class="kw">try</span>:
+data = {<span class="str">"name"</span>: <span class="str">"Alice"</span>}
+<span class="fn">print</span>(data[<span class="str">"age"</span>])
+<span class="kw">except</span> (<span class="fn">KeyError</span>, <span class="fn">IndexError</span>) <span class="kw">as</span> e:
+<span class="fn">print</span>(<span class="str">f"Missing: {e}"</span>)
+
+<span class="com"># Multiple separate except blocks</span>
+<span class="kw">try</span>:
+result = <span class="num">10</span> / <span class="num">0</span>
+<span class="kw">except</span> <span class="fn">ZeroDivisionError</span>:
+<span class="fn">print</span>(<span class="str">"Can't divide by zero"</span>)
+<span class="kw">except</span> <span class="fn">TypeError</span>:
+<span class="fn">print</span>(<span class="str">"Wrong type"</span>)
+
+<span class="com"># Access the exception object with "as e"</span>
+<span class="kw">try</span>:
+<span class="fn">open</span>(<span class="str">"missing.txt"</span>)
+<span class="kw">except</span> <span class="fn">FileNotFoundError</span> <span class="kw">as</span> e:
+<span class="fn">print</span>(<span class="str">f"Error: {e}"</span>) <span class="com"># [Errno 2] No such file or directory: 'missing.txt'</span>
+
+<span class="com"># Return defaults on failure (very common pattern)</span>
+<span class="kw">def</span> <span class="fn">safe_int</span>(text):
+<span class="kw">try</span>:
+<span class="kw">return</span> <span class="fn">int</span>(text)
+<span class="kw">except</span> <span class="fn">ValueError</span>:
+<span class="kw">return</span> <span class="num">0</span></code></pre>
+</div>
+
+<div class="warning-box">
+<p><strong>Never use bare <code>except:</code>.</strong> A bare <code>except:</code> catches everything — including <code>KeyboardInterrupt</code> (Ctrl+C) and <code>SystemExit</code>. Your user can't stop the program, and real bugs are silently swallowed. If you truly need a catch-all, use <code>except Exception:</code> — it catches normal errors but lets Ctrl+C work.</p>
+</div>
+
+<div class="pro-tip">
+<p><strong>Keep the try block small.</strong> Put only the line that might fail inside <code>try:</code>. If you wrap 20 lines, you don't know which one raised — and you might catch an error from a line you didn't expect. Small try blocks are easier to debug, more honest about what can fail, and let unexpected errors crash loudly where they should.</p>
+</div>
+</section>
+
+<!-- RAISE -->
+<section id="raise">
+<h2 class="section-title">📢 raise — signal your own errors</h2>
+<p class="section-sub">When your code detects a problem, raise it — don't return None or print a warning.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Sometimes <em>your</em> code discovers a problem that Python's built-in functions won't catch — an invalid email, a negative age, a required field that's missing. In those cases, you raise an exception yourself. This forces the caller to handle the problem instead of silently continuing with bad data.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Python</span>
+<button class="copy-btn" onclick="copyCode('py-raise', this)">Copy</button>
+</div>
+<pre id="py-raise"><code><span class="com"># Raise a built-in exception</span>
+<span class="kw">def</span> <span class="fn">validate_age</span>(age):
+<span class="kw">if</span> age < <span class="num">0</span>:
+<span class="kw">raise</span> <span class="fn">ValueError</span>(<span class="str">f"Age can't be negative: {age}"</span>)
+<span class="kw">return</span> age
+
+<span class="fn">validate_age</span>(-<span class="num">5</span>)
+<span class="com"># ValueError: Age can't be negative: -5</span>
+
+<span class="com"># The caller handles it</span>
+<span class="kw">try</span>:
+<span class="fn">validate_age</span>(-<span class="num">5</span>)
+<span class="kw">except</span> <span class="fn">ValueError</span> <span class="kw">as</span> e:
+<span class="fn">print</span>(<span class="str">f"Invalid input: {e}"</span>)
+
+<span class="com"># Bare raise — re-raise the current exception</span>
+<span class="kw">def</span> <span class="fn">load_config</span>(path):
+<span class="kw">try</span>:
+<span class="kw">with</span> <span class="fn">open</span>(path) <span class="kw">as</span> f:
+<span class="kw">return</span> f.<span class="fn">read</span>()
+<span class="kw">except</span> <span class="fn">FileNotFoundError</span>:
+<span class="fn">print</span>(<span class="str">f"Config missing: {path}"</span>)
+<span class="kw">raise</span> <span class="com"># re-raises the original, preserving traceback</span>
+
+<span class="com"># Raise from — chain exceptions for context</span>
+<span class="kw">try</span>:
+<span class="fn">int</span>(<span class="str">"not a number"</span>)
+<span class="kw">except</span> <span class="fn">ValueError</span> <span class="kw">as</span> e:
+<span class="kw">raise</span> <span class="fn">RuntimeError</span>(<span class="str">"Config parsing failed"</span>) <span class="kw">from</span> e
+<span class="com"># Traceback shows BOTH: RuntimeError caused by ValueError</span></code></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Fail fast</h4>
+<p>If inputs are invalid, raise immediately. The earlier you fail, the easier the bug is to trace. Returning <code>None</code> and letting the caller crash later hides the origin.</p>
+</div>
+<div class="concept-card">
+<h4>Use the right type</h4>
+<p><code>ValueError</code> for bad values. <code>TypeError</code> for wrong types. <code>KeyError</code> for missing keys. Match Python's conventions — your errors will look native.</p>
+</div>
+<div class="concept-card">
+<h4>Give useful messages</h4>
+<p><code>raise ValueError("Invalid")</code> is useless. <code>raise ValueError(f"Age must be 0-150, got {age}")</code> tells the caller exactly what's wrong.</p>
+</div>
+<div class="concept-card">
+<h4>Bare raise preserves traceback</h4>
+<p>Inside <code>except</code>, <code>raise</code> alone re-raises the current exception with its original traceback. <code>raise e</code> also works but creates a new traceback line — minor difference, bare <code>raise</code> is cleaner.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>raise from — when you wrap a lower-level error.</strong> If your code fails because something else failed, <code>raise YourError(...) from original</code> preserves both. The traceback shows "The above exception was the direct cause of the following exception" — so anyone debugging sees the chain. Use <code>raise X from None</code> to suppress the cause entirely (rare, but useful when the original error is noise).</p>
+</div>
+</section>
+
+<!-- FINALLY -->
+<section id="finally">
+<h2 class="section-title">🧹 else & finally — the two extras</h2>
+<p class="section-sub">Code that runs only on success, or always regardless of outcome.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Python</span>
+<button class="copy-btn" onclick="copyCode('py-finally', this)">Copy</button>
+</div>
+<pre id="py-finally"><code><span class="com"># else — runs only if try succeeded</span>
+<span class="kw">try</span>:
+value = <span class="fn">int</span>(<span class="str">"42"</span>)
+<span class="kw">except</span> <span class="fn">ValueError</span>:
+<span class="fn">print</span>(<span class="str">"Bad input"</span>)
+<span class="kw">else</span>:
+<span class="fn">print</span>(<span class="str">f"Success: {value}"</span>) <span class="com"># runs only on success</span>
+
+<span class="com"># finally — runs no matter what</span>
+<span class="kw">def</span> <span class="fn">process_file</span>(path):
+f = <span class="fn">open</span>(path)
+<span class="kw">try</span>:
+<span class="kw">return</span> f.<span class="fn">read</span>()
+<span class="kw">finally</span>:
+f.<span class="fn">close</span>() <span class="com"># ALWAYS runs, even if read() raised</span>
+
+<span class="com"># All four clauses together (rare but legal)</span>
+<span class="kw">try</span>:
+result = risky_operation()
+<span class="kw">except</span> <span class="fn">ValueError</span> <span class="kw">as</span> e:
+<span class="fn">print</span>(<span class="str">f"Error: {e}"</span>)
+<span class="kw">except</span> <span class="fn">TypeError</span>:
+<span class="fn">print</span>(<span class="str">"Wrong type"</span>)
+<span class="kw">else</span>:
+<span class="fn">print</span>(<span class="str">f"Got: {result}"</span>)
+<span class="kw">finally</span>:
+<span class="fn">print</span>(<span class="str">"Cleanup done"</span>)
+
+<span class="com"># finally runs even if try returns</span>
+<span class="kw">def</span> <span class="fn">demo</span>():
+<span class="kw">try</span>:
+<span class="kw">return</span> <span class="str">"from try"</span>
+<span class="kw">finally</span>:
+<span class="fn">print</span>(<span class="str">"finally runs"</span>) <span class="com"># ALWAYS</span>
+
+<span class="fn">print</span>(<span class="fn">demo</span>())
+<span class="com"># finally runs</span>
+<span class="com"># from try</span></code></pre>
+</div>
+
+<div class="pro-tip">
+<p><strong>The <code>with</code> statement is just <code>try/finally</code> for files.</strong> That's why Lesson 6 insisted on <code>with</code> — it's literally implemented as <code>try: ... finally: f.close()</code> under the hood. Once you understand <code>finally</code>, you understand why <code>with</code> works. Every resource that needs cleanup can be wrapped in a context manager, not just files.</p>
+</div>
+</section>
+
+<!-- CUSTOM -->
+<section id="custom">
+<h2 class="section-title">🧩 Custom exceptions</h2>
+<p class="section-sub">When you need the caller to distinguish your errors from built-in ones.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A <code>ValueError</code> from your validation function is the same type as a <code>ValueError</code> from <code>int()</code>. That makes it hard for callers to catch your errors specifically without also catching unrelated ones. Custom exceptions solve this — define a class that inherits from <code>Exception</code>, raise it, and the caller can catch it by name.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Python</span>
+<button class="copy-btn" onclick="copyCode('py-custom', this)">Copy</button>
+</div>
+<pre id="py-custom"><code><span class="com"># Define a custom exception</span>
+<span class="kw">class</span> <span class="fn">ValidationError</span>(<span class="fn">Exception</span>):
+<span class="str">"""Raised when user input fails validation."""</span>
+<span class="kw">pass</span>
+
+<span class="com"># Use it</span>
+<span class="kw">def</span> <span class="fn">validate_email</span>(email):
+<span class="kw">if</span> <span class="str">"@"</span> <span class="kw">not</span> <span class="kw">in</span> email:
+<span class="kw">raise</span> <span class="fn">ValidationError</span>(<span class="str">f"Invalid email: {email}"</span>)
+<span class="kw">return</span> email
+
+<span class="com"># Caller can catch it specifically</span>
+<span class="kw">try</span>:
+<span class="fn">validate_email</span>(<span class="str">"not-an-email"</span>)
+<span class="kw">except</span> <span class="fn">ValidationError</span> <span class="kw">as</span> e:
+<span class="fn">print</span>(<span class="str">f"Please fix: {e}"</span>)
+
+<span class="com"># Custom exception with extra data</span>
+<span class="kw">class</span> <span class="fn">APIError</span>(<span class="fn">Exception</span>):
+<span class="kw">def</span> <span class="fn">init</span>(self, message, status_code):
+<span class="fn">super</span>().<span class="fn">init</span>(message)
+self.status_code = status_code
+
+<span class="kw">try</span>:
+<span class="kw">raise</span> <span class="fn">APIError</span>(<span class="str">"Not found"</span>, status_code=<span class="num">404</span>)
+<span class="kw">except</span> <span class="fn">APIError</span> <span class="kw">as</span> e:
+<span class="fn">print</span>(<span class="str">f"Status {e.status_code}: {e}"</span>)
+
+<span class="com"># Exception hierarchy — catch a group</span>
+<span class="kw">class</span> <span class="fn">AppError</span>(<span class="fn">Exception</span>):
+<span class="str">"""Base class for all app errors."""</span>
+<span class="kw">pass</span>
+
+<span class="kw">class</span> <span class="fn">DatabaseError</span>(<span class="fn">AppError</span>):
+<span class="kw">pass</span>
+
+<span class="kw">class</span> <span class="fn">NetworkError</span>(<span class="fn">AppError</span>):
+<span class="kw">pass</span>
+
+<span class="com"># Catch all app errors with one except</span>
+<span class="kw">try</span>:
+<span class="fn">connect_database</span>()
+<span class="kw">except</span> <span class="fn">AppError</span> <span class="kw">as</span> e:
+<span class="fn">print</span>(<span class="str">f"App failed: {e}"</span>) <span class="com"># catches DatabaseError, NetworkError, etc.</span></code></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Subclass Exception</h4>
+<p>Never <code>BaseException</code>. Subclassing <code>Exception</code> means your errors play nice with <code>except Exception:</code> and don't break Ctrl+C handling.</p>
+</div>
+<div class="concept-card">
+<h4>One class per error type</h4>
+<p><code>ValidationError</code>, <code>AuthenticationError</code>, <code>RateLimitError</code> — each a class. Callers can catch exactly what they need. One generic "AppError" for everything defeats the purpose.</p>
+</div>
+<div class="concept-card">
+<h4>Docstring the message format</h4>
+<p>If your exception carries structured data (<code>status_code</code>, <code>field</code>), document it. Callers need to know what they can rely on.</p>
+</div>
+<div class="concept-card">
+<h4>Hierarchy groups them</h4>
+<p>Make all your app's errors inherit from a base <code>AppError</code>. Callers who want to catch "anything from this library" catch <code>AppError</code>. Callers who want specificity catch <code>ValidationError</code>.</p>
+</div>
+</div>
+</section>
+
+<!-- WHAT JUST HAPPENED -->
+<section>
+<h2 class="section-title">🔍 The mental model that makes errors click</h2>
+<p class="section-sub">How Python actually handles exceptions — no magic.</p>
+
+<div class="step">
+<div class="step-num">1</div>
+<div class="step-body">
+<h4>Exceptions unwind the stack</h4>
+<p>When an exception is raised, Python looks for a matching <code>except</code> block in the current function. If none is found, it propagates up to the caller, then <em>its</em> caller, and so on — this is called <strong>stack unwinding</strong>. If it reaches the top of the program with no handler, Python prints the traceback and exits.</p>
+</div>
+</div>
+<div class="step">
+<div class="step-num">2</div>
+<div class="step-body">
+<h4>The first matching handler wins</h4>
+<p>Python walks your <code>except</code> clauses top-to-bottom. The first one that matches the exception's type wins — the rest are skipped. Order matters: <code>except Exception:</code> before <code>except ValueError:</code> would catch everything in the first clause, making the second unreachable.</p>
+</div>
+</div>
+<div class="step">
+<div class="step-num">3</div>
+<div class="step-body">
+<h4><code>finally</code> runs during unwinding</h4>
+<p>If an exception leaves a <code>try</code> block, the <code>finally</code> block runs before the exception continues propagating. Even a <code>return</code> inside <code>try</code> doesn't skip it — Python runs <code>finally</code> and then honors the return. This is why cleanup code goes in <code>finally</code>.</p>
+</div>
+</div>
+<div class="step">
+<div class="step-num">4</div>
+<div class="step-body">
+<h4>Only catch what you can handle</h4>
+<p>A function that catches an exception must either fix it, log it, or convert it to another type. If it can't do any of those, it should let the exception propagate. Catching errors just to print "something failed" is worse than not catching them — the caller gets no information and the real bug is hidden.</p>
+</div>
+</div>
+</section>
+
+<!-- WORKING EXAMPLE -->
+<section>
+<h2 class="section-title">💻 A complete example</h2>
+<p class="section-sub">Error handling done right, in a small real program.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Python</span>
+<button class="copy-btn" onclick="copyCode('py-errors-complete', this)">Copy</button>
+</div>
+<pre id="py-errors-complete"><code><span class="com"># user_import.py — import users from a file with proper error handling</span>
+<span class="kw">import</span> json
+
+<span class="kw">class</span> <span class="fn">ValidationError</span>(<span class="fn">Exception</span>):
+<span class="str">"""Raised when a user record fails validation."""</span>
+<span class="kw">pass</span>
+
+<span class="kw">def</span> <span class="fn">validate_user</span>(user):
+<span class="str">"""Check required fields. Raise ValidationError with a useful message."""</span>
+<span class="kw">if</span> <span class="str">"name"</span> <span class="kw">not</span> <span class="kw">in</span> user <span class="kw">or</span> <span class="kw">not</span> user[<span class="str">"name"</span>]:
+<span class="kw">raise</span> <span class="fn">ValidationError</span>(<span class="str">"Missing required field: name"</span>)
+<span class="kw">if</span> <span class="str">"age"</span> <span class="kw">in</span> user <span class="kw">and</span> (<span class="kw">not</span> <span class="fn">isinstance</span>(user[<span class="str">"age"</span>], <span class="fn">int</span>) <span class="kw">or</span> user[<span class="str">"age"</span>] < <span class="num">0</span>):
+<span class="kw">raise</span> <span class="fn">ValidationError</span>(<span class="str">f"Invalid age: {user.get('age')}"</span>)
+<span class="kw">return</span> user
+
+<span class="kw">def</span> <span class="fn">import_users</span>(path):
+<span class="str">"""Load users from a JSON file. Return list of valid users and a list of errors."""</span>
+<span class="kw">try</span>:
+<span class="kw">with</span> <span class="fn">open</span>(path, encoding=<span class="str">"utf-8"</span>) <span class="kw">as</span> f:
+raw = json.<span class="fn">load</span>(f)
+<span class="kw">except</span> <span class="fn">FileNotFoundError</span>:
+<span class="kw">raise</span> <span class="fn">ValidationError</span>(<span class="str">f"File not found: {path}"</span>)
+<span class="kw">except</span> json.<span class="fn">JSONDecodeError</span> <span class="kw">as</span> e:
+<span class="kw">raise</span> <span class="fn">ValidationError</span>(<span class="str">f"Invalid JSON in {path}: {e}"</span>)
+
+valid = []
+errors = []
+
+<span class="kw">for</span> i, user <span class="kw">in</span> <span class="fn">enumerate</span>(raw):
+<span class="kw">try</span>:
+<span class="fn">validate_user</span>(user)
+valid.<span class="fn">append</span>(user)
+<span class="kw">except</span> <span class="fn">ValidationError</span> <span class="kw">as</span> e:
+errors.<span class="fn">append</span>(<span class="str">f"Row {i}: {e}"</span>)
+
+<span class="kw">return</span> valid, errors
+
+<span class="com"># Use it</span>
+<span class="kw">try</span>:
+users, errors = <span class="fn">import_users</span>(<span class="str">"users.json"</span>)
+<span class="fn">print</span>(<span class="str">f"Imported {len(users)} users"</span>)
+<span class="kw">for</span> err <span class="kw">in</span> errors:
+<span class="fn">print</span>(<span class="str">f" {err}"</span>)
+<span class="kw">except</span> <span class="fn">ValidationError</span> <span class="kw">as</span> e:
+<span class="fn">print</span>(<span class="str">f"Import failed: {e}"</span>)
+<span class="kw">finally</span>:
+<span class="fn">print</span>(<span class="str">"Done."</span>)
+
+<span class="com"># Output (assuming users.json exists with 3 rows, 1 invalid):</span>
+<span class="com"># Imported 2 users</span>
+<span class="com"># Row 1: Invalid age: -5</span>
+<span class="com"># Done.</span></code></pre>
+</div>
+
+<div class="pro-tip">
+<p><strong>Notice the pattern: fail the whole import, or skip individual rows?</strong> File-level failures (missing file, corrupt JSON) are fatal — the whole import can't proceed. Row-level failures (one bad user) shouldn't stop the rest. This is a real architectural decision every data-import system makes, and this example shows both. Catch at the right scope.</p>
+</div>
+</section>
+
+<!-- CHALLENGE -->
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each is a different error pattern.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Safe division</h4>
+<p>Write a function <code>safe_divide(a, b)</code> that returns <code>a / b</code> if possible, or the string <code>"undefined"</code> if <code>b</code> is zero. If <code>a</code> or <code>b</code> isn't a number, return <code>"invalid input"</code>.</p>
+<p>Test: <code>safe_divide(10, 2)</code> → <code>5.0</code>. <code>safe_divide(10, 0)</code> → <code>"undefined"</code>. <code>safe_divide("ten", 2)</code> → <code>"invalid input"</code>. Use <code>except (ZeroDivisionError, TypeError)</code>.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Retry with backoff</h4>
+<p>Write a function <code>retry(func, attempts=3)</code> that calls <code>func</code> up to <code>attempts</code> times. If it succeeds, return the result. If it raises an exception, wait 1 second and try again. After <code>attempts</code> failures, raise the last exception. Use <code>try/except</code> and the <code>time.sleep()</code> function.</p>
+<p>Test with a function that fails the first two times then succeeds. It should print "retry" twice and then return.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Custom validation</h4>
+<p>Define a <code>ValidationError</code> exception (subclass of <code>Exception</code>). Write a function <code>validate_password(password)</code> that raises <code>ValidationError</code> with a specific message if: password is shorter than 8 characters, or contains no digit, or contains no uppercase letter. Return <code>True</code> if valid.</p>
+<p>Test with <code>"abc"</code> (too short), <code>"abcdefgh"</code> (no digit), <code>"abcdefg1"</code> (no uppercase), <code>"Abcdefg1"</code> (valid). Catch each error and print the specific message.</p>
+</div>
+</section>
+
+<!-- MISTAKES -->
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The error-handling bugs that turn bugs into mysteries.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Bare except</div>
+<p><code>except:</code> catches everything — including Ctrl+C. Use <code>except Exception:</code> for true catch-alls, or better, catch specific types. Bare except makes Ctrl+C not work and silently hides real bugs.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Swallowing errors with pass</div>
+<p><code>except: pass</code> means "I saw a bug and decided to hide it." The program continues with bad data, and the failure shows up 100 lines later as something unrelated. Log it, re-raise it, or handle it — never silence it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Wrapping everything in try</div>
+<p>If your entire <code>main()</code> is inside one <code>try/except</code>, you don't know what failed. The except block can't recover meaningfully because it doesn't know which line raised. Wrap only the specific risk.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Catching too broad a type</div>
+<p><code>except Exception</code> catches <code>TypeError</code>, <code>ValueError</code>, <code>AttributeError</code> — including bugs from typos. Catch <code>ValueError</code> specifically. If you catch broadly, you catch errors that should have crashed loudly.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting to re-raise</div>
+<p>You catch an exception to log it, then forget <code>raise</code>. The caller thinks the operation succeeded. Fix: after logging, <code>raise</code> to re-raise the same exception. This preserves the traceback.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Using return in finally</div>
+<p>A <code>return</code> inside <code>finally</code> silently overrides any return from <code>try</code> or exception propagation. <code>finally</code> should clean up, not decide outcomes. Save return logic for the end of the function.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Redefining built-in exceptions</div>
+<p><code>class ValueError(Exception):</code> shadows the built-in <code>ValueError</code> in your module. Any code below that imports it will get your version, not Python's. Name custom exceptions with unique names (e.g., <code>ValidationError</code>, not <code>ValueError</code>).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using assertions for validation</div>
+<p><code>assert age > 0</code> is a debugging tool, not validation. It's stripped out in optimized mode (<code>python -O</code>), so any code relying on it breaks in production. Use <code>raise ValueError(...)</code> for real validation.</p>
+</div>
+</section>
+
+<!-- END OF BEGINNER TIER -->
+<section>
+<h2 class="section-title">🎓 You finished the beginner tier</h2>
+<p class="section-sub">Seven lessons. Real Python. Here's what you can do now.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>You can read Python</h4>
+<p>Variables, lists, dicts, loops, functions, files, errors — no concept in beginner Python will surprise you now. Reading someone else's code is possible.</p>
+</div>
+<div class="concept-card">
+<h4>You can write scripts</h4>
+<p>Automation, file processing, data analysis — the scripts people pay $500 for on Upwork are within reach. Build one to prove it to yourself.</p>
+</div>
+<div class="concept-card">
+<h4>You can debug</h4>
+<p>Read the traceback, locate the line, fix the code. That's the entire debugging loop, and you now have the tools for every part of it.</p>
+</div>
+<div class="concept-card">
+<h4>You can learn faster</h4>
+<p>The next language, framework, or library will be 5x easier. You're not learning what a variable is anymore — you're mapping patterns to new syntax.</p>
+</div>
+</div>
+
+<div class="pro-tip" style="margin-top:1.5rem;">
+<p><strong>What to build before the intermediate tier.</strong> A CLI tool that does one useful thing — a file organizer that sorts by extension, a log analyzer that counts errors per hour, a markdown-to-HTML converter, a csv-to-json transformer. Build one end-to-end, put it on GitHub, and you've gone from "learning Python" to "using Python." That's the real milestone.</p>
+</div>
+</section>
+
+<!-- NEXT -->
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">The intermediate tier opens up — classes, modules, and real projects.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/python/lessons/classes.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🏛️ Lesson 8: Classes</div>
+<div class="text-xs text-slate-400 mt-1">Object-oriented Python (coming soon)</div>
+</a>
+<a href="/courses/python/lessons/modules.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📦 Lesson 9: Modules</div>
+<div class="text-xs text-slate-400 mt-1">import, pip, and packages (coming soon)</div>
+</a>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 8-week roadmap</div>
+</a>
+<a href="/courses/ai/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🤖 AI track</div>
+<div class="text-xs text-slate-400 mt-1">Apply your Python to ML</div>
+</a>
+</div>
+</section>
+
+<!-- FAQ -->
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I handle errors in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">Wrap the risky code in try and catch it with except: try: risky() except ValueError: handle_error(). Catch specific exception types, not bare except. To run cleanup code regardless of outcome, add a finally block. To raise your own errors, use raise ExceptionType('message'). The pattern is try / except / else / finally — but you rarely need all four.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between SyntaxError and Exception?</summary>
+<p class="mt-2 text-sm text-slate-300">SyntaxError happens at parse time — the code can't even start running because it's malformed (missing colon, unmatched parenthesis). It cannot be caught by try/except in the same file. All other exceptions (ValueError, KeyError, TypeError) happen at runtime and can be caught. If you see SyntaxError, fix the code — don't try to catch it.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use bare except: in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">Almost never. A bare except catches everything, including KeyboardInterrupt (Ctrl+C) and SystemExit — so users can't stop your program. It also hides real bugs. Catch specific exceptions instead: except ValueError: or except (ValueError, KeyError):. The only valid use is a top-level catch-all in a long-running server that logs the error and continues.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between except Exception and bare except?</summary>
+<p class="mt-2 text-sm text-slate-300">except Exception: catches all normal exceptions (everything that inherits from Exception) but not KeyboardInterrupt or SystemExit, which inherit from BaseException. Bare except: catches literally everything including those two. Use except Exception: when you truly need a catch-all — it's much safer than bare except and lets Ctrl+C work.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does the else clause in try/except do?</summary>
+<p class="mt-2 text-sm text-slate-300">Code in else runs only if no exception was raised in the try block. It's a way to separate 'this is the risky part' from 'this is what to do when it succeeds.' Try to keep the try block as small as possible — move successful-path logic to else. This prevents accidentally catching errors from code that shouldn't be inside try.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does finally do in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">finally runs no matter what — whether the try succeeded, failed, or raised something you didn't catch. It's for cleanup: closing files, releasing locks, disconnecting from databases. Even a return statement inside try doesn't skip finally. The with statement is built on this — it's finally that guarantees the file closes.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I create a custom exception in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">Subclass Exception: class ValidationError(Exception): pass. Then raise it like any other: raise ValidationError('Email is invalid'). Give it a docstring and, if you need extra fields, override init. Custom exceptions make code more readable — callers can catch ValidationError specifically instead of guessing at ValueError. Subclass from Exception, not BaseException.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does 'raise X from Y' do in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">It chains exceptions. raise NewError('...') from original_error sets cause on the new exception, so the traceback shows 'The above exception was the direct cause of the following exception' and preserves both. Use it when catching an error and re-raising a different type — the caller sees your clean error, but the original cause is still visible in the traceback. Bare raise re-raises the current exception; raise X from None suppresses the chain.</p>
+</details>
+</div>
+</section>
+
+<!-- EXTERNAL -->
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://docs.python.org/3/tutorial/errors.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Python.org: Errors and Exceptions tutorial</a></li>
+<li>→ <a href="https://docs.python.org/3/library/exceptions.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Python Docs: Built-in Exceptions</a></li>
+<li>→ <a href="https://peps.python.org/pep-0008/#programming-recommendations" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">PEP 8: Error handling recommendations</a></li>
+</ul>
+</section>
+
+<a href="/courses/python/index.html" class="back-link">← Back to Python track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the Python track · Lesson 7 · Beginner tier complete <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
