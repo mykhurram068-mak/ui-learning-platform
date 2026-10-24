@@ -40,3 +40,21 @@ var panel = document.getElementById('os-' + os);
 if (panel) panel.classList.add('active');
 if (btn) btn.classList.add('active');
 }
+/****************** Toggle Preview Button **************************/
+function togglePreview(button) {
+var codeBlock = button.closest('.code-block');
+if (!codeBlock) return;
+var panel = codeBlock.querySelector('.preview-panel');
+if (!panel) return;
+
+var isHidden = panel.hasAttribute('hidden');
+if (isHidden) {
+panel.removeAttribute('hidden');
+button.textContent = 'Hide preview';
+button.classList.add('active');
+} else {
+panel.setAttribute('hidden', '');
+button.textContent = 'Preview';
+button.classList.remove('active');
+}
+}
