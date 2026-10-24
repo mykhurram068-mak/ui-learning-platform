@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>JavaScript DOM — querySelector, createElement & Manipulation (2026)</title>
+<meta name="description" content="Learn JavaScript DOM manipulation. Select elements, change content, add and remove elements, modify classes. The skill behind every interactive website.">
+<meta name="keywords" content="javascript dom, javascript queryselector, javascript createElement, dom manipulation, javascript classList, javascript textContent">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="JavaScript DOM — querySelector, createElement & Manipulation">
+<meta property="og:description" content="Learn JavaScript DOM manipulation. Select elements, change content, add and remove elements, modify classes.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/lessons/dom.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="JavaScript DOM — querySelector, createElement & Manipulation">
+<meta name="twitter:description" content="Learn JavaScript DOM manipulation. Select elements, change content, add and remove elements, modify classes.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/lessons/dom.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"JavaScript DOM — querySelector, createElement & Manipulation","description":"Learn JavaScript DOM manipulation. Select elements, change content, add and remove elements, modify classes. The skill behind every interactive website.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-24","dateModified":"2026-10-24","proficiencyLevel":"Beginner","dependencies":"JavaScript (browser)"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the DOM in JavaScript?","acceptedAnswer":{"@type":"Answer","text":"The DOM (Document Object Model) is the browser's in-memory representation of your HTML page. Every HTML element becomes a JavaScript object you can read, modify, add, or remove. When you write document.querySelector('.button'), you're asking the browser for a reference to that element's DOM node. Change the node, and the browser instantly redraws the page. This is how every interactive website works."}},{"@type":"Question","name":"What is the difference between querySelector and getElementById?","acceptedAnswer":{"@type":"Answer","text":"querySelector('.class') takes any CSS selector and returns the first match. getElementById('id') takes only an ID and returns the element. Both return null if nothing matches. querySelector is more flexible (classes, attribute selectors, pseudo-selectors all work); getElementById is slightly faster. Modern code uses querySelector for everything because the flexibility is worth the negligible speed difference."}},{"@type":"Question","name":"What is the difference between textContent and innerHTML?","acceptedAnswer":{"@type":"Answer","text":"textContent sets the raw text — any HTML in the string appears as literal characters. innerHTML sets HTML — any tags in the string are parsed and rendered. Use textContent for user-provided content (prevents XSS), and innerHTML only for trusted HTML. If you're setting user input, textContent is not optional — innerHTML with user input is a security vulnerability."}},{"@type":"Question","name":"How do I create a new element in JavaScript?","acceptedAnswer":{"@type":"Answer","text":"Use document.createElement('div') to create the element, set its properties, then append it to the DOM: const div = document.createElement('div'); div.textContent = 'Hello'; document.body.appendChild(div). The element exists in memory until you append it. To insert before an existing element, use parent.insertBefore(newEl, refEl). To insert at a position, use el.insertAdjacentElement('beforebegin', newEl) or similar."}},{"@type":"Question","name":"How do I add or remove a CSS class?","acceptedAnswer":{"@type":"Answer","text":"Use classList: el.classList.add('active') adds a class, el.classList.remove('active') removes it, el.classList.toggle('active') adds if missing / removes if present, el.classList.contains('active') checks existence. Never manipulate className directly with string concatenation — it's error-prone. classList is atomic and safer."}},{"@type":"Question","name":"Why does my querySelector return null?","acceptedAnswer":{"@type":"Answer","text":"Three common causes: (1) the selector doesn't match any element — check the CSS selector is correct, (2) the script runs before the HTML is parsed — move the script to the end of body or wrap in DOMContentLoaded, (3) the element is inside a shadow DOM or iframe and isn't visible from the main document. Check the element inspector — if it exists visually but querySelector returns null, the timing or scope is wrong."}},{"@type":"Question","name":"How do I remove an element from the DOM?","acceptedAnswer":{"@type":"Answer","text":"Call el.remove() on the element itself — one line, no parent needed. Alternatively: el.parentNode.removeChild(el) (older style). Both work. To hide without removing, set el.style.display = 'none' or add a CSS class that hides it. To empty an element's children, use el.replaceChildren() (modern) or el.innerHTML = '' (older but still works)."}},{"@type":"Question","name":"What is the difference between NodeList and HTMLCollection?","acceptedAnswer":{"@type":"Answer","text":"querySelectorAll returns a NodeList (static — doesn't update as DOM changes). getElementsByClassName returns an HTMLCollection (live — updates automatically). Both are array-like but neither is a real array. To use array methods on them, convert first: Array.from(nodes).forEach(...). Modern code uses querySelectorAll + Array.from for predictability — live collections are surprising."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-js.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#F7DF1E !important;">Lesson 4</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">The DOM</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#F7DF1E;">Home</a> ›
+<a href="/courses/index.html" style="color:#F7DF1E;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#F7DF1E;">JavaScript</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 4</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Lesson 4 · 25 minutes</div>
+<h1>The DOM.<br><span class="py-accent">Where JavaScript becomes visible.</span></h1>
+<p class="lead">
+The DOM is the browser's in-memory copy of your HTML. Every element you see on screen is a JavaScript object you can read, change, add, or remove. This is the lesson where JavaScript stops being abstract variables and console logs — and starts changing what users actually see. If you've been waiting for the moment it clicks, this is it.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~25 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Beginner → Intermediate</span>
+<span><i class="fa-solid fa-code"></i> ES2024 · browser</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/javascript/index.html">JavaScript path</a>
+<a href="/courses/javascript/lessons/functions.html">← Lesson 3</a>
+<a href="#select">Select</a>
+<a href="#change">Change</a>
+<a href="#create">Create</a>
+<a href="#classes">Classes</a>
+<a href="#build">Build</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+Select elements with <code>document.querySelector('.class')</code> (any CSS selector, first match) or <code>querySelectorAll</code> (all matches). Change content with <code>.textContent</code> (safe, raw text) or <code>.innerHTML</code> (parses HTML — only for trusted content). Change classes with <code>.classList.add()</code>, <code>.remove()</code>, <code>.toggle()</code>. Create elements with <code>document.createElement()</code> and <code>.appendChild()</code>. Remove with <code>.remove()</code>. That's the entire DOM toolkit — everything else builds on these.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#F7DF1E !important;">Before this lesson:</strong> complete <a href="/courses/javascript/lessons/functions.html" style="color:#F7DF1E; text-decoration:underline;">Lesson 3</a>. You need to be comfortable with arrow functions and return values.
+</p>
+</div>
+
+<section id="select">
+<h2 class="section-title">🎯 Selecting elements</h2>
+<p class="section-sub">Every DOM operation starts with a reference. Get one, then do things with it.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">To change an element, you first need to find it. The browser exposes several methods — modern code uses <code>querySelector</code> for everything because it takes any CSS selector you already know from styling.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">JavaScript</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">// Get ONE element — first match wins
+const title = document.querySelector("h1");
+const button = document.querySelector("#submit-btn");
+const firstCard = document.querySelector(".card");
+
+// Get ALL matching elements — returns a NodeList
+const cards = document.querySelectorAll(".card");
+const buttons = document.querySelectorAll("button");
+
+// NodeList isn't a real array — convert it to use array methods
+Array.from(cards).forEach(card => {
+console.log(card.textContent);
+});
+// Or use for...of (works directly on NodeList)
+for (const card of cards) {
+console.log(card);
+}
+
+// Scoped queries — search inside another element, not the whole page
+const nav = document.querySelector("nav");
+const navLinks = nav.querySelectorAll("a");
+
+// getElementById — faster but only works with IDs
+const header = document.getElementById("main-header");
+
+// Older methods (still work, less flexible)
+document.getElementsByClassName("card"); // live HTMLCollection
+document.getElementsByTagName("div"); // live HTMLCollection
+
+// null check — querySelector returns null if nothing matches
+const missing = document.querySelector(".does-not-exist");
+console.log(missing); // null
+// missing.textContent = "x"; // ← TypeError: Cannot set property of null</pre>
+</div>
+
+<div class="warning-box">
+<p><strong>querySelector returns null when nothing matches.</strong> It doesn't throw an error — it gives you <code>null</code>. Then when you try <code>el.textContent = ...</code>, you get <code>Cannot read properties of null</code>. Always check first: <code>if (el) el.textContent = ...</code> — or use optional chaining: <code>el?.textContent = ...</code>. This is the #1 DOM bug.</p>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>querySelector</h4>
+<p>Returns the <strong>first</strong> matching element or <code>null</code>. Takes any CSS selector: <code>#id</code>, <code>.class</code>, <code>tag</code>, <code>[attr]</code>, <code>parent > child</code>.</p>
+</div>
+<div class="concept-card">
+<h4>querySelectorAll</h4>
+<p>Returns a <strong>NodeList</strong> of all matches. Not a real array — but works with <code>for...of</code> and <code>.forEach()</code>. Static — doesn't update as DOM changes.</p>
+</div>
+<div class="concept-card">
+<h4>getElementById</h4>
+<p>Slightly faster for IDs. Returns the element or <code>null</code>. Only takes IDs, no selectors. Modern code uses <code>querySelector('#id')</code> instead — same result, consistent API.</p>
+</div>
+<div class="concept-card">
+<h4>Scoped queries</h4>
+<p><code>nav.querySelectorAll("a")</code> searches only inside <code>nav</code>, not the whole page. Useful when the same class appears in multiple sections.</p>
+</div>
+</div>
+</section>
+
+<section id="change">
+<h2 class="section-title">✏️ Changing content</h2>
+<p class="section-sub">Three ways to change text. One is safe, one is dangerous, one is for attributes.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">JavaScript</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">const heading = document.querySelector("h1");
+
+// textContent — set raw text (safe)
+heading.textContent = "New heading";
+
+// If the string contains HTML, it appears as literal text
+heading.textContent = "<strong>bold</strong>";
+// Renders as: <strong>bold</strong> (visible characters)
+
+// innerHTML — set HTML (parsed)
+heading.innerHTML = "<strong>bold</strong>";
+// Renders as: bold (actual bold text)
+
+// innerHTML with user input = XSS vulnerability
+// const userInput = "<img src=x onerror='alert(1)'>";
+// heading.innerHTML = userInput; // ← DANGER: runs the alert
+// heading.textContent = userInput; // ← safe: shows as text
+
+// Read content (not just set it)
+console.log(heading.textContent); // "bold" (the text)
+console.log(heading.innerHTML); // "<strong>bold</strong>" (the HTML)
+
+// Change attributes
+const link = document.querySelector("a");
+link.href = "https://example.com";
+link.title = "Click me";
+link.setAttribute("target", "_blank");
+
+// Read attributes
+console.log(link.getAttribute("href"));
+console.log(link.href); // absolute URL, resolved against page URL
+
+// Change styles directly
+heading.style.color = "red";
+heading.style.fontSize = "32px";
+heading.style.backgroundColor = "#f0f0f0";
+
+// Reading input values
+const input = document.querySelector("input");
+console.log(input.value); // current text in the input
+input.value = "new value"; // set the input's text</pre>
+</div>
+
+<div class="warning-box">
+<p><strong>Never use innerHTML with user input.</strong> If you write <code>el.innerHTML = userInput</code>, an attacker can inject <code><script></code> or <code><img onerror="..."></code> and run arbitrary code in your users' browsers. This is called XSS (cross-site scripting) and it's the most common web security vulnerability. Rule: <strong>user input always goes through <code>textContent</code></strong>. innerHTML is for trusted HTML you wrote yourself.</p>
+</div>
+
+<div class="pro-tip">
+<p><strong>textContent reads hidden text too.</strong> If an element has <code><span style="display:none">secret</span></code>, <code>textContent</code> returns "secret" — it doesn't skip hidden elements. <code>innerText</code> respects CSS (skips hidden text), but it's slower and forces a re-layout. For getting/setting text programmatically, use <code>textContent</code>. For checking what's actually visible to the user, use <code>innerText</code>.</p>
+</div>
+</section>
+
+<section id="create">
+<h2 class="section-title">🏗️ Creating and removing elements</h2>
+<p class="section-sub">Build new DOM nodes, insert them, remove them. This is how dynamic lists work.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">JavaScript</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">// Create a new element — exists in memory, not on page yet
+const newDiv = document.createElement("div");
+newDiv.textContent = "I was created by JavaScript";
+newDiv.className = "card";
+
+// Append to an existing element
+document.body.appendChild(newDiv);
+
+// Or append to a specific parent
+const container = document.querySelector("#container");
+container.appendChild(newDiv);
+
+// Prepend — insert as first child
+container.prepend(newDiv);
+
+// Insert before a specific element
+const ref = document.querySelector("#after-me");
+container.insertBefore(newDiv, ref);
+
+// Modern insertAdjacentElement — very flexible
+const target = document.querySelector("#target");
+target.insertAdjacentElement("beforebegin", newDiv); // before target
+target.insertAdjacentElement("afterbegin", newDiv); // as first child
+target.insertAdjacentElement("beforeend", newDiv); // as last child
+target.insertAdjacentElement("afterend", newDiv); // after target
+
+// Create a full list item with children
+const li = document.createElement("li");
+const span = document.createElement("span");
+span.textContent = "Buy milk";
+li.appendChild(span);
+document.querySelector("ul").appendChild(li);
+
+// Build multiple elements from data — the pattern you'll use constantly
+const items = ["Apple", "Banana", "Cherry"];
+const ul = document.querySelector("ul");
+ul.innerHTML = ""; // clear existing content first
+items.forEach(name => {
+const li = document.createElement("li");
+li.textContent = name;
+ul.appendChild(li);
+});
+
+// Remove an element
+const oldEl = document.querySelector(".old");
+oldEl.remove(); // one line, works everywhere
+
+// Remove all children of an element
+container.innerHTML = ""; // simple, common
+// container.replaceChildren(); // modern alternative
+// while (container.firstChild) { // oldest way
+// container.removeChild(container.firstChild);
+// }</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>createElement</h4>
+<p>Creates a new element in memory. It's not on the page until you append it. Set its properties first, then insert — fewer reflows, faster rendering.</p>
+</div>
+<div class="concept-card">
+<h4>appendChild</h4>
+<p>Adds the element as the last child of the parent. Returns the appended child. Classic method — works everywhere, still the standard.</p>
+</div>
+<div class="concept-card">
+<h4>prepend / append</h4>
+<p>Modern methods that accept multiple arguments and text nodes. <code>parent.append(el1, el2, "text")</code> adds all at the end. Simpler than chaining appendChild.</p>
+</div>
+<div class="concept-card">
+<h4>remove</h4>
+<p>Modern one-line removal. Older browsers needed <code>parent.removeChild(el)</code>. If you support IE11 (you don't), use the parent method.</p>
+</div>
+</div>
+</section>
+
+<section id="classes">
+<h2 class="section-title">🎨 Classes — the right way to change styling</h2>
+<p class="section-sub">Don't set styles directly. Toggle classes. Let CSS do the styling.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The tempting approach is to change styles with JavaScript: <code>el.style.color = "red"</code>. But this mixes concerns — your CSS should own all styling, and JavaScript should just toggle classes. When you need dark mode, hover states, or responsive design, CSS is where it belongs. JS toggles the class; CSS handles the effect.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">JavaScript</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">const card = document.querySelector(".card");
+
+// Add a class
+card.classList.add("active");
+
+// Add multiple classes at once
+card.classList.add("active", "highlighted", "focused");
+
+// Remove a class
+card.classList.remove("active");
+
+// Toggle — adds if missing, removes if present
+card.classList.toggle("active");
+
+// Toggle with explicit force — true adds, false removes
+card.classList.toggle("active", true); // always add
+card.classList.toggle("active", false); // always remove
+
+// Check if a class exists
+if (card.classList.contains("active")) {
+console.log("card is active");
+}
+
+// Replace one class with another
+card.classList.replace("active", "inactive");
+
+// Read all classes as an array
+console.log([...card.classList]); // ["card", "active"]
+
+// Never do this — broken string concatenation
+// card.className = card.className + " active";
+// This breaks when the class is already there, or when it contains spaces.
+
+// The pattern: toggle a class, let CSS handle the rest
+const menuBtn = document.querySelector("#menu-btn");
+const menu = document.querySelector("#menu");
+menuBtn.addEventListener("click", () => {
+menu.classList.toggle("open");
+});
+// In CSS: .menu { display: none } .menu.open { display: block }</pre>
+</div>
+
+<div class="pro-tip">
+<p><strong>Why classList and not className.</strong> <code>className</code> is a string of space-separated classes. To add a class with <code>className</code>, you'd have to check if it's already there, then append carefully — easy to break with double spaces or duplicates. <code>classList</code> is atomic: it handles duplicates, spaces, and checks for you. Always use classList. Always.</p>
+</div>
+
+<div class="warning-box">
+<p><strong>Direct style manipulation doesn't survive page reloads or state changes.</strong> If you set <code>el.style.color = "red"</code>, then later add a class that also sets color, the inline style wins (higher specificity). The next developer — including future-you — has no idea why the color is red. Classes make the intent explicit and the styling overridable. Set styles in CSS, toggle classes in JS.</p>
+</div>
+</section>
+
+<section id="build">
+<h2 class="section-title">💻 Build something — a live to-do list</h2>
+<p class="section-sub">Every DOM skill in one small example you can actually run.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">This is a complete working to-do list. Create an HTML file with this content, open it in a browser, and interact with it. It uses everything from this lesson: selecting, creating, appending, removing, toggling classes, and handling input values.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">todo.html</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><!DOCTYPE html>
+<html>
+<head>
+<style>
+body { font-family: sans-serif; max-width: 400px; margin: 40px auto; }
+input { padding: 8px; font-size: 16px; width: 70%; }
+button { padding: 8px 16px; cursor: pointer; }
+ul { list-style: none; padding: 0; }
+li {
+padding: 10px;
+margin: 6px 0;
+background: #f0f0f0;
+border-radius: 6px;
+display: flex;
+justify-content: space-between;
+cursor: pointer;
+}
+li.done { text-decoration: line-through; opacity: 0.5; }
+li span.delete { color: red; cursor: pointer; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Todo</h1>
+<input id="text" placeholder="What needs doing?">
+<button id="add">Add</button>
+<ul id="list"></ul>
+
+<script>
+const input = document.querySelector("#text");
+const addBtn = document.querySelector("#add");
+const list = document.querySelector("#list");
+
+addBtn.addEventListener("click", () => {
+const text = input.value.trim();
+if (!text) return;
+
+const li = document.createElement("li");
+li.textContent = text;
+
+// Click the item to toggle done
+li.addEventListener("click", (e) => {
+if (e.target.classList.contains("delete")) return;
+li.classList.toggle("done");
+});
+
+// Delete button
+const del = document.createElement("span");
+del.textContent = "×";
+del.className = "delete";
+del.addEventListener("click", () => li.remove());
+li.appendChild(del);
+
+list.appendChild(li);
+input.value = "";
+input.focus();
+});
+
+input.addEventListener("keydown", (e) => {
+if (e.key === "Enter") addBtn.click();
+});
+</script>
+</body>
+</html></pre>
+</div>
+
+<div class="pro-tip">
+<p><strong>This is a real app, not a toy.</strong> Every line does something meaningful. The delete button is created separately and appended into the li — that's the pattern for compound elements. The event listener checks <code>e.target.classList.contains("delete")</code> so clicking the delete doesn't also toggle done. The <code>input.value.trim()</code> guards against whitespace-only input. These are the details that separate a working app from a buggy one.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">🔍 What just happened</h2>
+<p class="section-sub">Why the DOM works the way it does — the mental model.</p>
+
+<div class="step">
+<div class="step-num">1</div>
+<div class="step-body">
+<h4>The DOM is a tree of objects</h4>
+<p>When the browser parses HTML, it builds a tree in memory where every element is a node. <code><body></code> contains <code><div></code>s which contain <code><p></code>s. When you change a node, the browser marks it as "dirty" and redraws the affected region — usually within 16ms so users see it as instant.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-num">2</div>
+<div class="step-body">
+<h4>querySelector uses CSS syntax</h4>
+<p>The same selector language from CSS works in <code>querySelector</code>. That means you don't have to learn a second syntax — if you can style it in CSS, you can select it in JavaScript. This is why <code>document.querySelector("nav > ul li.active")</code> works exactly like the CSS rule.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-num">3</div>
+<div class="step-body">
+<h4>Creating elements takes two steps</h4>
+<p><code>document.createElement('div')</code> creates the element but doesn't attach it to the page. It exists in memory only. <code>parent.appendChild(el)</code> attaches it to the live page. The distinction matters — create, configure, then attach. If you attach first, the browser redraws the page for every property change.</p>
+</div>
+</div>
+
+<div class="step">
+<div class="step-num">4</div>
+<div class="step-body">
+<h4>Classes control CSS, not JavaScript</h4>
+<p>When you toggle a class, CSS does the actual visual work. This separation is critical: it means your styling lives in CSS files (easy to find, easy to theme, easy to modify), and your JavaScript just orchestrates state changes. If you ever need to redesign the appearance, you edit CSS only — the JS never changes.</p>
+</div>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each one exercises a different DOM skill.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Change the page</h4>
+<p>Open any website in your browser and use DevTools Console to:</p>
+<p>1. Change the main heading's text to "Hello from the console".<br>
+2. Change its color to red.<br>
+3. Log how many <code><div></code> elements are on the page.<br>
+4. Select all links and print their href attributes.</p>
+<p>This is the fastest way to internalize DOM selection — doing it on real pages you already know.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Dynamic list from data</h4>
+<p>Create an array <code>const fruits = ["Apple", "Banana", "Cherry", "Date"]</code>. In your HTML page, write JavaScript that:</p>
+<p>1. Selects a <code><ul></code> element.<br>
+2. Clears its existing content.<br>
+3. Creates an <code><li></code> for each fruit and appends them.<br>
+4. Gives each <code>li</code> a class of <code>"fruit"</code>.<br>
+5. Adds a click listener to each that toggles a <code>"selected"</code> class.</p>
+<p>This is the exact pattern you'll use for real data from an API (Lesson 6).</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Extend the todo app</h4>
+<p>Take the todo example above and add these features:</p>
+<p>1. A "counter" that shows how many items are incomplete.<br>
+2. A "clear completed" button that removes all <code>li.done</code> elements.<br>
+3. An "edit" feature — double-click an item to edit its text.<br>
+4. An "empty state" message when no items remain.</p>
+<p>Each feature is 5-10 lines. Each exercises a different part of the DOM API. Build them one at a time, test each one, move on.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The DOM bugs that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Script runs before HTML is parsed</div>
+<p>If your <code><script></code> is in <code><head></code> without <code>defer</code>, it runs before the body exists. <code>querySelector</code> returns null. Fix: put the script at the end of <code><body></code>, or use <code>defer</code> on the script tag.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using innerHTML with user input</div>
+<p><code>el.innerHTML = userInput</code> allows XSS attacks. Any <code><script></code> or <code><img onerror></code> in the input runs. Use <code>textContent</code> for anything a user typed.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. querySelector returns null and you don't check</div>
+<p>You set properties on null and get <code>Cannot read properties of null</code>. Fix: always check with <code>if (el)</code>, or use optional chaining: <code>el?.textContent</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using className string concatenation</div>
+<p><code>el.className += " active"</code> creates duplicate classes and breaks on spaces. Use <code>classList.add()</code> — it handles all edge cases.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Selecting by wrong selector</div>
+<p><code>querySelector("button.active")</code> is not the same as <code>querySelector(".active button")</code>. The first is "button with class active", the second is "button inside any active element". CSS selectors are precise.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. NodeList isn't an array</div>
+<p><code>document.querySelectorAll(".item").map(...)</code> throws "map is not a function". Fix: <code>Array.from(nodes).map(...)</code>. Or use <code>forEach</code> which works on NodeList.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Direct style changes that CSS should own</div>
+<p><code>el.style.color = "red"</code> creates inline styles that override CSS classes. Toggle a class instead — CSS owns styling, JS owns state.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Appending in a loop causes reflows</div>
+<p>Adding 100 elements one by one triggers 100 page redraws. For large lists, build the entire structure in a <code>DocumentFragment</code> first, then append once. For small lists (under 50), it doesn't matter.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">You can change the DOM. Next: make it respond to users.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/javascript/lessons/events.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 5: Events</div>
+<div class="text-xs text-slate-400 mt-1">Clicks, keypresses, and form submission</div>
+</a>
+<a href="/courses/javascript/lessons/functions.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 3: Functions</div>
+<div class="text-xs text-slate-400 mt-1">Review closures and callbacks</div>
+</a>
+<a href="/courses/javascript/lessons/async.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 6: Async & fetch</div>
+<div class="text-xs text-slate-400 mt-1">Talk to APIs and render the response</div>
+</a>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 8-week roadmap</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the DOM in JavaScript?</summary>
+<p class="mt-2 text-sm text-slate-300">The DOM (Document Object Model) is the browser's in-memory representation of your HTML page. Every HTML element becomes a JavaScript object you can read, modify, add, or remove. Change the node, and the browser instantly redraws the page. This is how every interactive website works.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between querySelector and getElementById?</summary>
+<p class="mt-2 text-sm text-slate-300">querySelector('.class') takes any CSS selector and returns the first match. getElementById('id') takes only an ID and returns the element. Both return null if nothing matches. querySelector is more flexible; getElementById is slightly faster. Modern code uses querySelector for everything.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between textContent and innerHTML?</summary>
+<p class="mt-2 text-sm text-slate-300">textContent sets raw text — HTML in the string appears as literal characters. innerHTML parses HTML — tags in the string are rendered. Use textContent for user input (prevents XSS), and innerHTML only for trusted HTML you wrote.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I create a new element in JavaScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Use document.createElement('div') to create the element, set its properties, then append it: const div = document.createElement('div'); div.textContent = 'Hello'; document.body.appendChild(div). The element exists in memory until you append it.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I add or remove a CSS class?</summary>
+<p class="mt-2 text-sm text-slate-300">Use classList: el.classList.add('active') adds, el.classList.remove('active') removes, el.classList.toggle('active') toggles. Never manipulate className directly with string concatenation — it's error-prone. classList is atomic and safer.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does my querySelector return null?</summary>
+<p class="mt-2 text-sm text-slate-300">Three common causes: (1) selector doesn't match — check the CSS selector is correct, (2) script runs before HTML is parsed — move script to end of body, (3) element is inside a shadow DOM or iframe. Check the element exists visually — if it does, the timing or scope is wrong.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I remove an element from the DOM?</summary>
+<p class="mt-2 text-sm text-slate-300">Call el.remove() on the element itself — one line, no parent needed. Alternatively: el.parentNode.removeChild(el) (older style). To hide without removing, set el.style.display = 'none' or add a class that hides it. To empty an element's children, use el.innerHTML = ''. </p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between NodeList and HTMLCollection?</summary>
+<p class="mt-2 text-sm text-slate-300">querySelectorAll returns a NodeList (static — doesn't update as DOM changes). getElementsByClassName returns an HTMLCollection (live — updates automatically). Both are array-like but neither is a real array. To use array methods on them, convert: Array.from(nodes). Modern code uses querySelectorAll + Array.from for predictability.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">MDN: DOM Introduction</a></li>
+<li>→ <a href="https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">MDN: querySelector reference</a></li>
+<li>→ <a href="https://javascript.info/dom-nodes" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">JavaScript.info: DOM tree</a></li>
+</ul>
+</section>
+
+<a href="/courses/javascript/index.html" class="back-link">← Back to JavaScript track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the JavaScript track · Lesson 4 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
