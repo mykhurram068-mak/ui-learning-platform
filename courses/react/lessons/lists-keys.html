@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React Lists & Keys — Rendering Arrays with .map() (2026)</title>
+<meta name="description" content="Learn React lists and keys. Render arrays with .map(), use stable keys, avoid index-as-key bugs. Every pattern with examples and the mistakes that break lists.">
+<meta name="keywords" content="react lists, react keys, react map, react rendering lists, react key prop, react array render">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React Lists & Keys — Rendering Arrays with .map()">
+<meta property="og:description" content="Learn React lists and keys. Render arrays with .map(), use stable keys, avoid index-as-key bugs.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/lessons/lists-keys.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React Lists & Keys — Rendering Arrays with .map()">
+<meta name="twitter:description" content="Learn React lists and keys. Render arrays with .map(), use stable keys, avoid index-as-key bugs.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/lessons/lists-keys.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"React Lists & Keys — Rendering Arrays with .map()","description":"Learn React lists and keys. Render arrays with .map(), use stable keys, avoid index-as-key bugs. Every pattern with examples and the mistakes that break lists.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-26","dateModified":"2026-10-26","proficiencyLevel":"Intermediate","dependencies":"React 19"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I render a list in React?","acceptedAnswer":{"@type":"Answer","text":"Use .map() to transform an array of data into an array of JSX elements: {items.map(item => <Item key={item.id} {...item} />)}. React renders each element in order. Always include a key prop with a stable, unique value. Never use a for loop to build JSX — .map() is the standard and returns an array that JSX can render."}},{"@type":"Question","name":"Why does React need keys?","acceptedAnswer":{"@type":"Answer","text":"Keys help React identify which items have changed, been added, or been removed when the list re-renders. Without keys, React has to guess based on position, which causes bugs when items reorder or are removed. With keys, React can match each element to its previous render and preserve its state, DOM node, and animations."}},{"@type":"Question","name":"Should I use array index as a key?","acceptedAnswer":{"@type":"Answer","text":"Almost never. Index keys cause bugs when items reorder, insert, or delete — React attaches state to the wrong item. Example: a to-do list with checkboxes. Delete item 2, and item 3 takes its index; the checkbox that was checked moves to the wrong row. Use a stable ID from your data instead. Index keys are safe only for static lists that never change."}},{"@type":"Question","name":"What should I use as a key?","acceptedAnswer":{"@type":"Answer","text":"A stable unique identifier from your data. Usually an id field from the database (item.id). For static data without IDs, generate one with crypto.randomUUID() when the data is created — but don't generate it inside the map, that creates a new key every render. If you truly have no IDs and the list never changes, index is acceptable."}},{"@type":"Question","name":"Why does my list re-render every item on change?","acceptedAnswer":{"@type":"Answer","text":"Because the key changes on every render, forcing React to treat each item as new. Common causes: generating keys inside .map() (crypto.randomUUID() in the render), using Math.random() as a key, or wrapping the list in an inline object that changes identity. Fix: use stable keys from your data, not generated values."}},{"@type":"Question","name":"Can I use the same key twice in one list?","acceptedAnswer":{"@type":"Answer","text":"No. Keys must be unique among siblings — not globally, but within the same array. Duplicate keys cause React to silently skip or overwrite items, producing wrong output. If your data has duplicates, combine fields (item.category + '-' + item.id) or generate unique IDs at the data layer."}},{"@type":"Question","name":"How do I filter or sort a list in React?","acceptedAnswer":{"@type":"Answer","text":"Filter and sort before mapping: {items.filter(x => x.active).sort((a,b) => a.name.localeCompare(b.name)).map(item => <Item key={item.id} {...item} />)}. Both .filter() and .sort() return new arrays — never mutate the original. For sort, always pass a comparator: .sort() with no argument mutates in place and produces inconsistent results across browsers."}},{"@type":"Question","name":"How do I render a list of fragments or multiple elements per item?","acceptedAnswer":{"@type":"Answer","text":"Wrap the multiple elements in a Fragment with a key: {items.map(item => <React.Fragment key={item.id}><dt>{item.term}</dt><dd>{item.def}</dd></React.Fragment>)}. Fragments accept keys but not other props. This renders multiple siblings without a wrapper div, which is important for semantic HTML (like dl elements)."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Lesson 6</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Lists & keys</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 6</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Lesson 6 · 15 minutes</div>
+<h1>Lists & keys.<br><span class="py-accent">Render arrays. Get keys right.</span></h1>
+<p class="lead">
+Every app has lists. Search results, messages, notifications, cart items, comments, users. Rendering arrays of components is the most-used pattern in React — and the one with the most subtle bugs. The <code>key</code> prop is small, but getting it wrong causes state to attach to the wrong items, inputs to lose their values, and animations to misfire. This lesson teaches the correct pattern and every mistake that breaks lists.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~15 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> React 19</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/react/index.html">React path</a>
+<a href="/courses/react/lessons/useeffect.html">← Lesson 5</a>
+<a href="#map">.map()</a>
+<a href="#keys">Keys</a>
+<a href="#index">Index as key</a>
+<a href="#stable">Stable keys</a>
+<a href="#filter">Filter & sort</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+Render lists with <code>.map()</code>: <code>{items.map(item => <Item key={item.id} {...item} />)}</code>. Every item needs a <code>key</code> — a stable, unique ID from your data. Never use array index as a key unless the list is static. Filter and sort before mapping (<code>.filter().sort().map()</code>) — both return new arrays. Keys must be unique among siblings, not globally.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#61dafb !important;">Before this lesson:</strong> complete <a href="/courses/react/lessons/useeffect.html" style="color:#7ee8fc; text-decoration:underline;">Lesson 5</a>. You need to understand state, props, and rendering.
+</p>
+</div>
+
+<section id="map">
+<h2 class="section-title">🔁 .map() — the render pattern</h2>
+<p class="section-sub">Transform each array item into JSX. React renders the array.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The <code>.map()</code> method takes an array of data and returns an array of JSX. React accepts an array of elements as valid children. This is the entire pattern — you've already used it in JavaScript, and React just extends it to JSX.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Basic list rendering</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="kw">function</span> <span class="fn">FruitList</span>() {
+<span class="kw">const</span> fruits = [<span class="str">'apple'</span>, <span class="str">'banana'</span>, <span class="str">'cherry'</span>];
+
+<span class="kw">return</span> (
+<ul>
+{fruits.<span class="fn">map</span>((fruit) => (
+<li key={fruit}>{fruit}</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// React renders:
+// <ul>
+// <li>apple</li>
+// <li>banana</li>
+// <li>cherry</li>
+// </ul>
+//
+// Note: 'key' is not rendered to the DOM.
+// It's a special React-only prop used for
+// reconciliation. You can't access it as a prop
+// inside the child component either.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// Array of objects — the real-world case</span>
+<span class="kw">function</span> <span class="fn">UserList</span>() {
+<span class="kw">const</span> users = [
+{ id: <span class="num">1</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'alice@x.com'</span> },
+{ id: <span class="num">2</span>, name: <span class="str">'Bob'</span>, email: <span class="str">'bob@x.com'</span> },
+{ id: <span class="num">3</span>, name: <span class="str">'Priya'</span>, email: <span class="str">'priya@x.com'</span> },
+];
+
+<span class="kw">return</span> (
+<ul>
+{users.<span class="fn">map</span>((user) => (
+<li key={user.id}>
+<strong>{user.name}</strong> — {user.email}
+</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// key={user.id} — the stable, unique identifier.
+// Without it: React warning "Each child in a list
+// should have a unique 'key' prop" and potential
+// reconciliation bugs when the list changes.</span></code></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>.map() returns an array</h4>
+<p>React renders an array of elements just like it renders a single element. This is why <code>.map()</code> works — it returns <code>[<li>, <li>, <li>]</code> and React renders each.</p>
+</div>
+<div class="concept-card">
+<h4>No for loops</h4>
+<p>You can't use a <code>for</code> loop to build JSX — loops don't return values from an expression. <code>.map()</code> does. Use <code>.map()</code> for rendering, <code>for</code> loops for side effects.</p>
+</div>
+<div class="concept-card">
+<h4>key is special</h4>
+<p><code>key</code> is a React-internal prop. It's not passed to the child, not rendered to the DOM, and can't be read as <code>props.key</code>. It's used only by React's reconciliation algorithm.</p>
+</div>
+<div class="concept-card">
+<h4>Spread for props</h4>
+<p><code><Item key={item.id} {...item} /></code> passes every field of the item as props. Cleaner than <code>name={item.name} email={item.email}</code> when the item has many fields.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>You can't use a <code>for</code> loop to build a list in JSX.</strong> This is the first thing that trips up developers coming from vanilla JavaScript. JSX only accepts expressions, and a <code>for</code> loop is a statement. <code>.map()</code> is the expression version — it returns an array of JSX that JSX can render. Same for <code>.filter()</code>, <code>.reduce()</code>, and any other array method that returns a value.</p>
+</div>
+</section>
+
+<section id="keys">
+<h2 class="section-title">🔑 Keys — React's reconciliation primitive</h2>
+<p class="section-sub">Why keys exist, what they do, and why React warns without them.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When a list re-renders, React needs to know which items are the same as before, which are new, and which were removed. It uses the <code>key</code> prop to match. Without keys, React falls back to the array index — which works for static lists but breaks when items move. With stable keys, React matches each item to its previous render and preserves state, DOM nodes, and animations.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Why keys matter</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="com">// Imagine a list of items with a checkbox each.
+// Initial state:</span>
+<span class="com">// [ ] Item A
+// [ ] Item B
+// [x] Item C ← user checked this one</span>
+
+<span class="com">// The array of items:</span>
+<span class="kw">const</span> items = [
+{ id: <span class="str">'a'</span>, text: <span class="str">'Item A'</span>, checked: <span class="kw">false</span> },
+{ id: <span class="str">'b'</span>, text: <span class="str">'Item B'</span>, checked: <span class="kw">false</span> },
+{ id: <span class="str">'c'</span>, text: <span class="str">'Item C'</span>, checked: <span class="kw">true</span> },
+];
+
+<span class="com">// ─────────────────────────────────────────</span>
+<span class="com">// ❌ BROKEN — using index as key</span>
+{items.<span class="fn">map</span>((item, index) => (
+<Item key={index} {...item} />
+))}
+
+<span class="com">// User deletes "Item A". The new array:</span>
+<span class="kw">const</span> items = [
+{ id: <span class="str">'b'</span>, text: <span class="str">'Item B'</span>, checked: <span class="kw">false</span> }, <span class="com">// index 0</span>
+{ id: <span class="str">'c'</span>, text: <span class="str">'Item C'</span>, checked: <span class="kw">true</span> }, <span class="com">// index 1</span>
+];
+
+<span class="com">// React sees:
+// - index 0: was "Item A", now "Item B" → reuse the SAME DOM element
+// - index 1: was "Item B", now "Item C" → reuse the SAME DOM element
+// - index 2: removed
+//
+// The DOM element that held Item B's checkbox now shows
+// "Item C" — but the checked state is preserved on the
+// WRONG item! The user sees "Item C" unchecked.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+<span class="com">// ✅ CORRECT — using stable id as key</span>
+{items.<span class="fn">map</span>((item) => (
+<Item key={item.id} {...item} />
+))}
+
+<span class="com">// React sees:
+// - key 'b': Item B (unchanged, keep DOM)
+// - key 'c': Item C (unchanged, keep DOM)
+// - key 'a': removed (delete DOM)
+//
+// Each item keeps its own DOM node, its own checked state,
+// its own anything. Deleting Item A doesn't affect the others.
+// The user's checkmark stays on Item C.</span></code></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Keys match across renders</h4>
+<p>React compares each key to the previous render's keys. Same key = same item = preserve DOM/state. New key = new item. Missing key = removed item.</p>
+</div>
+<div class="concept-card">
+<h4>Uniqueness among siblings</h4>
+<p>Keys must be unique within the same array — not globally. Two different lists can use the same keys. Only siblings conflict.</p>
+</div>
+<div class="concept-card">
+<h4>Not a prop</h4>
+<p>You can't read <code>props.key</code> in the child component. React strips it. If you need the key value inside the child, pass it as a separate prop: <code>id={item.id}</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Required in .map()</h4>
+<p>Every element returned from <code>.map()</code> needs a key. React will warn loudly if you forget. The warning is a feature — it catches silent reconciliation bugs early.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Index-as-key bugs are silent.</strong> React doesn't error. The list renders. But state, DOM nodes, and animations attach to the wrong items when the list changes. The symptom: "my input loses focus," "my checkbox state moves to a different row," "my animation plays on the wrong item." If your list has any of these bugs, the first thing to check is whether you used index as a key.</p>
+</div>
+</section>
+
+<section id="index">
+<h2 class="section-title">⚠️ Index as key — when it breaks</h2>
+<p class="section-sub">Sometimes it's fine. Often it's a silent bug. Know the difference.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">When index keys are safe</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="com">// ✅ SAFE — static list, never changes</span>
+<span class="kw">function</span> <span class="fn">Menu</span>() {
+<span class="kw">const</span> links = [<span class="str">'Home'</span>, <span class="str">'About'</span>, <span class="str">'Contact'</span>];
+
+<span class="kw">return</span> (
+<nav>
+{links.<span class="fn">map</span>((link, i) => (
+<a key={i} href={<span class="str">/${link.toLowerCase()}`</span>}>{link}</a>
+))}
+</nav>
+);
+}
+<span class="com">// The array is hardcoded. Items never reorder, insert, or delete.
+// Index keys are fine here — they'll never be reassigned.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// ❌ BROKEN — dynamic list with inputs</span>
+<span class="kw">function</span> <span class="fn">TodoList</span>() {
+<span class="kw">const</span> [todos, setTodos] = <span class="fn">useState</span>([
+{ id: <span class="num">1</span>, text: <span class="str">'Buy milk'</span> },
+{ id: <span class="num">2</span>, text: <span class="str">'Walk dog'</span> },
+{ id: <span class="num">3</span>, text: <span class="str">'Read book'</span> },
+]);
+
+<span class="kw">function</span> <span class="fn">removeFirst</span>() {
+<span class="fn">setTodos</span>(todos.<span class="fn">slice</span>(<span class="num">1</span>));
+}
+
+<span class="kw">return</span> (
+<ul>
+{todos.<span class="fn">map</span>((todo, i) => (
+<li key={i}> <span class="com">{/* ❌ index as key */}</span>
+<input type=<span class="str">"checkbox"</span> />
+{todo.text}
+</li>
+))}
+</ul>
+);
+}
+<span class="com">// User checks "Buy milk" (index 0), then clicks remove.
+// "Walk dog" moves from index 1 to index 0.
+// React reuses the DOM element at index 0 — the one that
+// was checked. Now "Walk dog" appears checked!
+// The checkmark "moved" from the deleted item to the next.
+// Fix: key={todo.id} — each item keeps its own DOM.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// ❌ BROKEN — items reorder</span>
+<span class="com">// A sortable list with index keys: sorting reorders the
+// underlying DOM nodes. React uses indices to match, so
+// input values move to the wrong rows. Fix: stable keys.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// ✅ FIX — always use stable IDs</span>
+{todos.<span class="fn">map</span>((todo) => (
+<li key={todo.id}>
+<input type=<span class="str">"checkbox"</span> />
+{todo.text}
+</li>
+))}</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Safe: static lists</h4>
+<p>Hardcoded arrays that never reorder, insert, or delete. A nav menu, a list of fixed options, a footer links list.</p>
+</div>
+<div class="concept-card">
+<h4>Dangerous: dynamic lists</h4>
+<p>Anything with state, reordering, filtering, or deletion. To-dos, search results, filters, sorts. These need real keys.</p>
+</div>
+<div class="concept-card">
+<h4>Dangerous: inputs</h4>
+<p>Any list where each item has an input (checkbox, text field). Uncontrolled inputs especially — they lose focus/value on reorder.</p>
+</div>
+<div class="concept-card">
+<h4>The rule</h4>
+<p>If the list can change (add, remove, reorder, filter, sort), use stable keys. If it's truly static, index is fine but unnecessary. Stable keys are always safe — index keys are only sometimes safe.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Default to stable IDs — they're always safe.</strong> Index keys require you to reason about whether the list can ever change. That's mental overhead on every list you write. Stable IDs work unconditionally. If your data doesn't have IDs, add them at the source: <code>{ id: crypto.randomUUID(), text }</code> when the item is created (not during render). One habit, zero bugs.</p>
+</div>
+</section>
+
+<section id="stable">
+<h2 class="section-title">✅ Getting stable keys</h2>
+<p class="section-sub">Where to get them, and what to do when your data doesn't have IDs.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Key sources</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="com">// 1. BEST — database ID from your backend</span>
+<span class="kw">const</span> users = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="com">// [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]</span>
+{users.<span class="fn">map</span>((u) => <UserRow key={u.id} {...u} />)}
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// 2. GOOD — stable unique field (email, slug, uuid)</span>
+<span class="kw">const</span> users = [{ email: <span class="str">'alice@x.com'</span>, name: <span class="str">'Alice'</span> }];
+{users.<span class="fn">map</span>((u) => <UserRow key={u.email} {...u} />)}
+<span class="com">// Only safe if email is truly unique in the data.
+// If emails can repeat, use a different field.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// 3. GOOD — generate on creation, not on render</span>
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span>([]);
+
+<span class="kw">function</span> <span class="fn">addItem</span>(text) {
+<span class="fn">setItems</span>([...items, {
+id: crypto.<span class="fn">randomUUID</span>(), <span class="com">// ← generated ONCE, when added</span>
+text,
+}]);
+}
+
+<span class="com">// ❌ BROKEN — generating in the render</span>
+{items.<span class="fn">map</span>((item) => (
+<Row key={crypto.<span class="fn">randomUUID</span>()} {...item} />
+))}
+<span class="com">// New UUID every render → every item is "new" → React
+// re-creates every DOM node on every render. Slower,
+// loses state, animations replay. Never do this.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// 4. LAST RESORT — index (only for static lists)</span>
+<span class="com">// Acceptable for a hardcoded array. Never for dynamic.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// 5. Combine fields when no single unique field exists</span>
+<span class="kw">const</span> events = [
+{ date: <span class="str">'2026-10-26'</span>, type: <span class="str">'login'</span> },
+{ date: <span class="str">'2026-10-26'</span>, type: <span class="str">'logout'</span> },
+{ date: <span class="str">'2026-10-27'</span>, type: <span class="str">'login'</span> },
+];
+{events.<span class="fn">map</span>((e) => (
+<EventRow key={<span class="str">``${e.date}-${e.type}`</span>} {...e} />
+))}
+<span class="com">// Safe if (date, type) is unique. Verify with data.</span></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Prefer server IDs</h4>
+<p>Backend-generated <code>id</code> fields are the gold standard — guaranteed unique, stable, and present in the data you already have.</p>
+</div>
+<div class="concept-card">
+<h4>uuid at creation</h4>
+<p>For client-generated data (new to-dos, drafts), generate a UUID when the item is <em>added</em>. Store it on the item. Don't generate during render.</p>
+</div>
+<div class="concept-card">
+<h4>Composite keys</h4>
+<p>No single unique field? Combine fields: <code>date + '-' + type</code>, <code>userId + '-' + productId</code>. Safe if the combination is unique.</p>
+</div>
+<div class="concept-card">
+<h4>Duplicate detection</h4>
+<p>If you get a "duplicate key" warning, two items share a key. That's a data bug — deduplicate or use a more specific key. React renders inconsistently with duplicates.</p>
+</div>
+</div>
+</section>
+
+<section id="filter">
+<h2 class="section-title">🔎 Filter, sort, then map</h2>
+<p class="section-sub">Chain the array methods. Each returns a new array. Never mutate the original.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Filter and sort before render</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="com">// Filter — keep only active items</span>
+{items
+.<span class="fn">filter</span>((item) => item.active)
+.<span class="fn">map</span>((item) => <Row key={item.id} {...item} />)}
+
+<span class="com">// Sort — by name, then map</span>
+{[...items]
+.<span class="fn">sort</span>((a, b) => a.name.<span class="fn">localeCompare</span>(b.name))
+.<span class="fn">map</span>((item) => <Row key={item.id} {...item} />)}
+<span class="com">// Note the [...items] spread — .sort() mutates the array
+// it's called on! Spreading first creates a copy so the
+// original state isn't modified. Without the spread,
+// you'd be sorting state in place — a React bug.</span>
+
+<span class="com">// Filter + sort + map — the full chain</span>
+{items
+.<span class="fn">filter</span>((item) => item.active)
+.<span class="fn">sort</span>((a, b) => b.score - a.score)
+.<span class="fn">map</span>((item) => <Row key={item.id} {...item} />)}
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// ❌ BROKEN — sort mutates the state array</span>
+items.<span class="fn">sort</span>((a, b) => a.name - b.name);
+{items.<span class="fn">map</span>((item) => <Row key={item.id} {...item} />)}
+<span class="com">// .sort() mutates the array in place. React doesn't
+// detect the change (same array reference) → no re-render.
+// Even worse: the state is now sorted in the wrong order,
+// and every subsequent render sees the mutated array.
+// Fix: [...items].sort(...) or items.slice().sort(...)</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// ❌ BROKEN — .sort() with no comparator</span>
+items.<span class="fn">sort</span>();
+<span class="com">// Converts everything to strings and sorts alphabetically.
+// [1, 2, 10, 20] → [1, 10, 2, 20].
+// Always pass a comparator for numbers:
+// items.sort((a, b) => a - b)</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// Empty state — when the filtered list is empty</span>
+{filtered.length === 0 ? (
+<p>No items match your filters.</p>
+) : (
+<ul>
+{filtered.<span class="fn">map</span>((item) => <Row key={item.id} {...item} />)}
+</ul>
+)}
+<span class="com">// Always handle the empty case. "Nothing renders"
+// looks like a bug — show a message instead.</span></code></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>.filter() returns new</h4>
+<p>Safe to chain. Doesn't mutate the original. Returns only the items where the callback returns true.</p>
+</div>
+<div class="concept-card">
+<h4>.sort() mutates</h4>
+<p><code>.sort()</code> sorts the array <em>in place</em>. On state, this is a bug. Always spread first: <code>[...items].sort(...)</code>. Or use <code>.toSorted()</code> (ES2023) which returns a copy.</p>
+</div>
+<div class="concept-card">
+<h4>Always pass a comparator</h4>
+<p><code>items.sort()</code> compares as strings: <code>[10, 9, 1]</code> sorts to <code>[1, 10, 9]</code>. For numbers: <code>(a, b) => a - b</code>. For strings: <code>(a, b) => a.localeCompare(b)</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Handle empty</h4>
+<p>When the filtered array has zero items, render an empty-state message. "Nothing appears" is a bug report. "No results found" is UX.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong><code>.sort()</code> mutating state is one of the most common React bugs.</strong> <code>items.sort(...)</code> modifies the array in place — same reference — so React doesn't detect the change and doesn't re-render. The UI stays stale while the state silently changes. Worse: the mutated array now has a different order for every subsequent render, so future updates are based on wrong data. Always spread before sorting: <code>[...items].sort(...)</code>. Or use <code>.toSorted()</code> which is built for this.</p>
+</div>
+
+<div class="warning-box">
+<p><strong>Fragments need keys too.</strong> If you need to return multiple elements per item without a wrapper div (like <code><dt></code> and <code><dd></code> in a definition list), wrap them in a Fragment with a key: <code><React.Fragment key={item.id}><dt>...</dt><dd>...</dd></React.Fragment></code>. Regular <code><></></code> shorthand can't take a key. This is the only place you need the explicit Fragment import.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different list pattern.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Filterable todo list</h4>
+<p>Build a todo list with:</p>
+<p>1. State array of todos (each with id, text, done)<br>
+2. Three filter buttons: All / Active / Done<br>
+3. State for the current filter<br>
+4. Filter the array before mapping<br>
+5. Each todo has a checkbox to toggle done + a delete button<br>
+6. Delete removes from state with <code>.filter()</code></p>
+<p>Use stable <code>key={todo.id}</code>. Test by checking a todo, deleting another, and switching filters — the checkboxes should never move to wrong items.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Sortable table</h4>
+<p>Build a table of users with:</p>
+<p>1. Columns: Name, Email, Signup Date<br>
+2. Clicking a column header sorts by that column<br>
+3. Clicking again toggles asc/desc<br>
+4. Show a ↓ or ↑ indicator on the active sort column<br>
+5. Map the sorted array with <code>key={user.id}</code></p>
+<p>This is a real production pattern. Notice you need <code>[...users].sort()</code> — not <code>users.sort()</code> — because <code>sort</code> mutates and would break React.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Reproduce the index-key bug</h4>
+<p>Build two versions of a todo list side by side:</p>
+<p><strong>Version A:</strong> uses <code>key={index}</code>. Each todo has an uncontrolled checkbox and a text input for notes.<br>
+<strong>Version B:</strong> uses <code>key={todo.id}</code>. Same components.</p>
+<p>Add a "delete first item" button. Test:</p>
+<p>1. Type in the note field of the 3rd item<br>
+2. Click "delete first item"<br>
+3. Observe: in Version A, the typed note appears to jump to the wrong row. In Version B, it stays with its item.</p>
+<p>This is the exercise that makes keys click forever. Once you see the bug with your own eyes, you'll never forget why stable keys matter.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The list and key bugs that catch every developer.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Forgetting keys</div>
+<p><code>{items.map(item => <Row {...item} />)}</code> — no key. React warns loudly. Fix: <code><Row key={item.id} {...item} /></code>. The warning is a feature.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using index as key on dynamic lists</div>
+<p>Checkboxes and inputs attach to wrong items when the list changes. Silent bug. Fix: stable ID from data. Index only for static lists.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Generating keys during render</div>
+<p><code>key={Math.random()}</code> or <code>key={crypto.randomUUID()}</code> in the map. New key every render = React re-creates every item. Fix: generate once at data creation.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Duplicate keys</div>
+<p>Two items share a key — React renders them inconsistently. Fix: ensure uniqueness. Combine fields if needed.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Mutating array in map</div>
+<p><code>items.map(item => { item.x = 1; return item })</code> — mutates state items. Fix: <code>items.map(item => ({ ...item, x: 1 }))</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Sorting state in place</div>
+<p><code>items.sort(...)</code> mutates the array. Fix: <code>[...items].sort(...)</code> or <code>items.toSorted(...)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. No empty state</div>
+<p>Filtered list is empty, page looks blank. Fix: <code>{items.length === 0 && <p>No results.</p>}</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Fragment without key</div>
+<p><code><>...</></code> can't take a key. Fix: <code><React.Fragment key={id}>...</React.Fragment></code> when returning multiple elements per item.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">🎓 React track complete</h2>
+<p class="text-sm text-slate-300 mb-4">Six lessons. One complete foundation. Here's what you can do now.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>You can build React apps</h4>
+<p>Components, JSX, props, state, events, forms, effects, and lists. Every pattern you need for real applications.</p>
+</div>
+<div class="concept-card">
+<h4>You understand the mental model</h4>
+<p>UI = function of state. Data flows down via props, events flow up via callbacks. Re-renders are snapshots. This is the mental model that separates "I can write React" from "I understand React."</p>
+</div>
+<div class="concept-card">
+<h4>You can debug React bugs</h4>
+<p>Stale state, wrong keys, mutation, missing cleanup, infinite effects — you've seen all of them and know the fixes.</p>
+</div>
+<div class="concept-card">
+<h4>You're ready for routing and data</h4>
+<p>React Router, data fetching libraries (React Query, SWR), and state management (Zustand, Context) all build on this foundation.</p>
+</div>
+</div>
+
+<div class="pro-tip" style="margin-top:1.5rem;">
+<p><strong>What to build before moving to advanced React.</strong> Build one complete app: a blog with routing, a to-do app with localStorage, a weather app that fetches and caches. Ship it. Then add routing (React Router) and API integration. That one project teaches more than the next ten tutorials — because the bugs only become real when you hit them.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I render a list in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Use .map() to transform an array of data into an array of JSX elements: {items.map(item => <Item key={item.id} {...item} />)}. React renders each element in order. Always include a key prop with a stable, unique value. Never use a for loop to build JSX.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does React need keys?</summary>
+<p class="mt-2 text-sm text-slate-300">Keys help React identify which items have changed, been added, or been removed when the list re-renders. Without keys, React has to guess based on position, which causes bugs when items reorder or are removed.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use array index as a key?</summary>
+<p class="mt-2 text-sm text-slate-300">Almost never. Index keys cause bugs when items reorder, insert, or delete — React attaches state to the wrong item. Use a stable ID from your data instead. Index keys are safe only for static lists that never change.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What should I use as a key?</summary>
+<p class="mt-2 text-sm text-slate-300">A stable unique identifier from your data. Usually an id field from the database (item.id). For static data without IDs, generate one with crypto.randomUUID() when the data is created — but don't generate it inside the map.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does my list re-render every item on change?</summary>
+<p class="mt-2 text-sm text-slate-300">Because the key changes on every render, forcing React to treat each item as new. Common causes: generating keys inside .map(), using Math.random() as a key, or wrapping the list in an inline object that changes identity. Fix: use stable keys from your data.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I use the same key twice in one list?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Keys must be unique among siblings — not globally, but within the same array. Duplicate keys cause React to silently skip or overwrite items, producing wrong output.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I filter or sort a list in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Filter and sort before mapping: {items.filter(x => x.active).sort((a,b) => a.name.localeCompare(b.name)).map(item => <Item key={item.id} {...item} />)}. Both .filter() and .sort() return new arrays — never mutate the original. For sort, always pass a comparator.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I render a list of fragments or multiple elements per item?</summary>
+<p class="mt-2 text-sm text-slate-300">Wrap the multiple elements in a Fragment with a key: {items.map(item => <React.Fragment key={item.id}><dt>{item.term}</dt><dd>{item.def}</dd></React.Fragment>)}. Fragments accept keys but not other props.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue your React path</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ React learning path</div>
+<div class="text-xs text-slate-400 mt-1">Review the full 6-week roadmap</div>
+</a>
+<a href="/courses/react/lessons/useeffect.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 5: useEffect</div>
+<div class="text-xs text-slate-400 mt-1">Review side effects and cleanup</div>
+</a>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🟨 JavaScript track</div>
+<div class="text-xs text-slate-400 mt-1">The prerequisite for everything React</div>
+</a>
+<a href="/courses/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All courses</div>
+<div class="text-xs text-slate-400 mt-1">Explore other tracks</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://react.dev/learn/rendering-lists" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — Rendering Lists</a></li>
+<li>→ <a href="https://react.dev/learn/keeping-components-pure" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — Keeping Components Pure</a></li>
+<li>→ <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">MDN — Array.prototype.map</a></li>
+</ul>
+</section>
+
+<a href="/courses/react/index.html" class="back-link">← Back to React track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the React track · Lesson 6 · Track complete <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
