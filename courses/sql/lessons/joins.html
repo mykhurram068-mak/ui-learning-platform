@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SQL JOINs — INNER, LEFT, RIGHT & FULL with Live Output (2026)</title>
+<meta name="description" content="Learn SQL JOINs. INNER, LEFT, RIGHT, FULL OUTER, and CROSS JOIN. Every example shows the query AND the actual output so you see exactly which rows match.">
+<meta name="keywords" content="sql joins, sql inner join, sql left join, sql right join, sql full outer join, sql join tutorial">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="SQL JOINs — INNER, LEFT, RIGHT & FULL with Live Output">
+<meta property="og:description" content="Learn SQL JOINs. INNER, LEFT, RIGHT, FULL OUTER, and CROSS JOIN. Every example shows the query AND the actual output.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/sql/lessons/joins.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SQL JOINs — INNER, LEFT, RIGHT & FULL with Live Output">
+<meta name="twitter:description" content="Learn SQL JOINs. Every example shows the query AND the actual output.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/sql/lessons/joins.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"SQL JOINs — INNER, LEFT, RIGHT & FULL with Live Output","description":"Learn SQL JOINs. INNER, LEFT, RIGHT, FULL OUTER, and CROSS JOIN. Every example shows the query AND the actual output so you see exactly which rows match.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-26","dateModified":"2026-10-26","proficiencyLevel":"Intermediate","dependencies":"SQL"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is a SQL JOIN?","acceptedAnswer":{"@type":"Answer","text":"A JOIN combines rows from two or more tables based on a related column between them. Data is normalized across tables — users in one, orders in another — and JOINs let you query them together. The most common JOIN is on a foreign key: orders.user_id matches users.id. Every JOIN specifies which columns to match on, using the ON clause."}},{"@type":"Question","name":"What is the difference between INNER JOIN and LEFT JOIN?","acceptedAnswer":{"@type":"Answer","text":"INNER JOIN returns only rows where both tables have a match. LEFT JOIN returns all rows from the left table, plus matching rows from the right — rows with no match get NULL values on the right side. Use INNER JOIN when you only care about matches (e.g., 'show me users who have placed orders'). Use LEFT JOIN when you need all left-table rows regardless of matches (e.g., 'show me all users and their order count, including users with zero orders')."}},{"@type":"Question","name":"What is the difference between LEFT JOIN and RIGHT JOIN?","acceptedAnswer":{"@type":"Answer","text":"They're mirror images. LEFT JOIN keeps all rows from the left table, matching from the right. RIGHT JOIN keeps all rows from the right table, matching from the left. In practice, RIGHT JOIN is rarely used — you can rewrite any RIGHT JOIN as a LEFT JOIN by swapping the table order. Most developers stick with LEFT JOIN for consistency."}},{"@type":"Question","name":"What is a FULL OUTER JOIN?","acceptedAnswer":{"@type":"Answer","text":"A FULL OUTER JOIN returns all rows from both tables — matched rows have both sides filled, unmatched rows on either side get NULL for the other. It's the union of LEFT JOIN and RIGHT JOIN. Rarely used in practice because it's expensive and the results are usually noise. When you need it, you often actually want two separate queries."}},{"@type":"Question","name":"What is a CROSS JOIN?","acceptedAnswer":{"@type":"Answer","text":"A CROSS JOIN returns every combination of rows from both tables — the Cartesian product. If table A has 10 rows and table B has 5 rows, CROSS JOIN returns 50 rows. Rarely used intentionally, but useful for generating combinations (sizes × colors, time slots × days). Accidentally omitting the ON clause in an INNER JOIN produces the same result, which is a common bug."}},{"@type":"Question","name":"What is a self JOIN?","acceptedAnswer":{"@type":"Answer","text":"A self JOIN joins a table to itself. Used for hierarchical data (employees.manager_id references employees.id) or finding duplicates. You must alias the two instances so SQL can distinguish them: SELECT e.name AS employee, m.name AS manager FROM employees e JOIN employees m ON e.manager_id = m.id. The concept is identical to a regular JOIN — only the table is the same on both sides."}},{"@type":"Question","name":"What is the difference between JOIN and multiple tables in FROM?","acceptedAnswer":{"@type":"Answer","text":"Both work but JOIN is the modern standard. FROM users, orders WHERE users.id = orders.user_id (comma syntax) is the old way. JOIN users u ON u.id = o.user_id (explicit JOIN) is preferred because it separates join conditions from WHERE filters, making the query clearer and easier to modify. The comma syntax can accidentally produce CROSS JOINs if you forget the WHERE."}},{"@type":"Question","name":"Why does my JOIN return duplicate rows?","acceptedAnswer":{"@type":"Answer","text":"Because the right table has multiple matching rows for each left row. If a user has 3 orders, joining users to orders returns 3 rows for that user. This is normal — JOINs multiply rows. Fix: use DISTINCT (if you only need unique users), or aggregate (COUNT, SUM) to get one row per user. Or realize the multiplication is what you want and adjust your thinking."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-sql.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#10b981 !important;">Lesson 3</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JOINs</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#34d399;">Home</a> ›
+<a href="/courses/index.html" style="color:#34d399;">Courses</a> ›
+<a href="/courses/sql/index.html" style="color:#34d399;">SQL</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 3</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟢 Lesson 3 · 25 minutes</div>
+<h1>JOINs.<br><span class="py-accent">Combine tables. Answer real questions.</span></h1>
+<p class="lead">
+Real data lives across multiple tables — users in one, orders in another, products in a third. JOINs combine them into a single result. This is where SQL stops being "read a table" and becomes "answer questions across your entire database." It's also where beginners get confused — so every example below shows the actual rows returned. Click Output to see exactly which rows match, which don't, and which get NULL values.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~25 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> SQL · standard</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/sql/index.html">SQL path</a>
+<a href="/courses/sql/lessons/order-limit.html">← Lesson 2</a>
+<a href="#why">Why JOINs</a>
+<a href="#inner">INNER JOIN</a>
+<a href="#left">LEFT JOIN</a>
+<a href="#right">RIGHT JOIN</a>
+<a href="#full">FULL OUTER</a>
+<a href="#cross">CROSS JOIN</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+A JOIN combines rows from two tables based on a shared column. <code>INNER JOIN</code> keeps only matches. <code>LEFT JOIN</code> keeps all left rows, NULLs on right where no match. <code>RIGHT JOIN</code> mirrors LEFT. <code>FULL OUTER JOIN</code> keeps everything from both sides. The <code>ON</code> clause specifies the match condition — usually <code>orders.user_id = users.id</code>. In 90% of real queries, you'll use <code>INNER</code> or <code>LEFT</code>.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#10b981 !important;">Before this lesson:</strong> complete <a href="/courses/sql/lessons/order-limit.html" style="color:#34d399; text-decoration:underline;">Lesson 2</a>. You need SELECT, WHERE, ORDER BY.
+</p>
+</div>
+
+<section id="why">
+<h2 class="section-title">🎯 Why JOINs exist</h2>
+<p class="section-sub">Real data is split across tables. JOINs are how you put it back together.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If you stored user data and order data in one table, every order row would need to repeat the user's name, email, and address. That's wasteful (dozens of rows with duplicate user info) and dangerous (if the user changes their email, you'd have to update every order). This is why databases normalize data — split it across related tables.</p>
+
+<div class="code-block" id="block-tables">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-tables', 'code', this)">Structure</button>
+<button onclick="switchCodeOutput('block-tables', 'output', this)">Data</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Two related tables. orders.user_id is a
+-- FOREIGN KEY pointing to users.id.
+
+users
+─────
+id | name | email
+───┼─────────────┼─────────────────
+1 | Alice Chen | alice@example.com
+2 | Bob Smith | bob@example.com
+3 | Priya Patel | priya@example.com
+4 | Marcus Lee | marcus@example.com
+5 | Sofia García| sofia@example.com
+
+orders
+──────
+id | user_id | amount | created_at
+───┼─────────┼────────┼───────────
+1 | 1 | 150.00 | 2026-01-15
+2 | 1 | 200.00 | 2026-01-20
+3 | 2 | 89.99 | 2026-02-01
+4 | 4 | 300.00 | 2026-03-10
+5 | 4 | 45.50 | 2026-03-15
+
+-- Notice: Priya (id=3) and Sofia (id=5)
+-- have NO orders. This is why LEFT JOIN exists.</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">users table</p>
+<table class="sql-output-table" style="margin-bottom:16px;">
+<thead><tr><th>id</th><th>name</th><th>email</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice Chen</td><td>alice@example.com</td></tr>
+<tr><td>2</td><td>Bob Smith</td><td>bob@example.com</td></tr>
+<tr><td>3</td><td>Priya Patel</td><td>priya@example.com</td></tr>
+<tr><td>4</td><td>Marcus Lee</td><td>marcus@example.com</td></tr>
+<tr><td>5</td><td>Sofia García</td><td>sofia@example.com</td></tr>
+</tbody>
+</table>
+
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">orders table</p>
+<table class="sql-output-table">
+<thead><tr><th>id</th><th>user_id</th><th>amount</th><th>created_at</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>1</td><td>150.00</td><td>2026-01-15</td></tr>
+<tr><td>2</td><td>1</td><td>200.00</td><td>2026-01-20</td></tr>
+<tr><td>3</td><td>2</td><td>89.99</td><td>2026-02-01</td></tr>
+<tr><td>4</td><td>4</td><td>300.00</td><td>2026-03-10</td></tr>
+<tr><td>5</td><td>4</td><td>45.50</td><td>2026-03-15</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Notice the gap: users 3 and 5 have no orders.</strong> This is the entire reason different JOIN types exist. INNER JOIN will silently drop them. LEFT JOIN will keep them with NULL order data. Which one you want depends on the question: "show me users who ordered" (INNER) vs "show me all users with their orders" (LEFT). Every JOIN decision comes down to: what do you do with the rows that don't match?</p>
+</div>
+</section>
+
+<section id="inner">
+<h2 class="section-title">🔗 INNER JOIN — matches only</h2>
+<p class="section-sub">Only rows where both tables have a match. The default JOIN type.</p>
+
+<div class="code-block" id="block-inner">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-inner', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-inner', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Every order with its user's name.
+-- Users without orders do NOT appear.
+SELECT
+u.name,
+o.amount,
+o.created_at
+FROM users u
+INNER JOIN orders o ON o.user_id = u.id
+ORDER BY o.created_at;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead><tr><th>name</th><th>amount</th><th>created_at</th></tr></thead>
+<tbody>
+<tr><td>Alice Chen</td><td>150.00</td><td>2026-01-15</td></tr>
+<tr><td>Alice Chen</td><td>200.00</td><td>2026-01-20</td></tr>
+<tr><td>Bob Smith</td><td>89.99</td><td>2026-02-01</td></tr>
+<tr><td>Marcus Lee</td><td>300.00</td><td>2026-03-10</td></tr>
+<tr><td>Marcus Lee</td><td>45.50</td><td>2026-03-15</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">5 rows returned — Priya and Sofia are missing</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>What it does</h4>
+<p>Returns only rows where the ON condition is true. Users 3 (Priya) and 5 (Sofia) have no orders, so they're excluded. The result has 5 rows — one per order.</p>
+</div>
+<div class="concept-card">
+<h4>Table aliases</h4>
+<p><code>users u</code> and <code>orders o</code> give each table a short alias. Use <code>u.name</code> and <code>o.amount</code> instead of the full table names — much cleaner, especially with 3+ joins.</p>
+</div>
+<div class="concept-card">
+<h4>The ON clause</h4>
+<p>Specifies how to match rows. <code>ON o.user_id = u.id</code> means "match orders rows where user_id equals a users id." The condition is what makes the JOIN meaningful.</p>
+</div>
+<div class="concept-card">
+<h4>Duplicate-looking rows are correct</h4>
+<p>Alice appears twice because she has 2 orders. Marcus appears twice because he has 2 orders. JOINs multiply rows — one result row per matching pair.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>INNER JOIN silently drops unmatched rows.</strong> This is usually what you want — "show me users who ordered" naturally excludes users who didn't. But if your query is supposed to return all users and you accidentally use INNER JOIN, the users with no orders just disappear from the result. No error, no warning. That's why understanding the difference between INNER and LEFT is the single most important JOIN skill.</p>
+</div>
+</section>
+
+<section id="left">
+<h2 class="section-title">⬅️ LEFT JOIN — all left, matches from right</h2>
+<p class="section-sub">Keep every row from the left table. NULLs fill in where the right table has no match.</p>
+
+<div class="code-block" id="block-left">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-left', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-left', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- ALL users, plus their orders (if any).
+-- Users without orders still appear, with NULLs.
+SELECT
+u.name,
+o.amount,
+o.created_at
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+ORDER BY u.name;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead><tr><th>name</th><th>amount</th><th>created_at</th></tr></thead>
+<tbody>
+<tr><td>Alice Chen</td><td>150.00</td><td>2026-01-15</td></tr>
+<tr><td>Alice Chen</td><td>200.00</td><td>2026-01-20</td></tr>
+<tr><td>Bob Smith</td><td>89.99</td><td>2026-02-01</td></tr>
+<tr><td>Marcus Lee</td><td>300.00</td><td>2026-03-10</td></tr>
+<tr><td>Marcus Lee</td><td>45.50</td><td>2026-03-15</td></tr>
+<tr><td>Priya Patel</td><td class="sql-output-null">NULL</td><td class="sql-output-null">NULL</td></tr>
+<tr><td>Sofia García</td><td class="sql-output-null">NULL</td><td class="sql-output-null">NULL</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">7 rows returned — Priya and Sofia appear with NULL orders</div>
+</div>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4 mb-3">LEFT JOIN is how you answer "which users have never ordered?" — the reverse of "which users have ordered":</p>
+
+<div class="code-block" id="block-left-null">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-left-null', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-left-null', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Users who have NEVER placed an order
+SELECT u.name, u.email
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+WHERE o.id IS NULL;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead><tr><th>name</th><th>email</th></tr></thead>
+<tbody>
+<tr><td>Priya Patel</td><td>priya@example.com</td></tr>
+<tr><td>Sofia García</td><td>sofia@example.com</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">2 rows returned — the users with no orders</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>What it does</h4>
+<p>Returns every row from the left table. For each, matches rows from the right table (multiplying if multiple match). If no match, fills NULLs on the right side.</p>
+</div>
+<div class="concept-card">
+<h4>The "no match" pattern</h4>
+<p><code>LEFT JOIN ... WHERE right.id IS NULL</code> is the standard way to find rows with no matching rows elsewhere. "Users who never ordered," "products never sold," "customers with no support tickets."</p>
+</div>
+<div class="concept-card">
+<h4>Row count is >= left table</h4>
+<p>A LEFT JOIN returns at least as many rows as the left table, usually more (if the right table has multiple matches per left row). Never fewer.</p>
+</div>
+<div class="concept-card">
+<h4>Which side is "left"?</h4>
+<p>The table named first in the FROM clause is the left side. The table named after JOIN is the right side. <code>FROM users LEFT JOIN orders</code> — users is left, orders is right.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The LEFT JOIN + IS NULL pattern is one of the most useful queries in SQL.</strong> It answers "which X has no Y?" — a question that comes up constantly. Users with no orders, products with no sales, articles with no comments, accounts with no activity. Every time you need a "find what's missing" query, this pattern is the answer. Memorize it — you'll use it weekly.</p>
+</div>
+</section>
+
+<section id="right">
+<h2 class="section-title">➡️ RIGHT JOIN — all right, matches from left</h2>
+<p class="section-sub">Mirror of LEFT JOIN. Rarely used — usually rewritten as LEFT.</p>
+
+<div class="code-block" id="block-right">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-right', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-right', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Same result as: FROM orders LEFT JOIN users
+-- Returns all ORDERS, with user info if matched
+SELECT
+u.name,
+o.amount,
+o.created_at
+FROM users u
+RIGHT JOIN orders o ON o.user_id = u.id
+ORDER BY o.created_at;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead><tr><th>name</th><th>amount</th><th>created_at</th></tr></thead>
+<tbody>
+<tr><td>Alice Chen</td><td>150.00</td><td>2026-01-15</td></tr>
+<tr><td>Alice Chen</td><td>200.00</td><td>2026-01-20</td></tr>
+<tr><td>Bob Smith</td><td>89.99</td><td>2026-02-01</td></tr>
+<tr><td>Marcus Lee</td><td>300.00</td><td>2026-03-10</td></tr>
+<tr><td>Marcus Lee</td><td>45.50</td><td>2026-03-15</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">5 rows returned — all orders, no orphan orders (every order has a user)</div>
+</div>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>RIGHT JOIN is rarely used. Rewrite it as LEFT JOIN.</strong> Every RIGHT JOIN can be rewritten as a LEFT JOIN by swapping the table order. <code>FROM users RIGHT JOIN orders</code> = <code>FROM orders LEFT JOIN users</code>. The second version is preferred because LEFT JOIN is more common — readers recognize it faster. Consistency across your codebase matters more than which side of the JOIN you use.</p>
+</div>
+</section>
+
+<section id="full">
+<h2 class="section-title">🔀 FULL OUTER JOIN — everything</h2>
+<p class="section-sub">All rows from both sides. Rarely needed. When you think you need it, check twice.</p>
+
+<div class="code-block" id="block-full">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-full', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-full', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- All users AND all orders — matched where possible,
+-- NULLs where not. Includes users without orders
+-- AND orders without users (orphans).
+SELECT
+u.name,
+o.amount,
+o.created_at
+FROM users u
+FULL OUTER JOIN orders o ON o.user_id = u.id
+ORDER BY u.name NULLS LAST, o.created_at;
+
+-- Note: FULL OUTER JOIN is not supported in MySQL.
+-- Use a UNION of LEFT JOIN and RIGHT JOIN instead.</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead><tr><th>name</th><th>amount</th><th>created_at</th></tr></thead>
+<tbody>
+<tr><td>Alice Chen</td><td>150.00</td><td>2026-01-15</td></tr>
+<tr><td>Alice Chen</td><td>200.00</td><td>2026-01-20</td></tr>
+<tr><td>Bob Smith</td><td>89.99</td><td>2026-02-01</td></tr>
+<tr><td>Marcus Lee</td><td>300.00</td><td>2026-03-10</td></tr>
+<tr><td>Marcus Lee</td><td>45.50</td><td>2026-03-15</td></tr>
+<tr><td>Priya Patel</td><td class="sql-output-null">NULL</td><td class="sql-output-null">NULL</td></tr>
+<tr><td>Sofia García</td><td class="sql-output-null">NULL</td><td class="sql-output-null">NULL</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">7 rows — all users (with and without orders), all orders</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>What it does</h4>
+<p>Returns all rows from both tables. Matched rows have both sides filled. Unmatched left rows get NULLs on the right. Unmatched right rows get NULLs on the left.</p>
+</div>
+<div class="concept-card">
+<h4>Rarely needed</h4>
+<p>Usually when you think you need FULL OUTER JOIN, you actually want two queries: "users with orders" and "orders without users." Or you're diagnosing data integrity issues.</p>
+</div>
+<div class="concept-card">
+<h4>Not universal</h4>
+<p>PostgreSQL, Oracle, SQL Server support FULL OUTER JOIN. MySQL does not — you have to UNION a LEFT JOIN and a RIGHT JOIN to simulate it.</p>
+</div>
+<div class="concept-card">
+<h4>Performance</h4>
+<p>FULL OUTER JOIN is expensive — it can't use indexes as efficiently as INNER or LEFT. If you're using it on large tables, check the query plan and consider whether two queries would be faster.</p>
+</div>
+</div>
+</section>
+
+<section id="cross">
+<h2 class="section-title">✖️ CROSS JOIN — every combination</h2>
+<p class="section-sub">Cartesian product. Rarely intentional, often accidental.</p>
+
+<div class="code-block" id="block-cross">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-cross', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-cross', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Every color × every size — 3 × 3 = 9 rows
+SELECT
+colors.name AS color,
+sizes.name AS size
+FROM colorsCROSS JOIN sizes;
+
+-- ⚠️ ACCIDENTAL CROSS JOIN — the classic bug
+-- Forgetting the ON clause in an INNER JOIN
+-- produces the same result:
+SELECT *
+FROM users
+JOIN orders; -- no ON clause!
+-- Returns users × orders = 5 × 5 = 25 rows.</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">colors × sizes (3 × 3 = 9 rows)</p>
+<table class="sql-output-table">
+<thead><tr><th>color</th><th>size</th></tr></thead>
+<tbody>
+<tr><td>Red</td><td>Small</td></tr>
+<tr><td>Red</td><td>Medium</td></tr>
+<tr><td>Red</td><td>Large</td></tr>
+<tr><td>Blue</td><td>Small</td></tr>
+<tr><td>Blue</td><td>Medium</td></tr>
+<tr><td>Blue</td><td>Large</td></tr>
+<tr><td>Green</td><td>Small</td></tr>
+<tr><td>Green</td><td>Medium</td></tr>
+<tr><td>Green</td><td>Large</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">9 rows returned</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>What it does</h4>
+<p>Every row from A paired with every row from B. If A has n rows and B has m rows, result has n × m rows. No matching condition — just every combination.</p>
+</div>
+<div class="concept-card">
+<h4>Legitimate use</h4>
+<p>Generating combinations: product variants (size × color × material), time slots (days × hours), test matrices. Rare but occasionally useful.</p>
+</div>
+<div class="concept-card">
+<h4>The accidental bug</h4>
+<p>Forgetting <code>ON</code> in an INNER JOIN produces a CROSS JOIN. On large tables, this explodes — 10,000 × 10,000 = 100 million rows. Query hangs, then crashes. Always include the ON clause.</p>
+</div>
+<div class="concept-card">
+<h4>Data explosion</h4>
+<p>A CROSS JOIN on 1,000-row tables returns 1,000,000 rows. On 10,000-row tables, 100,000,000 rows. Always check table sizes before writing one.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>The missing-ON bug is the most dangerous SQL mistake.</strong> Write <code>FROM a JOIN b</code> with no ON clause and every row of a pairs with every row of b. On production tables with 100K rows each, that's 10 billion rows — the query hangs the database and can take down your app. Always include <code>ON</code>. If you're lucky, you get an error. If you're unlucky, you get the query running.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different JOIN pattern.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Predict the output</h4>
+<p>Given the users and orders tables from earlier (5 users, 5 orders, Priya and Sofia have no orders):</p>
+<p>1. How many rows does <code>SELECT * FROM users INNER JOIN orders ON users.id = orders.user_id</code> return?<br>
+2. How many rows does <code>SELECT * FROM users LEFT JOIN orders ON users.id = orders.user_id</code> return?<br>
+3. How many rows does <code>SELECT * FROM users RIGHT JOIN orders ON users.id = orders.user_id</code> return?<br>
+4. How many rows does <code>SELECT * FROM users FULL OUTER JOIN orders ON users.id = orders.user_id</code> return?<br>
+5. How many rows does <code>SELECT * FROM users CROSS JOIN orders</code> return?</p>
+<p>Explain why each number is what it is.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Write queries</h4>
+<p>Using the users and orders tables, write queries to answer:</p>
+<p>1. All users with their total order count (users with 0 orders should show 0, not be excluded)<br>
+2. Users who have placed more than 2 orders<br>
+3. All orders with the user's name, including orphan orders (orders whose user_id doesn't match any user)<br>
+4. Users who have never placed an order<br>
+5. The 3 users with the highest total spending, including users with 0 orders</p>
+<p>Which query needs LEFT JOIN? Which needs INNER JOIN? Why?</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Design a schema</h4>
+<p>You're building a movie review site. Design the tables and JOINs for these questions:</p>
+<p>1. Show all movies with their average rating<br>
+2. Show users who have reviewed more than 5 movies<br>
+3. Show movies that have never been reviewed<br>
+4. Show reviews with the reviewer's name and the movie's title<br>
+5. Show the top 10 highest-rated movies with at least 3 reviews</p>
+<p>Design the tables (movies, users, reviews), identify the foreign keys, and write the query for each question. Which JOIN type does each query need?</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The JOIN bugs that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Forgetting the ON clause</div>
+<p><code>FROM users JOIN orders</code> with no ON produces a CROSS JOIN — every user × every order. On production tables, this hangs the database. Always include ON.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using INNER when you need LEFT</div>
+<p>You want "all users and their orders" but use INNER JOIN — users with 0 orders vanish. Fix: <code>LEFT JOIN</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Missing rows in "find unmatched" queries</div>
+<p>To find users with no orders, use <code>LEFT JOIN ... WHERE orders.id IS NULL</code>. Using <code>WHERE orders.id = NULL</code> returns 0 rows.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Duplicate rows from multiple matches</div>
+<p>Users with 3 orders return 3 rows in a JOIN. If you want one row per user, use <code>GROUP BY</code> or <code>DISTINCT</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Ambiguous column names</div>
+<p><code>SELECT name FROM users JOIN orders</code> — which name? Both tables might have a name column. Fix: <code>SELECT users.name</code> or use table aliases.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Joining on the wrong column</div>
+<p><code>ON orders.id = users.id</code> joins order IDs to user IDs — meaningless. Fix: <code>ON orders.user_id = users.id</code> — the foreign key to the primary key.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using WHERE instead of ON</div>
+<p><code>FROM users LEFT JOIN orders WHERE orders.user_id = users.id</code> — the WHERE clause turns the LEFT JOIN into an INNER JOIN (rows with NULL fail the WHERE). Fix: put the condition in ON.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Chaining many JOINs without checking</div>
+<p>A 4-table JOIN multiplies row counts. 100 × 50 × 200 × 30 = 300 million rows. If your query hangs, check for missing ON clauses or unexpected row explosions.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">You can combine tables. Next: aggregate and summarize.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/sql/lessons/group-by.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 4: GROUP BY</div>
+<div class="text-xs text-slate-400 mt-1">Count, sum, and aggregate rows</div>
+</a>
+<a href="/courses/sql/lessons/insert-update-delete.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 5: INSERT, UPDATE, DELETE</div>
+<div class="text-xs text-slate-400 mt-1">Modify data</div>
+</a>
+<a href="/courses/sql/lessons/order-limit.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 2: Order, limit, aliases</div>
+<div class="text-xs text-slate-400 mt-1">Review sorting and pagination</div>
+</a>
+<a href="/courses/sql/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">SQL learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a SQL JOIN?</summary>
+<p class="mt-2 text-sm text-slate-300">A JOIN combines rows from two or more tables based on a related column. Data is normalized across tables — users in one, orders in another — and JOINs let you query them together. The most common JOIN is on a foreign key: orders.user_id matches users.id.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between INNER JOIN and LEFT JOIN?</summary>
+<p class="mt-2 text-sm text-slate-300">INNER JOIN returns only rows where both tables have a match. LEFT JOIN returns all rows from the left table, plus matching rows from the right — rows with no match get NULL values on the right side. Use INNER when you only care about matches. Use LEFT when you want all left-table rows regardless.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between LEFT JOIN and RIGHT JOIN?</summary>
+<p class="mt-2 text-sm text-slate-300">They're mirror images. LEFT JOIN keeps all rows from the left table, matching from the right. RIGHT JOIN keeps all rows from the right table, matching from the left. In practice, RIGHT JOIN is rarely used — you can rewrite any RIGHT JOIN as a LEFT JOIN by swapping the table order.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a FULL OUTER JOIN?</summary>
+<p class="mt-2 text-sm text-slate-300">A FULL OUTER JOIN returns all rows from both tables — matched rows have both sides filled, unmatched rows on either side get NULL for the other. Rarely used in practice because it's expensive and the results are usually noise.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a CROSS JOIN?</summary>
+<p class="mt-2 text-sm text-slate-300">A CROSS JOIN returns every combination of rows from both tables — the Cartesian product. If table A has 10 rows and table B has 5 rows, CROSS JOIN returns 50 rows. Accidentally omitting the ON clause in an INNER JOIN produces the same result, which is a common bug.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a self JOIN?</summary>
+<p class="mt-2 text-sm text-slate-300">A self JOIN joins a table to itself. Used for hierarchical data (employees.manager_id references employees.id) or finding duplicates. You must alias the two instances so SQL can distinguish them.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between JOIN and multiple tables in FROM?</summary>
+<p class="mt-2 text-sm text-slate-300">Both work but JOIN is the modern standard. FROM users, orders WHERE users.id = orders.user_id (comma syntax) is the old way. JOIN users u ON u.id = o.user_id (explicit JOIN) is preferred because it separates join conditions from WHERE filters.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does my JOIN return duplicate rows?</summary>
+<p class="mt-2 text-sm text-slate-300">Because the right table has multiple matching rows for each left row. If a user has 3 orders, joining users to orders returns 3 rows for that user. This is normal — JOINs multiply rows. Fix: use DISTINCT (if you only need unique users), or aggregate (COUNT, SUM) to get one row per user.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://sqlbolt.com/lesson/select_queries_with_joins" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">SQLBolt: SELECT queries with JOINs</a></li>
+<li>→ <a href="https://www.postgresql.org/docs/current/queries-table-expressions.html#QUERIES-JOIN" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">PostgreSQL: JOIN documentation</a></li>
+<li>→ <a href="https://pgexercises.com/questions/joins/" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">PG Exercises: JOIN practice</a></li>
+</ul>
+</section>
+
+<a href="/courses/sql/index.html" class="back-link">← Back to SQL track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the SQL track · Lesson 3 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
