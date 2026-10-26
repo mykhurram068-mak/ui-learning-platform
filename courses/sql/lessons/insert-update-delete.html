@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SQL INSERT, UPDATE, DELETE — Complete Guide with Live Output (2026)</title>
+<meta name="description" content="Learn SQL INSERT, UPDATE, and DELETE. Add, modify, and remove rows safely. Transactions, UPSERT, and the mistakes that destroy data. Every example shows the actual result.">
+<meta name="keywords" content="sql insert, sql update, sql delete, sql transactions, sql upsert, sql crud, sql data modification">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="SQL INSERT, UPDATE, DELETE — Complete Guide with Live Output">
+<meta property="og:description" content="Learn SQL INSERT, UPDATE, and DELETE. Add, modify, and remove rows safely. Transactions, UPSERT, and the mistakes that destroy data.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/sql/lessons/insert-update-delete.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SQL INSERT, UPDATE, DELETE — Complete Guide with Live Output">
+<meta name="twitter:description" content="Learn SQL INSERT, UPDATE, and DELETE. Add, modify, remove rows safely.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/sql/lessons/insert-update-delete.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"SQL INSERT, UPDATE, DELETE — Complete Guide with Live Output","description":"Learn SQL INSERT, UPDATE, and DELETE. Add, modify, and remove rows safely. Transactions, UPSERT, and the mistakes that destroy data.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-26","dateModified":"2026-10-26","proficiencyLevel":"Beginner","dependencies":"SQL"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I insert a row in SQL?","acceptedAnswer":{"@type":"Answer","text":"Use INSERT INTO table (columns) VALUES (values). Example: INSERT INTO users (name, email, country) VALUES ('Alice', 'alice@example.com', 'US'). The columns and values must be in the same order. Always specify the column list — INSERT without columns is fragile (breaks when the schema changes) and slow. For multiple rows, use INSERT INTO users (name, email) VALUES ('A', 'a@x.com'), ('B', 'b@x.com')."}},{"@type":"Question","name":"How do I update rows in SQL?","acceptedAnswer":{"@type":"Answer","text":"Use UPDATE table SET column = value WHERE condition. Example: UPDATE users SET email = 'new@example.com' WHERE id = 1. The WHERE clause is critical — without it, every row in the table gets updated. Always write the WHERE clause first, then the SET. Or wrap the UPDATE in a transaction so you can roll back if the row count is wrong."}},{"@type":"Question","name":"How do I delete rows in SQL?","acceptedAnswer":{"@type":"Answer","text":"Use DELETE FROM table WHERE condition. Example: DELETE FROM users WHERE id = 1. The WHERE clause is critical — DELETE FROM users; with no WHERE deletes every row in the table, and there's no undo. Always write the WHERE clause first. Consider wrapping in a transaction, or use a soft delete (UPDATE deleted_at = now()) instead of hard delete for user-facing data."}},{"@type":"Question","name":"What is the difference between DELETE and TRUNCATE?","acceptedAnswer":{"@type":"Answer","text":"DELETE removes specific rows (or all rows if no WHERE) and is transactional (can be rolled back). TRUNCATE removes all rows quickly, resets auto-increment counters, and cannot be rolled back in most databases. DELETE runs row by row and is slow on large tables. TRUNCATE is a single metadata operation and is fast. Use DELETE when you need to filter and roll back. Use TRUNCATE when you want to empty the table completely and don't need to roll back."}},{"@type":"Question","name":"What is a SQL transaction?","acceptedAnswer":{"@type":"Answer","text":"A transaction groups multiple SQL statements into a single atomic unit. Either all statements succeed (COMMIT) or all are rolled back (ROLLBACK). Used when you need to modify related rows together — transferring money between accounts, creating an order and its line items, updating user and profile tables. The classic example: if debiting account A succeeds but crediting account B fails, a transaction rolls back both changes so money isn't lost. The syntax is BEGIN; ... COMMIT; (or ROLLBACK on error)."}},{"@type":"Question","name":"What is an UPSERT in SQL?","acceptedAnswer":{"@type":"Answer","text":"UPSERT means insert-if-not-exists or update-if-exists. In PostgreSQL and SQLite: INSERT ... ON CONFLICT (id) DO UPDATE SET ... In MySQL: INSERT ... ON DUPLICATE KEY UPDATE ... In SQL Server: MERGE statement. Used to safely insert data that might already exist — e.g., syncing from an external source, or saving user preferences that may or may not be set. Without UPSERT, you'd need to SELECT first, then INSERT or UPDATE, which has a race condition."}},{"@type":"Question","name":"What is a soft delete?","acceptedAnswer":{"@type":"Answer","text":"A soft delete marks a row as deleted without actually removing it, using a column like deleted_at (timestamp) or is_deleted (boolean). Queries filter WHERE deleted_at IS NULL to see active rows. Used for user-facing data so you can restore, audit, or join deleted rows later. Hard delete (DELETE FROM) is used for truly disposable data, cleanup jobs, or GDPR right-to-be-forgotten requests. Most production apps use soft deletes for the primary user data and hard deletes for logs and sessions."}},{"@type":"Question","name":"How do I undo a DELETE in SQL?","acceptedAnswer":{"@type":"Answer","text":"You can undo a DELETE if (1) you wrapped it in a transaction and haven't committed yet (use ROLLBACK), or (2) you have a backup. Once committed, there's no built-in undo — the rows are gone. This is why transactions matter: BEGIN; DELETE FROM users WHERE id = 1; -- check the row count -- if wrong: ROLLBACK; -- if right: COMMIT;. For production data, use soft deletes instead of hard deletes."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-sql.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#10b981 !important;">Lesson 5</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">INSERT, UPDATE, DELETE</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#34d399;">Home</a> ›
+<a href="/courses/index.html" style="color:#34d399;">Courses</a> ›
+<a href="/courses/sql/index.html" style="color:#34d399;">SQL</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 5</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟢 Lesson 5 · 20 minutes</div>
+<h1>INSERT, UPDATE, DELETE.<br><span class="py-accent">Modify data. Don't destroy it.</span></h1>
+<p class="lead">
+SELECT reads data. INSERT, UPDATE, and DELETE modify it. Together they're CRUD — the four operations every application performs on every table. These are the queries that can destroy your data if you get them wrong. This lesson teaches the syntax, the transactions that protect you, and the mistakes that have wiped production databases. Every example shows what actually happens to the data.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~20 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Beginner → Intermediate</span>
+<span><i class="fa-solid fa-code"></i> SQL · standard</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/sql/index.html">SQL path</a>
+<a href="/courses/sql/lessons/group-by.html">← Lesson 4</a>
+<a href="#insert">INSERT</a>
+<a href="#update">UPDATE</a>
+<a href="#delete">DELETE</a>
+<a href="#transactions">Transactions</a>
+<a href="#upsert">UPSERT</a>
+<a href="#soft">Soft delete</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+Three commands modify data: <code>INSERT</code> adds rows, <code>UPDATE</code> changes values, <code>DELETE</code> removes rows. The <code>WHERE</code> clause in UPDATE and DELETE is critical — omitting it affects every row. Wrap related changes in a transaction (<code>BEGIN; ... COMMIT;</code>) so you can <code>ROLLBACK</code> if something goes wrong. For user data, prefer soft deletes (<code>UPDATE deleted_at = now()</code>) over hard deletes.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#10b981 !important;">Before this lesson:</strong> complete <a href="/courses/sql/lessons/group-by.html" style="color:#34d399; text-decoration:underline;">Lesson 4</a>. You need SELECT, WHERE, and the query fundamentals.
+</p>
+</div>
+
+<section id="insert">
+<h2 class="section-title">➕ INSERT — add rows</h2>
+<p class="section-sub">Always specify columns. Always. Auto-increment IDs and defaults do the rest.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">INSERT adds new rows to a table. The syntax is <code>INSERT INTO table (columns) VALUES (values)</code>. Columns and values must match in order. Always specify the column list — it's safer, faster, and self-documenting.</p>
+
+<div class="code-block" id="block-insert-single">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-insert-single', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-insert-single', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Insert one row. id and created_at have defaults.
+INSERT INTO users (name, email, country, age)
+VALUES ('Diana Park', 'diana@example.com', 'US', 29);
+
+-- Verify with a SELECT
+SELECT * FROM users WHERE email = 'diana@example.com';</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>id</th><th>name</th><th>email</th><th>country</th><th>age</th><th>created_at</th></tr>
+</thead>
+<tbody>
+<tr><td>9</td><td>Diana Park</td><td>diana@example.com</td><td>US</td><td>29</td><td>2026-10-26</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">1 row inserted — id 9 assigned automatically</div>
+</div>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4 mb-3">Insert multiple rows in one statement — much faster than one INSERT per row:</p>
+
+<div class="code-block" id="block-insert-multi">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-insert-multi', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-insert-multi', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Bulk insert. One statement, three rows.
+INSERT INTO users (name, email, country, age)
+VALUES
+('Emma Wilson', 'emma@example.com', 'UK', 27),
+('Jake Torres', 'jake@example.com', 'US', 32),
+('Yuki Tanaka', 'yuki@example.com', 'JP', 30);
+
+-- Verify
+SELECT id, name, country FROM users
+WHERE email IN ('emma@example.com', 'jake@example.com', 'yuki@example.com');</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>id</th><th>name</th><th>country</th></tr>
+</thead>
+<tbody>
+<tr><td>10</td><td>Emma Wilson</td><td>UK</td></tr>
+<tr><td>11</td><td>Jake Torres</td><td>US</td></tr>
+<tr><td>12</td><td>Yuki Tanaka</td><td>JP</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">3 rows inserted — in order</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Always specify columns</h4>
+<p><code>INSERT INTO users VALUES (...)</code> without column names works, but breaks when the schema changes and depends on column order. Explicit column lists are self-documenting.</p>
+</div>
+<div class="concept-card">
+<h4>Auto-increment IDs</h4>
+<p>Usually <code>id SERIAL PRIMARY KEY</code> or <code>id INT AUTO_INCREMENT</code>. The database assigns the next value automatically. Don't insert the ID yourself.</p>
+</div>
+<div class="concept-card">
+<h4>DEFAULT values</h4>
+<p>Columns can have defaults: <code>created_at TIMESTAMP DEFAULT NOW()</code>. Omit them from INSERT and the default applies. Useful for timestamps and booleans.</p>
+</div>
+<div class="concept-card">
+<h4>Bulk insert</h4>
+<p><code>VALUES (row1), (row2), (row3)</code> inserts many rows in one statement. 10-100x faster than separate INSERTs. Use for imports and seed data.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Bulk insert is dramatically faster than looping INSERTs.</strong> One INSERT with 1,000 rows is roughly 100x faster than 1,000 separate INSERTs — because each statement in a loop has overhead (network round-trip, transaction commit, index updates). If you're inserting more than a few rows, use a single bulk INSERT. This is why import scripts always use bulk insert.</p>
+</div>
+
+<div class="warning-box">
+<p><strong>INSERT without columns breaks when the schema changes.</strong> <code>INSERT INTO users VALUES ('Alice', 'alice@x.com', 'US')</code> works today. Tomorrow someone adds a column to the middle of the table — your INSERT now fails or, worse, silently inserts values into the wrong columns. Always list the columns explicitly. It costs ten seconds and prevents a class of bugs that are hard to debug.</p>
+</div>
+</section>
+
+<section id="update">
+<h2 class="section-title">✏️ UPDATE — modify existing rows</h2>
+<p class="section-sub">The WHERE clause is not optional. Without it, every row changes.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">UPDATE changes existing rows. The syntax is <code>UPDATE table SET column = value WHERE condition</code>. The WHERE clause determines which rows get updated — <strong>without it, every row in the table gets updated.</strong> This is one of the most common SQL disasters.</p>
+
+<div class="code-block" id="block-update-one">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-update-one', 'code', this)">Before</button>
+<button onclick="switchCodeOutput('block-update-one', 'after', this)">After</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Update one specific user's email
+UPDATE users
+SET email = 'alice.new@example.com'
+WHERE id = 1;
+
+-- Verify — only Alice changed
+SELECT id, name, email FROM users WHERE id = 1;</pre>
+</div>
+<div class="code-output-pane" data-pane="after">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Before</p>
+<table class="sql-output-table" style="margin-bottom:12px;">
+<thead><tr><th>id</th><th>name</th><th>email</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice Chen</td><td>alice@example.com</td></tr>
+</tbody>
+</table>
+
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">After</p>
+<table class="sql-output-table">
+<thead><tr><th>id</th><th>name</th><th>email</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice Chen</td><td>alice.new@example.com</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">1 row updated</div>
+</div>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4 mb-3">Update multiple columns in one statement. Multiple rows match the WHERE, so multiple rows update:</p>
+
+<div class="code-block" id="block-update-multi">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-update-multi', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-update-multi', 'after', this)">After</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Update multiple columns for multiple rows
+-- (every US user's country becomes "USA")
+UPDATE users
+SET
+country = 'USA',
+updated_at = NOW()
+WHERE country = 'US';
+
+-- Check the affected rows
+SELECT id, name, country FROM users WHERE country = 'USA';</pre>
+</div>
+<div class="code-output-pane" data-pane="after">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">After — all US rows now "USA"</p>
+<table class="sql-output-table">
+<thead><tr><th>id</th><th>name</th><th>country</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice Chen</td><td>USA</td></tr>
+<tr><td>4</td><td>Marcus Lee</td><td>USA</td></tr>
+<tr><td>9</td><td>Diana Park</td><td>USA</td></tr>
+<tr><td>11</td><td>Jake Torres</td><td>USA</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">4 rows updated</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>WHERE is required</h4>
+<p><code>UPDATE users SET email = 'x'</code> without WHERE sets every row's email to 'x'. There's no undo (unless you're in a transaction). Always write WHERE first.</p>
+</div>
+<div class="concept-card">
+<h4>Multiple SET columns</h4>
+<p><code>SET a = 1, b = 2</code> updates both columns atomically. Comma-separated. Usually paired with an updated_at column that gets a fresh timestamp.</p>
+</div>
+<div class="concept-card">
+<h4>Row count feedback</h4>
+<p>Most databases report how many rows were affected. In production code, check this number — if you expected 1 row and 5,000 were updated, something's wrong. Wrap in a transaction for safety.</p>
+</div>
+<div class="concept-card">
+<h4>UPDATE with JOIN</h4>
+<p>Some databases support <code>UPDATE ... FROM</code> (PostgreSQL) or <code>UPDATE ... JOIN</code> (MySQL). Updates based on a related table's data. Advanced but useful.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>The #1 way developers destroy production data:</strong> running <code>UPDATE users SET status = 'inactive'</code> without a WHERE clause. Every row in the table becomes inactive — all users, all accounts, all at once. The query returns "50,000 rows updated" and the damage is done. Prevent this: (1) always write WHERE first, then the SET, (2) wrap in a transaction, (3) check the affected row count before committing.</p>
+</div>
+</section>
+
+<section id="delete">
+<h2 class="section-title">🗑️ DELETE — remove rows</h2>
+<p class="section-sub">Same warning as UPDATE. Without WHERE, everything goes.</p>
+
+<div class="code-block" id="block-delete-one">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-delete-one', 'code', this)">Before</button>
+<button onclick="switchCodeOutput('block-delete-one', 'after', this)">After</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Delete one specific user
+DELETE FROM users WHERE id = 12;
+
+-- Delete inactive users older than 30 days
+DELETE FROM users
+WHERE
+active = false
+AND last_login < NOW() - INTERVAL '30 days';
+
+-- ⚠️ DANGER: no WHERE clause deletes EVERYTHING
+-- DELETE FROM users;
+-- Returns "12 rows deleted". There is no undo.</pre>
+</div>
+<div class="code-output-pane" data-pane="after">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Before — 12 rows</p>
+<table class="sql-output-table" style="margin-bottom:12px;">
+<thead><tr><th>id</th><th>name</th><th>email</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice Chen</td><td>alice.new@example.com</td></tr>
+<tr><td>2</td><td>Bob Smith</td><td>bob@example.com</td></tr>
+<tr><td>3</td><td>Priya Patel</td><td>priya@example.com</td></tr>
+<tr><td>...</td><td>...</td><td>...</td></tr>
+<tr><td>12</td><td>Yuki Tanaka</td><td>yuki@example.com</td></tr>
+</tbody>
+</table>
+
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">After — 11 rows (Yuki removed)</p>
+<table class="sql-output-table">
+<thead><tr><th>id</th><th>name</th><th>email</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice Chen</td><td>alice.new@example.com</td></tr>
+<tr><td>2</td><td>Bob Smith</td><td>bob@example.com</td></tr>
+<tr><td>3</td><td>Priya Patel</td><td>priya@example.com</td></tr>
+<tr><td>...</td><td>...</td><td>...</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">1 row deleted</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>DELETE removes specific rows</h4>
+<p>With WHERE: only matching rows are removed. Row by row, one at a time — slower than TRUNCATE but safer and more flexible.</p>
+</div>
+<div class="concept-card">
+<h4>DELETE without WHERE</h4>
+<p>Deletes every row but leaves the table structure intact. Equivalent to TRUNCATE but slower and transactional. Almost always a mistake.</p>
+</div>
+<div class="concept-card">
+<h4>TRUNCATE</h4>
+<p>Empties the table in one metadata operation. Much faster than DELETE. Cannot be rolled back in most databases. Resets auto-increment counters. Use for "wipe the table" operations.</p>
+</div>
+<div class="concept-card">
+<h4>No undo</h4>
+<p>Once committed, DELETE is permanent. Transactions are the only protection — <code>BEGIN; DELETE ...; -- check --; ROLLBACK;</code> if wrong. For user data, prefer soft delete.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>DELETE FROM users (no WHERE) is the most common self-inflicted production disaster.</strong> It deletes every row in the table — no confirmation, no undo, no "are you sure?" prompt. The rows are gone the moment the query commits. If you're going to run a DELETE, wrap it in a transaction first: <code>BEGIN; DELETE ...; -- check row count --; COMMIT;</code> or <code>ROLLBACK;</code>. Or better, use soft delete for user-facing data.</p>
+</div>
+</section>
+
+<section id="transactions">
+<h2 class="section-title">🔒 Transactions — all or nothing</h2>
+<p class="section-sub">The safety net for every data modification. Group related changes so they all succeed or all fail.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A transaction groups multiple SQL statements into a single atomic unit. Either all statements succeed (COMMIT) or all are rolled back (ROLLBACK). This is what prevents partially-applied changes — like money leaving one account but not arriving in another.</p>
+
+<div class="code-block" id="block-transaction">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-transaction', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-transaction', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Transfer $100 from Alice to Bob
+-- Both changes must succeed or neither should
+BEGIN;
+
+UPDATE accounts SET balance = balance - 100 WHERE id = 1; -- Alice
+UPDATE accounts SET balance = balance + 100 WHERE id = 2; -- Bob
+
+-- Before committing, verify both updates worked
+SELECT id, name, balance FROM accounts WHERE id IN (1, 2);
+
+-- If balances look correct:
+COMMIT;
+
+-- If something is wrong:
+-- ROLLBACK;
+
+-- What a transaction protects against:
+-- If the second UPDATE fails (constraint violation,
+-- network error, crash), ROLLBACK undoes the first UPDATE.
+-- Without the transaction, Alice is out $100 and Bob
+-- never received it — money vanishes.</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Before transaction</p>
+<table class="sql-output-table" style="margin-bottom:12px;">
+<thead><tr><th>id</th><th>name</th><th>balance</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice</td><td>500.00</td></tr>
+<tr><td>2</td><td>Bob</td><td>200.00</td></tr>
+</tbody>
+</table>
+
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">After COMMIT</p>
+<table class="sql-output-table">
+<thead><tr><th>id</th><th>name</th><th>balance</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice</td><td>400.00</td></tr>
+<tr><td>2</td><td>Bob</td><td>300.00</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">2 rows updated atomically</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>BEGIN / COMMIT / ROLLBACK</h4>
+<p><code>BEGIN</code> starts a transaction. <code>COMMIT</code> saves all changes. <code>ROLLBACK</code> undoes all changes since BEGIN. The three commands are the entire transaction API.</p>
+</div>
+<div class="concept-card">
+<h4>Atomicity</h4>
+<p>All statements succeed or none do. If the second UPDATE fails, the first is rolled back automatically (if the transaction is properly structured). This is why bank transfers work.</p>
+</div>
+<div class="concept-card">
+<h4>Isolation</h4>
+<p>Other connections can't see your uncommitted changes. They see the data as it was before your transaction started, until you commit. Prevents "dirty reads."</p>
+</div>
+<div class="concept-card">
+<h4>Consistency</h4>
+<p>After commit, the database is in a valid state. Constraints are enforced, foreign keys are respected. If the transaction would break a constraint, it's rolled back.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Wrap every destructive operation in a transaction.</strong> Before any UPDATE, DELETE, or INSERT that affects existing data, run <code>BEGIN</code>. After the operation, check the row count — if it matches expectations, <code>COMMIT</code>. If not, <code>ROLLBACK</code>. This costs nothing (transactions are fast) and has saved every developer from a production disaster at least once. It's the single most important habit for safe SQL.</p>
+</div>
+</section>
+
+<section id="upsert">
+<h2 class="section-title">🔄 UPSERT — insert or update</h2>
+<p class="section-sub">When you don't know if the row exists. Avoids the SELECT-then-INSERT race condition.</p>
+
+<div class="code-block" id="block-upsert">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-upsert', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-upsert', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- PostgreSQL / SQLite: INSERT ... ON CONFLICT
+INSERT INTO users (email, name, country)
+VALUES ('alice.new@example.com', 'Alice Chen', 'USA')
+ON CONFLICT (email) DO UPDATE SET
+name = EXCLUDED.name,
+country = EXCLUDED.country,
+updated_at = NOW();
+
+-- MySQL: INSERT ... ON DUPLICATE KEY UPDATE
+-- INSERT INTO users (email, name, country)
+-- VALUES ('alice.new@example.com', 'Alice Chen', 'USA')
+-- ON DUPLICATE KEY UPDATE
+-- name = VALUES(name),
+-- country = VALUES(country);
+
+-- Behavior:
+-- If email doesn't exist: inserts new row.
+-- If email exists: updates that row with new name + country.
+-- One atomic statement. No race condition.</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Result: updated existing row</p>
+<table class="sql-output-table">
+<thead><tr><th>id</th><th>name</th><th>email</th><th>country</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice Chen</td><td>alice.new@example.com</td><td>USA</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">1 row — updated, not inserted</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>What it does</h4>
+<p>Tries to INSERT. If the row violates a unique constraint (usually on id or email), runs an UPDATE on the conflicting row instead. One atomic statement.</p>
+</div>
+<div class="concept-card">
+<h4>Why not SELECT then INSERT?</h4>
+<p>Between your SELECT (row not found) and INSERT, another connection could insert the same row. You get a duplicate key error — or worse, two rows. UPSERT avoids this race entirely.</p>
+</div>
+<div class="concept-card">
+<h4>Database-specific syntax</h4>
+<p>PostgreSQL/SQLite: <code>ON CONFLICT</code>. MySQL: <code>ON DUPLICATE KEY UPDATE</code>. SQL Server: <code>MERGE</code>. Oracle: <code>MERGE</code>. Concept identical, syntax varies.</p>
+</div>
+<div class="concept-card">
+<h4>Use cases</h4>
+<p>Syncing from external sources (import data that may already exist). Saving user preferences (set-if-missing-or-update). Idempotent API endpoints (same request twice has no extra effect).</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>UPSERT is the safe way to sync data.</strong> If your application syncs data from Stripe, GitHub, or a webhook, an UPSERT is what you want — the same event delivered twice should update the existing row, not crash on the unique constraint or create a duplicate. Every production sync system uses UPSERT. If you're writing SELECT-then-INSERT logic, you're building a race condition.</p>
+</div>
+</section>
+
+<section id="soft">
+<h2 class="section-title">🌫️ Soft delete — the safer pattern</h2>
+<p class="section-sub">For user data, don't DELETE. Mark as deleted. Recoverable, auditable, joinable.</p>
+
+<div class="code-block" id="block-soft-delete">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-soft-delete', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-soft-delete', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Instead of DELETE FROM users WHERE id = 12;
+-- mark as deleted:
+UPDATE users SET deleted_at = NOW() WHERE id = 12;
+
+-- Active users query — filters out soft-deleted rows
+SELECT id, name, email FROM users WHERE deleted_at IS NULL;
+
+-- All users (including deleted) — for admin/audit
+SELECT id, name, email, deleted_at FROM users;
+-- Yuki Tanaka appears with a timestamp
+
+-- Restore a soft-deleted user
+UPDATE users SET deleted_at = NULL WHERE id = 12;
+
+-- Per-user email uniqueness with soft delete:
+-- Use a partial unique index so deleted users
+-- don't block re-signup with the same email.
+-- CREATE UNIQUE INDEX users_email_active
+-- ON users (email)
+-- WHERE deleted_at IS NULL;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Active users (WHERE deleted_at IS NULL)</p>
+<table class="sql-output-table" style="margin-bottom:12px;">
+<thead><tr><th>id</th><th>name</th><th>email</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice Chen</td><td>alice.new@example.com</td></tr>
+<tr><td>2</td><td>Bob Smith</td><td>bob@example.com</td></tr>
+<tr><td>3</td><td>Priya Patel</td><td>priya@example.com</td></tr>
+</tbody>
+</table>
+
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">All users (including deleted)</p>
+<table class="sql-output-table">
+<thead><tr><th>id</th><th>name</th><th>deleted_at</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>Alice Chen</td><td class="sql-output-null">NULL</td></tr>
+<tr><td>2</td><td>Bob Smith</td><td class="sql-output-null">NULL</td></tr>
+<tr><td>3</td><td>Priya Patel</td><td class="sql-output-null">NULL</td></tr>
+<tr><td>12</td><td>Yuki Tanaka</td><td>2026-10-26 14:32:15</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">1 soft-deleted user still recoverable</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>How it works</h4>
+<p>Add a <code>deleted_at TIMESTAMP</code> column. Instead of DELETE, run <code>UPDATE SET deleted_at = NOW()</code>. Every query filters <code>WHERE deleted_at IS NULL</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Why use it</h4>
+<p>Accidental deletes are recoverable (just set deleted_at = NULL). Audits and legal hold work. Foreign keys don't break. Users can "restore" their account.</p>
+</div>
+<div class="concept-card">
+<h4>The cost</h4>
+<p>Every query must filter by deleted_at. Easy to forget — use a view or an ORM scope. Storage grows (deleted rows still exist). Add a cleanup job that hard-deletes older than N days.</p>
+</div>
+<div class="concept-card">
+<h4>When to hard delete</h4>
+<p>GDPR "right to be forgotten" requests. Logs and sessions (disposable by nature). Test data. Bulk cleanup. For primary user data, soft delete is usually the right choice.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Most production apps use soft delete for user data and hard delete for ephemeral data.</strong> When you click "delete my account" on most sites, the row doesn't disappear — it gets marked as deleted and stays in the database for 30-90 days before a cleanup job removes it. This is what allows "undo delete" features, GDPR compliance workflows, and recovery from accidental clicks. Hard delete is for logs, sessions, and truly disposable data.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different modification pattern.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Predict the damage</h4>
+<p>For each of these buggy statements, predict what happens to the table:</p>
+<p>1. <code>UPDATE users SET country = 'US';</code> — no WHERE<br>
+2. <code>DELETE FROM users WHERE email = NULL;</code> — wrong NULL syntax<br>
+3. <code>INSERT INTO users VALUES ('Alice');</code> — no column list<br>
+4. <code>UPDATE users SET email = 'x@y.com' WHERE id = 1 OR id = 2;</code> — two conditions, one update<br>
+5. <code>DELETE FROM users WHERE id = 1; DELETE FROM orders WHERE user_id = 1;</code> — two separate statements, no transaction</p>
+<p>Which are safe? Which are dangerous? Which fail with an error? For the dangerous ones, what's the fix?</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Write safe modifications</h4>
+<p>Using a <code>users</code> table (id, name, email, country, active, deleted_at, created_at):</p>
+<p>1. Insert 5 new users with a bulk INSERT<br>
+2. Update all inactive users to have <code>deleted_at = NOW()</code><br>
+3. Delete all users created before 2020 (hard delete, wrapped in a transaction)<br>
+4. Soft-delete a user by id, then restore them<br>
+5. Insert a user, and if email exists, update their name (UPSERT)<br>
+6. Run a safe UPDATE that you can roll back if the row count is wrong</p>
+<p>For each query, write the transaction wrapper and describe how you'd verify the result before committing.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Design a safe delete flow</h4>
+<p>You're building a "delete my account" feature for a SaaS product. Design the flow:</p>
+<p>1. Should it hard delete or soft delete? Why?<br>
+2. What columns do you need to add to support it?<br>
+3. How do queries on the rest of the app know to exclude deleted rows?<br>
+4. How would you handle foreign keys (orders referencing the deleted user)?<br>
+5. When would you actually hard delete the row?<br>
+6. What does "undo delete" look like?</p>
+<p>Then write the SQL for the delete and the undo. Then write the SQL for the cleanup job that hard-deletes users soft-deleted more than 30 days ago.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The data-modification bugs that destroy databases.</p>
+
+<div class="mistake">
+<div class="mtitle">1. UPDATE without WHERE</div>
+<p><code>UPDATE users SET status = 'inactive'</code> updates every row. Fix: always write WHERE first, then the SET. Or wrap in a transaction and check the row count.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. DELETE without WHERE</div>
+<p><code>DELETE FROM users</code> removes every row. No undo. Fix: same as above. Write WHERE first, or use soft delete for user data.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. No transaction on multi-step changes</div>
+<p>Two UPDATEs where the second fails leaves the database inconsistent. Fix: <code>BEGIN; UPDATE; UPDATE; COMMIT;</code> — or <code>ROLLBACK</code> if anything's wrong.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. INSERT without columns</div>
+<p><code>INSERT INTO users VALUES (...)</code> breaks when schema changes. Fix: always list columns explicitly — <code>INSERT INTO users (name, email) VALUES (...)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Race condition in SELECT-then-INSERT</div>
+<p>Two requests check "does this email exist?" at the same time, both see "no", both INSERT. Result: duplicate. Fix: use UPSERT with a unique constraint.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Not handling foreign key constraints on DELETE</div>
+<p>Deleting a user with orders fails (or cascades and removes the orders). Fix: decide the behavior — cascade, restrict, or soft delete. Set it explicitly in the schema.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Forgetting deleted_at in queries</div>
+<p>You soft-delete a user, but the search page still shows them because the query didn't filter <code>WHERE deleted_at IS NULL</code>. Fix: use views or ORM scopes that filter by default.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Loop of single INSERTs</div>
+<p>Inserting 10,000 rows in a loop with 10,000 separate INSERT statements is 100x slower than one bulk INSERT. Fix: use <code>INSERT INTO t VALUES (r1), (r2), ...</code> for imports.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">You can modify data. Next: making queries fast.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/sql/lessons/indexes.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 6: Indexes and performance</div>
+<div class="text-xs text-slate-400 mt-1">Make queries fast</div>
+</a>
+<a href="/courses/sql/lessons/group-by.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 4: GROUP BY</div>
+<div class="text-xs text-slate-400 mt-1">Review aggregation</div>
+</a>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Python track</div>
+<div class="text-xs text-slate-400 mt-1">Run SQL from Python</div>
+</a>
+<a href="/courses/sql/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">SQL learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I insert a row in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">Use INSERT INTO table (columns) VALUES (values). Example: INSERT INTO users (name, email, country) VALUES ('Alice', 'alice@example.com', 'US'). The columns and values must be in the same order. Always specify the column list.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I update rows in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">Use UPDATE table SET column = value WHERE condition. Example: UPDATE users SET email = 'new@example.com' WHERE id = 1. The WHERE clause is critical — without it, every row in the table gets updated.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I delete rows in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">Use DELETE FROM table WHERE condition. Example: DELETE FROM users WHERE id = 1. The WHERE clause is critical — DELETE FROM users; with no WHERE deletes every row in the table.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between DELETE and TRUNCATE?</summary>
+<p class="mt-2 text-sm text-slate-300">DELETE removes specific rows (or all rows if no WHERE) and is transactional. TRUNCATE removes all rows quickly, resets auto-increment counters, and cannot be rolled back in most databases. DELETE is slower; TRUNCATE is faster.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a SQL transaction?</summary>
+<p class="mt-2 text-sm text-slate-300">A transaction groups multiple SQL statements into a single atomic unit. Either all statements succeed (COMMIT) or all are rolled back (ROLLBACK). Used when you need to modify related rows together. Syntax: BEGIN; ... COMMIT; (or ROLLBACK on error).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is an UPSERT in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">UPSERT means insert-if-not-exists or update-if-exists. PostgreSQL/SQLite: INSERT ... ON CONFLICT. MySQL: INSERT ... ON DUPLICATE KEY UPDATE. SQL Server: MERGE. Used to safely insert data that might already exist.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a soft delete?</summary>
+<p class="mt-2 text-sm text-slate-300">A soft delete marks a row as deleted without actually removing it, using a column like deleted_at or is_deleted. Queries filter WHERE deleted_at IS NULL. Used for user-facing data so you can restore, audit, or join deleted rows later.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I undo a DELETE in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">You can undo a DELETE if (1) you wrapped it in a transaction and haven't committed yet (use ROLLBACK), or (2) you have a backup. Once committed, there's no built-in undo. For production data, use soft deletes instead of hard deletes.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://sqlbolt.com/lesson/inserting_rows" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">SQLBolt: INSERT, UPDATE, DELETE</a></li>
+<li>→ <a href="https://www.postgresql.org/docs/current/tutorial-transactions.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">PostgreSQL: Transactions tutorial</a></li>
+<li>→ <a href="https://www.postgresql.org/docs/current/sql-insert.html#SQL-ON-CONFLICT" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">PostgreSQL: UPSERT (ON CONFLICT)</a></li>
+</ul>
+</section>
+
+<a href="/courses/sql/index.html" class="back-link">← Back to SQL track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the SQL track · Lesson 5 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
