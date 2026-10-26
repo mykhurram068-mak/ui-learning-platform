@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>LLMs & Transformers — How ChatGPT Actually Works (2026)</title>
+<meta name="description" content="Learn how LLMs work. Next-token prediction, temperature, context windows, hallucinations, and prompt engineering. What ChatGPT is actually doing under the hood.">
+<meta name="keywords" content="how llms work, how chatgpt works, next token prediction, llm temperature, context window, llm hallucination">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="LLMs & Transformers — How ChatGPT Actually Works">
+<meta property="og:description" content="Learn how LLMs work. Next-token prediction, temperature, context windows, hallucinations, and prompt engineering.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/ai/lessons/llms.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="LLMs & Transformers — How ChatGPT Actually Works">
+<meta name="twitter:description" content="Learn how LLMs work. Next-token prediction, temperature, context windows, hallucinations, and prompt engineering.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/ai/lessons/llms.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"LLMs & Transformers — How ChatGPT Actually Works","description":"Learn how LLMs work. Next-token prediction, temperature, context windows, hallucinations, and prompt engineering. What ChatGPT is actually doing under the hood.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-26","dateModified":"2026-10-26","proficiencyLevel":"Intermediate","dependencies":"Python 3.x"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is an LLM?","acceptedAnswer":{"@type":"Answer","text":"An LLM (Large Language Model) is a neural network trained to predict the next token in a sequence of text. That's the entire objective — no more, no less. GPT-4, Claude, Gemini, and Llama are all trained this way. The 'large' refers to the model size — billions of parameters — and the amount of training data (hundreds of billions of words). Despite the simple training objective, the result is a system that can write, translate, summarize, code, and reason at a level that feels intelligent."}},{"@type":"Question","name":"How does an LLM generate text?","acceptedAnswer":{"@type":"Answer","text":"Autoregressive generation: give the model a prompt, it predicts the most likely next token, appends it to the prompt, then predicts the next, then the next. This loop continues until the model predicts an end-of-sequence token or hits a length limit. Every response you've ever gotten from ChatGPT was generated one token at a time — usually 10-50 tokens per second. It's not 'thinking of the whole answer' — it's predicting the next word, over and over."}},{"@type":"Question","name":"What is temperature in LLMs?","acceptedAnswer":{"@type":"Answer","text":"Temperature controls randomness in token selection. Temperature 0 always picks the most likely token — deterministic, repeatable, but sometimes bland. Temperature 1 samples from the distribution — creative, unpredictable, but can drift. Temperature 2 amplifies randomness — often incoherent. Default is usually 0.7. Use lower temperature (0-0.3) for factual answers, code, and structured output. Use higher (0.7-1.0) for creative writing and brainstorming."}},{"@type":"Question","name":"Why do LLMs hallucinate?","acceptedAnswer":{"@type":"Answer","text":"LLMs are trained to produce plausible text, not true text. They have no mechanism to verify facts — they generate the next token based on statistical patterns. When the training data doesn't contain the answer, or the pattern is ambiguous, the model still produces a confident-sounding response. This isn't a bug that will be 'fixed' — it's inherent to how the architecture works. Fix: use RAG (retrieval-augmented generation) to ground responses in real documents, or verify facts independently."}},{"@type":"Question","name":"What is a context window?","acceptedAnswer":{"@type":"Answer","text":"The context window is the maximum number of tokens an LLM can consider at once — your prompt, the conversation history, and the generated response all count against it. GPT-3.5: 4,096 tokens. GPT-4: 128,000. Claude 3: 200,000. When you exceed the limit, the model either truncates the input (forgetting early messages) or errors out. Long conversations eventually 'forget' what was said earlier for this reason."}},{"@type":"Question","name":"What is the difference between GPT-4, Claude, and Gemini?","acceptedAnswer":{"@type":"Answer","text":"All three are transformers trained on next-token prediction. The differences are: training data (each company uses its own), scale (parameter counts vary), fine-tuning (each is tuned for different behaviors), context window (Claude is larger), and safety training (each has its own filter and alignment approach). For most tasks, they perform similarly. The choice comes down to API pricing, latency, specific capabilities, and how well each handles your use case."}},{"@type":"Question","name":"What is prompt engineering?","acceptedAnswer":{"@type":"Answer","text":"Prompt engineering is the practice of writing prompts that get better LLM outputs. The core techniques: be specific (vague prompts get vague answers), provide context (the model doesn't know what you haven't said), use examples (few-shot prompting works better than descriptions), specify format (ask for JSON, markdown, or a list), and iterate (the first prompt is rarely the best). It's not magic — it's clear communication with a statistical model."}},{"@type":"Question","name":"Can LLMs reason?","acceptedAnswer":{"@type":"Answer","text":"Partially. LLMs can follow logical steps, solve math problems, and reason through puzzles — but they don't 'reason' the way humans do. They pattern-match against reasoning-like text in their training data. For simple reasoning, they often get it right. For novel reasoning or multi-step logic, they fail in ways that look like human mistakes but aren't. Chain-of-thought prompting (asking the model to 'think step by step') helps because it forces the model to generate reasoning-like text, which improves accuracy."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-ai.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#8b5cf6 !important;">Lesson 5</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">LLMs & transformers</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#a78bfa;">Home</a> ›
+<a href="/courses/index.html" style="color:#a78bfa;">Courses</a> ›
+<a href="/courses/ai/index.html" style="color:#a78bfa;">AI</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 5</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🤖 Lesson 5 · 25 minutes</div>
+<h1>LLMs & transformers.<br><span class="py-accent">How ChatGPT actually works.</span></h1>
+<p class="lead">
+You've used ChatGPT. You've seen it write code, answer questions, tell jokes, and — sometimes — confidently state things that are wrong. This lesson explains what's actually happening: the next-token prediction loop, what temperature does, why hallucinations are inevitable, what a context window really is, and how to write prompts that get better results. No magic. Just the mechanism.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~25 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> Concepts + demos</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/ai/index.html">AI path</a>
+<a href="/courses/ai/lessons/nlp.html">← Lesson 4</a>
+<a href="#next-token">Next-token</a>
+<a href="#temperature">Temperature</a>
+<a href="#hallucination">Hallucinations</a>
+<a href="#context">Context window</a>
+<a href="#prompts">Prompting</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+An LLM is a transformer trained to predict the next token. That's the entire objective. Given a prompt, it predicts the most likely next token, appends it, and repeats. That loop — generation — produces everything from a haiku to working code. The model doesn't "think of the whole answer" — it predicts one token at a time, 10-50 times per second. Understanding this explains hallucinations, temperature, context limits, and why some prompts work better than others.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#8b5cf6 !important;">Before this lesson:</strong> complete <a href="/courses/ai/lessons/nlp.html" style="color:#a78bfa; text-decoration:underline;">Lesson 4</a>. You need to understand tokens, embeddings, and attention — they're the foundation for everything here.
+</p>
+</div>
+
+<section id="next-token">
+<h2 class="section-title">🎯 Next-token prediction — the entire objective</h2>
+<p class="section-sub">The whole training objective is one sentence. Everything else emerges from it.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">How generation works</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">TRAINING OBJECTIVE (during training, on billions of documents):
+"Given these tokens, predict the next one."
+That's it. That's the entire loss function.
+
+Text: "The capital of France is ___"
+Model predicts: "Paris"
+If wrong, adjust weights. Repeat billions of times.
+
+GENERATION (what happens when you use ChatGPT):
+
+Step 1: You type: "Write a haiku about rain"
+
+Step 2: Model tokenizes → [write, a, haiku, about, rain]
+
+Step 3: Model predicts next token:
+→ "Soft" (most likely given the prompt)
+
+Step 4: Append "Soft" to the sequence
+Sequence becomes: [write, a, haiku, about, rain, Soft]
+
+Step 5: Predict next token:
+→ "raindrops"
+
+Step 6: Append "raindrops":
+Sequence: [write, a, haiku, about, rain, Soft, raindrops]
+
+Step 7: Predict next token:
+→ "fall"
+
+...repeat until end-of-sequence token or length limit...
+
+Final output: "Soft raindrops fall
+Whispering on window glass
+Nature's gentle song"
+
+EVERY RESPONSE IS GENERATED THIS WAY.
+Every poem, every line of code, every answer.
+One token at a time. 10-50 tokens per second.
+No "thinking ahead." No "planning the whole answer."
+
+WHY THIS MATTERS:
+→ Hallucinations (next section)
+→ Temperature (next section)
+→ Why prompts matter
+→ Why LLMs fail at math
+
+All follow from this single mechanism.</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Autoregressive</h4>
+<p>The model predicts one token, then uses that token as input for predicting the next. Each token depends on all previous tokens. This is why generation is fast but not perfect — errors compound.</p>
+</div>
+<div class="concept-card">
+<h4>Greedy vs sampled</h4>
+<p>Greedy: always pick the most likely token. Sampled: randomly pick from the distribution. ChatGPT uses sampling with temperature — that's why the same prompt gives different answers sometimes.</p>
+</div>
+<div class="concept-card">
+<h4>End-of-sequence</h4>
+<p>The model learns to emit a special end token when the response is complete. It's not deciding "I'm done" — it's predicting that this particular token is most likely next.</p>
+</div>
+<div class="concept-card">
+<h4>Generation speed</h4>
+<p>Modern models generate 10-50 tokens per second. A 1,000-token response takes 20-100 seconds. That's the delay before you see the full answer — it's not "thinking," it's generating.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Try this: type "The sky is" and let ChatGPT autocomplete it 5 times.</strong> Different completions? That's temperature and sampling at work. Same completion every time? That's greedy decoding. Most LLMs allow you to control this via the API. Understanding next-token prediction makes all of this predictable rather than mysterious.</p>
+</div>
+</section>
+
+<section id="temperature">
+<h2 class="section-title">🌡️ Temperature — the randomness knob</h2>
+<p class="section-sub">Controls how "creative" or "focused" the model is. The most important setting in the API.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">What temperature does</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">After the model produces a probability distribution over
+the vocabulary, temperature changes the distribution
+before sampling.
+
+PROMPT: "The best programming language is"
+
+RAW PROBABILITIES (before temperature):
+Python 0.30
+JavaScript 0.25
+Rust 0.15
+Go 0.10
+Java 0.08
+C++ 0.07
+...other 0.05
+
+TEMPERATURE = 0 (Greedy)
+Always pick the highest.
+→ "Python" every time. Deterministic. Repeatable.
+Use for: factual answers, code, structured output.
+
+TEMPERATURE = 0.7 (Default, balanced)
+Sample proportionally to probabilities.
+→ Usually "Python" (0.30 chance)
+→ Often "JavaScript" (0.25 chance)
+→ Sometimes "Rust" (0.15 chance)
+→ Rarely "Go" (0.10 chance)
+→ Almost never the others
+Use for: general chat, most applications.
+
+TEMPERATURE = 1.5 (High, creative)
+Flatten the distribution — more likely to pick lower-probability tokens.
+→ "Python" still favored (0.15 chance)
+→ "Go" gets (0.12 chance) — much higher than before
+→ Surprises happen
+Use for: creative writing, brainstorming.
+
+TEMPERATURE = 3.0 (Extreme, near-random)
+Distribution is nearly uniform. Sampling becomes almost random.
+→ Output usually incoherent.
+Don't use.
+
+THE RULE OF THUMB:
+task requires precision (facts, code) → temperature 0-0.3
+task requires creativity (writing, ideas) → temperature 0.7-1.0
+task requires chaos (rarely useful) → temperature 1.5+
+
+ANALOGY:
+Temperature 0 = "give me the answer"
+Temperature 0.7 = "give me a good answer"
+Temperature 1.5 = "surprise me"</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Temperature 0</h4>
+<p>Greedy — always pick the most likely token. Deterministic, repeatable, but sometimes bland. Use for factual answers, code generation, structured output, unit tests.</p>
+</div>
+<div class="concept-card">
+<h4>Temperature 0.7</h4>
+<p>The typical default for chat. Balances creativity and coherence. Good for most general use — conversation, moderate creativity, general Q&A.</p>
+</div>
+<div class="concept-card">
+<h4>Temperature 1.0+</h4>
+<p>Creative — more likely to pick less obvious tokens. Use for brainstorming, poetry, fiction, alternative ideas. Watch out: too high makes the output incoherent.</p>
+</div>
+<div class="concept-card">
+<h4>Temperature is per-token</h4>
+<p>It's applied at each generation step, not to the whole response. A high temperature can drift wildly even in a single response. That's why high-temperature outputs feel inconsistent.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Temperature 0 does not guarantee correctness.</strong> It guarantees determinism — the same input always produces the same output. But if the model's most likely next token is wrong, temperature 0 will confidently pick the wrong answer. Lower temperature improves consistency, not accuracy. For accuracy, you need better training data, RAG, or verification.</p>
+</div>
+</section>
+
+<section id="hallucination">
+<h2 class="section-title">👻 Hallucinations — why LLMs confidently lie</h2>
+<p class="section-sub">Not a bug. An inherent property of next-token prediction. Here's why.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">An LLM has no mechanism to check whether what it says is true. It generates the most plausible next token based on patterns in training data. Most of the time, plausible equals true — the training data contains mostly accurate text, so the statistical patterns align with reality. But when the model encounters a query outside its training distribution, or a query where the training data is contradictory, it still generates a confident-sounding response. That's a hallucination.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Why hallucinations happen</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">PROMPT: "What is the population of the small town of Xyzton?"
+(Assume "Xyzton" is a made-up name.)
+
+The model has never seen "Xyzton" in training data.
+But it still generates a response:
+
+Step 1: Most plausible next token after "The population of Xyzton is":
+→ "approximately" (high probability, grammatically correct)
+
+Step 2: Next token:
+→ "12,000" (plausible number for a small town)
+
+Step 3: Next token:
+→ "." (sentence end)
+
+Output: "The population of Xyzton is approximately 12,000."
+
+→ CONFIDENT. → SPECIFIC. → COMPLETELY FABRICATED.
+
+WHY THIS HAPPENS:
+
+The model isn't "checking" whether Xyzton exists.
+It's generating the most plausible sequence of tokens
+given the prompt "What is the population of..."
+
+Pattern matches:
+"What is the population of ___?" → answer pattern
+"The population of ___ is approximately ___,___."
+
+The model fills in the blank with plausible content.
+It has no mechanism to say "I don't know" unless
+"I don't know" is the most plausible next token —
+which it usually isn't, because training data is full
+of confident answers, not uncertain ones.
+
+TYPES OF HALLUCINATIONS:
+
+1. Fabricated facts (invented numbers, dates, names)
+2. Fabricated citations (invented paper titles, authors)
+3. Fabricated sources (invented URLs, book titles)
+4. Wrong details (real entity, wrong attribute)
+5. Confident errors (right format, wrong content)
+
+HOW TO MITIGATE:
+
+• RAG (retrieval-augmented generation) — give the model
+actual documents to reference, not just its training memory
+• Verification — check facts against a real source
+• Lower temperature — reduces creativity but not hallucinations
+• "I don't know" prompting — ask the model to admit uncertainty
+• Ask for citations — then verify them (models often
+hallucinate citations too, so this is imperfect)</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Not fixable</h4>
+<p>Hallucinations are inherent to next-token prediction. Larger models hallucinate less, but they still do. The mechanism that produces good answers also produces confident lies. They're the same mechanism.</p>
+</div>
+<div class="concept-card">
+<h4>RAG helps</h4>
+<p>Retrieval-Augmented Generation: give the model real documents to reference. Instead of relying on training memory, the model quotes from provided sources. This is the standard fix for factual tasks.</p>
+</div>
+<div class="concept-card">
+<h4>Trust but verify</h4>
+<p>Never trust LLM output for critical facts — numbers, dates, names, citations. Always verify against a real source. The model sounds confident whether it's right or wrong.</p>
+</div>
+<div class="concept-card">
+<h4>The confidence trap</h4>
+<p>LLMs are confident even when wrong. This is because confident-sounding text is well-represented in training data. A hesitant answer would have low probability, so it's rarely generated. Don't use tone as a proxy for accuracy.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Never trust LLM-generated citations without verification.</strong> ChatGPT has fabricated legal cases, scientific papers, and book titles — with authors and page numbers that look real. Lawyers have been sanctioned in court for citing hallucinated cases. If a model gives you a citation, verify it against the actual source. If you can't find it, it probably doesn't exist. This is not paranoia — it's the standard practice for anyone using LLMs for research.</p>
+</div>
+</section>
+
+<section id="context">
+<h2 class="section-title">📦 Context window — the model's working memory</h2>
+<p class="section-sub">Everything the model can "see" at once. Your prompt, chat history, and the response all count.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">What counts against the context window</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">THE CONTEXT WINDOW INCLUDES:
+
+┌─────────────────────────────────────────┐
+│ 1. System prompt │
+│ (instructions for the model) │
+│ │
+│ 2. Full conversation history │
+│ (every previous user message │
+│ + every previous model response) │
+│ │
+│ 3. Current prompt │
+│ (what you just typed) │
+│ │
+│ 4. Reserved for response │
+│ (space for the model to generate) │
+│ │
+└─────────────────────────────────────────┘
+
+ALL of this together must fit within the model's
+context window. Exceed it and something has to give.
+
+CONTEXT WINDOW SIZES (2026):
+GPT-3.5-turbo: 4,096 tokens (~3,000 words)
+GPT-4-turbo: 128,000 tokens (~96,000 words)
+Claude 3.5: 200,000 tokens (~150,000 words)
+Gemini 1.5 Pro: 2,000,000 tokens (~1,500,000 words)
+
+WHAT HAPPENS WHEN YOU EXCEED IT:
+
+Older models: Error, request fails
+Modern models: Truncate oldest messages
+(chat "forgets" the beginning)
+Some models: Reject and warn
+
+WHY THIS MATTERS:
+
+• Long chat = model forgets early messages
+• Long document = must be chunked into pieces
+• Long code base = can't fit all at once
+• API cost is per token — long context = expensive
+
+PRACTICAL RULE:
+For long documents, chunk into 3,000-5,000 token pieces
+and process each piece separately, or use a model with
+a larger context window. Never assume the model "sees"
+everything in a long chat — it sees what fits.
+
+VISUAL:
+
+Total conversation length
+├────────────────────────────────────────┤
+│← fits in context →│← cut off →│
+│ │ │
+│ Model can see this │ Model can't │
+│ │ see this │
+└────────────────────────────────────────┘
+↑
+context limit
+
+When new messages push length past the limit,
+the oldest messages disappear. The model
+literally cannot remember them.</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Everything counts</h4>
+<p>System prompt + chat history + your message + the response. All tokens count. A 10-message chat uses much more context than a single question.</p>
+</div>
+<div class="concept-card">
+<h4>Chat memory is not real</h4>
+<p>The model doesn't have persistent memory. It "remembers" the conversation only because the conversation is included in the context each turn. When the context truncates, the memory is gone.</p>
+</div>
+<div class="concept-card">
+<h4>Bigger isn't always better</h4>
+<p>Larger context windows cost more (per token) and can slow down inference. For most tasks, a smaller window plus RAG is more efficient than a giant context.</p>
+</div>
+<div class="concept-card">
+<h4>The "lost in the middle" problem</h4>
+<p>Even within a large context window, models tend to attend less to information in the middle. Critical instructions should go at the start or end, not buried in a 100-page document.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The most common LLM application bug: forgetting that chat history counts against the context.</strong> Build a customer support bot that remembers 50 messages of history and the context fills up fast. The model starts "forgetting" recent messages because old ones are still in the context. Fix: summarize the conversation periodically, or use a retrieval system that pulls only relevant history into each turn. The context window is a hard limit, not an infinite scroll.</p>
+</div>
+</section>
+
+<section id="prompts">
+<h2 class="section-title">✍️ Prompt engineering — getting better outputs</h2>
+<p class="section-sub">Not magic. Clear communication with a statistical model.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Five principles that improve every prompt</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">1. BE SPECIFIC
+✗ "Write about Python"
+✓ "Write a 200-word intro to Python variables
+for absolute beginners, using analogies"
+
+2. PROVIDE CONTEXT
+✗ "Fix this code" (which code? what's broken?)
+✓ "Fix this Python function — it's supposed to
+return the average, but it crashes on empty lists.
+[code]"
+
+3. USE EXAMPLES (few-shot)
+✗ "Classify these reviews as positive or negative"
+✓ "Classify reviews.
+Example: 'Love it!' → positive
+Example: 'Terrible product' → negative
+Now: 'Best purchase I've made' → ?"
+
+4. SPECIFY FORMAT
+✗ "Give me user data"
+✓ "Return user data as JSON with fields:
+name (string), age (number), email (string)"
+
+5. ITERATE
+First prompt rarely works. Refine based on output.
+"Good, but make it shorter"
+"Good, but add examples"
+"Good, but change the tone to be more formal"
+
+ADVANCED PATTERNS:
+
+CHAIN OF THOUGHT:
+"Think step by step" or "explain your reasoning"
+Forces the model to generate reasoning-like text,
+which improves accuracy on multi-step problems.
+
+ROLE PROMPTING:
+"You are an expert Python developer reviewing code"
+Changes the distribution of likely responses.
+
+NEGATIVE PROMPTS:
+"Do NOT include filler phrases like 'Certainly!'"
+Explicitly excludes certain patterns.
+
+STRUCTURED OUTPUT:
+"Respond ONLY with valid JSON, no markdown, no prose"
+Forces the model into a specific format.
+
+REAL IMPROVEMENT:
+Vague prompt: ~50% useful output
+Specific prompt: ~80% useful output
+Few-shot prompt: ~90% useful output
+
+The improvement is real, but it's not magic —
+it's just giving the model clearer patterns
+to match against.</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Clarity</h4>
+<p>The model can't read your mind. Every detail you don't specify is a gap it fills with the most common pattern. Be explicit about what you want.</p>
+</div>
+<div class="concept-card">
+<h4>Examples</h4>
+<p>One good example is worth 100 words of description. "Here's an example of what I want" is often the fastest way to get what you want.</p>
+</div>
+<div class="concept-card">
+<h4>Chain of thought</h4>
+<p>"Think step by step" forces the model to generate reasoning text before the answer. This improves math, logic, and multi-step problems by 20-40% in accuracy.</p>
+</div>
+<div class="concept-card">
+<h4>Iteration</h4>
+<p>The first output is a draft, not the answer. Refine, ask for changes, push back. The best LLM users treat prompts as conversations, not one-shot requests.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Chain-of-thought prompting works for a mechanical reason.</strong> When the model generates "Let me think step by step," it produces reasoning-like text. That reasoning text becomes part of the context for the actual answer — and reasoning-like text is more likely to be correct than conclusion-like text, because the training data contains more correct reasoning steps than correct conclusions. You're not making it "think" — you're forcing it to generate a better context window for the final answer. It's a trick that exploits the mechanism, not a claim about intelligence.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different LLM concept.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Predict the next token</h4>
+<p>For each prompt, predict the most likely next token and explain why:</p>
+<p>1. "The capital of Japan is"<br>
+2. "2 + 2 ="<br>
+3. "Once upon a"<br>
+4. "The best pizza topping is"<br>
+5. "def hello():"</p>
+<p>For each, is temperature 0 or temperature 1 better for the task? Why?</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Spot the hallucination</h4>
+<p>Here are 5 statements. For each, decide: is this probably true, probably false, or possibly a hallucination? How would you verify?</p>
+<p>1. "Python was created by Guido van Rossum in 1991."<br>
+2. "The 2023 paper 'Attention is All You Need II' extended the original transformer architecture."<br>
+3. "JavaScript's let was introduced in ES6 (2015)."<br>
+4. "The Rust programming language was created by Apple in 2008."<br>
+5. "GPT-4 has approximately 1.7 trillion parameters."</p>
+<p>Which ones can you verify from memory? Which need a search? Why does the model sound confident either way?</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Rewrite the prompt</h4>
+<p>Rewrite each weak prompt into a strong one. What changes would you make?</p>
+<p>1. "Write a blog post about AI"<br>
+2. "Fix my code"<br>
+3. "Explain databases"<br>
+4. "Write a cover letter"<br>
+5. "Give me ideas"</p>
+<p>For each, apply the 5 principles: be specific, provide context, use examples, specify format, plan to iterate. Write the improved prompt. Then explain why the original would have failed.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The LLM misconceptions that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Trusting confident-sounding facts</div>
+<p>LLMs are confident whether right or wrong. Confidence is not accuracy. Verify anything critical — numbers, dates, names, citations. Especially citations.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Thinking "temperature 0" means "correct"</div>
+<p>Temperature 0 means deterministic, not accurate. If the model's highest-probability next token is wrong, temperature 0 will confidently pick wrong. It improves consistency, not accuracy.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Not accounting for context</div>
+<p>Every previous message counts against the context window. Long chat = model forgets. Long document = must chunk. The context window is a hard limit, not an infinite scroll.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using one prompt and giving up</div>
+<p>The first prompt is a draft. Refine, ask for changes, push back. "Good, but shorter" and "Good, but more examples" are the fastest way to improve output.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Assuming the model "knows"</div>
+<p>The model doesn't "know" anything. It predicts tokens. When it "knows" Python, it's producing Python-looking text because Python is well-represented in training data. No understanding, just pattern matching.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Trusting LLM-generated citations</div>
+<p>LLMs fabricate citations — papers, authors, page numbers, URLs. All look real, most are invented. Always verify against the actual source. This has caused lawyers to be sanctioned.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using LLMs for math without verification</div>
+<p>LLMs struggle with arithmetic, especially large numbers. They generate plausible answers, not computed ones. Use a calculator, or ask the model to write code that computes the answer — then run it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not using RAG for factual tasks</div>
+<p>If the task requires factual accuracy about specific documents, RAG (retrieval-augmented generation) is the right approach. Feeding the model the actual documents is far more reliable than asking it to remember.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">🎓 AI track complete</h2>
+<p class="section-sub">Five lessons. One complete mental model. Here's what you can do now.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>You understand the mechanism</h4>
+<p>Tokens, embeddings, attention, transformers, next-token prediction, temperature, context windows, hallucinations. Every concept that appears in AI articles and product pitches is now legible.</p>
+</div>
+<div class="concept-card">
+<h4>You can evaluate claims</h4>
+<p>"AGI by 2027," "AI will replace developers," "AI is just statistics." You can read any AI claim and assess whether it's plausible, hype, or nonsense.</p>
+</div>
+<div class="concept-card">
+<h4>You can use AI better</h4>
+<p>Better prompts, lower expectations for facts, higher for structure. You know when to trust the model and when to verify. You know how to iterate.</p>
+</div>
+<div class="concept-card">
+<h4>You can go deeper</h4>
+<p>PyTorch, Hugging Face, RAG, fine-tuning, prompt engineering, LLM applications. The foundation is built — everything else is discovery.</p>
+</div>
+</div>
+
+<div class="pro-tip" style="margin-top:1.5rem;">
+<p><strong>What to build before moving to advanced AI.</strong> Build one small LLM-powered app: a summarizer, a chatbot that answers questions about a PDF, a code explainer. Use the OpenAI API or a local model via Ollama. Handle the context window carefully, verify the outputs, and use RAG for anything factual. That one project will teach you more than the next ten tutorials — because the failure modes only become real when you hit them.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">You've finished the AI track. Three directions from here.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🐍 Python track</div>
+<div class="text-xs text-slate-400 mt-1">Deeper Python for AI applications</div>
+</a>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🟨 JavaScript track</div>
+<div class="text-xs text-slate-400 mt-1">Build AI apps with JS and TensorFlow.js</div>
+</a>
+<a href="/ai-analyzer.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔍 AI text analyzer</div>
+<div class="text-xs text-slate-400 mt-1">A working AI demo in the browser</div>
+</a>
+<a href="/courses/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All courses</div>
+<div class="text-xs text-slate-400 mt-1">Back to the hub</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is an LLM?</summary>
+<p class="mt-2 text-sm text-slate-300">An LLM (Large Language Model) is a neural network trained to predict the next token in a sequence of text. That's the entire objective — no more, no less. GPT-4, Claude, Gemini, and Llama are all trained this way. The 'large' refers to the model size — billions of parameters — and the amount of training data.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How does an LLM generate text?</summary>
+<p class="mt-2 text-sm text-slate-300">Autoregressive generation: give the model a prompt, it predicts the most likely next token, appends it to the prompt, then predicts the next, then the next. This loop continues until the model predicts an end-of-sequence token or hits a length limit. Every response you've ever gotten from ChatGPT was generated one token at a time.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is temperature in LLMs?</summary>
+<p class="mt-2 text-sm text-slate-300">Temperature controls randomness in token selection. Temperature 0 always picks the most likely token — deterministic, repeatable, but sometimes bland. Temperature 1 samples from the distribution — creative, unpredictable. Use lower temperature (0-0.3) for factual answers, higher (0.7-1.0) for creative writing.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why do LLMs hallucinate?</summary>
+<p class="mt-2 text-sm text-slate-300">LLMs are trained to produce plausible text, not true text. They have no mechanism to verify facts. When the training data doesn't contain the answer, the model still produces a confident-sounding response. This isn't a bug that will be 'fixed' — it's inherent to how the architecture works. Fix: use RAG (retrieval-augmented generation) to ground responses in real documents.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a context window?</summary>
+<p class="mt-2 text-sm text-slate-300">The context window is the maximum number of tokens an LLM can consider at once. Your prompt, the conversation history, and the generated response all count against it. GPT-3.5: 4,096 tokens. GPT-4: 128,000. Claude 3: 200,000. When you exceed the limit, the model either truncates the input or errors out.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between GPT-4, Claude, and Gemini?</summary>
+<p class="mt-2 text-sm text-slate-300">All three are transformers trained on next-token prediction. The differences are: training data, scale, fine-tuning, context window, and safety training. For most tasks, they perform similarly. The choice comes down to API pricing, latency, specific capabilities, and how well each handles your use case.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is prompt engineering?</summary>
+<p class="mt-2 text-sm text-slate-300">Prompt engineering is the practice of writing prompts that get better LLM outputs. Core techniques: be specific, provide context, use examples, specify format, and iterate. It's not magic — it's clear communication with a statistical model.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can LLMs reason?</summary>
+<p class="mt-2 text-sm text-slate-300">Partially. LLMs can follow logical steps and solve math problems — but they don't 'reason' the way humans do. They pattern-match against reasoning-like text in their training data. Chain-of-thought prompting (asking the model to 'think step by step') helps because it forces the model to generate reasoning-like text, which improves accuracy.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://platform.openai.com/docs/guides/prompt-engineering" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">OpenAI: Prompt engineering guide</a></li>
+<li>→ <a href="https://www.promptingguide.ai/" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Prompt Engineering Guide</a></li>
+<li>→ <a href="https://www.anthropic.com/index/prompting-long-context" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Anthropic: Prompting long context</a></li>
+<li>→ <a href="https://jalammar.github.io/illustrated-gpt2/" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Jay Alammar: The Illustrated GPT-2</a></li>
+</ul>
+</section>
+
+<a href="/courses/ai/index.html" class="back-link">← Back to AI track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the AI track · Lesson 5 · Track complete <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
