@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SQL GROUP BY & Aggregates — COUNT, SUM, AVG, HAVING (2026)</title>
+<meta name="description" content="Learn SQL GROUP BY and aggregate functions. COUNT, SUM, AVG, MIN, MAX, and HAVING. Every example shows the query AND the actual output.">
+<meta name="keywords" content="sql group by, sql count, sql sum, sql avg, sql having, sql aggregate functions, sql group by examples">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="SQL GROUP BY & Aggregates — COUNT, SUM, AVG, HAVING">
+<meta property="og:description" content="Learn SQL GROUP BY and aggregate functions. COUNT, SUM, AVG, MIN, MAX, and HAVING. Every example shows the query AND the actual output.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/sql/lessons/group-by.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SQL GROUP BY & Aggregates — COUNT, SUM, AVG, HAVING">
+<meta name="twitter:description" content="Learn SQL GROUP BY and aggregate functions. Every example shows query AND output.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/sql/lessons/group-by.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"SQL GROUP BY & Aggregates — COUNT, SUM, AVG, HAVING","description":"Learn SQL GROUP BY and aggregate functions. COUNT, SUM, AVG, MIN, MAX, and HAVING. Every example shows the query AND the actual output.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-26","dateModified":"2026-10-26","proficiencyLevel":"Intermediate","dependencies":"SQL"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What does GROUP BY do in SQL?","acceptedAnswer":{"@type":"Answer","text":"GROUP BY groups rows that share a value in one or more columns, so aggregate functions can be applied to each group instead of the whole table. SELECT country, COUNT() FROM users GROUP BY country returns one row per country with the count of users in each. Without GROUP BY, COUNT() returns the total row count. With GROUP BY, it returns one count per group."}},{"@type":"Question","name":"What are the five aggregate functions in SQL?","acceptedAnswer":{"@type":"Answer","text":"COUNT counts rows. SUM adds up numeric values. AVG averages numeric values. MIN returns the smallest value. MAX returns the largest value. All five ignore NULL by default — COUNT(column) counts non-NULL rows, SUM(column) skips NULLs, and so on. They all work on a set of rows and return one value per group (or one value for the whole table if there's no GROUP BY)."}},{"@type":"Question","name":"What is the difference between WHERE and HAVING?","acceptedAnswer":{"@type":"Answer","text":"WHERE filters rows before GROUP BY. HAVING filters groups after GROUP BY. WHERE cannot reference aggregate functions like COUNT or SUM; HAVING can. Use WHERE when you're filtering individual rows (e.g., only US users). Use HAVING when you're filtering groups (e.g., only countries with more than 100 users). The order is: FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT."}},{"@type":"Question","name":"What is the difference between COUNT() and COUNT(column)?","acceptedAnswer":{"@type":"Answer","text":"COUNT() counts all rows, including rows where every column is NULL. COUNT(column) counts non-NULL values in that column. If a column has 10 rows and 3 are NULL, COUNT(column) returns 7 while COUNT() returns 10. Use COUNT() to count rows, COUNT(column) to count non-NULL values in a specific column. COUNT(DISTINCT column) counts unique non-NULL values."}},{"@type":"Question","name":"Why do I get a 'not in GROUP BY' error?","acceptedAnswer":{"@type":"Answer","text":"Because you SELECT a column that isn't in GROUP BY and isn't wrapped in an aggregate function. If you write SELECT name, COUNT() FROM users GROUP BY country, the database doesn't know which name to show for each country — there are multiple names. Fix: either include name in GROUP BY, or wrap it in an aggregate like MAX(name). The rule: every column in SELECT must be in GROUP BY or wrapped in an aggregate."}},{"@type":"Question","name":"What is COUNT(DISTINCT column)?","acceptedAnswer":{"@type":"Answer","text":"COUNT(DISTINCT column) counts the number of unique non-NULL values in a column. COUNT(column) counts all non-NULL values including duplicates. If a column has values 1, 2, 2, 3, COUNT(column) returns 4 while COUNT(DISTINCT column) returns 3. Use DISTINCT when you want to know 'how many unique values' rather than 'how many rows.'"}},{"@type":"Question","name":"Can I GROUP BY multiple columns?","acceptedAnswer":{"@type":"Answer","text":"Yes. GROUP BY country, city groups by the combination of country and city. Each (country, city) pair gets one row in the result. This is common for hierarchical reports — sales by region and product, users by signup year and country. Order matters in the GROUP BY list for readability but doesn't change the grouping: GROUP BY a, b groups by (a, b) which is the same as (b, a)."}},{"@type":"Question","name":"Can I sort groups by an aggregate?","acceptedAnswer":{"@type":"Answer","text":"Yes. ORDER BY works on aggregate results. SELECT country, COUNT() AS c FROM users GROUP BY country ORDER BY c DESC returns countries sorted by user count, descending. This is the standard way to build 'top N' reports. You can also ORDER BY the aggregate expression directly: ORDER BY COUNT(*) DESC. Both work; the alias version is usually cleaner."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-sql.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#10b981 !important;">Lesson 4</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">GROUP BY & aggregates</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#34d399;">Home</a> ›
+<a href="/courses/index.html" style="color:#34d399;">Courses</a> ›
+<a href="/courses/sql/index.html" style="color:#34d399;">SQL</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 4</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟢 Lesson 4 · 20 minutes</div>
+<h1>GROUP BY & aggregates.<br><span class="py-accent">Summarize data. Answer business questions.</span></h1>
+<p class="lead">
+Every report, every dashboard, every analytics feature uses GROUP BY. "How many users signed up each month?" "What's the total revenue per country?" "Which products sell the most?" These aren't row-level questions — they're questions about groups of rows. That's what GROUP BY and aggregate functions answer. Combined with JOINs, they're how you turn raw data into insight. Every example has a Code / Output toggle so you see the actual grouped result.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~20 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> SQL · standard</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/sql/index.html">SQL path</a>
+<a href="/courses/sql/lessons/joins.html">← Lesson 3</a>
+<a href="#aggregates">5 aggregates</a>
+<a href="#group-by">GROUP BY</a>
+<a href="#multi">Multiple columns</a>
+<a href="#having">HAVING</a>
+<a href="#top-n">Top N reports</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+Five aggregate functions cover every summary: <code>COUNT</code>, <code>SUM</code>, <code>AVG</code>, <code>MIN</code>, <code>MAX</code>. <code>GROUP BY</code> applies them per group. <code>HAVING</code> filters groups after aggregation (WHERE filters rows before). The rule: every column in SELECT must be in <code>GROUP BY</code> or wrapped in an aggregate. Query order: <code>FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT</code>. That order explains 90% of "why doesn't this work" questions.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#10b981 !important;">Before this lesson:</strong> complete <a href="/courses/sql/lessons/joins.html" style="color:#34d399; text-decoration:underline;">Lesson 3</a>. GROUP BY combines with JOINs constantly in real queries.
+</p>
+</div>
+
+<section id="aggregates">
+<h2 class="section-title">📊 The five aggregate functions</h2>
+<p class="section-sub">Each one takes many rows and returns a single value. That's the entire concept.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">An aggregate function operates on a set of rows and returns one value per group. Without GROUP BY, the whole table is one "group." With GROUP BY, you get one value per group. Every aggregate ignores NULL by default — <code>SUM(amount)</code> skips rows where amount is NULL.</p>
+
+<div class="code-block" id="block-aggregates">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-aggregates', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-aggregates', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Without GROUP BY: aggregate over the WHOLE table
+SELECT
+COUNT(*) AS total_orders,
+SUM(amount) AS total_revenue,
+AVG(amount) AS avg_order_value,
+MIN(amount) AS smallest_order,
+MAX(amount) AS largest_order
+FROM orders;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>total_orders</th><th>total_revenue</th><th>avg_order_value</th><th>smallest_order</th><th>largest_order</th></tr>
+</thead>
+<tbody>
+<tr><td>5</td><td>785.49</td><td>157.10</td><td>45.50</td><td>300.00</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">1 row returned</div>
+</div>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4 mb-3">Each function counts something different. <code>COUNT(*)</code> includes NULLs; <code>COUNT(column)</code> skips them. <code>COUNT(DISTINCT column)</code> counts unique values.</p>
+
+<div class="code-block" id="block-count-variants">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-count-variants', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-count-variants', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">SELECT
+COUNT(*) AS total_rows,
+COUNT(email) AS rows_with_email,
+COUNT(DISTINCT country) AS unique_countries,
+COUNT(DISTINCT user_id) AS unique_customers
+FROM users;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>total_rows</th><th>rows_with_email</th><th>unique_countries</th><th>unique_customers</th></tr>
+</thead>
+<tbody>
+<tr><td>8</td><td>6</td><td>5</td><td>8</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">1 row returned — 2 users have NULL email, 5 distinct countries</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>COUNT</h4>
+<p>Counts rows. <code>COUNT(*)</code> counts all. <code>COUNT(column)</code> counts non-NULL values. <code>COUNT(DISTINCT column)</code> counts unique values. The most-used aggregate.</p>
+</div>
+<div class="concept-card">
+<h4>SUM</h4>
+<p>Adds up numeric values. Skips NULLs. <code>SUM(amount)</code> = total revenue. Works only on numeric columns — summing a text column errors or returns 0.</p>
+</div>
+<div class="concept-card">
+<h4>AVG</h4>
+<p>Averages numeric values. Skips NULLs — <code>AVG(amount)</code> divides by the count of non-NULL rows, not total rows. Useful for "average order value" and similar metrics.</p>
+</div>
+<div class="concept-card">
+<h4>MIN / MAX</h4>
+<p>Smallest / largest value. Works on numbers, dates, strings (alphabetical). <code>MIN(created_at)</code> = earliest signup. <code>MAX(amount)</code> = largest order.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>COUNT() vs COUNT(column) matters.</strong> If a table has 100 rows and 20 have NULL email, <code>COUNT()</code> = 100, <code>COUNT(email)</code> = 80. If you're calculating "how many users have email," you want <code>COUNT(email)</code>. If you're calculating "how many users total," you want <code>COUNT(*)</code>. The distinction is easy to miss and produces wrong answers silently.</p>
+</div>
+</section>
+
+<section id="group-by">
+<h2 class="section-title">🗂️ GROUP BY — one row per group</h2>
+<p class="section-sub">The clause that turns aggregates from "whole table" into "per category."</p>
+
+<div class="code-block" id="block-group-basic">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-group-basic', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-group-basic', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Count users per country
+SELECT
+country,
+COUNT(*) AS user_count
+FROM users
+GROUP BY country
+ORDER BY user_count DESC;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>country</th><th>user_count</th></tr>
+</thead>
+<tbody>
+<tr><td>US</td><td>3</td></tr>
+<tr><td>UK</td><td>2</td></tr>
+<tr><td>ES</td><td>1</td></tr>
+<tr><td>IN</td><td>1</td></tr>
+<tr><td>DE</td><td>1</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">5 rows — one per country</div>
+</div>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4 mb-3">Combined with JOINs, GROUP BY answers the questions every analytics dashboard needs:</p>
+
+<div class="code-block" id="block-group-join">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-group-join', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-group-join', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Total spend and order count per user
+SELECT
+u.name,
+COUNT(o.id) AS order_count,
+COALESCE(SUM(o.amount), 0) AS total_spent
+FROM users u
+LEFT JOIN orders o ON o.user_id = u.id
+GROUP BY u.name
+ORDER BY total_spent DESC;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>name</th><th>order_count</th><th>total_spent</th></tr>
+</thead>
+<tbody>
+<tr><td>Marcus Lee</td><td>2</td><td>345.50</td></tr>
+<tr><td>Alice Chen</td><td>2</td><td>350.00</td></tr>
+<tr><td>Bob Smith</td><td>1</td><td>89.99</td></tr>
+<tr><td>Priya Patel</td><td>0</td><td>0</td></tr>
+<tr><td>Sofia García</td><td>0</td><td>0</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">5 rows — one per user, including users with no orders</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>The rule</h4>
+<p>Every column in SELECT must be either (a) in GROUP BY, or (b) wrapped in an aggregate function. If you SELECT name but GROUP BY country, the database doesn't know which name to show — there are multiple names per country.</p>
+</div>
+<div class="concept-card">
+<h4>Why the rule exists</h4>
+<p>For each group, there's only one row in the output. Columns in GROUP BY have one value per group. Aggregates reduce many values to one. Anything else has multiple values per group — the database refuses to guess.</p>
+</div>
+<div class="concept-card">
+<h4>COALESCE for NULLs</h4>
+<p><code>COALESCE(SUM(amount), 0)</code> returns 0 instead of NULL when there are no rows. Essential for LEFT JOIN + GROUP BY queries where some groups have no matching rows.</p>
+</div>
+<div class="concept-card">
+<h4>GROUP BY vs DISTINCT</h4>
+<p><code>SELECT DISTINCT country FROM users</code> = unique countries. <code>SELECT country FROM users GROUP BY country</code> = same result. Use GROUP BY when you also want aggregates; DISTINCT when you only need unique values.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>The "not in GROUP BY" error is the #1 GROUP BY mistake.</strong> <code>SELECT name, COUNT(*) FROM users GROUP BY country</code> fails because name isn't in GROUP BY and isn't aggregated. The database literally can't determine which name to show for each country. Fix: either include name in GROUP BY (giving one row per name+country combination) or wrap it in an aggregate like <code>MAX(name)</code> (picking an arbitrary name). For most queries, the intent is different — you probably meant <code>GROUP BY name</code>, not <code>GROUP BY country</code>.</p>
+</div>
+</section>
+
+<section id="multi">
+<h2 class="section-title">🔗 Multiple GROUP BY columns</h2>
+<p class="section-sub">Group by combinations, not just single columns. Every pair becomes a group.</p>
+
+<div class="code-block" id="block-multi-group">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-multi-group', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-multi-group', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Group by country AND city — one row per (country, city) pair
+SELECT
+country,
+city,
+COUNT(*) AS user_count
+FROM users
+GROUP BY country, city
+ORDER BY country, user_count DESC;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>country</th><th>city</th><th>user_count</th></tr>
+</thead>
+<tbody>
+<tr><td>DE</td><td>Berlin</td><td>1</td></tr>
+<tr><td>ES</td><td>Madrid</td><td>1</td></tr>
+<tr><td>IN</td><td>Mumbai</td><td>1</td></tr>
+<tr><td>UK</td><td>London</td><td>2</td></tr>
+<tr><td>US</td><td>New York</td><td>2</td></tr>
+<tr><td>US</td><td>San Francisco</td><td>1</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">6 rows — one per unique (country, city) pair</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Combinations</h4>
+<p><code>GROUP BY a, b</code> creates one group per unique (a, b) combination. Not "one per a AND one per b" — one per pair. Two columns × two values = up to 4 groups.</p>
+</div>
+<div class="concept-card">
+<h4>Order doesn't change the groups</h4>
+<p><code>GROUP BY country, city</code> produces the same groups as <code>GROUP BY city, country</code>. Order only affects readability and (sometimes) sort order.</p>
+</div>
+<div class="concept-card">
+<h4>For hierarchical reports</h4>
+<p>"Sales by region and product" → <code>GROUP BY region, product</code>. "Users by signup year and country" → <code>GROUP BY year, country</code>. Multi-column GROUP BY is how you build drill-down reports.</p>
+</div>
+<div class="concept-card">
+<h4>Row count = unique combinations</h4>
+<p>With N unique pairs, you get N rows. Not N × 2, not N + something — exactly one row per unique combination of GROUP BY columns.</p>
+</div>
+</div>
+</section>
+
+<section id="having">
+<h2 class="section-title">🔍 HAVING — filter groups</h2>
+<p class="section-sub">WHERE filters rows. HAVING filters groups. Both, but at different points.</p>
+
+<div class="code-block" id="block-having">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-having', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-having', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Countries with more than 1 user
+SELECT
+country,
+COUNT() AS user_count
+FROM users
+GROUP BY country
+HAVING COUNT() > 1
+ORDER BY user_count DESC;
+
+-- Combine WHERE and HAVING:
+-- WHERE filters rows BEFORE grouping (e.g., only active users)
+-- HAVING filters groups AFTER grouping (e.g., only large groups)
+SELECT
+country,
+COUNT() AS active_users
+FROM users
+WHERE active = true
+GROUP BY country
+HAVING COUNT() >= 2;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Result of first query: HAVING COUNT(*) > 1</p>
+<table class="sql-output-table">
+<thead>
+<tr><th>country</th><th>user_count</th></tr>
+</thead>
+<tbody>
+<tr><td>US</td><td>3</td></tr>
+<tr><td>UK</td><td>2</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">2 rows — countries with more than 1 user</div>
+</div>
+</div>
+</div>
+
+<div class="overflow-x-auto" style="margin-top:1.5rem;">
+<table class="w-full text-sm text-slate-300">
+<thead>
+<tr class="border-b border-slate-700">
+<th class="text-left py-2 pr-4 text-slate-400 font-medium">Clause</th>
+<th class="text-left py-2 pr-4 text-slate-400 font-medium">Filters</th>
+<th class="text-left py-2 text-slate-400 font-medium">When</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-slate-800"><td class="py-2 pr-4">WHERE</td><td class="py-2 pr-4">Individual rows</td><td class="py-2">Before GROUP BY</td></tr>
+<tr><td class="py-2 pr-4">HAVING</td><td class="py-2 pr-4">Groups</td><td class="py-2">After GROUP BY</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="warning-box">
+<p><strong>You can't use WHERE to filter by an aggregate.</strong> <code>WHERE COUNT() > 1</code> is a syntax error — COUNT doesn't exist yet when WHERE runs (grouping hasn't happened). Fix: use <code>HAVING COUNT() > 1</code>. The reverse also applies: HAVING runs after grouping, so you can't use HAVING to filter individual rows efficiently. Use WHERE for row-level filters, HAVING for group-level filters.</p>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>HAVING</h4>
+<p>Filters groups based on aggregate results. <code>HAVING COUNT() > 100</code>, <code>HAVING SUM(amount) >= 1000</code>. Runs after GROUP BY, so it can reference aggregates.</p>
+</div>
+<div class="concept-card">
+<h4>WHERE</h4>
+<p>Filters individual rows. Runs before GROUP BY. Cannot reference aggregate functions. <code>WHERE country = 'US'</code>, <code>WHERE created_at > '2026-01-01'</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Combine them</h4>
+<p>WHERE filters rows first, then GROUP BY groups the remaining rows, then HAVING filters groups. <code>WHERE active = true GROUP BY country HAVING COUNT() >= 2</code> = "active users per country, only countries with at least 2 active users."</p>
+</div>
+<div class="concept-card">
+<h4>When in doubt</h4>
+<p>If your condition references an aggregate function (COUNT, SUM, AVG), use HAVING. Otherwise use WHERE. WHERE is more efficient — it reduces rows before aggregation, so the database does less work.</p>
+</div>
+</div>
+</section>
+
+<section id="top-n">
+<h2 class="section-title">🏆 Top N reports — the killer pattern</h2>
+<p class="section-sub">The most-common dashboard query. GROUP BY + aggregate + ORDER BY + LIMIT.</p>
+
+<div class="code-block" id="block-top-n">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-top-n', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-top-n', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Top 3 countries by user count
+SELECT
+country,
+COUNT(*) AS user_count
+FROM users
+GROUP BY country
+ORDER BY user_count DESC
+LIMIT 3;
+
+-- Top 3 users by total spent
+SELECT
+u.name,
+SUM(o.amount) AS total_spent
+FROM users u
+INNER JOIN orders o ON o.user_id = u.id
+GROUP BY u.name
+ORDER BY total_spent DESC
+LIMIT 3;
+
+-- Category totals with minimum threshold
+SELECT
+category,
+COUNT() AS product_count,
+AVG(price) AS avg_price
+FROM products
+WHERE stock > 0
+GROUP BY category
+HAVING COUNT() >= 5
+ORDER BY product_count DESC
+LIMIT 10;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Result of query 1: Top 3 countries by user count</p>
+<table class="sql-output-table">
+<thead>
+<tr><th>country</th><th>user_count</th></tr>
+</thead>
+<tbody>
+<tr><td>US</td><td>3</td></tr>
+<tr><td>UK</td><td>2</td></tr>
+<tr><td>ES</td><td>1</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">3 rows returned (LIMIT 3)</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>The pattern</h4>
+<p><code>GROUP BY X → ORDER BY AGGREGATE DESC → LIMIT N</code>. "Top N X by Y." Countries by user count, users by spending, products by sales, authors by book count.</p>
+</div>
+<div class="concept-card">
+<h4>Order by alias or expression</h4>
+<p>Both work: <code>ORDER BY user_count DESC</code> (alias) or <code>ORDER BY COUNT() DESC</code> (expression). Alias is usually cleaner and prevents mistakes.</p>
+</div>
+<div class="concept-card">
+<h4>INNER vs LEFT for aggregates</h4>
+<p>Use INNER JOIN when you only want users with orders. Use LEFT JOIN + COALESCE when you want all users including those with 0 orders. Different question, different join type.</p>
+</div>
+<div class="concept-card">
+<h4>Threshold with HAVING</h4>
+<p>Add <code>HAVING COUNT() >= 5</code> to filter out tiny groups. Standard for "top 10 categories with at least 5 products" — prevents noise from categories with 1 item each.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>This pattern is the entire "analytics" layer of most SaaS apps.</strong> MRR by plan, signups by month, revenue by country, top products by sales — all are <code>GROUP BY something ORDER BY aggregate DESC LIMIT N</code>. Once you internalize it, you can build a real analytics dashboard in an afternoon. The pattern is simple; recognizing when to apply it is the skill.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different aggregate pattern.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Predict the output</h4>
+<p>Given a <code>sales</code> table with columns (id, product_id, quantity, price, sold_at) and 100 rows:</p>
+<p>1. What does <code>SELECT COUNT() FROM sales</code> return?<br>
+2. What does <code>SELECT SUM(quantity) FROM sales</code> return?<br>
+3. What does <code>SELECT product_id, COUNT() FROM sales GROUP BY product_id</code> return — how many rows?<br>
+4. What does <code>SELECT product_id, SUM(quantity) FROM sales GROUP BY product_id HAVING SUM(quantity) > 10</code> return?<br>
+5. What does <code>SELECT product_id, SUM(quantity * price) AS revenue FROM sales GROUP BY product_id ORDER BY revenue DESC LIMIT 5</code> return?</p>
+<p>For each query, predict the shape of the output.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Write analytics queries</h4>
+<p>Using a <code>users</code> table (id, name, country, created_at, active) and an <code>orders</code> table (id, user_id, amount, created_at):</p>
+<p>1. Users per country, sorted descending<br>
+2. Countries with more than 10 users<br>
+3. Users who have placed more than 5 orders (JOIN + GROUP BY + HAVING)<br>
+4. Average order amount per user, excluding users who have no orders<br>
+5. Top 5 users by total spend, including users with 0 orders (LEFT JOIN + COALESCE)<br>
+6. Monthly signup counts (hint: <code>GROUP BY DATE_TRUNC('month', created_at)</code> in PostgreSQL)<br>
+7. Countries where the average order amount is over $100</p>
+<p>Which of these require GROUP BY? HAVING? JOIN? All three?</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Build a dashboard</h4>
+<p>You're building a dashboard for an e-commerce site. Given tables <code>users</code>, <code>orders</code>, <code>products</code>, <code>order_items</code> (order_id, product_id, quantity, unit_price), write the query for each KPI:</p>
+<p>1. Total revenue this month<br>
+2. Number of orders this month<br>
+3. Average order value<br>
+4. Top 5 products by units sold this month<br>
+5. Top 5 products by revenue this month<br>
+6. Top 10 customers by total spend this year<br>
+7. Month-over-month revenue growth (hint: two grouped queries, then compare)</p>
+<p>For each query, identify: which tables you join, which columns you GROUP BY, which aggregates you use, and any WHERE/HAVING filters. Then write the query.</p>
+<p>This is the exact work of a real data analyst — the queries are the product.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The GROUP BY bugs that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Column not in GROUP BY or aggregate</div>
+<p><code>SELECT name, COUNT() FROM users GROUP BY country</code> fails. Every SELECT column must be in GROUP BY or wrapped in an aggregate. Fix: include name in GROUP BY, or use <code>MAX(name)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using WHERE to filter aggregates</div>
+<p><code>WHERE COUNT() > 1</code> is a syntax error. Fix: <code>HAVING COUNT() > 1</code>. WHERE runs before grouping; aggregates don't exist yet.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Confusing COUNT() with COUNT(column)</div>
+<p><code>COUNT()</code> counts rows. <code>COUNT(email)</code> counts non-NULL email values. If some are NULL, the results differ. Use the right one for your question.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Missing rows in LEFT JOIN + GROUP BY</div>
+<p>Users with 0 orders disappear from COUNT queries because LEFT JOIN + GROUP BY with no COALESCE returns NULL for their sum. Fix: <code>COALESCE(SUM(amount), 0)</code> and use <code>COUNT(o.id)</code>, not <code>COUNT()</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. GROUP BY on the wrong column</div>
+<p>You wanted users per country but grouped by user_id — every user gets their own row. Fix: group by the column you actually want to aggregate by.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Forgetting ORDER BY with LIMIT</div>
+<p><code>GROUP BY x LIMIT 5</code> returns 5 arbitrary groups. To get the top 5, add <code>ORDER BY aggregate DESC</code>. Without it, you get whichever 5 the database picked first.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Aggregating non-numeric columns</div>
+<p><code>SUM(name)</code> errors or returns 0. SUM and AVG work on numbers only. MIN and MAX work on strings (alphabetical) and dates. COUNT works on anything.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not handling NULL in AVG</div>
+<p><code>AVG(amount)</code> divides by non-NULL count, not total rows. If 5 rows have NULL amount, the average is higher than you might expect. Use <code>AVG(COALESCE(amount, 0))</code> to include NULLs as 0.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">You can summarize data. Next: modifying it.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/sql/lessons/insert-update-delete.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 5: INSERT, UPDATE, DELETE</div>
+<div class="text-xs text-slate-400 mt-1">Modify data safely</div>
+</a>
+<a href="/courses/sql/lessons/indexes.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 6: Indexes and performance</div>
+<div class="text-xs text-slate-400 mt-1">Make queries fast</div>
+</a>
+<a href="/courses/sql/lessons/joins.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 3: JOINs</div>
+<div class="text-xs text-slate-400 mt-1">Review JOIN types</div>
+</a>
+<a href="/courses/sql/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">SQL learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does GROUP BY do in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">GROUP BY groups rows that share a value in one or more columns, so aggregate functions can be applied to each group instead of the whole table. SELECT country, COUNT() FROM users GROUP BY country returns one row per country with the count of users in each.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are the five aggregate functions in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">COUNT counts rows. SUM adds up numeric values. AVG averages numeric values. MIN returns the smallest value. MAX returns the largest value. All five ignore NULL by default.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between WHERE and HAVING?</summary>
+<p class="mt-2 text-sm text-slate-300">WHERE filters rows before GROUP BY. HAVING filters groups after GROUP BY. WHERE cannot reference aggregate functions; HAVING can. Use WHERE to filter rows, HAVING to filter groups.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between COUNT() and COUNT(column)?</summary>
+<p class="mt-2 text-sm text-slate-300">COUNT() counts all rows including NULLs. COUNT(column) counts non-NULL values in that column. COUNT(DISTINCT column) counts unique non-NULL values. Use COUNT() for "how many rows," COUNT(column) for "how many non-NULL values."</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why do I get a 'not in GROUP BY' error?</summary>
+<p class="mt-2 text-sm text-slate-300">Because you SELECT a column that isn't in GROUP BY and isn't wrapped in an aggregate function. Fix: either include the column in GROUP BY, or wrap it in an aggregate like MAX() or MIN().</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is COUNT(DISTINCT column)?</summary>
+<p class="mt-2 text-sm text-slate-300">COUNT(DISTINCT column) counts the number of unique non-NULL values in a column. If a column has values 1, 2, 2, 3, COUNT(column) returns 4 while COUNT(DISTINCT column) returns 3.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I GROUP BY multiple columns?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. GROUP BY country, city groups by the combination of country and city. Each (country, city) pair gets one row in the result. This is common for hierarchical reports.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I sort groups by an aggregate?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. ORDER BY works on aggregate results. SELECT country, COUNT(*) AS c FROM users GROUP BY country ORDER BY c DESC returns countries sorted by user count, descending.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://sqlbolt.com/lesson/select_queries_with_aggregates" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">SQLBolt: Aggregate functions</a></li>
+<li>→ <a href="https://www.postgresql.org/docs/current/tutorial-agg.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">PostgreSQL: Aggregate functions</a></li>
+<li>→ <a href="https://pgexercises.com/questions/aggregates/" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">PG Exercises: Aggregate practice</a></li>
+</ul>
+</section>
+
+<a href="/courses/sql/index.html" class="back-link">← Back to SQL track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the SQL track · Lesson 4 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
