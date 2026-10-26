@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SQL Indexes & Performance — EXPLAIN, B-Trees, Query Optimization (2026)</title>
+<meta name="description" content="Learn SQL indexes and performance. When to add indexes, when not to, how to read EXPLAIN plans, and the patterns that turn 10-second queries into 10-millisecond ones.">
+<meta name="keywords" content="sql indexes, sql performance, sql explain, sql query optimization, sql b-tree, sql index types">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="SQL Indexes & Performance — EXPLAIN, B-Trees, Query Optimization">
+<meta property="og:description" content="Learn SQL indexes and performance. When to add indexes, when not to, how to read EXPLAIN plans, and the patterns that turn 10-second queries into 10-millisecond ones.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/sql/lessons/indexes.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SQL Indexes & Performance — EXPLAIN, B-Trees, Query Optimization">
+<meta name="twitter:description" content="Learn SQL indexes and performance. EXPLAIN plans, B-trees, query optimization.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/sql/lessons/indexes.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"SQL Indexes & Performance — EXPLAIN, B-Trees, Query Optimization","description":"Learn SQL indexes and performance. When to add indexes, when not to, how to read EXPLAIN plans, and the patterns that turn 10-second queries into 10-millisecond ones.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-26","dateModified":"2026-10-26","proficiencyLevel":"Intermediate","dependencies":"SQL"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is a SQL index?","acceptedAnswer":{"@type":"Answer","text":"An index is a data structure that speeds up lookups on a column, similar to a book's index. Without an index, the database scans every row (a full table scan). With an index on a column, the database jumps directly to the matching rows using a B-tree structure. An index on (user_id) turns a WHERE user_id = 42 query from O(n) into O(log n) — from checking every row to checking a handful. The tradeoff: indexes speed up reads but slow down writes (INSERT, UPDATE, DELETE) because the index has to be updated too."}},{"@type":"Question","name":"When should I add an index?","acceptedAnswer":{"@type":"Answer","text":"Add an index on any column you regularly filter by (WHERE), join on (ON), or sort by (ORDER BY). The most important indexes: foreign keys (every user_id, order_id, product_id column), columns used in frequent WHERE clauses, and columns used in ORDER BY with LIMIT. If a query is slow and it's filtering on an unindexed column, adding an index typically makes it 10-1000x faster. Indexes have a cost (storage + slower writes), so don't index everything — index what you query."}},{"@type":"Question","name":"When should I NOT add an index?","acceptedAnswer":{"@type":"Answer","text":"Don't index: (1) columns you never filter or sort by (wasted storage and slower writes), (2) columns with very low cardinality (e.g., a boolean active column — an index on 50/50 values doesn't help much), (3) very small tables (a full scan of 100 rows is instant — an index adds overhead for no benefit), (4) columns in tables with very heavy write load (indexes make inserts slower), (5) columns where you use LIKE '%x%' (leading wildcard — index can't help). Every index is a tradeoff between read speed and write speed. Measure before adding."}},{"@type":"Question","name":"What is a full table scan?","acceptedAnswer":{"@type":"Answer","text":"A full table scan is when the database reads every row in the table to find matches. It's the default behavior when no index exists, or when the index can't be used (e.g., LIKE '%x%'). Full scans are fine for small tables (under ~1,000 rows) but catastrophic for large tables (a scan of 1 million rows takes seconds; an index lookup takes milliseconds). EXPLAIN plans show 'Seq Scan' (PostgreSQL) or 'ALL' (MySQL) when a full scan is happening — that's the signal to add an index."}},{"@type":"Question","name":"What is EXPLAIN in SQL?","acceptedAnswer":{"@type":"Answer","text":"EXPLAIN shows the query plan — how the database intends to execute your query. It reveals which indexes are being used, which tables are being scanned fully, and where the time is going. EXPLAIN ANALYZE (PostgreSQL) actually runs the query and shows real timing. Use EXPLAIN before deploying any query that might be slow. Read it bottom-up: the innermost operation runs first, and the cost of each step tells you where to optimize."}},{"@type":"Question","name":"What is a composite index and why does column order matter?","acceptedAnswer":{"@type":"Answer","text":"A composite index covers multiple columns: CREATE INDEX idx ON orders (user_id, created_at). Column order matters because the B-tree sorts by the first column, then the second within that. A query WHERE user_id = 42 AND created_at > '2026-01-01' uses both. A query WHERE user_id = 42 uses just the first. A query WHERE created_at > '2026-01-01' (without user_id) can't use it at all — the index is sorted by user_id first. Rule: put the most-common-filtered column first, then others in order of selectivity."}},{"@type":"Question","name":"What is a covering index?","acceptedAnswer":{"@type":"Answer","text":"A covering index includes all columns the query needs, so the database can answer from the index alone without reading the table. If you query SELECT id, name FROM users WHERE email = ?, an index on (email, id, name) covers it — the database reads the index, finds the email, and gets id and name directly. Covering indexes are dramatically faster for read-heavy queries because they skip the "index lookup then table lookup" step. The tradeoff: they use more storage."}},{"@type":"Question","name":"How many indexes should a table have?","acceptedAnswer":{"@type":"Answer","text":"There's no universal number — it depends on read/write ratio. A read-heavy analytics table might have 10 indexes. A write-heavy events table might have 2. General rule: every foreign key gets an index (essential). Every column used in frequent WHERE gets an index. Then stop. Each index costs storage (typically 10-20% of table size) and slows writes (each INSERT updates all indexes). If a table has more than 8-10 indexes, question whether they're all needed. Use EXPLAIN to verify which indexes are actually being used; drop unused ones."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-sql.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#10b981 !important;">Lesson 6</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Indexes & performance</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#34d399;">Home</a> ›
+<a href="/courses/index.html" style="color:#34d399;">Courses</a> ›
+<a href="/courses/sql/index.html" style="color:#34d399;">SQL</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 6</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟢 Lesson 6 · 20 minutes</div>
+<h1>Indexes & performance.<br><span class="py-accent">From 10 seconds to 10 milliseconds.</span></h1>
+<p class="lead">
+A query that runs instantly on 1,000 rows takes 10 seconds on 1 million rows. Same query, different scale. The difference between "works in development" and "works in production" is almost always indexes. This lesson teaches what they are, when to add them, when not to, how to read EXPLAIN plans, and the specific patterns that turn slow queries fast. It's the last lesson in the SQL track — and the one that separates hobbyist SQL from production SQL.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~20 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> SQL · performance</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/sql/index.html">SQL path</a>
+<a href="/courses/sql/lessons/insert-update-delete.html">← Lesson 5</a>
+<a href="#what">What is an index</a>
+<a href="#explain">EXPLAIN</a>
+<a href="#when">When to index</a>
+<a href="#composite">Composite indexes</a>
+<a href="#covering">Covering indexes</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+An index is a B-tree that lets the database jump directly to matching rows instead of scanning every row. It turns <code>WHERE user_id = 42</code> from O(n) to O(log n). Add indexes on columns used in <code>WHERE</code>, <code>JOIN ON</code>, and <code>ORDER BY</code>. Don't index everything — each index slows writes and uses storage. Use <code>EXPLAIN</code> to see if a query uses indexes. If it says "Seq Scan" or "Full Table Scan", that's your signal to add one. If it says "Index Scan" or "Index Only Scan", you're good.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#10b981 !important;">Before this lesson:</strong> complete <a href="/courses/sql/lessons/insert-update-delete.html" style="color:#34d399; text-decoration:underline;">Lesson 5</a>. You should be comfortable with SELECT, WHERE, JOIN, GROUP BY.
+</p>
+</div>
+
+<section id="what">
+<h2 class="section-title">📚 What an index actually is</h2>
+<p class="section-sub">A data structure, not magic. Like the index at the back of a book — but for database rows.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Without an index, finding a row requires scanning the entire table. On a table with 1,000 rows, that's instant. On a table with 1 million rows, that's seconds. An index is a separate data structure that maps column values to row locations, so the database can jump straight to the matches.</p>
+
+<div class="code-block" id="block-index-concept">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-index-concept', 'code', this)">Without index</button>
+<button onclick="switchCodeOutput('block-index-concept', 'output', this)">With index</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Query without an index on user_id
+SELECT * FROM orders WHERE user_id = 42;
+
+-- The database does this:
+-- 1. Read row 1 → check user_id → no
+-- 2. Read row 2 → check user_id → no
+-- 3. Read row 3 → check user_id → no
+-- ... (repeats for all rows)
+-- 1,000,000. Read row 1,000,000 → check → no
+
+-- Result: 1,000,000 row reads.
+-- Time on a real table: 500-2000ms.
+
+-- This is called a "full table scan".
+-- The cost grows linearly with table size:
+-- 1K rows = 1ms, 100K = 100ms, 1M = 1000ms.
+
+-- If you see this pattern on a large table,
+-- add an index. It's the single biggest
+-- performance win in SQL.</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 8px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">The B-tree index structure (simplified)</p>
+<pre style="color:#e8eef7;font-size:0.78rem;line-height:1.6;font-family:'SF Mono',Consolas,Monaco,monospace;background:#0a1525;padding:12px;border-radius:6px;margin:0;overflow-x:auto;"> [ 500 ]
+/
+[ 250 ] [ 750 ]
+/ \ /
+[100] [350] [600] [900]
+/ \ / \ / \ /
+1..99 100..249 250..499 ... 900..999
+Each leaf points to actual row locations
+in the table.
+
+To find user_id = 42:
+1. Compare 42 to 500 → go left
+2. Compare 42 to 250 → go left
+3. Compare 42 to 100 → go left
+4. Scan the 1..99 leaf → find 42
+
+Only 4 comparisons for 1M rows.
+That's the entire magic of a B-tree.</pre>
+<div class="sql-output-rows" style="margin-top:12px;">O(log n) instead of O(n) — ~20 steps for 1M rows instead of 1,000,000</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>B-tree structure</h4>
+<p>The default index type. Balanced tree where each node has multiple children. Lookup is O(log n) — 20 steps to find any row in 1 million. Handles range queries (<code>WHERE x > 100</code>) efficiently.</p>
+</div>
+<div class="concept-card">
+<h4>Separate from the table</h4>
+<p>An index is a separate file/area. It stores (column_value → row_location) pairs. That's why indexes use extra storage — typically 10-20% of table size.</p>
+</div>
+<div class="concept-card">
+<h4>Automatically maintained</h4>
+<p>When you INSERT, UPDATE, or DELETE, all indexes on the table are updated. You don't manage them manually. This is why writes are slower on indexed tables.</p>
+</div>
+<div class="concept-card">
+<h4>Primary key = index</h4>
+<p>Every PRIMARY KEY is automatically indexed. Every UNIQUE constraint creates an index. That's why <code>WHERE id = 42</code> is always fast — id is the primary key.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Think of a B-tree like a phone book.</strong> To find "Smith, John," you don't read every page — you go to the S section, then Smith, then John. Without the alphabetical order, you'd have to scan every name. An index adds alphabetical order to a column so the database can do the same trick. It's not magic; it's just sorted data with extra metadata to make lookups fast. That's the entire concept.</p>
+</div>
+</section>
+
+<section id="explain">
+<h2 class="section-title">🔍 EXPLAIN — the diagnostic tool</h2>
+<p class="section-sub">Tells you how the database will run the query. The first tool to check when something's slow.</p>
+
+<div class="code-block" id="block-explain">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-explain', 'code', this)">EXPLAIN</button>
+<button onclick="switchCodeOutput('block-explain', 'output', this)">Plan output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Show the query plan WITHOUT running it
+EXPLAIN SELECT * FROM orders WHERE user_id = 42;
+
+-- Show the query plan WITH actual runtime (slower, runs query)
+EXPLAIN ANALYZE SELECT * FROM orders WHERE user_id = 42;
+
+-- Read bottom-up: innermost operation first.
+-- Look for:
+-- • "Seq Scan" or "Full Table Scan" ← bad
+-- • "Index Scan" or "Index Only Scan" ← good
+-- • Rows estimated vs actually returned
+-- • Total cost / actual time
+-- • Rows scanned vs rows returned</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#f87171;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">❌ Bad — no index</p>
+<pre style="color:#e8eef7;font-size:0.78rem;line-height:1.6;font-family:'SF Mono',Consolas,Monaco,monospace;background:#0a1525;padding:12px;border-radius:6px;margin:0 0 16px 0;overflow-x:auto;">Seq Scan on orders
+(cost=0.00..18500.00 rows=1 width=48)
+(actual time=0.015..842.315 rows=1 loops=1)
+Filter: (user_id = 42)
+Rows Removed by Filter: 999999</pre>
+<p style="color:#94a3b8;font-size:12px;margin:0 0 12px 0;">Took 842ms because it scanned 1,000,000 rows. "Rows Removed by Filter: 999999" is the giveaway.</p>
+
+<p style="color:#4ade80;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">✅ Good — with index</p>
+<pre style="color:#e8eef7;font-size:0.78rem;line-height:1.6;font-family:'SF Mono',Consolas,Monaco,monospace;background:#0a1525;padding:12px;border-radius:6px;margin:0;overflow-x:auto;">Index Scan using idx_orders_user_id on orders
+(cost=0.42..8.44 rows=1 width=48)
+(actual time=0.015..0.017 rows=1 loops=1)
+Index Cond: (user_id = 42)</pre>
+<div class="sql-output-rows" style="margin-top:12px;">0.017ms — 50,000x faster. Same query, different index.</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Seq Scan</h4>
+<p>PostgreSQL's term for full table scan. Reads every row. Fine for small tables, catastrophic for large ones. If you see this on a WHERE filter that returns few rows, add an index.</p>
+</div>
+<div class="concept-card">
+<h4>Index Scan</h4>
+<p>The good outcome. The database uses an index to find matching rows, then looks up the full rows. Fast. Your goal for any frequent query.</p>
+</div>
+<div class="concept-card">
+<h4>Index Only Scan</h4>
+<p>Best case. The database answers the query from the index alone, without reading the table. Requires a covering index (see below). Fastest possible.</p>
+</div>
+<div class="concept-card">
+<h4>Rows Removed by Filter</h4>
+<p>The killer metric. If this number is high (like 999,999), the query is doing massive wasted work. Every one of those rows was read and discarded. That's the number EXPLAIN is telling you to fix.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Always run EXPLAIN before deploying any query that might be slow.</strong> Especially on tables that will grow. A query that takes 5ms on 1,000 rows might take 5 seconds on 1 million. EXPLAIN ANALYZE reveals this before your users do. If the plan shows a Seq Scan on a table over 10,000 rows with a selective filter, add an index. This is 5 minutes of work that prevents a production incident.</p>
+</div>
+
+<div class="pro-tip">
+<p><strong>EXPLAIN ANALYZE actually runs the query — use it carefully.</strong> <code>EXPLAIN</code> alone shows the plan without executing. <code>EXPLAIN ANALYZE</code> runs the query and reports real timing. That's more useful — but on a slow query, it can still take 10 seconds. On production, use plain <code>EXPLAIN</code> first to see if the plan looks wrong, then <code>EXPLAIN ANALYZE</code> on a replica or with a row limit to get the actual timing.</p>
+</div>
+</section>
+
+<section id="when">
+<h2 class="section-title">✅ When to index — and when not to</h2>
+<p class="section-sub">Every index has a cost. The craft is knowing which ones to add.</p>
+
+<div class="code-block" id="block-when-index">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-when-index', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-when-index', 'output', this)">Rules</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- ✅ ADD an index — foreign keys (always)
+CREATE INDEX idx_orders_user_id ON orders (user_id);
+CREATE INDEX idx_order_items_order_id ON order_items (order_id);
+CREATE INDEX idx_order_items_product_id ON order_items (product_id);
+
+-- ✅ ADD an index — frequently filtered columns
+CREATE INDEX idx_users_email ON users (email);
+CREATE INDEX idx_users_country ON users (country);
+
+-- ✅ ADD an index — columns used in ORDER BY + LIMIT
+CREATE INDEX idx_posts_created_at ON posts (created_at DESC);
+
+-- ⚠️ CONSIDER before adding — low cardinality
+-- An index on a boolean active column (50/50 values)
+-- doesn't help much — a full scan is nearly as fast.
+-- Index only if active = true returns < 5% of rows.
+
+-- ⚠️ CONSIDER before adding — very small tables
+-- A 100-row table scans in 1ms. An index adds
+-- overhead for no measurable benefit.
+-- Add indexes when tables grow past ~10,000 rows.
+
+-- ❌ DON'T index — LIKE with leading wildcard
+-- WHERE name LIKE '%alice%'
+-- The index can't help — the pattern could match
+-- anywhere. Use a full-text index or trigram index.
+
+-- ❌ DON'T index — columns never queried
+-- Adding an index "just in case" wastes storage
+-- and slows every INSERT/UPDATE/DELETE.
+
+-- Verify with EXPLAIN after adding:
+EXPLAIN SELECT * FROM orders WHERE user_id = 42;
+-- Should now show "Index Scan using idx_orders_user_id"</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#4ade80;font-size:0.72rem;margin:0 0 8px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">✅ Always index these</p>
+<ul style="color:#cbd5e1;font-size:13px;line-height:1.8;margin:0 0 16px 0;padding-left:20px;">
+<li>Every foreign key (user_id, order_id, product_id)</li>
+<li>Columns used in frequent WHERE clauses</li>
+<li>Columns used in ORDER BY (with LIMIT)</li>
+<li>Columns used in JOIN ON clauses</li>
+<li>Unique columns (email, username)</li>
+</ul>
+
+<p style="color:#f87171;font-size:0.72rem;margin:0 0 8px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">❌ Don't index these</p>
+<ul style="color:#cbd5e1;font-size:13px;line-height:1.8;margin:0;padding-left:20px;">
+<li>Columns you never filter or sort by</li>
+<li>Boolean columns (50/50 distribution)</li>
+<li>Tables under ~10,000 rows</li>
+<li>Columns used only with LIKE '%x%'</li>
+<li>Every column "just in case"</li>
+</ul>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Foreign keys — always</h4>
+<p>Every <code>*_id</code> column that references another table's id needs an index. Without it, every JOIN scans the full table. This is the #1 missing index in most applications.</p>
+</div>
+<div class="concept-card">
+<h4>Selectivity matters</h4>
+<p>An index works best when the column has many unique values and you filter to few rows. Email (high selectivity) benefits. Boolean (low selectivity) doesn't — the index might be slower than a scan.</p>
+</div>
+<div class="concept-card">
+<h4>The cost of indexes</h4>
+<p>Storage: 10-20% of table size per index. Writes: every INSERT/UPDATE/DELETE updates all indexes — 5 indexes = 5 extra writes per change. Every index is a trade.</p>
+</div>
+<div class="concept-card">
+<h4>Find unused indexes</h4>
+<p>PostgreSQL tracks index usage in <code>pg_stat_user_indexes</code>. Indexes with <code>idx_scan = 0</code> after months of use are probably unnecessary. Drop them — they're pure cost.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Index everything is a beginner mistake. Index nothing is also a beginner mistake.</strong> The right answer depends on your query patterns. Start with foreign keys (always needed), then add indexes on columns that appear in your most-frequent queries. Measure with EXPLAIN. Drop indexes that aren't being used. The right number of indexes is "as many as the queries need, and not one more."</p>
+</div>
+</section>
+
+<section id="composite">
+<h2 class="section-title">🔗 Composite indexes — multiple columns</h2>
+<p class="section-sub">Index on (a, b) helps queries filtering on a, or a AND b. Not b alone. Order matters.</p>
+
+<div class="code-block" id="block-composite">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-composite', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-composite', 'output', this)">What it matches</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Composite index on (user_id, created_at)
+CREATE INDEX idx_orders_user_created
+ON orders (user_id, created_at);
+
+-- This index HELPS these queries:
+-- ✅ WHERE user_id = 42
+-- ✅ WHERE user_id = 42 AND created_at > '2026-01-01'
+-- ✅ WHERE user_id = 42 ORDER BY created_at DESC
+-- ✅ WHERE user_id = 42 ORDER BY created_at LIMIT 10
+
+-- This index does NOT help:
+-- ❌ WHERE created_at > '2026-01-01' (created_at is second)
+-- ❌ ORDER BY created_at DESC (created_at is second)
+-- ❌ WHERE user_id > 42 (range, but only first col)
+
+-- Why: the B-tree sorts by user_id FIRST, then created_at
+-- WITHIN each user_id. So it can jump to a user_id quickly,
+-- but can't find "all rows after date X" without scanning
+-- every user's section.
+
+-- To support queries on created_at alone, add a separate index:
+CREATE INDEX idx_orders_created_at ON orders (created_at DESC);
+
+-- The rule: put the most-filtered column FIRST.
+-- If queries filter by user_id 90% of the time and
+-- created_at 10% of the time, use (user_id, created_at).
+-- If the reverse, use (created_at, user_id).</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#94a3b8;font-size:12px;margin:0 0 8px 0;">A composite index on (user_id, created_at) is like a phone book sorted by last name, then first name. Finding "Smith" is fast. Finding "John" (any last name) is slow — you have to scan every Smith.</p>
+
+<p style="color:#4ade80;font-size:0.72rem;margin:12px 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">✅ Uses the (user_id, created_at) index</p>
+<pre style="color:#e8eef7;font-size:0.75rem;line-height:1.6;font-family:'SF Mono',Consolas,Monaco,monospace;background:#0a1525;padding:10px;border-radius:6px;margin:0 0 12px 0;overflow-x:auto;">WHERE user_id = 42
+AND created_at > '2026-01-01'</pre>
+
+<p style="color:#f87171;font-size:0.72rem;margin:12px 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">❌ Does NOT use the index</p>
+<pre style="color:#e8eef7;font-size:0.75rem;line-height:1.6;font-family:'SF Mono',Consolas,Monaco,monospace;background:#0a1525;padding:10px;border-radius:6px;margin:0;overflow-x:auto;">WHERE created_at > '2026-01-01'</pre>
+<div class="sql-output-rows" style="margin-top:12px;">This query needs its own index on created_at</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Leftmost prefix rule</h4>
+<p>A composite index on (a, b, c) can be used for queries filtering on (a), (a, b), or (a, b, c). Not on (b) alone, not on (c) alone. The leftmost columns are mandatory.</p>
+</div>
+<div class="concept-card">
+<h4>Column order matters</h4>
+<p>Put the column filtered most often first. Put the column with highest selectivity next. Put the column used in ORDER BY last (to satisfy "ORDER BY b" within "WHERE a").</p>
+</div>
+<div class="concept-card">
+<h4>One composite vs many singles</h4>
+<p>One index on (user_id, created_at) covers queries on user_id alone (via the first column). A separate (created_at) index is still needed for queries on created_at alone. Consolidate when possible.</p>
+</div>
+<div class="concept-card">
+<h4>Range columns go last</h4>
+<p>If you filter <code>WHERE a = ? AND b > ?</code>, index (a, b) is optimal. If it's <code>WHERE a > ? AND b = ?</code>, use (b, a) — the equality column first. Range conditions should be the last column.</p>
+</div>
+</div>
+</section>
+
+<section id="covering">
+<h2 class="section-title">🛡️ Covering indexes — answer from the index alone</h2>
+<p class="section-sub">The fastest index. Includes all columns the query needs, so the table is never read.</p>
+
+<div class="code-block" id="block-covering">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-covering', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-covering', 'output', this)">Comparison</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Query we want to speed up
+SELECT id, name, email
+FROM users
+WHERE email = 'alice@example.com';
+
+-- Regular index on (email):
+-- 1. Index scan → find matching row location
+-- 2. Table read → fetch id, name, email from the row
+-- 3. Return 1 row
+-- Two lookups per row. Fine for 1 row.
+
+-- Covering index on (email, id, name):
+-- 1. Index scan → find matching entry
+-- 2. Return id, name directly from the index
+-- Table never read! Fastest possible.
+
+CREATE INDEX idx_users_covering
+ON users (email, id, name);
+
+-- Verify it's used as "Index Only Scan":
+EXPLAIN SELECT id, name, email FROM users
+WHERE email = 'alice@example.com';
+-- Plan: Index Only Scan using idx_users_covering</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#94a3b8;font-size:12px;margin:0 0 12px 0;">The difference is one extra step. That step is a full disk seek — the slowest operation on modern hardware.</p>
+
+<p style="color:#fbbf24;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Regular index (email)</p>
+<pre style="color:#e8eef7;font-size:0.75rem;line-height:1.6;font-family:'SF Mono',Consolas,Monaco,monospace;background:#0a1525;padding:10px;border-radius:6px;margin:0 0 16px 0;overflow-x:auto;">Index Scan using idx_users_email
+(cost=0.42..8.44 rows=1 width=48)
+Index Cond: (email = 'alice@example.com')
+→ Then reads table for id, name
+→ ~0.15ms</pre>
+
+<p style="color:#4ade80;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Covering index (email, id, name)</p>
+<pre style="color:#e8eef7;font-size:0.75rem;line-height:1.6;font-family:'SF Mono',Consolas,Monaco,monospace;background:#0a1525;padding:10px;border-radius:6px;margin:0;overflow-x:auto;">Index Only Scan using idx_users_covering
+(cost=0.42..4.44 rows=1 width=48)
+Index Cond: (email = 'alice@example.com')
+Heap Fetches: 0
+→ Never reads the table
+→ ~0.02ms (7x faster)</pre>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>What it is</h4>
+<p>An index that includes every column the query SELECTs. The database answers from the index alone — "Index Only Scan" in EXPLAIN. The table file is never opened.</p>
+</div>
+<div class="concept-card">
+<h4>How to build one</h4>
+<p><code>CREATE INDEX idx ON users (filtered_column, output_column1, output_column2)</code>. Include the WHERE columns first, then the SELECT columns. Query must only reference those columns.</p>
+</div>
+<div class="concept-card">
+<h4>Performance gain</h4>
+<p>2-10x faster than a regular index for the covered query. The saved step is a disk seek — the slowest operation. On read-heavy systems, this adds up significantly.</p>
+</div>
+<div class="concept-card">
+<h4>The tradeoff</h4>
+<p>Larger index (includes all output columns). Still updated on every write. And only helps queries whose SELECT matches the indexed columns — changing the query breaks the coverage.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Covering indexes are where 10x speedups come from.</strong> Going from "Seq Scan 842ms" to "Index Scan 0.15ms" is a 5,600x speedup from adding one index. Going from "Index Scan 0.15ms" to "Index Only Scan 0.02ms" is another 7x. Both are real production gains — the first is often necessary, the second is a refinement for query-dense tables (dashboards, search, feeds). Use them where they matter, not on every query.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different performance scenario.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Diagnose the slow query</h4>
+<p>Here are three EXPLAIN outputs. For each, identify the problem and the fix:</p>
+<p><strong>Query A:</strong> <code>Seq Scan on users WHERE email = 'x'</code> — 1M rows, Rows Removed: 999,999<br>
+<strong>Query B:</strong> <code>Seq Scan on posts WHERE created_at > '2026-01-01'</code> — 500K rows, Rows Removed: 480,000<br>
+<strong>Query C:</strong> <code>Index Scan using idx_user_id</code>, but returns 500,000 rows out of 1M — cost 5000<br>
+<strong>Query D:</strong> <code>Seq Scan on orders</code>, then <code>Seq Scan on users</code>, joined in memory — 100 rows returned</p>
+<p>Which need indexes? Which need composite indexes? Which need covering indexes? Which are fine as-is?</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Design the index strategy</h4>
+<p>You have a <code>products</code> table (id, name, category, price, stock, created_at) with 500,000 rows. The following queries run frequently:</p>
+<p>1. <code>SELECT name, price FROM products WHERE category = 'Electronics' ORDER BY price ASC LIMIT 20;</code><br>
+2. <code>SELECT * FROM products WHERE stock > 0 AND price < 100;</code><br>
+3. <code>SELECT name FROM products WHERE name LIKE 'iPhone%';</code><br>
+4. <code>SELECT * FROM products WHERE created_at > NOW() - INTERVAL '7 days';</code><br>
+5. <code>SELECT category, COUNT(*), AVG(price) FROM products GROUP BY category;</code></p>
+<p>For each query, decide:</p>
+<p>• What index would help?<br>
+• Single-column, composite, or covering?<br>
+• Where should the index go?<br>
+• Is it worth the write cost?</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Fix the slow application</h4>
+<p>You inherit an app with these problems. Propose a fix for each:</p>
+<p>1. The dashboard takes 8 seconds to load — it joins 4 tables.<br>
+2. The "search users" feature has no index on email, so lookups scan 500K rows.<br>
+3. Every page view counts clicks with <code>UPDATE post SET click_count = click_count + 1 WHERE id = ?</code> — 1,000 views/sec.<br>
+4. A report runs <code>SELECT * FROM orders WHERE user_id = ?</code> but only needs 3 columns.<br>
+5. A user_list table has 8 indexes, and every INSERT takes 400ms.</p>
+<p>For each, propose: what index to add, what to drop, what to change in the schema, or what to change in the query. Explain the tradeoff. (Hint: for #3, think about write amplification — every write hits every index.)</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The performance bugs that catch every developer.</p>
+
+<div class="mistake">
+<div class="mtitle">1. No index on foreign keys</div>
+<p>Every <code>user_id</code>, <code>order_id</code>, <code>product_id</code> column needs an index. Without it, every JOIN scans the full table. This is the single biggest missing index in every application.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. SELECT * on a large table</div>
+<p>Fetches every column, including large text and blob columns. Fix: list the columns you actually need. A covering index can then answer the query from the index alone.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Function on an indexed column</div>
+<p><code>WHERE LOWER(email) = 'x'</code> can't use a plain index on email — LOWER(email) is a different value. Fix: use a functional index (<code>CREATE INDEX ON users (LOWER(email))</code>) or normalize the data.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. LIKE with leading wildcard</div>
+<p><code>WHERE name LIKE '%alice%'</code> can't use a B-tree index — the pattern could match anywhere. Fix: use full-text index, trigram index, or accept the scan.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Too many indexes</div>
+<p>8 indexes on a write-heavy table means every INSERT updates 8 indexes. Writes get slow. Fix: audit with EXPLAIN and pg_stat_user_indexes. Drop unused ones.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Not analyzing after large data changes</div>
+<p>After bulk INSERT or DELETE, the query planner has stale statistics. Fix: run <code>ANALYZE table_name</code> to update. Postgres auto-analyzes, but explicit helps after big changes.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Wrong column order in composite index</div>
+<p><code>CREATE INDEX ON orders (created_at, user_id)</code> doesn't help <code>WHERE user_id = 42</code> (user_id is second). Fix: put the most-filtered column first.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not using EXPLAIN before deploying</div>
+<p>A query that took 5ms on staging (1,000 rows) takes 5 seconds on production (1 million rows). Fix: run EXPLAIN ANALYZE on a production-sized dataset before shipping.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">🎓 SQL track complete</h2>
+<p class="section-sub">Six lessons. One complete skill. Here's what you can do now.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>You can write real queries</h4>
+<p>SELECT, WHERE, JOINs, GROUP BY, subqueries, window functions — every query pattern that appears in production. You can translate business questions into SQL.</p>
+</div>
+<div class="concept-card">
+<h4>You can modify data safely</h4>
+<p>INSERT, UPDATE, DELETE with transactions. UPSERT to sync safely. Soft delete for user data. You know what not to do — and how to recover if you do.</p>
+</div>
+<div class="concept-card">
+<h4>You can debug slow queries</h4>
+<p>EXPLAIN, EXPLAIN ANALYZE, index analysis. You know when a query needs an index, a composite index, or a covering index. And when adding one is a mistake.</p>
+</div>
+<div class="concept-card">
+<h4>You can design schemas</h4>
+<p>Normalization, foreign keys, indexes, soft delete patterns. You know how to build a schema that supports queries without breaking under load.</p>
+</div>
+</div>
+
+<div class="pro-tip" style="margin-top:1.5rem;">
+<p><strong>What to do before moving to advanced SQL.</strong> Take a real database (a sample dataset like the Chinook music store, or Sakila DVD rentals). Write 20 queries against it — reports, dashboards, analytics. Run EXPLAIN on each. Add indexes where the plan is bad. This practice is the entire education — the syntax is small, the practice is infinite. Once you've written 100 real queries against real data, you're no longer a beginner.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">You've completed the SQL track. Three directions from here.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🐍 Python track</div>
+<div class="text-xs text-slate-400 mt-1">Run SQL from Python (psycopg2, SQLAlchemy)</div>
+</a>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🟨 JavaScript track</div>
+<div class="text-xs text-slate-400 mt-1">Query databases from Node.js</div>
+</a>
+<a href="/courses/ai/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🤖 AI track</div>
+<div class="text-xs text-slate-400 mt-1">Use SQL to prepare data for ML</div>
+</a>
+<a href="/courses/sql/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">SQL learning path</div>
+<div class="text-xs text-slate-400 mt-1">Review the full 6-week roadmap</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a SQL index?</summary>
+<p class="mt-2 text-sm text-slate-300">An index is a data structure that speeds up lookups on a column, similar to a book's index. Without an index, the database scans every row. With one, it jumps directly using a B-tree. The tradeoff: indexes speed up reads but slow down writes.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I add an index?</summary>
+<p class="mt-2 text-sm text-slate-300">Add an index on any column you regularly filter by (WHERE), join on (ON), or sort by (ORDER BY). The most important: foreign keys. If a query is slow and it's filtering on an unindexed column, adding an index typically makes it 10-1000x faster.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I NOT add an index?</summary>
+<p class="mt-2 text-sm text-slate-300">Don't index: columns you never filter by, low-cardinality columns (booleans), very small tables, columns used with LIKE '%x%', or columns in tables with very heavy write load. Every index is a tradeoff between read speed and write speed.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a full table scan?</summary>
+<p class="mt-2 text-sm text-slate-300">A full table scan is when the database reads every row to find matches. Fine for small tables (under 1,000 rows), catastrophic for large ones (1M rows = seconds). EXPLAIN shows 'Seq Scan' (PostgreSQL) or 'ALL' (MySQL) when this is happening.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is EXPLAIN in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">EXPLAIN shows the query plan — how the database intends to execute your query. It reveals which indexes are being used, which tables are being scanned, and where the time is going. EXPLAIN ANALYZE actually runs the query and shows real timing.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a composite index and why does column order matter?</summary>
+<p class="mt-2 text-sm text-slate-300">A composite index covers multiple columns. Column order matters because the B-tree sorts by the first column, then the second. A query WHERE a = 42 AND b = 10 can use (a, b). A query WHERE b = 10 alone cannot. Put the most-filtered column first.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a covering index?</summary>
+<p class="mt-2 text-sm text-slate-300">A covering index includes all columns the query needs, so the database can answer from the index alone without reading the table. Dramatically faster for read-heavy queries. The tradeoff: more storage.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How many indexes should a table have?</summary>
+<p class="mt-2 text-sm text-slate-300">No universal number — depends on read/write ratio. Read-heavy tables might have 10; write-heavy might have 2. Rule: every foreign key gets an index. Every column in frequent WHERE gets an index. Then stop. Use EXPLAIN to verify which indexes are used; drop unused ones.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://www.postgresql.org/docs/current/using-explain.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">PostgreSQL: Using EXPLAIN</a></li>
+<li>→ <a href="https://use-the-index-luke.com/" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Use The Index, Luke — the best SQL performance guide</a></li>
+<li>→ <a href="https://pgexercises.com/" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">PG Exercises — practice queries on real data</a></li>
+<li>→ <a href="https://explain.dalibo.com/" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">explain.dalibo.com — visual EXPLAIN viewer</a></li>
+</ul>
+</section>
+
+<a href="/courses/sql/index.html" class="back-link">← Back to SQL track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the SQL track · Lesson 6 · Track complete <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
