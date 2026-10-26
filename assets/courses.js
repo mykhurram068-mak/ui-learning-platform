@@ -58,3 +58,15 @@ button.textContent = 'Preview';
 button.classList.remove('active');
 }
 }
+
+function switchCodeOutput(blockId, tabName, btn) {
+var block = document.getElementById(blockId);
+if (!block) return;
+var tabs = block.querySelectorAll('.code-output-tabs button');
+var panes = block.querySelectorAll('.code-output-pane');
+tabs.forEach(function(t) { t.classList.remove('active'); });
+panes.forEach(function(p) { p.classList.remove('active'); });
+btn.classList.add('active');
+var pane = block.querySelector('[data-pane="' + tabName + '"]');
+if (pane) pane.classList.add('active');
+}
