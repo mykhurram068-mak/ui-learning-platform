@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TypeScript Interfaces & Type Aliases — Optional, Readonly, Extend (2026)</title>
+<meta name="description" content="Learn TypeScript interfaces and type aliases. Optional properties, readonly fields, index signatures, extends, and the one real difference between interface and type. Every example compiled side-by-side.">
+<meta name="keywords" content="typescript interfaces, typescript type alias, interface vs type, optional properties typescript, readonly typescript, extend interface">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="TypeScript Interfaces & Type Aliases — Optional, Readonly, Extend">
+<meta property="og:description" content="Learn TypeScript interfaces and type aliases. Optional properties, readonly fields, index signatures, extends, and the one real difference between interface and type.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/lessons/interfaces.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TypeScript Interfaces & Type Aliases — Optional, Readonly, Extend">
+<meta name="twitter:description" content="Learn TypeScript interfaces and type aliases. Optional properties, readonly fields, index signatures, extends, and the one real difference between interface and type.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/lessons/interfaces.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "TypeScript Interfaces & Type Aliases — Optional, Readonly, Extend",
+"description": "Learn TypeScript interfaces and type aliases. Optional properties, readonly fields, index signatures, extends, and the one real difference between interface and type.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is an interface in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"An interface describes the shape of an object — what properties it has and what types those properties are. interface User { name: string; age: number; } says any value typed as User must have a name that is a string and an age that is a number. Interfaces are compile-time only — they don't exist in the output JavaScript."}},
+{"@type":"Question","name":"What is a type alias?","acceptedAnswer":{"@type":"Answer","text":"A type alias gives a name to any type, not just object shapes. type ID = string | number creates a name for a union. type Callback = (x: number) => void names a function type. type User = { name: string } describes an object. Type aliases are more flexible than interfaces because they can describe unions, intersections, tuples, and primitives — interfaces can only describe object shapes."}},
+{"@type":"Question","name":"What is the difference between interface and type?","acceptedAnswer":{"@type":"Answer","text":"Both describe object shapes and for 95% of cases are interchangeable. The real differences: (1) interface supports declaration merging — you can define it twice and the definitions combine; type cannot. (2) interface can be extended with extends; type uses intersections (&). (3) type can describe unions, tuples, primitives, and conditional types; interface cannot. Rule: use interface for object shapes you might extend or that other code might merge; use type for everything else."}},
+{"@type":"Question","name":"What are optional properties?","acceptedAnswer":{"@type":"Answer","text":"A question mark after a property name makes it optional. interface User { name: string; age?: number } means age can be a number or it can be missing entirely — TypeScript treats it as number | undefined. Accessing user.age gives number | undefined, so you must narrow before using it as a number."}},
+{"@type":"Question","name":"What does readonly do?","acceptedAnswer":{"@type":"Answer","text":"readonly prevents reassignment after the value is created. readonly id: string means you can read obj.id but not assign to it — obj.id = 'new' is a compile error. This is compile-time only: it doesn't freeze the object at runtime. For deep immutability, use as const or Object.freeze, which have runtime effects."}},
+{"@type":"Question","name":"What is an index signature?","acceptedAnswer":{"@type":"Answer","text":"An index signature describes objects with dynamic keys. interface Dict { [key: string]: number } says any string key maps to a number — so dict['anything'] is a number, dict['foo'] = 42 is allowed, dict['bar'] = 'text' is an error. Useful for dictionaries and maps. Combine with known keys carefully — all keys must match the index signature type."}},
+{"@type":"Question","name":"When should I use interface vs type?","acceptedAnswer":{"@type":"Answer","text":"Use interface when you're describing an object shape that might be extended or that a library might augment (e.g. React's Props, Express's Request). Use type when you're describing a union, a tuple, a function signature, a mapped type, or anything non-object. If you're unsure: interface for public/exported object shapes, type for everything else. Consistency within a project matters more than the choice itself."}},
+{"@type":"Question","name":"Do interfaces exist at runtime?","acceptedAnswer":{"@type":"Answer","text":"No. Interfaces are erased by the TypeScript compiler. You can't instanceof a User interface, you can't check typeof User, you can't log User — it doesn't exist in the output JavaScript. If you need a runtime value, use a class. Interfaces are pure type-level constructs for the compiler."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Lesson 2</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Interfaces & type aliases</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 2</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Lesson 2 · 15 minutes</div>
+<h1>Interfaces & type aliases.<br><span class="py-accent">Describe the shape of your data.</span></h1>
+<p class="lead">
+Annotations work for primitives, but real data has shape — objects with many properties, some optional, some readonly. Interfaces and type aliases give that shape a name. This lesson covers both, the syntax for optional and readonly fields, index signatures for dynamic keys, and the one real difference between them (declaration merging) that decides which to reach for in practice.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~15 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Beginner</span>
+<span><i class="fa-solid fa-code"></i> TypeScript 5 · interfaces</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/typescript/index.html">TypeScript path</a>
+<a href="#interface">Interface</a>
+<a href="#modifiers">Optional & readonly</a>
+<a href="#extend">Extend & compose</a>
+<a href="#type">Type alias</a>
+<a href="#diff">interface vs type</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+An <strong>interface</strong> describes an object's shape: <code>interface User { name: string; age: number }</code>. A <strong>type alias</strong> names any type: <code>type ID = string | number</code>. Both are erased at compile time — they don't exist in the output. Use <code>interface</code> for object shapes you might extend or that a library might merge; use <code>type</code> for unions, tuples, function signatures, and everything else. Optional properties use <code>?</code>, readonly fields use <code>readonly</code>, dynamic keys use <code>[key: string]: T</code>.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#3178C6 !important;">Before this lesson:</strong> complete <a href="/courses/typescript/lessons/intro.html" style="color:#5B9BD5; text-decoration:underline;">Lesson 1</a> — you need to understand annotations and inference first.
+</p>
+</div>
+
+<section id="interface">
+<h2 class="section-title">🧱 The interface — naming an object shape</h2>
+<p class="section-sub">If you have three objects that all look the same, give that shape a name.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">In lesson 1, you wrote inline object types: <code>{ name: string; age: number }</code>. That works once. But if the same shape appears in five places, you don't want to repeat it — you want a name. An <code>interface</code> is exactly that: a named object shape, used as a type anywhere.</p>
+
+<div class="code-block" id="demo-interface">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">user.ts</span>
+<button class="copy-btn" onclick="copyCode('code-interface', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-interface', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-interface', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-interface', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-interface"><span class="kw">interface</span> User {
+name: <span class="fn">string</span>;
+age: <span class="fn">number</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="kw">const</span> alice: User = {
+name: <span class="str">'Alice'</span>,
+age: <span class="num">28</span>,
+email: <span class="str">'alice@example.com'</span>
+};
+
+<span class="kw">const</span> bob: User = {
+name: <span class="str">'Bob'</span>,
+age: <span class="num">34</span>,
+email: <span class="str">'bob@example.com'</span>
+};
+
+<span class="com">// ❌ Missing 'email' — compile error before any code runs
+// const broken: User = { name: 'X', age: 30 };</span>
+
+<span class="kw">function</span> <span class="fn">greet</span>(user: User): <span class="fn">string</span> {
+<span class="kw">return</span> <span class="str">${user.name}, ${user.age}</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">greet</span>(alice));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// interface: erased, does not exist in output</span>
+<span class="com">// : User on const: erased</span>
+<span class="com">// : string on return: erased</span>
+
+<span class="kw">const</span> alice = {
+name: <span class="str">'Alice'</span>,
+age: <span class="num">28</span>,
+email: <span class="str">'alice@example.com'</span>
+};
+
+<span class="kw">const</span> bob = {
+name: <span class="str">'Bob'</span>,
+age: <span class="num">34</span>,
+email: <span class="str">'bob@example.com'</span>
+};
+
+<span class="kw">function</span> <span class="fn">greet</span>(user) {
+<span class="kw">return</span> <span class="str">${user.name}, ${user.age}</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">greet</span>(alice));</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">Alice, 28</span></pre>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4 mb-3">Notice what the compiler caught: <code>broken</code> was missing <code>email</code>, so it never compiled. In plain JavaScript, this bug would have shipped and shown <code>undefined</code> at runtime. That's the trade — a small compile step for a whole class of bugs eliminated.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Named shape</h4>
+<p>An interface gives a name to an object's shape. Use it as a type anywhere: variable annotations, function parameters, return types, generic arguments.</p>
+</div>
+<div class="concept-card">
+<h4>Structural, not nominal</h4>
+<p>Any object with the right shape is a <code>User</code>. You don't need <code>new User()</code>. If a literal has <code>name</code>, <code>age</code>, <code>email</code> with the right types, TypeScript accepts it.</p>
+</div>
+<div class="concept-card">
+<h4>Semicolons or commas</h4>
+<p>Both work: <code>{ name: string; age: number }</code> and <code>{ name: string, age: number }</code>. Pick one style and stay consistent. Semicolons are more common in real codebases.</p>
+</div>
+<div class="concept-card">
+<h4>Erased at compile</h4>
+<p>The interface doesn't appear in the output. It's a compile-time construct — no runtime cost, no <code>instanceof User</code>, no way to log it. It exists only to check your code.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Naming convention: singular, PascalCase.</strong> <code>User</code>, not <code>Users</code> or <code>IUser</code>. The "I" prefix (as in <code>IUser</code>) comes from C# and Java and is discouraged in modern TypeScript — the type system handles disambiguation. Reserve plural names for collection types (<code>UserList</code>, <code>User[]</code>) and keep the shape itself singular.</p>
+</div>
+</section>
+
+<section id="modifiers">
+<h2 class="section-title">🎛️ Optional and readonly — controlling what's allowed</h2>
+<p class="section-sub">Two modifiers that carry most of the weight in real data shapes.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Real data isn't always complete, and some fields shouldn't change after creation. TypeScript's two property modifiers — <code>?</code> for optional and <code>readonly</code> for immutable — handle both, and both are erased at compile time (they check, not enforce).</p>
+
+<div class="code-block" id="demo-modifiers">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">profile.ts</span>
+<button class="copy-btn" onclick="copyCode('code-modifiers', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-modifiers', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-modifiers', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-modifiers"><span class="kw">interface</span> Profile {
+<span class="kw">readonly</span> id: <span class="fn">string</span>; <span class="com">// can't be reassigned</span>
+name: <span class="fn">string</span>; <span class="com">// required</span>
+bio?: <span class="fn">string</span>; <span class="com">// optional — string | undefined</span>
+age?: <span class="fn">number</span>;
+}
+
+<span class="kw">const</span> p: Profile = {
+id: <span class="str">'u_123'</span>,
+name: <span class="str">'Alice'</span>
+<span class="com">// bio and age omitted — allowed because they're optional</span>
+};
+
+p.name = <span class="str">'Alicia'</span>; <span class="com">// ✅ allowed — name is mutable</span>
+<span class="com">// p.id = 'u_999'; // ❌ Cannot assign to 'id' because it is a read-only property</span>
+
+<span class="com">// Optional fields require narrowing before use:
+// p.bio.toUpperCase() // ❌ 'p.bio' is possibly 'undefined'
+<span class="kw">if</span> (p.bio) {
+console.<span class="fn">log</span>(p.bio.<span class="fn">toUpperCase</span>()); <span class="com">// ✅ narrowed to string</span>
+}
+
+<span class="com">// ─── readonly is shallow ───────────────────────</span>
+<span class="kw">interface</span> Tagged {
+<span class="kw">readonly</span> tags: <span class="fn">string</span>[];
+}
+<span class="kw">const</span> t: Tagged = { tags: [<span class="str">'a'</span>, <span class="str">'b'</span>] };
+t.tags.<span class="fn">push</span>(<span class="str">'c'</span>); <span class="com">// ✅ readonly blocks reassignment, not mutation</span>
+<span class="com">// t.tags = ['x']; // ❌ Cannot assign to 'tags' (the reference is readonly)</span></pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// All type-level modifiers erased. JS has no concept of readonly.</span>
+<span class="com">// Runtime behaves as if you wrote the shape as a plain object.</span>
+<span class="com">// readonly and ? only affect what TypeScript allows — the object</span>
+<span class="com">// itself is a normal mutable JS object at runtime.</span>
+
+<span class="kw">const</span> p = {
+id: <span class="str">'u_123'</span>,
+name: <span class="str">'Alice'</span>
+};
+
+p.name = <span class="str">'Alicia'</span>;
+<span class="com">// p.id = 'u_999'; ← this WOULD work in JS. TS stops it.</span>
+
+<span class="kw">if</span> (p.bio) {
+console.<span class="fn">log</span>(p.bio.<span class="fn">toUpperCase</span>());
+}
+
+<span class="kw">const</span> t = { tags: [<span class="str">'a'</span>, <span class="str">'b'</span>] };
+t.tags.<span class="fn">push</span>(<span class="str">'c'</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>?</code> means <code>| undefined</code></h4>
+<p><code>bio?: string</code> is the same as <code>bio: string | undefined</code>, but the property can also be omitted from the literal. Accessing it forces a null check first.</p>
+</div>
+<div class="concept-card">
+<h4><code>readonly</code> is compile-only</h4>
+<p>It blocks reassignment in TypeScript, not at runtime. The object is still a mutable JS object — another module that receives it can mutate it unless you freeze it.</p>
+</div>
+<div class="concept-card">
+<h4>Readonly is shallow</h4>
+<p><code>readonly tags: string[]</code> blocks <code>t.tags = [...]</code> but allows <code>t.tags.push(...)</code>. For deep immutability, use <code>readonly string[]</code> and <code>as const</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Trust the compiler</h4>
+<p>When you see "Cannot assign to 'id' because it is a read-only property," you're catching a real bug. Never work around it with <code>as any</code> — restructure instead.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong><code>readonly</code> is not <code>Object.freeze</code>.</strong> <code>readonly</code> is a compile-time annotation — it disappears from the output, so any code that receives the object can still mutate it. If you need runtime immutability (e.g. for a state store), use <code>Object.freeze(obj)</code> in JavaScript, or <code>as const</code> with <code>readonly</code> for both levels of protection. These are different tools solving different problems.</p>
+</div>
+</section>
+
+<section id="extend">
+<h2 class="section-title">🧩 Extend and compose — building on existing shapes</h2>
+<p class="section-sub">Interfaces can inherit, and both interfaces and types can be combined.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Real data shapes are rarely standalone. An <code>Admin</code> is a <code>User</code> with extra fields. A <code>Request</code> is a <code>Base</code> plus authorization. TypeScript gives interfaces <code>extends</code> and gives both forms an intersection operator (<code>&</code>).</p>
+
+<div class="code-block" id="demo-extend">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">extends.ts</span>
+<button class="copy-btn" onclick="copyCode('code-extend', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-extend', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-extend', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-extend"><span class="com">// ─── interface extends ────────────────────────</span>
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+}
+
+<span class="kw">interface</span> Admin <span class="kw">extends</span> User {
+role: <span class="str">'admin'</span>;
+permissions: <span class="fn">string</span>[];
+}
+
+<span class="kw">const</span> a: Admin = {
+id: <span class="str">'u_1'</span>,
+name: <span class="str">'Alice'</span>,
+role: <span class="str">'admin'</span>,
+permissions: [<span class="str">'read'</span>, <span class="str">'write'</span>]
+};
+
+<span class="com">// An Admin is assignable everywhere a User is expected:</span>
+<span class="kw">function</span> <span class="fn">printName</span>(u: User) {
+console.<span class="fn">log</span>(u.name);
+}
+<span class="fn">printName</span>(a); <span class="com">// ✅ Admin has every property User has</span>
+
+<span class="com">// ─── Multiple extends ─────────────────────────</span>
+<span class="kw">interface</span> Timestamps {
+createdAt: <span class="fn">Date</span>;
+updatedAt: <span class="fn">Date</span>;
+}
+<span class="kw">interface</span> Post <span class="kw">extends</span> User, Timestamps {
+title: <span class="fn">string</span>;
+body: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── Intersection with & ─────────────────────</span>
+<span class="kw">type</span> Base = { id: <span class="fn">string</span> };
+<span class="kw">type</span> Named = { name: <span class="fn">string</span> };
+<span class="kw">type</span> Both = Base & Named; <span class="com">// { id: string; name: string }</span>
+
+<span class="com">// ─── Composition over inheritance ────────────</span>
+<span class="com">// The modern preference: build small pieces and intersect them.</span>
+<span class="kw">type</span> Entity = { id: <span class="fn">string</span> } & Timestamps;
+<span class="kw">type</span> Article = Entity & { title: <span class="fn">string</span>; body: <span class="fn">string</span> };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Every type-level declaration erased.</span>
+<span class="com">// Only the runtime values remain:</span>
+
+<span class="kw">const</span> a = {
+id: <span class="str">'u_1'</span>,
+name: <span class="str">'Alice'</span>,
+role: <span class="str">'admin'</span>,
+permissions: [<span class="str">'read'</span>, <span class="str">'write'</span>]
+};
+
+<span class="kw">function</span> <span class="fn">printName</span>(u) {
+console.<span class="fn">log</span>(u.name);
+}
+<span class="fn">printName</span>(a);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>extends</code> for interfaces</h4>
+<p>Inherits all properties from the parent. Add more, override types (must remain compatible), or extend multiple interfaces with a comma-separated list.</p>
+</div>
+<div class="concept-card">
+<h4><code>&</code> for types</h4>
+<p>Intersection creates a new type with all properties from both sides. This is the type-level equivalent of "combine these two shapes" — the modern idiom for composition.</p>
+</div>
+<div class="concept-card">
+<h4>Assignability flows up</h4>
+<p>An <code>Admin</code> is assignable to a <code>User</code> parameter — it has all the required fields. The reverse is not true: passing a <code>User</code> to <code>Admin</code> fails because <code>role</code> is missing.</p>
+</div>
+<div class="concept-card">
+<h4>Prefer composition</h4>
+<p>Real codebases lean on <code>&</code> with small types rather than deep interface hierarchies. Small types compose better, refactor cleanly, and read as documentation.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Intersection is not object merge.</strong> <code>A & B</code> requires a value to satisfy <em>both</em> A and B — nothing is merged at runtime. If A has <code>id: string</code> and B has <code>id: number</code>, the intersection is <code>{ id: never }</code> — an impossible type with zero valid values. This is a feature: it catches shape conflicts at compile time.</p>
+</div>
+</section>
+
+<section id="type">
+<h2 class="section-title">🏷️ Type aliases — naming any type, not just objects</h2>
+<p class="section-sub">Where interfaces stop, type aliases keep going.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Interfaces can only describe object shapes. <code>type</code> aliases can name <em>anything</em>: unions, tuples, function signatures, primitives, and conditional types. This is the biggest capability difference between the two, and it's why modern code uses <code>type</code> more than <code>interface</code> for non-object things.</p>
+
+<div class="code-block" id="demo-type">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">aliases.ts</span>
+<button class="copy-btn" onclick="copyCode('code-type', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-type', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-type', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-type"><span class="com">// ─── Primitives with a name ───────────────────</span>
+<span class="kw">type</span> UserID = <span class="fn">string</span>;
+<span class="kw">type</span> Score = <span class="fn">number</span>;
+
+<span class="com">// ─── Unions (interface cannot do this) ────────</span>
+<span class="kw">type</span> ID = <span class="fn">string</span> | <span class="fn">number</span>;
+<span class="kw">type</span> Status = <span class="str">'idle'</span> | <span class="str">'loading'</span> | <span class="str">'success'</span> | <span class="str">'error'</span>;
+
+<span class="com">// ─── Function signatures ─────────────────────</span>
+<span class="kw">type</span> Handler = (event: <span class="fn">MouseEvent</span>) => <span class="fn">void</span>;
+<span class="kw">type</span> Comparator<T> = (a: T, b: T) => <span class="fn">number</span>;
+
+<span class="com">// ─── Tuples ──────────────────────────────────</span>
+<span class="kw">type</span> Point = [<span class="fn">number</span>, <span class="fn">number</span>];
+<span class="kw">type</span> RGB = [<span class="fn">number</span>, <span class="fn">number</span>, <span class="fn">number</span>];
+
+<span class="kw">const</span> p: Point = [<span class="num">10</span>, <span class="num">20</span>];
+<span class="com">// const bad: Point = [10, 20, 30]; // ❌ too many elements</span>
+
+<span class="com">// ─── Object shape (interface & type both work) ─</span>
+<span class="kw">type</span> User = {
+id: ID;
+name: <span class="fn">string</span>;
+status: Status;
+};
+
+<span class="com">// ─── Union of literals — the discriminator pattern</span>
+<span class="kw">type</span> Result =
+| { status: <span class="str">'ok'</span>; data: User }
+| { status: <span class="str">'error'</span>; message: <span class="fn">string</span> };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Only runtime values survive.</span>
+<span class="com">// Type aliases — including unions, tuples, and function types — are erased.</span>
+
+<span class="kw">const</span> p = [<span class="num">10</span>, <span class="num">20</span>];
+<span class="com">// const bad = [10, 20, 30]; ← valid in JS, TS prevents it</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Unions</h4>
+<p><code>type ID = string | number</code> — only <code>type</code> can do this. Unions are the foundation of narrowing (next lesson) and the discriminated-union pattern.</p>
+</div>
+<div class="concept-card">
+<h4>Function types</h4>
+<p><code>type Handler = (e: Event) => void</code> names a function signature. Use it for parameters and callbacks — it's much cleaner than inlining the signature every time.</p>
+</div>
+<div class="concept-card">
+<h4>Tuples</h4>
+<p><code>[number, number]</code> is a tuple of exactly two numbers. Position and length are checked. Use tuples for fixed-length data: coordinates, pairs, tuples from APIs.</p>
+</div>
+<div class="concept-card">
+<h4>Literal unions</h4>
+<p><code>'idle' | 'loading' | 'success'</code> restricts to exactly those strings. The compiler catches typos — <code>'lodiang'</code> fails. This replaces enums in most modern code.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Prefer string literal unions over enums.</strong> <code>type Status = 'idle' | 'loading' | 'success'</code> is simpler than <code>enum Status { Idle, Loading, Success }</code>. It has zero runtime output, works with plain strings across API boundaries, and doesn't require importing the enum to compare against it. TypeScript enums have known pitfalls — the literal union is the modern default.</p>
+</div>
+</section>
+
+<section id="diff">
+<h2 class="section-title">⚖️ interface vs type — the real difference</h2>
+<p class="section-sub">95% of the time, they're interchangeable. Here's the other 5%.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">You'll read conflicting advice about which to use. Most of it is opinion. Here is the factual difference, and the decision rule that follows from it.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">declaration-merging.ts</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="com">// ─── The one difference: declaration merging ──</span>
+
+<span class="com">// Interfaces with the same name MERGE:</span>
+<span class="kw">interface</span> Config {
+port: <span class="fn">number</span>;
+}
+<span class="kw">interface</span> Config {
+host: <span class="fn">string</span>;
+}
+<span class="com">// Result: { port: number; host: string }
+// Both declarations contribute. This is how libraries extend
+// built-in types — e.g. React's JSX namespace, Express's Request.</span>
+
+<span class="com">// Type aliases with the same name ERROR:</span>
+<span class="kw">type</span> Config2 = { port: <span class="fn">number</span> };
+<span class="com">// type Config2 = { host: string }; // ❌ Duplicate identifier 'Config2'</span>
+
+<span class="com">// ─── extends vs intersection ──────────────────</span>
+
+<span class="kw">interface</span> A { a: <span class="fn">string</span> }
+<span class="kw">interface</span> B <span class="kw">extends</span> A { b: <span class="fn">number</span> } <span class="com">// clean, intent-revealing</span>
+
+<span class="kw">type</span> TA = { a: <span class="fn">string</span> };
+<span class="kw">type</span> TB = TA & { b: <span class="fn">number</span> }; <span class="com">// equivalent, slightly noisier</span>
+
+<span class="com">// ─── The decision rule ────────────────────────</span>
+
+<span class="com">// ✅ Use interface when:
+// - describing an object shape (User, Post, Props)
+// - the shape is public / exported from a library
+// - consumers may need to augment it (declaration merging)
+// - you're typing React props or Express request/response
+
+// ✅ Use type when:
+// - describing a union (Status, ID, Result)
+// - describing a tuple or function signature
+// - describing a mapped or conditional type
+// - the shape is local to one file and won't be extended
+
+// In a codebase, consistency matters more than the choice.
+// Pick one style per project and stick with it.</span></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Merge (interface only)</h4>
+<p>Two interfaces with the same name combine. Libraries rely on this to extend built-in types — e.g. adding a custom field to <code>Request</code>. This is the one case that <em>forces</em> interface.</p>
+</div>
+<div class="concept-card">
+<h4>Unions (type only)</h4>
+<p><code>type X = A | B</code> — interface cannot express a union. If your type is "one of these," it's a type alias, full stop.</p>
+</div>
+<div class="concept-card">
+<h4>Error messages</h4>
+<p>Interfaces often produce slightly cleaner error messages because the compiler can reference them by name. In large codebases this is a real (if minor) quality-of-life difference.</p>
+</div>
+<div class="concept-card">
+<h4>Performance</h4>
+<p>Interfaces are typically slightly faster for the compiler to check than deeply nested intersections. In practice this rarely matters — but in large monorepos, prefer interface for hot shapes.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't mix styles randomly.</strong> If half your code uses <code>type User = {…}</code> and the other half uses <code>interface User {…}</code>, readers can't tell whether the choice was intentional. Pick one — most teams pick <code>interface</code> for object shapes and <code>type</code> for everything else — and apply it consistently. The compiler will accept both; your team won't.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different interface/type feature.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Model a blog post</h4>
+<p>Design a type that represents a blog post with:</p>
+<p>1. A required <code>id</code> (readonly, <code>string</code>)<br>
+2. A required <code>title</code> (<code>string</code>)<br>
+3. A required <code>body</code> (<code>string</code>)<br>
+4. An optional <code>subtitle</code> (<code>string</code>)<br>
+5. An optional <code>tags</code> (<code>readonly string[]</code>)<br>
+6. A required <code>status</code> that is one of <code>'draft' | 'published' | 'archived'</code></p>
+<p>Start with an interface. Then write a second type <code>PublishedPost</code> that refines <code>status</code> to <code>'published'</code>. You'll find that <code>interface</code> can't narrow the property cleanly — use an intersection with a type. This is the kind of decision you'll make dozens of times a day in real TS.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Merge and extend</h4>
+<p>Practice the two composition tools:</p>
+<p>1. Define an interface <code>Entity</code> with <code>readonly id: string</code><br>
+2. Define an interface <code>Timestamps</code> with <code>createdAt: Date; updatedAt: Date</code><br>
+3. Define a <code>User</code> interface that <strong>extends both</strong><br>
+4. Define a <code>Comment</code> type that <strong>intersects both</strong> plus <code>{ text: string }</code><br>
+5. Declare <code>Entity</code> a second time with an extra field and confirm it merges (only works for interface!)</p>
+<p>The point: <code>extends</code> and <code>&</code> are the two composition primitives. They produce the same shapes — the choice is about which reads better and which the surrounding code already uses.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Index signature for a dictionary</h4>
+<p>Build a typed translation dictionary:</p>
+<p>1. <code>type Locale = 'en' | 'fr' | 'es'</code><br>
+2. An <code>interface Messages</code> with an index signature: <code>[key: string]: string</code><br>
+3. A <code>Record<Locale, Messages></code> holding one object per language<br>
+4. A function <code>t(locale: Locale, key: string): string</code> that returns the translation, falling back to English if the key is missing in that locale<br>
+5. Test it with a key that exists in all locales, and one missing from <code>fr</code></p>
+<p>This is a tiny version of what every internationalization library does. The index signature is what makes the dictionary dynamic — TypeScript still checks that every value is a string, but the keys are open-ended.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The interface and type bugs that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using interface for everything</div>
+<p><code>interface Status = 'idle' | 'loading'</code> — doesn't compile. Interfaces can only describe object shapes. Unions, tuples, and primitives need <code>type</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using type for everything</div>
+<p>Technically valid, but exported object shapes used by consumers lose the option to merge and may produce slightly worse error messages. Convention: <code>interface</code> for object shapes, <code>type</code> for the rest.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Thinking readonly is runtime</div>
+<p><code>readonly</code> is erased. Another module that receives your object can mutate it. Fix: use <code>Object.freeze</code> for runtime immutability, or <code>as const</code> for literal freezing.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Forgetting optional fields are nullable</div>
+<p><code>bio?: string</code> means <code>string | undefined</code>. Calling <code>user.bio.toUpperCase()</code> fails. Fix: narrow with <code>if (user.bio)</code> or use optional chaining <code>user.bio?.toUpperCase()</code>.</p>;
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using index signature without types</div>
+<p><code>[key: string]: any</code> defeats the point. The index signature's value type <em>is</em> the check — <code>[key: string]: number</code> means all values must be numbers. Never fall back to <code>any</code> here.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Relying on declaration merging without knowing</div>
+<p>If you name two interfaces <code>Config</code> in different files, they merge — sometimes silently, sometimes wrongly. Fix: avoid reusing interface names across files unless you intend to merge (e.g. module augmentation).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Intersection where you meant union</div>
+<p><code>type Result = { ok: true } & { error: string }</code> requires both <code>ok</code> and <code>error</code> — an impossible combination. You wanted <code>|</code>. Fix: intersect to combine, union to choose.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Assuming interfaces exist at runtime</div>
+<p><code>instanceof User</code> fails — <code>User</code> was erased. Fix: use a <code>class</code> if you need a runtime value, or a discriminated union tag (<code>kind: 'user'</code>) if you need discrimination.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is an interface in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">An interface describes the shape of an object — what properties it has and what types those properties are. interface User { name: string; age: number; } says any value typed as User must have a name that is a string and an age that is a number. Interfaces are compile-time only — they don't exist in the output JavaScript.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a type alias?</summary>
+<p class="mt-2 text-sm text-slate-300">A type alias gives a name to any type, not just object shapes. type ID = string | number creates a name for a union. type Callback = (x: number) => void names a function type. type User = { name: string } describes an object. Type aliases are more flexible than interfaces.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between interface and type?</summary>
+<p class="mt-2 text-sm text-slate-300">Both describe object shapes and for 95% of cases are interchangeable. The real differences: (1) interface supports declaration merging — you can define it twice and the definitions combine; type cannot. (2) interface can be extended with extends; type uses intersections (&). (3) type can describe unions, tuples, primitives, and conditional types; interface cannot.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are optional properties?</summary>
+<p class="mt-2 text-sm text-slate-300">A question mark after a property name makes it optional. interface User { name: string; age?: number } means age can be a number or it can be missing entirely — TypeScript treats it as number | undefined. Accessing user.age gives number | undefined, so you must narrow before using it as a number.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does readonly do?</summary>
+<p class="mt-2 text-sm text-slate-300">readonly prevents reassignment after the value is created. readonly id: string means you can read obj.id but not assign to it — obj.id = 'new' is a compile error. This is compile-time only: it doesn't freeze the object at runtime. For deep immutability, use as const or Object.freeze.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is an index signature?</summary>
+<p class="mt-2 text-sm text-slate-300">An index signature describes objects with dynamic keys. interface Dict { [key: string]: number } says any string key maps to a number — so dict['anything'] is a number. Useful for dictionaries and maps. Combine with known keys carefully — all keys must match the index signature type.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use interface vs type?</summary>
+<p class="mt-2 text-sm text-slate-300">Use interface when you're describing an object shape that might be extended or that a library might augment (e.g. React's Props, Express's Request). Use type when you're describing a union, a tuple, a function signature, a mapped type, or anything non-object. If you're unsure: interface for public/exported object shapes, type for everything else. Consistency within a project matters more than the choice itself.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Do interfaces exist at runtime?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Interfaces are erased by the TypeScript compiler. You can't instanceof a User interface, you can't check typeof User, you can't log User — it doesn't exist in the output JavaScript. If you need a runtime value, use a class.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue your TypeScript path</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/generics.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 3: Functions & generics</div>
+<div class="text-xs text-slate-400 mt-1">Write one function, work with any type</div>
+</a>
+<a href="/courses/typescript/lessons/intro.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 1: Setup & first types</div>
+<div class="text-xs text-slate-400 mt-1">The prior lesson — annotations & inference</div>
+</a>
+<a href="/courses/typescript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗺️ TypeScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🟨 JavaScript track</div>
+<div class="text-xs text-slate-400 mt-1">The prerequisite for everything TypeScript</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://www.typescriptlang.org/docs/handbook/2/objects.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Handbook — Object Types (interfaces, type aliases)</a></li>
+<li>→ <a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#interfaces" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Handbook — Interfaces</a></li>
+<li>→ <a href="https://www.typescriptlang.org/play" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">TypeScript Playground — try every snippet</a></li>
+</ul>
+</section>
+
+<a href="/courses/typescript/index.html" class="back-link">← Back to TypeScript track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the TypeScript track · Lesson 2 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
