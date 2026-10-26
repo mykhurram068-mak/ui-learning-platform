@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React Events & Forms — Controlled Inputs & Submit (2026)</title>
+<meta name="description" content="Learn React events and forms. onClick, onChange, controlled inputs, form submission, validation, and the patterns that make React forms predictable.">
+<meta name="keywords" content="react events, react forms, react controlled component, react form submit, react input onChange, react forms tutorial">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React Events & Forms — Controlled Inputs & Submit">
+<meta property="og:description" content="Learn React events and forms. Controlled inputs, form submission, validation, and the patterns that make React forms predictable.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/lessons/events-forms.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React Events & Forms — Controlled Inputs & Submit">
+<meta name="twitter:description" content="Learn React events and forms. Controlled inputs, form submission, validation.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/lessons/events-forms.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"React Events & Forms — Controlled Inputs & Submit","description":"Learn React events and forms. onClick, onChange, controlled inputs, form submission, validation, and the patterns that make React forms predictable.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-26","dateModified":"2026-10-26","proficiencyLevel":"Intermediate","dependencies":"React 19"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do I handle events in React?","acceptedAnswer":{"@type":"Answer","text":"Use camelCase event props: onClick, onChange, onSubmit, onFocus, onBlur. Pass a function (not a call): onClick={handleClick}. The handler receives a React SyntheticEvent object with the same properties as native events (target, preventDefault, stopPropagation). React events look like HTML attributes but work like JavaScript event listeners."}},{"@type":"Question","name":"What is a controlled component in React?","acceptedAnswer":{"@type":"Answer","text":"A controlled component is a form input whose value is driven by React state. The input's value prop is set from state, and onChange updates state. Every keystroke flows: user types → onChange fires → state updates → component re-renders → input shows the new value. React owns the source of truth. It's the standard pattern for React forms because it makes validation, formatting, and submission predictable."}},{"@type":"Question","name":"What is the difference between controlled and uncontrolled inputs?","acceptedAnswer":{"@type":"Answer","text":"Controlled inputs have their value stored in React state — every keystroke triggers a re-render. Uncontrolled inputs store their value in the DOM — you read it via a ref when needed. Controlled is the React standard: predictable, validatable, formattable. Uncontrolled is simpler for quick forms but harder to validate or transform. Use controlled by default; uncontrolled only for file inputs or performance-critical forms with hundreds of fields."}},{"@type":"Question","name":"How do I prevent form submission default behavior?","acceptedAnswer":{"@type":"Answer","text":"Call event.preventDefault() in the onSubmit handler. Without it, the browser reloads the page — which loses all React state and defeats the purpose of a single-page app. The pattern: function handleSubmit(e) { e.preventDefault(); /* do something */ }. This is required in every React form that handles submission client-side."}},{"@type":"Question","name":"How do I handle multiple form fields without repeating state?","acceptedAnswer":{"@type":"Answer","text":"Use a single state object with computed property names. const [form, setForm] = useState({ name: '', email: '', message: '' }). In the change handler: setForm({ ...form, [e.target.name]: e.target.value }). Each input needs a name attribute matching the state key. This scales to any number of fields without adding a useState per field."}},{"@type":"Question","name":"What are the event pooling changes in React 17+?","acceptedAnswer":{"@type":"Answer","text":"Before React 17, event objects were pooled and could become null after the handler returned. You had to call event.persist() or capture the value synchronously. React 17+ removed event pooling — event objects are now standard JavaScript objects. You can access them asynchronously without issue. If you see event.persist() in old tutorials, it's no longer needed."}},{"@type":"Question","name":"How do I handle a textarea in React?","acceptedAnswer":{"@type":"Answer","text":"Textareas use value and onChange, same as inputs. <textarea value={text} onChange={e => setText(e.target.value)} />. Note: in HTML, textarea content goes between the tags. In React, use the value prop. Same applies to select: <select value={selected} onChange={e => setSelected(e.target.value)}> with options below."}},{"@type":"Question","name":"How do I reset a form after submission?","acceptedAnswer":{"@type":"Answer","text":"Two ways: (1) controlled — reset the state: setForm({ name: '', email: '' }), which clears all inputs on the next render. (2) uncontrolled — call formRef.current.reset() on a form with a ref. For controlled forms (the standard), reset the state. This ensures the inputs and state stay in sync — resetting one without the other creates a visual bug."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Lesson 4</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Events & forms</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 4</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Lesson 4 · 20 minutes</div>
+<h1>Events & forms.<br><span class="py-accent">The controlled component pattern.</span></h1>
+<p class="lead">
+Every app needs forms. Login, signup, search, checkout, contact — forms are how users send data to your app. In vanilla JavaScript, you read input values from the DOM when the form submits. In React, you keep the input value in state and update it on every keystroke. That's the controlled component pattern, and it's what makes React forms predictable. This lesson teaches events, controlled inputs, submission, and validation.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~20 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Beginner → Intermediate</span>
+<span><i class="fa-solid fa-code"></i> React 19</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/react/index.html">React path</a>
+<a href="/courses/react/lessons/state.html">← Lesson 3</a>
+<a href="#events">Events</a>
+<a href="#controlled">Controlled inputs</a>
+<a href="#submit">Form submit</a>
+<a href="#multiple">Multiple fields</a>
+<a href="#validation">Validation</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+A controlled input has <code>value</code> from state and <code>onChange</code> updating state. Every keystroke: user types → <code>onChange</code> fires → <code>setState</code> updates → component re-renders → input shows new value. This is the standard React form pattern. Always call <code>event.preventDefault()</code> in the <code>onSubmit</code> handler — otherwise the browser reloads and loses React state. Use one state object per form, not one <code>useState</code> per field.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#61dafb !important;">Before this lesson:</strong> complete <a href="/courses/react/lessons/state.html" style="color:#7ee8fc; text-decoration:underline;">Lesson 3</a>. You need to understand state and the updater pattern.
+</p>
+</div>
+
+<section id="events">
+<h2 class="section-title">🖱️ React events — camelCase, function references</h2>
+<p class="section-sub">Look like HTML attributes. Work like JavaScript listeners. Same event object.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">React events are almost identical to vanilla JavaScript events. The differences: (1) camelCase names (<code>onClick</code>, not <code>onclick</code>), (2) pass a function reference, not a string, (3) React wraps the native event in a SyntheticEvent object with the same properties, normalized across browsers.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Event patterns</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="com">// Basic onClick — pass the function</span>
+<button onClick={handleClick}>Click</button>
+
+<span class="com">// ❌ WRONG — this CALLS handleClick on every render</span>
+<button onClick={<span class="fn">handleClick</span>()}>Click</button>
+
+<span class="com">// ✅ CORRECT — pass a reference</span>
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="fn">console</span>.<span class="fn">log</span>(<span class="str">'clicked!'</span>);
+}
+
+<span class="com">// Inline arrow function — when you need to pass arguments</span>
+<button onClick={() => <span class="fn">handleDelete</span>(item.id)}>Delete</button>
+
+<span class="com">// The event object — always the first argument</span>
+<span class="kw">function</span> <span class="fn">handleChange</span>(event) {
+<span class="fn">console</span>.<span class="fn">log</span>(event.target.value); <span class="com">// current input value</span>
+<span class="fn">console</span>.<span class="fn">log</span>(event.target.name); <span class="com">// input's name attribute</span>
+}
+
+<span class="com">// Common events:</span>
+<span class="com">// onClick — click</span>
+<span class="com">// onChange — input/select/textarea value changes</span>
+<span class="com">// onSubmit — form submitted</span>
+<span class="com">// onFocus — input focused</span>
+<span class="com">// onBlur — input loses focus</span>
+<span class="com">// onKeyDown — key pressed</span>
+<span class="com">// onMouseEnter — mouse enters element</span>
+
+<span class="com">// React 17+ — event objects are NOT pooled (no need for event.persist)</span>
+<span class="kw">async function</span> <span class="fn">handleAsync</span>(event) {
+<span class="kw">await</span> someAsyncOperation();
+<span class="fn">console</span>.<span class="fn">log</span>(event.target.value); <span class="com">// works — not null</span>
+}</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>camelCase</h4>
+<p><code>onClick</code>, not <code>onclick</code>. <code>onChange</code>, not <code>onchange</code>. HTML uses lowercase; JSX uses camelCase. Same for attributes like <code>tabIndex</code>, <code>className</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Pass the function</h4>
+<p><code>onClick={handleClick}</code> passes the function. <code>onClick={handleClick()}</code> calls it immediately. The parens matter — the #1 event bug.</p>
+</div>
+<div class="concept-card">
+<h4>Arrow function for arguments</h4>
+<p><code>onClick={() => handleDelete(id)}</code> — wraps the call so it happens on click, not on render. Required when passing arguments.</p>
+</div>
+<div class="concept-card">
+<h4>SyntheticEvent</h4>
+<p>React's wrapper around the native event. Has <code>target</code>, <code>preventDefault()</code>, <code>stopPropagation()</code> — same API as native. Normalized across browsers.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The event pooling thing is dead — ignore old tutorials.</strong> Before React 17, event objects were pooled and became null after the handler returned, which is why old tutorials say <code>event.persist()</code> or capture values synchronously. React 17+ removed pooling — events are now standard JavaScript objects that work anywhere. If you see <code>event.persist()</code> in a tutorial from 2020 or earlier, it's outdated. Don't add it to new code.</p>
+</div>
+</section>
+
+<section id="controlled">
+<h2 class="section-title">🎛️ Controlled inputs — React owns the value</h2>
+<p class="section-sub">State holds the value. onChange updates it. The input reflects state on every render.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Controlled input pattern</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">NameForm</span>() {
+<span class="kw">const</span> [name, setName] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">return</span> (
+<form>
+<label htmlFor=<span class="str">"name"</span>>Name:</label>
+<input
+id=<span class="str">"name"</span>
+type=<span class="str">"text"</span>
+value={name}
+onChange={(e) => <span class="fn">setName</span>(e.target.value)}
+/>
+<p>You typed: {name}</p>
+</form>
+);
+}
+
+<span class="com">// What happens on every keystroke:
+// 1. User types "A"
+// 2. onChange fires with e.target.value = "A"
+// 3. setName("A") schedules a re-render
+// 4. Component re-renders — name is now "A"
+// 5. Input's value prop is "A" — matches what user typed
+//
+// The input ALWAYS displays what state says.
+// If you forget onChange, the input becomes read-only
+// (because value is stuck at the last state value).</span></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>value from state</h4>
+<p><code>value={name}</code> — the input's visible value is always the current state. If state is "Alice," input shows "Alice." If state is "", input is empty.</p>
+</div>
+<div class="concept-card">
+<h4>onChange updates</h4>
+<p><code>onChange={e => setName(e.target.value)}</code> — every keystroke fires onChange with the new value. <code>e.target.value</code> is the character(s) after the keystroke.</p>
+</div>
+<div class="concept-card">
+<h4>Forgetting onChange</h4>
+<p>If you set <code>value={name}</code> but no onChange, the input is read-only — you can't type. React warns "You provided a value prop to a form field without an onChange handler."</p>
+</div>
+<div class="concept-card">
+<h4>Uncontrolled alternative</h4>
+<p><code><input defaultValue="Alice" /></code> — sets initial value, but React doesn't track changes. You read via <code>ref.current.value</code>. Use only for file inputs or huge forms.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>If your input won't let you type, you forgot <code>onChange</code>.</strong> The pattern is <code>value={x} onChange={e => setX(e.target.value)}</code>. Setting <code>value</code> without <code>onChange</code> makes the input a "read-only" input — the value comes from state, but nothing updates state. React will log a warning in the console. If you don't want React to control the input, use <code>defaultValue</code> instead of <code>value</code>.</p>
+</div>
+</section>
+
+<section id="submit">
+<h2 class="section-title">📤 Form submit — preventDefault is required</h2>
+<p class="section-sub">Without it, the browser reloads and every state resets. Always call it first.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Complete form</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="kw">function</span> <span class="fn">ContactForm</span>() {
+<span class="kw">const</span> [name, setName] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> [submitted, setSubmitted] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+<span class="kw">function</span> <span class="fn">handleSubmit</span>(event) {
+event.<span class="fn">preventDefault</span>(); <span class="com">// ← REQUIRED</span>
+
+<span class="com">// Handle the data — send to server, save, validate, etc.</span>
+<span class="fn">console</span>.<span class="fn">log</span>({ name, email });
+<span class="fn">setSubmitted</span>(<span class="kw">true</span>);
+
+<span class="com">// Reset the form</span>
+<span class="fn">setName</span>(<span class="str">''</span>);
+<span class="fn">setEmail</span>(<span class="str">''</span>);
+}
+
+<span class="kw">if</span> (submitted) {
+<span class="kw">return</span> <p>Thanks! We'll be in touch.</p>;
+}
+
+<span class="kw">return</span> (
+<form onSubmit={handleSubmit}>
+<input
+type=<span class="str">"text"</span>
+placeholder=<span class="str">"Name"</span>
+value={name}
+onChange={(e) => <span class="fn">setName</span>(e.target.value)}
+required
+/>
+<input
+type=<span class="str">"email"</span>
+placeholder=<span class="str">"Email"</span>
+value={email}
+onChange={(e) => <span class="fn">setEmail</span>(e.target.value)}
+required
+/>
+<button type=<span class="str">"submit"</span>>Send</button>
+</form>
+);
+}</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>preventDefault()</h4>
+<p>Stops the browser from navigating away. Without it, submitting the form reloads the page — losing all state. This is the first line of every submit handler.</p>
+</div>
+<div class="concept-card">
+<h4>onSubmit on form</h4>
+<p>Attach the handler to the <code><form></code>, not the button. This way both button clicks AND Enter keypresses in inputs trigger it — standard form behavior.</p>
+</div>
+<div class="concept-card">
+<h4>type="submit"</h4>
+<p>Buttons inside a form default to <code>type="submit"</code> — clicking them submits. If you want a non-submit button (like a Cancel), set <code>type="button"</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Native validation</h4>
+<p><code>required</code>, <code>type="email"</code>, <code>minLength</code> — HTML5 validation still works. The browser blocks submit if invalid. Combine with React for both client and server validation.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Always put onSubmit on the <code><form></code>, not the button.</strong> Users don't just click the submit button — they press Enter while focused on a text input. If you attach the handler to the button via <code>onClick</code>, pressing Enter does nothing (or triggers the default submit, which reloads the page). <code>onSubmit</code> on the form catches both paths. This is why it exists — use it.</p>
+</div>
+</section>
+
+<section id="multiple">
+<h2 class="section-title">📋 Multiple fields — one state object</h2>
+<p class="section-sub">Don't add a <code>useState</code> per field. Use one object and computed keys.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">One state object, any number of fields</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="kw">function</span> <span class="fn">SignupForm</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span>({
+name: <span class="str">''</span>,
+email: <span class="str">''</span>,
+password: <span class="str">''</span>,
+});
+
+<span class="com">// One handler works for all inputs</span>
+<span class="kw">function</span> <span class="fn">handleChange</span>(event) {
+<span class="kw">const</span> { name, value } = event.target;
+<span class="fn">setForm</span>(prev => ({ ...prev, [name]: value }));
+}
+
+<span class="kw">function</span> <span class="fn">handleSubmit</span>(event) {
+event.<span class="fn">preventDefault</span>();
+<span class="fn">console</span>.<span class="fn">log</span>(form);
+<span class="com">// { name: 'Alice', email: 'a@b.com', password: '...' }</span>
+}
+
+<span class="kw">return</span> (
+<form onSubmit={handleSubmit}>
+<input
+name=<span class="str">"name"</span>
+value={form.name}
+onChange={handleChange}
+placeholder=<span class="str">"Name"</span>
+/>
+<input
+name=<span class="str">"email"</span>
+value={form.email}
+onChange={handleChange}
+placeholder=<span class="str">"Email"</span>
+/>
+<input
+name=<span class="str">"password"</span>
+type=<span class="str">"password"</span>
+value={form.password}
+onChange={handleChange}
+placeholder=<span class="str">"Password"</span>
+/>
+<button type=<span class="str">"submit"</span>>Sign Up</button>
+</form>
+);
+}</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>The magic: [name]: value</h4>
+<p><code>[name]</code> is a computed property name — it uses the input's <code>name</code> attribute as the key. So <code>name="email"</code> updates <code>form.email</code>.</p>
+</div>
+<div class="concept-card">
+<h4>One handler, all inputs</h4>
+<p>Every input has the same <code>onChange={handleChange}</code>. The handler looks at <code>event.target.name</code> to know which field changed. Scales to 20 fields with no extra code.</p>
+</div>
+<div class="concept-card">
+<h4>Spread prev</h4>
+<p><code>{ ...prev, [name]: value }</code> — copies existing values and overrides one. Never mutate directly. The updater form ensures we always have the latest state.</p>
+</div>
+<div class="concept-card">
+<h4>When to split</h4>
+<p>If fields have different behavior (validation per field, conditional rendering), consider splitting into separate states. For simple forms, one object is best.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>This is the standard React form pattern.</strong> One state object, one change handler, and <code>[name]: value</code> computed keys. Every React tutorial, every production form, every job interview question about forms starts from this pattern. Learn it once and you can build a signup form, a login form, a checkout form, a settings form — all with the same six lines.</p>
+</div>
+</section>
+
+<section id="validation">
+<h2 class="section-title">✅ Validation — client and server</h2>
+<p class="section-sub">Both are required. Client is UX; server is security.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Validation pattern</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="kw">function</span> <span class="fn">SignupForm</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span>({ email: <span class="str">''</span>, password: <span class="str">''</span> });
+<span class="kw">const</span> [errors, setErrors] = <span class="fn">useState</span>({});
+
+<span class="kw">function</span> <span class="fn">validate</span>(data) {
+<span class="kw">const</span> errs = {};
+
+<span class="kw">if</span> (!data.email.<span class="fn">includes</span>(<span class="str">'@'</span>)) {
+errs.email = <span class="str">'Email must contain @'</span>;
+}
+
+<span class="kw">if</span> (data.password.length < <span class="num">8</span>) {
+errs.password = <span class="str">'Password must be at least 8 characters'</span>;
+}
+
+<span class="kw">return</span> errs;
+}
+
+<span class="kw">function</span> <span class="fn">handleSubmit</span>(event) {
+event.<span class="fn">preventDefault</span>();
+
+<span class="kw">const</span> errs = <span class="fn">validate</span>(form);
+<span class="kw">if</span> (Object.<span class="fn">keys</span>(errs).length > <span class="num">0</span>) {
+<span class="fn">setErrors</span>(errs);
+<span class="kw">return</span>; <span class="com">// stop submit</span>
+}
+
+<span class="com">// Now submit to server (which ALSO validates)</span>
+<span class="fn">console</span>.<span class="fn">log</span>(<span class="str">'Valid! Sending to server:'</span>, form);
+}
+
+<span class="kw">return</span> (
+<form onSubmit={handleSubmit}>
+<input
+name=<span class="str">"email"</span>
+value={form.email}
+onChange={(e) => <span class="fn">setForm</span>({ ...form, email: e.target.value })}
+/>
+{errors.email && <p style={{ color: <span class="str">'red'</span> }}>{errors.email}</p>}
+
+<input
+name=<span class="str">"password"</span>
+type=<span class="str">"password"</span>
+value={form.password}
+onChange={(e) => <span class="fn">setForm</span>({ ...form, password: e.target.value })}
+/>
+{errors.password && <p style={{ color: <span class="str">'red'</span> }}>{errors.password}</p>}
+
+<button type=<span class="str">"submit"</span>>Sign Up</button>
+</form>
+);
+}</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Client validation</h4>
+<p>Runs in the browser. Fast feedback — user sees errors immediately. The UX layer. Not a security boundary — can be bypassed.</p>
+</div>
+<div class="concept-card">
+<h4>Server validation</h4>
+<p>Runs on the server. The security boundary. Must validate everything the client sends, even if the client "already validated." Anyone can POST directly.</p>
+</div>
+<div class="concept-card">
+<h4>Errors as state</h4>
+<p><code>const [errors, setErrors] = useState({})</code> — one object, one key per field. Empty object means "no errors." Renders conditionally: <code>{errors.email && <p>{errors.email}</p>}</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Show errors on submit</h4>
+<p>Don't show errors on every keystroke — it's annoying. Show them on blur or submit. Or clear an error when the user starts typing. The pattern depends on the form.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Client-side validation is not security.</strong> Anyone can open DevTools, remove <code>required</code>, and submit. Anyone can POST directly with curl. Client validation is for user experience — to catch mistakes before they hit the server. <strong>Server-side validation is mandatory</strong> for every field, every time, regardless of what the client sent. Both are required; they're solving different problems.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different form pattern.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Login form</h4>
+<p>Build a login form with:</p>
+<p>1. Email input (type="email", required)<br>
+2. Password input (type="password", required)<br>
+3. "Remember me" checkbox<br>
+4. Submit button</p>
+<p>Use one state object for all fields. On submit: preventDefault, log the form data, show a "Welcome back!" message. Reset the form after submission.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Search box with live results</h4>
+<p>Build a search box that:</p>
+<p>1. Has a controlled input for the search query<br>
+2. Filters a predefined list of items as the user types<br>
+3. Shows a "no results" message when nothing matches<br>
+4. Clears the query when the user clicks a "clear" button<br>
+5. Highlights the matched substring in results</p>
+<p>This is the exact pattern every search box uses. Test with a list like ["apple", "banana", "apricot", "cherry"] — typing "ap" should show apple and apricot.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Multi-step form with validation</h4>
+<p>Build a signup form that spans 2 steps:</p>
+<p><strong>Step 1:</strong> Name and email inputs. "Next" button disabled if either is empty or email doesn't contain @.</p>
+<p><strong>Step 2:</strong> Password and confirm password inputs. "Submit" button disabled if passwords don't match or are shorter than 8 characters. Also has a "Back" button to return to step 1 with data preserved.</p>
+<p>State: <code>step</code> (1 or 2), <code>form</code> (object with all fields), <code>errors</code>. On submit: log everything and show a success message.</p>
+<p>This is a real production pattern. Multi-step forms are everywhere — checkout, onboarding, account setup. Once you can build this, you can build any form.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The event and form bugs that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Forgetting preventDefault</div>
+<p><code>onSubmit={handleSubmit}</code> without <code>event.preventDefault()</code> reloads the page. All state lost. Fix: first line of every submit handler.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Calling the function instead of passing it</div>
+<p><code>onClick={handleClick()}</code> calls handleClick on every render. Fix: <code>onClick={handleClick}</code>. Use <code>onClick={() => handleClick()}</code> if you need arguments.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. value without onChange</div>
+<p><code><input value={name} /></code> without <code>onChange</code> is read-only. You can't type. React logs a warning. Fix: add <code>onChange={e => setName(e.target.value)}</code> or use <code>defaultValue</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. One useState per field</div>
+<p>Five fields = five useState calls = five handlers. Fix: one object + one change handler with <code>[name]: value</code>. Scales to 20 fields.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. onSubmit on button instead of form</div>
+<p>onSubmit on the button means Enter key doesn't trigger submit. Fix: put onSubmit on the form. Attach onClick to the button only if needed.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. No validation at all</div>
+<p>Submitting empty forms is bad UX. Fix: add <code>required</code> for basic checks, plus JS validation for format (email, password strength).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Mutating form state</div>
+<p><code>form.email = 'x'</code> doesn't trigger re-render. Fix: <code>setForm({ ...form, email: 'x' })</code>. Immutable updates only.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Showing errors on every keystroke</div>
+<p>User types one letter, gets "password too short" error. Annoying. Fix: validate on submit, or on blur, not on every change. Or clear errors when typing.</p>
+</div>
+</section>
+<!--
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">You can handle user input. Next: side effects and data fetching.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/useeffect.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 5: useEffect</div>
+<div class="text-xs text-slate-400 mt-1">Side effects and data fetching</div>
+</a>
+<a href="/courses/react/lessons/lists-keys.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 6: Lists & keys</div>
+<div class="text-xs text-slate-400 mt-1">Render arrays of components</div>
+</a>
+<a href="/courses/react/lessons/state.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 3: State & useState</div>
+<div class="text-xs text-slate-400 mt-1">Review the state basics</div>
+</a>
+<a href="/courses/react/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">React learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+</div>
+</section>
+-->
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I handle events in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Use camelCase event props: onClick, onChange, onSubmit, onFocus, onBlur. Pass a function (not a call): onClick={handleClick}. The handler receives a React SyntheticEvent object with the same properties as native events.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a controlled component in React?</summary>
+<p class="mt-2 text-sm text-slate-300">A controlled component is a form input whose value is driven by React state. The input's value prop is set from state, and onChange updates state. Every keystroke flows: user types → onChange fires → state updates → component re-renders → input shows the new value.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between controlled and uncontrolled inputs?</summary>
+<p class="mt-2 text-sm text-slate-300">Controlled inputs have their value stored in React state — every keystroke triggers a re-render. Uncontrolled inputs store their value in the DOM — you read it via a ref when needed. Controlled is the React standard. Uncontrolled is only for file inputs or performance-critical forms.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I prevent form submission default behavior?</summary>
+<p class="mt-2 text-sm text-slate-300">Call event.preventDefault() in the onSubmit handler. Without it, the browser reloads the page — which loses all React state. The pattern: function handleSubmit(e) { e.preventDefault(); ... }. This is required in every React form that handles submission client-side.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I handle multiple form fields without repeating state?</summary>
+<p class="mt-2 text-sm text-slate-300">Use a single state object with computed property names. const [form, setForm] = useState({ name: '', email: '' }). In the change handler: setForm({ ...form, [e.target.name]: e.target.value }). Each input needs a name attribute matching the state key.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are the event pooling changes in React 17+?</summary>
+<p class="mt-2 text-sm text-slate-300">Before React 17, event objects were pooled and could become null after the handler returned. React 17+ removed event pooling — event objects are now standard JavaScript objects. If you see event.persist() in old tutorials, it's no longer needed.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I handle a textarea in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Textareas use value and onChange, same as inputs. Note: in HTML, textarea content goes between the tags. In React, use the value prop. Same applies to select: value and onChange with options below.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I reset a form after submission?</summary>
+<p class="mt-2 text-sm text-slate-300">For controlled forms (the standard), reset the state: setForm({ name: '', email: '' }), which clears all inputs on the next render. This ensures the inputs and state stay in sync — resetting one without the other creates a visual bug.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue your React path</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/useeffect.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 5: useEffect</div>
+<div class="text-xs text-slate-400 mt-1">Side effects and data fetching</div>
+</a>
+<a href="/courses/react/lessons/lists-keys.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 6: Lists & keys</div>
+<div class="text-xs text-slate-400 mt-1">Render arrays of components</div>
+</a>
+<a href="/courses/react/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗺️ React learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+<a href="/courses/javascript/lessons/events.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🟨 JavaScript: Events</div>
+<div class="text-xs text-slate-400 mt-1">Review native event handling</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://react.dev/reference/react-dom/components/input" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — Input component reference</a></li>
+<li>→ <a href="https://react.dev/reference/react-dom/components/form" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — Form component reference</a></li>
+<li>→ <a href="https://react.dev/learn/reacting-to-input-with-state" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — Reacting to Input with State</a></li>
+</ul>
+</section>
+
+<a href="/courses/react/index.html" class="back-link">← Back to React track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the React track · Lesson 4 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
