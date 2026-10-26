@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React useEffect — Side Effects & Data Fetching (2026)</title>
+<meta name="description" content="Learn React useEffect. Run side effects after render, fetch data from APIs, manage dependencies, and clean up subscriptions. Every pattern with examples.">
+<meta name="keywords" content="react useEffect, react side effects, react data fetching, react useEffect dependencies, react cleanup, react useEffect tutorial">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React useEffect — Side Effects & Data Fetching">
+<meta property="og:description" content="Learn React useEffect. Run side effects after render, fetch data from APIs, manage dependencies, and clean up subscriptions.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/lessons/useeffect.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React useEffect — Side Effects & Data Fetching">
+<meta name="twitter:description" content="Learn React useEffect. Side effects, data fetching, dependency arrays, and cleanup.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/lessons/useeffect.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"React useEffect — Side Effects & Data Fetching","description":"Learn React useEffect. Run side effects after render, fetch data from APIs, manage dependencies, and clean up subscriptions. Every pattern with examples.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-26","dateModified":"2026-10-26","proficiencyLevel":"Intermediate","dependencies":"React 19"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is useEffect in React?","acceptedAnswer":{"@type":"Answer","text":"useEffect is a hook that runs side effects after render. Side effects are things that aren't part of rendering: fetching data, setting up subscriptions, manipulating the DOM directly, setting timers. The effect runs after React has committed the render to the DOM, so it doesn't block the paint. The dependency array controls when it re-runs. Use it when a component needs to sync with something outside React."}},{"@type":"Question","name":"What does the dependency array do?","acceptedAnswer":{"@type":"Answer","text":"The second argument to useEffect is an array of dependencies. React compares the current values to the previous render's values. If any dependency changed, the effect runs again. If no dependencies are passed, the effect runs after every render. If an empty array is passed, the effect runs once after the first render (and once on unmount for cleanup). If specific values are passed, the effect runs when any of those values change."}},{"@type":"Question","name":"What is the cleanup function in useEffect?","acceptedAnswer":{"@type":"Answer","text":"Return a function from useEffect to clean up when the effect is about to run again or the component unmounts. Used for removing event listeners, cancelling subscriptions, clearing timers, and aborting fetches. If you set up something, clean it up — otherwise you leak memory and get bugs. The cleanup runs before the next effect and once when the component unmounts."}},{"@type":"Question","name":"Why does my useEffect run infinitely?","acceptedAnswer":{"@type":"Answer","text":"Because it updates state that's in its dependency array. Pattern: useEffect(() => { setCount(count + 1) }, [count]) — the effect changes count, which triggers the effect again, which changes count, forever. Fix: either remove the state from dependencies if it shouldn't trigger a re-run, or don't update state in the effect. If the effect must set state, don't include that state in the dependencies. Use the updater form (setCount(prev => prev + 1)) without the dependency."}},{"@type":"Question","name":"What is the difference between useEffect and event handlers?","acceptedAnswer":{"@type":"Answer","text":"Event handlers run in response to user actions (click, submit, keypress). useEffect runs in response to renders — specifically, when the component mounts or its dependencies change. Use event handlers for actions the user takes. Use useEffect for side effects that should happen as a consequence of rendering: fetch data when a component appears, subscribe to a store, sync with a third-party library."}},{"@type":"Question","name":"How do I fetch data with useEffect?","acceptedAnswer":{"@type":"Answer","text":"useEffect with async function inside: useEffect(() => { async function load() { const res = await fetch(url); const data = await res.json(); setData(data) } load(); }, [url]). The effect can't be async itself — that's why you define an inner async function and call it. For cleanup, use an AbortController to cancel the fetch if the component unmounts or the URL changes."}},{"@type":"Question","name":"Should I use useEffect for derived state?","acceptedAnswer":{"@type":"Answer","text":"No. If you're computing a value from existing state or props, compute it in the render function — not in an effect. Example: const total = items.reduce(...) not useEffect(() => setTotal(items.reduce(...)), [items]). Deriving in render is faster, simpler, and can't get out of sync. useEffect is for synchronizing with external systems, not for computing."}},{"@type":"Question","name":"Can I call useEffect conditionally?","acceptedAnswer":{"@type":"Answer","text":"No. Hooks must be called in the same order on every render. Writing if (x) { useEffect(...) } breaks React's internal bookkeeping — on the next render, hooks might be called in a different order, causing state to attach to the wrong hook. Fix: always call useEffect unconditionally. Put the condition inside the effect body: useEffect(() => { if (!enabled) return; ... }, [enabled])"}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Lesson 5</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">useEffect</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 5</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Lesson 5 · 20 minutes</div>
+<h1>useEffect.<br><span class="py-accent">Sync with the world outside React.</span></h1>
+<p class="lead">
+Rendering is pure: given state, React produces UI. But real apps need to do things that aren't rendering — fetch data from an API, subscribe to a websocket, set a document title, manage a timer. That's what useEffect is for. It runs side effects after render and cleans up before the next one. This is the hook beginners most often misuse. This lesson teaches the correct mental model, the dependency array, and the cleanup pattern that prevents every bug.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~20 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> React 19</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/react/index.html">React path</a>
+<a href="/courses/react/lessons/events-forms.html">← Lesson 4</a>
+<a href="#basics">Basics</a>
+<a href="#deps">Dependencies</a>
+<a href="#fetch">Data fetching</a>
+<a href="#cleanup">Cleanup</a>
+<a href="#mistakes">Pitfalls</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<code>useEffect(() => { ... })</code> runs after render. The second argument — the <strong>dependency array</strong> — controls when it runs: <code>[]</code> runs once on mount, <code>[x]</code> runs when <code>x</code> changes, omitted runs after every render. The function you return is the <strong>cleanup</strong> — it runs before the next effect and on unmount. Use useEffect for external sync (fetching, subscriptions, DOM, timers). Don't use it for derived state — compute in render instead.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#61dafb !important;">Before this lesson:</strong> complete <a href="/courses/react/lessons/events-forms.html" style="color:#7ee8fc; text-decoration:underline;">Lesson 4</a>. You need to understand state and event handlers first.
+</p>
+</div>
+
+<section id="basics">
+<h2 class="section-title">🎯 The basic pattern</h2>
+<p class="section-sub">Runs after render. Never during. That's the entire concept.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">React's render phase must be pure — no side effects, no API calls, no DOM manipulation. useEffect lets you run those effects <em>after</em> React has committed the render to the DOM. This ordering is important: the effect can access the rendered DOM, and it doesn't block the paint.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Basic useEffect</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="kw">import</span> { useEffect, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">DocumentTitle</span>({ count }) {
+<span class="fn">useEffect</span>(() => {
+<span class="com">// Runs AFTER the render is committed to the DOM</span>
+document.title = <span class="str">Count: ${count}`</span>;
+});
+
+<span class="kw">return</span> <p>Check the browser tab — it says "{count}"</p>;
+}
+
+<span class="com">// Order of operations:
+// 1. React calls DocumentTitle() → returns JSX
+// 2. React commits the JSX to the DOM
+// 3. React runs the useEffect callback
+// 4. document.title updates
+//
+// The effect never runs during render.
+// This is why side effects belong in useEffect,
+// not in the component body.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// ❌ WRONG — side effect in render</span>
+<span class="kw">function</span> <span class="fn">Broken</span>({ count }) {
+document.title = <span class="str">Count:${count}`</span>;
+<span class="com">// This works sometimes but is a bug:
+// - Fires on every render, including ones React discards
+// - Runs during StrictMode double-render in dev
+// - Runs on the server during SSR (no document)
+// - Makes the render impure</span>
+<span class="kw">return</span> <p>{count}</p>;
+}
+
+<span class="com">// ✅ CORRECT — side effect in useEffect</span>
+<span class="kw">function</span> <span class="fn">Fixed</span>({ count }) {
+<span class="fn">useEffect</span>(() => {
+document.title = <span class="str">Count: ${count}`</span>;
+});
+<span class="kw">return</span> <p>{count}</p>;
+}</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Runs after render</h4>
+<p>Not during, not before. The effect runs after React has painted. This lets it access the actual DOM and not block the first paint.</p>
+</div>
+<div class="concept-card">
+<h4>Never async itself</h4>
+<p><code>useEffect(async () => {})</code> is a bug — effects can't be async. Define an async function inside and call it: <code>useEffect(() => { async function load() {} load(); }, [])</code>.</p>
+</div>
+<div class="concept-card">
+<h4>What goes here</h4>
+<p>API calls, subscriptions, timers, DOM manipulation, logging, localStorage sync, third-party library init. Things that aren't part of computing the UI.</p>
+</div>
+<div class="concept-card">
+<h4>What doesn't</h4>
+<p>Derived state (compute in render). Event handlers (use onClick). Anything that runs in response to user action, not render.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>If you're putting something in useEffect, ask: does this need to run in response to a render, or a user action?</strong> If it's a user action (click, submit, keypress), use an event handler. If it's a render (component mounted, a dependency changed), use useEffect. This one question prevents 90% of useEffect misuse. Fetching data when a component mounts → useEffect. Fetching data when a button is clicked → event handler.</p>
+</div>
+</section>
+
+<section id="deps">
+<h2 class="section-title">🔗 The dependency array — when to re-run</h2>
+<p class="section-sub">Three cases. Each means something specific. Get this right and effects stop being mysterious.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Three dependency patterns</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="com">// 1. NO dependency array — runs after EVERY render</span>
+<span class="fn">useEffect</span>(() => {
+<span class="fn">console</span>.<span class="fn">log</span>(<span class="str">'Ran after render'</span>);
+});
+<span class="com">// Rarely what you want. Usually a bug or oversight.
+// Runs: initial render, every state change, every prop change.</span>
+
+<span class="com">// 2. EMPTY array [] — runs ONCE after first render</span>
+<span class="fn">useEffect</span>(() => {
+<span class="fn">console</span>.<span class="fn">log</span>(<span class="str">'Component mounted'</span>);
+}, []);
+<span class="com">// Use for: fetch data once, set up a subscription,
+// initialize a third-party library. The effect runs
+// after the first render and never again (unless unmounted).</span>
+
+<span class="com">// 3. SPECIFIC dependencies [x, y] — runs when x or y changes</span>
+<span class="fn">useEffect</span>(() => {
+<span class="fn">console</span>.<span class="fn">log</span>(<span class="str">'Count changed to'</span>, count);
+}, [count]);
+<span class="com">// Runs: after first render (initial), and every time
+// count changes. If count stays the same across renders,
+// the effect doesn't re-run.
+//
+// React compares dependencies by reference (Object.is).
+// Primitives (numbers, strings, booleans) compare by value.
+// Objects and arrays compare by reference — a new {} or []
+// every render triggers the effect every render.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// Example: fetch data when userId changes</span>
+<span class="kw">function</span> <span class="fn">UserProfile</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="kw">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">async function</span> <span class="fn">load</span>() {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>);
+<span class="kw">const</span> data = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="fn">setUser</span>(data);
+}
+<span class="fn">load</span>();
+}, [userId]);
+<span class="com">// Runs when userId changes. Refetches the user.
+// If userId stays the same, no refetch.
+// This is the standard "fetch on prop change" pattern.</span>
+
+<span class="kw">if</span> (!user) <span class="kw">return</span> <p>Loading...</p>;
+<span class="kw">return</span> <p>{user.name}</p>;
+}</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>No array</h4>
+<p>Runs after every render. Rarely what you want — usually a symptom of misunderstanding or a bug. Most effects should have dependencies.</p>
+</div>
+<div class="concept-card">
+<h4>Empty []</h4>
+<p>Runs once on mount, cleans up on unmount. "Set it up once, tear it down once." Use for one-time initialization, subscriptions, and initial data fetch.</p>
+</div>
+<div class="concept-card">
+<h4>[values]</h4>
+<p>Runs when any of these values changes. React compares each value to the previous render. New value → effect runs. Same value → skip.</p>
+</div>
+<div class="concept-card">
+<h4>Reference equality</h4>
+<p>React uses <code>Object.is</code> for comparison. Primitives compare by value. Objects and arrays compare by reference — inline <code>{}</code> or <code>[]</code> creates a new reference every render → effect runs every render.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Missing dependencies = stale closures.</strong> If you use <code>count</code> inside an effect but don't include it in the dependency array, the effect captures the initial value of <code>count</code> forever. The effect runs, but with old data. This is the most confusing useEffect bug. Fix: install <code>eslint-plugin-react-hooks</code> — it warns you exactly which dependencies are missing. Never silence those warnings without understanding why.</p>
+</div>
+</section>
+
+<section id="fetch">
+<h2 class="section-title">🌐 Data fetching — the real-world pattern</h2>
+<p class="section-sub">Loading, error, data. Three states every fetch needs. Plus cleanup to prevent races.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Complete fetch pattern</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="kw">function</span> <span class="fn">UserProfile</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="kw">null</span>);
+<span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="kw">true</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span>(<span class="kw">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="com">// AbortController lets us cancel if the component unmounts
+// or if userId changes before the fetch completes</span>
+<span class="kw">const</span> controller = <span class="kw">new</span> <span class="fn">AbortController</span>();
+
+<span class="kw">async function</span> <span class="fn">load</span>() {
+<span class="fn">setLoading</span>(<span class="kw">true</span>);
+<span class="fn">setError</span>(<span class="kw">null</span>);
+
+<span class="kw">try</span> {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>, {
+signal: controller.signal,
+});
+
+<span class="kw">if</span> (!res.ok) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">HTTP${res.status}`</span>);
+
+<span class="kw">const</span> data = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="fn">setUser</span>(data);
+} <span class="kw">catch</span> (err) {
+<span class="kw">if</span> (err.name === <span class="str">'AbortError'</span>) <span class="kw">return</span>; <span class="com">// cancelled — ignore</span>
+<span class="fn">setError</span>(err.message);
+} <span class="kw">finally</span> {
+<span class="fn">setLoading</span>(<span class="kw">false</span>);
+}
+}
+
+<span class="fn">load</span>();
+
+<span class="com">// Cleanup — cancel the fetch if the effect re-runs or unmounts</span>
+<span class="kw">return</span> () => controller.<span class="fn">abort</span>();
+}, [userId]);
+
+<span class="kw">if</span> (loading) <span class="kw">return</span> <p>Loading...</p>;
+<span class="kw">if</span> (error) <span class="kw">return</span> <p>Error: {error}</p>;
+<span class="kw">return</span> <p>{user.name}</p>;
+}</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Three states</h4>
+<p>Always handle <code>loading</code>, <code>error</code>, and <code>data</code>. Every fetch can fail, can take time, and can succeed. Showing only "data" means a blank screen for the first second and no feedback on failure.</p>
+</div>
+<div class="concept-card">
+<h4>AbortController</h4>
+<p>Cancels the fetch if the effect re-runs (userId changed) or the component unmounts. Prevents "can't set state on unmounted component" warnings and stale-data overwrites.</p>
+</div>
+<div class="concept-card">
+<h4>Race conditions</h4>
+<p>Without abort, two rapid userId changes can finish out of order — the older fetch overwrites the newer one. Abort kills the old request so only the newest result lands.</p>
+</div>
+<div class="concept-card">
+<h4>Check res.ok</h4>
+<p><code>fetch</code> doesn't throw on 404/500. It resolves with a failed response. Always check <code>res.ok</code> and throw manually if false. Otherwise errors look like empty successes.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>This is the pattern every production React app uses.</strong> Three states, AbortController, check <code>res.ok</code>, cleanup return. Every data-fetching hook in every React tutorial builds on this shape. React Query, SWR, and TanStack Query all automate these parts — but they all implement this pattern internally. Build it once by hand, and you'll understand every fetching library forever.</p>
+</div>
+</section>
+
+<section id="cleanup">
+<h2 class="section-title">🧹 Cleanup — clean up what you set up</h2>
+<p class="section-sub">Return a function from useEffect. React calls it before the next effect and on unmount.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Cleanup patterns</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="com">// 1. Event listener</span>
+<span class="fn">useEffect</span>(() => {
+<span class="kw">function</span> <span class="fn">handleResize</span>() {
+<span class="fn">setWidth</span>(window.innerWidth);
+}
+
+window.<span class="fn">addEventListener</span>(<span class="str">'resize'</span>, handleResize);
+
+<span class="com">// Cleanup — remove the same listener</span>
+<span class="kw">return</span> () => window.<span class="fn">removeEventListener</span>(<span class="str">'resize'</span>, handleResize);
+}, []);
+<span class="com">// Without cleanup, every re-mount adds another listener.
+// Memory leak. The handler fires multiple times per resize.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// 2. Timer</span>
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => {
+<span class="fn">setSeconds</span>(s => s + <span class="num">1</span>);
+}, <span class="num">1000</span>);
+
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, []);
+<span class="com">// Without cleanup, the interval keeps running after unmount.
+// Updates state on an unmounted component. React warns.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// 3. Subscription (e.g., WebSocket, Firebase)</span>
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> unsubscribe = store.<span class="fn">subscribe</span>(<span class="str">'messages'</span>, (msg) => {
+<span class="fn">setMessages</span>(prev => [...prev, msg]);
+});
+
+<span class="kw">return</span> unsubscribe;
+}, []);
+<span class="com">// Unsubscribe on unmount. Without it, the store keeps sending
+// messages to a component that no longer exists.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// 4. Fetch (see previous section for full example)</span>
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> controller = <span class="kw">new</span> <span class="fn">AbortController</span>();
+<span class="fn">fetch</span>(url, { signal: controller.signal })
+.<span class="fn">then</span>(res => res.<span class="fn">json</span>())
+.<span class="fn">then</span>(setData)
+.<span class="fn">catch</span>(err => {
+<span class="kw">if</span> (err.name !== <span class="str">'AbortError'</span>) <span class="fn">setError</span>(err);
+});
+
+<span class="kw">return</span> () => controller.<span class="fn">abort</span>();
+}, [url]);</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Cleanup runs when</h4>
+<p>Before the effect runs again (when deps change), and once when the component unmounts. It's the "tear down" that pairs with the "set up."</p>
+</div>
+<div class="concept-card">
+<h4>Same reference</h4>
+<p>For event listeners, the cleanup must remove the exact function that was added. So define the handler outside the listener call, then use the same variable in both places.</p>
+</div>
+<div class="concept-card">
+<h4>Return undefined is fine</h4>
+<p>If the effect doesn't need cleanup, don't return anything. Returning <code>undefined</code> is the same as returning nothing. Only return a function when there's something to tear down.</p>
+</div>
+<div class="concept-card">
+<h4>Async effects</h4>
+<p>You can't <code>return</code> from an async function inside useEffect (you'd return a Promise). Define cleanup outside the async function: <code>const controller = new AbortController(); async function load() {...}; load(); return () => controller.abort();</code></p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>If you set up something, clean it up.</strong> Every event listener, interval, timeout, subscription, and fetch controller needs a cleanup. React doesn't do this for you — but it will warn you with "Can't perform a React state update on an unmounted component" if you forget. Every warning is a leak. Every leak is a bug waiting to happen (or already happening). Treat cleanup as required, not optional.</p>
+</div>
+</section>
+
+<section id="mistakes">
+<h2 class="section-title">⚠️ useEffect pitfalls</h2>
+<p class="section-sub">The four mistakes that cause 90% of useEffect bugs.</p>
+
+<div class="space-y-3">
+<div class="mistake">
+<div class="mtitle">1. useEffect for derived state</div>
+<p><code>useEffect(() => setTotal(items.length), [items])</code> — computing a value and storing it in state. Fix: <code>const total = items.length</code> in the render. No effect, no state, no bug.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Missing dependencies</div>
+<p>Using <code>count</code> inside an effect but not adding it to <code>[]</code> — the effect captures the initial count forever. Fix: install <code>eslint-plugin-react-hooks</code>. It tells you exactly what's missing.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Infinite loop</div>
+<p><code>useEffect(() => setCount(count + 1), [count])</code> — effect changes count, count is in deps, effect re-runs, forever. Fix: don't set state that's in the dependencies. Or remove the state from deps if it shouldn't trigger.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Async function directly in useEffect</div>
+<p><code>useEffect(async () => {...})</code> — async functions return Promises, and effect can't return a Promise. Fix: <code>useEffect(() => { async function load() {...}; load(); }, [])</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Object/array dependency</div>
+<p><code>useEffect(() => {...}, [{ config }])</code> — new object every render = effect runs every render. Fix: destructure to primitives (<code>[config.id, config.name]</code>) or use useMemo.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Not cleaning up</div>
+<p>Event listeners, intervals, subscriptions — all leaked if not cleaned up. Fix: return a cleanup function. Every time.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Conditional useEffect</div>
+<p><code>if (x) { useEffect(...) }</code> — breaks React's hook order. Fix: call unconditionally, put condition inside the effect body.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using effect for event handlers</div>
+<p>Fetching data when a button is clicked should be an onClick handler, not a useEffect. Effects are for render-triggered side effects, not user-triggered.</p>
+</div>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different useEffect pattern.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Live clock</h4>
+<p>Build a component that displays the current time and updates every second:</p>
+<p>1. State for the current time<br>
+2. useEffect with <code>setInterval</code> to update the time<br>
+3. Cleanup that clears the interval<br>
+4. Display in the format "14:32:07"</p>
+<p>Test by unmounting the component — there should be no warning in the console about setting state on an unmounted component. That's the sign your cleanup works.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Data fetcher with all three states</h4>
+<p>Build a <code>PostList</code> component that:</p>
+<p>1. Fetches posts from <code>https://jsonplaceholder.typicode.com/posts</code><br>;
+2. Has state for <code>posts</code>, <code>loading</code>, and <code>error</code><br>
+3. Shows "Loading..." while loading, "Error: ..." on failure, and the list of posts on success<br>
+4. Uses AbortController to cancel on unmount<br>
+5. Checks <code>res.ok</code> before parsing JSON</p>
+<p>Test by temporarily changing the URL to an invalid one — you should see the error state, not a blank screen. Test by unmounting mid-fetch — you should see no warnings.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Search with debounce</h4>
+<p>Build a search component that fetches from an API as the user types, but waits 300ms after typing stops to avoid firing a request on every keystroke:</p>
+<p>1. State for the query<br>
+2. useState for the debounced query (updates 300ms after query changes)<br>
+3. useEffect with a setTimeout that updates debouncedQuery<br>
+4. Cleanup that clears the timeout when query changes<br>
+5. Another useEffect that fetches when debouncedQuery changes</p>
+<p>Without the cleanup, rapid typing queues up multiple setTimeouts that all fire. With it, only the last one fires. This is the standard debounce pattern — every search box uses it.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is useEffect in React?</summary>
+<p class="mt-2 text-sm text-slate-300">useEffect is a hook that runs side effects after render. Side effects are things that aren't part of rendering: fetching data, setting up subscriptions, manipulating the DOM directly, setting timers. The effect runs after React has committed the render to the DOM, so it doesn't block the paint.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does the dependency array do?</summary>
+<p class="mt-2 text-sm text-slate-300">The second argument to useEffect is an array of dependencies. React compares the current values to the previous render's values. If any dependency changed, the effect runs again. No array means it runs after every render. Empty array means once on mount.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the cleanup function in useEffect?</summary>
+<p class="mt-2 text-sm text-slate-300">Return a function from useEffect to clean up when the effect is about to run again or the component unmounts. Used for removing event listeners, cancelling subscriptions, clearing timers, and aborting fetches. If you set up something, clean it up.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does my useEffect run infinitely?</summary>
+<p class="mt-2 text-sm text-slate-300">Because it updates state that's in its dependency array. The effect changes state, which triggers the effect again, which changes state, forever. Fix: either remove the state from dependencies if it shouldn't trigger a re-run, or don't update state in the effect.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between useEffect and event handlers?</summary>
+<p class="mt-2 text-sm text-slate-300">Event handlers run in response to user actions (click, submit, keypress). useEffect runs in response to renders — specifically, when the component mounts or its dependencies change. Use event handlers for actions the user takes. Use useEffect for side effects that should happen as a consequence of rendering.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fetch data with useEffect?</summary>
+<p class="mt-2 text-sm text-slate-300">useEffect with async function inside: useEffect(() => { async function load() { const res = await fetch(url); const data = await res.json(); setData(data) } load(); }, [url]). For cleanup, use an AbortController to cancel the fetch if the component unmounts.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use useEffect for derived state?</summary>
+<p class="mt-2 text-sm text-slate-300">No. If you're computing a value from existing state or props, compute it in the render function — not in an effect. Deriving in render is faster, simpler, and can't get out of sync. useEffect is for synchronizing with external systems, not for computing.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I call useEffect conditionally?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Hooks must be called in the same order on every render. Writing if (x) { useEffect(...) } breaks React's internal bookkeeping. Fix: always call useEffect unconditionally. Put the condition inside the effect body.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue your React path</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/lists-keys.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 6: Lists & keys</div>
+<div class="text-xs text-slate-400 mt-1">Render arrays of components</div>
+</a>
+<a href="/courses/react/lessons/events-forms.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 4: Events & forms</div>
+<div class="text-xs text-slate-400 mt-1">Review controlled inputs</div>
+</a>
+<a href="/courses/react/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗺️ React learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+<a href="/courses/javascript/lessons/async.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🟨 JavaScript: Async & fetch</div>
+<div class="text-xs text-slate-400 mt-1">Review the fetch API</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://react.dev/reference/react/useEffect" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — useEffect reference</a></li>
+<li>→ <a href="https://react.dev/learn/synchronizing-with-effects" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — Synchronizing with Effects</a></li>
+<li>→ <a href="https://react.dev/learn/you-might-not-need-an-effect" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — You Might Not Need an Effect</a></li>
+</ul>
+</section>
+
+<a href="/courses/react/index.html" class="back-link">← Back to React track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the React track · Lesson 5 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
