@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>SQL ORDER BY, LIMIT & Aliases — Complete Guide with Live Output (2026)</title>
+<meta name="description" content="Learn SQL ORDER BY, LIMIT, OFFSET, and AS aliases. Sort results, pick top rows, paginate. Every example shows the query AND the actual output.">
+<meta name="keywords" content="sql order by, sql limit, sql offset, sql alias, sql top n, sql pagination, sql sort">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="SQL ORDER BY, LIMIT & Aliases — Complete Guide with Live Output">
+<meta property="og:description" content="Learn SQL ORDER BY, LIMIT, OFFSET, and AS aliases. Every example shows the query AND the actual output.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/sql/lessons/order-limit.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="SQL ORDER BY, LIMIT & Aliases — Complete Guide with Live Output">
+<meta name="twitter:description" content="Learn SQL ORDER BY, LIMIT, OFFSET, and AS aliases. Every example shows query AND output.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/sql/lessons/order-limit.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"SQL ORDER BY, LIMIT & Aliases — Complete Guide with Live Output","description":"Learn SQL ORDER BY, LIMIT, OFFSET, and AS aliases. Sort results, pick top rows, paginate. Every example shows the query AND the actual output.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-26","dateModified":"2026-10-26","proficiencyLevel":"Beginner","dependencies":"SQL"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What does ORDER BY do in SQL?","acceptedAnswer":{"@type":"Answer","text":"ORDER BY sorts the result rows. Without it, SQL returns rows in arbitrary order (usually insertion order, but not guaranteed). ORDER BY column ASC sorts ascending (A to Z, 0 to 9). ORDER BY column DESC sorts descending (Z to A, 9 to 0). You can sort by multiple columns: ORDER BY country ASC, age DESC sorts by country first, then by age within each country."}},{"@type":"Question","name":"What does LIMIT do in SQL?","acceptedAnswer":{"@type":"Answer","text":"LIMIT restricts the number of rows returned. SELECT * FROM users LIMIT 10 returns at most 10 rows. Combined with ORDER BY, LIMIT answers "top N" questions: top 10 customers by revenue, most recent 5 orders, highest-rated 3 products. LIMIT without ORDER BY is meaningless — you get 10 arbitrary rows, not 10 sorted rows."}},{"@type":"Question","name":"What is OFFSET and how does it work with LIMIT?","acceptedAnswer":{"@type":"Answer","text":"OFFSET skips the first N rows before returning results. LIMIT 10 OFFSET 20 returns rows 21 through 30 (for pagination page 3 at 10 per page). Together, LIMIT and OFFSET implement pagination. But beware: OFFSET on large tables is slow — the database has to count through all skipped rows. For large datasets, use keyset pagination (WHERE id > last_seen_id LIMIT 10) instead."}},{"@type":"Question","name":"What is an alias in SQL?","acceptedAnswer":{"@type":"Answer","text":"An alias renames a column or table in the output, using AS. SELECT name AS user_name FROM users renames the name column to user_name in results. SELECT price * quantity AS total FROM order_items creates a computed column named total. Aliases only affect the output — the actual column name in the database doesn't change. Table aliases (FROM users AS u) shorten queries with JOINs."}},{"@type":"Question","name":"What is the difference between LIMIT and TOP?","acceptedAnswer":{"@type":"Answer","text":"They do the same thing. LIMIT is PostgreSQL, MySQL, SQLite, and MariaDB syntax. TOP is SQL Server syntax. Oracle uses FETCH FIRST N ROWS ONLY. They're database-specific. PostgreSQL/MySQL: SELECT * FROM users LIMIT 10. SQL Server: SELECT TOP 10 * FROM users. Oracle: SELECT * FROM users FETCH FIRST 10 ROWS ONLY. The concept is the same, syntax varies."}},{"@type":"Question","name":"Can I ORDER BY a column not in SELECT?","acceptedAnswer":{"@type":"Answer","text":"Yes. You can ORDER BY any column in the table, even if it's not in the SELECT list. SELECT name FROM users ORDER BY age works — the output has only name, but rows are sorted by age. This is useful for "show me just the names, sorted by signup date." Most databases allow it; some (like SQL Server with DISTINCT) have exceptions."}},{"@type":"Question","name":"How do I sort NULLs in SQL?","acceptedAnswer":{"@type":"Answer","text":"NULL sorting depends on the database. PostgreSQL: NULLs sort last by default in ASC, first in DESC. MySQL: NULLs sort first in ASC. SQLite: NULLs sort first in ASC. To control it explicitly: ORDER BY age ASC NULLS LAST (PostgreSQL, Oracle) or ORDER BY (age IS NULL) ASC, age ASC (portable). The portable trick uses IS NULL to force NULLs to a known position."}},{"@type":"Question","name":"How do I paginate with SQL safely?","acceptedAnswer":{"@type":"Answer","text":"OFFSET pagination is simple but slow on large datasets — the database still scans every skipped row. For tables with millions of rows, use keyset pagination: instead of LIMIT 10 OFFSET 10000, use WHERE id > 12345 ORDER BY id LIMIT 10. The database jumps directly to the position via the index. Requires a unique, indexed sort column (usually id or created_at). This is the standard approach for modern pagination."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-sql.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#10b981 !important;">Lesson 2</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Order, limit & aliases</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#34d399;">Home</a> ›
+<a href="/courses/index.html" style="color:#34d399;">Courses</a> ›
+<a href="/courses/sql/index.html" style="color:#34d399;">SQL</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 2</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟢 Lesson 2 · 15 minutes</div>
+<h1>Order, limit & aliases.<br><span class="py-accent">Turn rows into reports.</span></h1>
+<p class="lead">
+A raw query returns rows in arbitrary order. A useful query returns them sorted, limited, and labeled. That's what ORDER BY, LIMIT, and AS do. Three clauses that turn "give me data" into "give me the top 10 customers by revenue, sorted descending, labeled for the report." Every example has a Code / Output toggle — click to see the sorted result.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~15 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Beginner</span>
+<span><i class="fa-solid fa-code"></i> SQL · standard</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/sql/index.html">SQL path</a>
+<a href="/courses/sql/lessons/select-where.html">← Lesson 1</a>
+<a href="#order">ORDER BY</a>
+<a href="#limit">LIMIT</a>
+<a href="#offset">OFFSET</a>
+<a href="#aliases">Aliases</a>
+<a href="#top-n">Top N</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+The full SELECT order: <code>SELECT columns FROM table WHERE condition ORDER BY column LIMIT n</code>. <code>ORDER BY</code> sorts (ASC default, DESC for reverse). <code>LIMIT</code> restricts row count. <code>OFFSET</code> skips rows for pagination. <code>AS</code> renames columns or tables in the output. The critical rule: <strong>LIMIT without ORDER BY is meaningless</strong> — you get n arbitrary rows, not n sorted rows. Always pair them.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#10b981 !important;">Before this lesson:</strong> complete <a href="/courses/sql/lessons/select-where.html" style="color:#34d399; text-decoration:underline;">Lesson 1</a>. You need SELECT and WHERE first.
+</p>
+</div>
+
+<section id="order">
+<h2 class="section-title">📊 ORDER BY — sort results</h2>
+<p class="section-sub">Without ORDER BY, row order is arbitrary. With it, you control the order.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">SQL doesn't guarantee row order unless you specify it. Even if a table happens to return rows in insertion order today, a new index, a database upgrade, or a query planner change can reorder them tomorrow. <strong>Always use ORDER BY when order matters.</strong></p>
+
+<div class="code-block" id="block-order-asc">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-order-asc', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-order-asc', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- ASC is the default (A → Z, 0 → 9)
+SELECT name, age
+FROM users
+ORDER BY age ASC;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>name</th><th>age</th></tr>
+</thead>
+<tbody>
+<tr><td>Sofia García</td><td>26</td></tr>
+<tr><td>Alice Chen</td><td>28</td></tr>
+<tr><td>Priya Patel</td><td>31</td></tr>
+<tr><td>Bob Smith</td><td>34</td></tr>
+<tr><td>Marcus Lee</td><td>42</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">5 rows returned</div>
+</div>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4 mb-3">Flip the direction with <code>DESC</code> — the most common case for "top" queries:</p>
+
+<div class="code-block" id="block-order-desc">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-order-desc', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-order-desc', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- DESC reverses the order (Z → A, 9 → 0)
+SELECT name, age
+FROM users
+ORDER BY age DESC;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>name</th><th>age</th></tr>
+</thead>
+<tbody>
+<tr><td>Marcus Lee</td><td>42</td></tr>
+<tr><td>Bob Smith</td><td>34</td></tr>
+<tr><td>Priya Patel</td><td>31</td></tr>
+<tr><td>Alice Chen</td><td>28</td></tr>
+<tr><td>Sofia García</td><td>26</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">5 rows returned</div>
+</div>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4 mb-3">Sort by multiple columns — the first takes priority, the second breaks ties:</p>
+
+<div class="code-block" id="block-order-multi">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-order-multi', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-order-multi', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Sort by country (A → Z), then by age (oldest first)
+SELECT name, country, age
+FROM users
+ORDER BY country ASC, age DESC;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>name</th><th>country</th><th>age</th></tr>
+</thead>
+<tbody>
+<tr><td>Sofia García</td><td>ES</td><td>26</td></tr>
+<tr><td>Priya Patel</td><td>IN</td><td>31</td></tr>
+<tr><td>Bob Smith</td><td>UK</td><td>34</td></tr>
+<tr><td>Marcus Lee</td><td>US</td><td>42</td></tr>
+<tr><td>Alice Chen</td><td>US</td><td>28</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">5 rows returned</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>ASC (default)</h4>
+<p>Ascending — smallest first. A → Z for strings, 0 → 9 for numbers, earliest → latest for dates. Explicit is optional but clearer in some cases.</p>
+</div>
+<div class="concept-card">
+<h4>DESC</h4>
+<p>Descending — largest first. Z → A for strings, 9 → 0 for numbers, latest → earliest for dates. The default for "top N" queries where you want biggest/most recent.</p>
+</div>
+<div class="concept-card">
+<h4>Multiple columns</h4>
+<p><code>ORDER BY a ASC, b DESC</code>. First sorts by a, then within ties by b. The order of columns matters — it's the priority order.</p>
+</div>
+<div class="concept-card">
+<h4>Sort by column not in SELECT</h4>
+<p>You can <code>ORDER BY age</code> even if age isn't in the SELECT list. Useful for "show names sorted by signup date" — you don't need to display the date.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Always specify ORDER BY when order matters.</strong> A query without ORDER BY happens to return rows in some order today — but the database is free to change that order at any time. A new index, a version upgrade, or just a different execution plan can reorder results. Code that depends on unspecified order is a bug waiting to happen. If your application displays a list, sort it in SQL (not in application code) — the database is faster at it, and the guarantee is stronger.</p>
+</div>
+</section>
+
+<section id="limit">
+<h2 class="section-title">✂️ LIMIT — pick the top N rows</h2>
+<p class="section-sub">Return at most N rows. Combined with ORDER BY, this is how "top N" queries work.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">LIMIT caps how many rows are returned. On its own, it returns N arbitrary rows — not useful. Combined with ORDER BY, it answers every "top N" question: top 10 customers by revenue, most recent 5 orders, highest-rated 3 products.</p>
+
+<div class="code-block" id="block-limit-basic">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-limit-basic', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-limit-basic', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Top 3 oldest users
+SELECT name, age
+FROM users
+ORDER BY age DESC
+LIMIT 3;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>name</th><th>age</th></tr>
+</thead>
+<tbody>
+<tr><td>Marcus Lee</td><td>42</td></tr>
+<tr><td>Bob Smith</td><td>34</td></tr>
+<tr><td>Priya Patel</td><td>31</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">3 rows returned (LIMIT 3)</div>
+</div>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4 mb-3">Most common use case in production: "most recent N rows." Sort by a date column descending, then limit:</p>
+
+<div class="code-block" id="block-limit-recent">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-limit-recent', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-limit-recent', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- The 5 most recent users
+SELECT name, created_at
+FROM users
+ORDER BY created_at DESC
+LIMIT 5;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<table class="sql-output-table">
+<thead>
+<tr><th>name</th><th>created_at</th></tr>
+</thead>
+<tbody>
+<tr><td>Sofia García</td><td>2026-05-03</td></tr>
+<tr><td>Marcus Lee</td><td>2026-04-12</td></tr>
+<tr><td>Priya Patel</td><td>2026-03-08</td></tr>
+<tr><td>Bob Smith</td><td>2026-02-20</td></tr>
+<tr><td>Alice Chen</td><td>2026-01-15</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">5 rows returned</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>LIMIT n</h4>
+<p>Return at most n rows. If fewer match, returns what's there. If n is larger than the row count, returns all rows. Safe to use without a count check.</p>
+</div>
+<div class="concept-card">
+<h4>LIMIT with ORDER BY</h4>
+<p>The pair is meaningless without ORDER BY — you get n arbitrary rows. The order matters when the limit is applied (after ORDER BY, before returning).</p>
+</div>
+<div class="concept-card">
+<h4>LIMIT 0</h4>
+<p>Returns zero rows. Useful for "does this query work?" checks — you see the column names without fetching data. Rarely used in production.</p>
+</div>
+<div class="concept-card">
+<h4>Database differences</h4>
+<p>PostgreSQL, MySQL, SQLite: <code>LIMIT</code>. SQL Server: <code>TOP</code>. Oracle: <code>FETCH FIRST N ROWS ONLY</code>. Same concept, different syntax.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>LIMIT without ORDER BY is not "top N."</strong> <code>SELECT * FROM users LIMIT 10</code> returns 10 arbitrary rows — not the 10 most recent, not the 10 oldest, not the 10 highest. The database picks 10 rows based on whatever plan is fastest. It might return the same 10 rows every time (because the plan is deterministic), or it might not. Never assume LIMIT without ORDER BY gives you meaningful rows. Always sort first.</p>
+</div>
+</section>
+
+<section id="offset">
+<h2 class="section-title">⏭️ OFFSET — paginate through results</h2>
+<p class="section-sub">Skip N rows. The other half of pagination. And the source of a common performance bug.</p>
+
+<div class="code-block" id="block-offset">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-offset', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-offset', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Page 1: first 2 users (sorted by age)
+SELECT name, age FROM users ORDER BY age ASC LIMIT 2 OFFSET 0;
+
+-- Page 2: users 3-4
+SELECT name, age FROM users ORDER BY age ASC LIMIT 2 OFFSET 2;
+
+-- Page 3: users 5-6
+SELECT name, age FROM users ORDER BY age ASC LIMIT 2 OFFSET 4;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Page 1 (LIMIT 2 OFFSET 0)</p>
+<table class="sql-output-table" style="margin-bottom:16px;">
+<thead><tr><th>name</th><th>age</th></tr></thead>
+<tbody>
+<tr><td>Sofia García</td><td>26</td></tr>
+<tr><td>Alice Chen</td><td>28</td></tr>
+</tbody>
+</table>
+
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Page 2 (LIMIT 2 OFFSET 2)</p>
+<table class="sql-output-table" style="margin-bottom:16px;">
+<thead><tr><th>name</th><th>age</th></tr></thead>
+<tbody>
+<tr><td>Priya Patel</td><td>31</td></tr>
+<tr><td>Bob Smith</td><td>34</td></tr>
+</tbody>
+</table>
+
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Page 3 (LIMIT 2 OFFSET 4)</p>
+<table class="sql-output-table">
+<thead><tr><th>name</th><th>age</th></tr></thead>
+<tbody>
+<tr><td>Marcus Lee</td><td>42</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">1 row returned (last page)</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>OFFSET n</h4>
+<p>Skips the first n rows before returning results. Combined with LIMIT, gives page N of results. Page 1 = OFFSET 0, page 2 = OFFSET limit, page N = OFFSET (N-1) × limit.</p>
+</div>
+<div class="concept-card">
+<h4>Last page has fewer rows</h4>
+<p>If the total row count doesn't divide evenly, the last page has fewer rows. Your application needs to handle this gracefully (don't assume every page has exactly LIMIT rows).</p>
+</div>
+<div class="concept-card">
+<h4>OFFSET is slow on large tables</h4>
+<p>The database scans and discards the first N rows. OFFSET 10000 requires reading 10000 rows before returning any results. Fine for hundreds of rows, painful for millions.</p>
+</div>
+<div class="concept-card">
+<h4>Keyset pagination</h4>
+<p>The fast alternative: <code>WHERE id > last_seen_id ORDER BY id LIMIT 10</code>. Jumps straight to the position via the index — no scanning. Use for large datasets.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>OFFSET pagination breaks when data changes between pages.</strong> User views page 1, someone adds a new row, user views page 2 — they see the same row twice (once on page 1, once on page 2) because the offset shifted. This is called "phantom reads" and it's a known pagination bug. Fix: keyset pagination (WHERE id > last_seen_id) or snapshot the query at a point in time. For customer-facing lists where new rows appear, keyset is the standard.</p>
+</div>
+</section>
+
+<section id="aliases">
+<h2 class="section-title">🏷️ AS — rename for the output</h2>
+<p class="section-sub">Column aliases rename output. Table aliases shorten queries. Both use AS.</p>
+
+<div class="code-block" id="block-aliases">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-aliases', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-aliases', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Column alias — rename in output
+SELECT
+name AS user_name,
+age AS years_old,
+country AS country_code
+FROM users;
+
+-- Computed column alias — useful for reports
+SELECT
+name,
+age,
+age * 12 AS age_in_months
+FROM users;
+
+-- Aliases can have spaces (quote them)
+SELECT
+name AS "User Name",
+age AS "Years Old"
+FROM users;</pre>
+</div>
+<div class="code-output-pane" data-pane="output">
+<div style="padding:1rem;background:#060f1c;">
+<p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;">Result of the last query: aliases with spaces</p>
+<table class="sql-output-table">
+<thead>
+<tr><th>User Name</th><th>Years Old</th></tr>
+</thead>
+<tbody>
+<tr><td>Alice Chen</td><td>28</td></tr>
+<tr><td>Bob Smith</td><td>34</td></tr>
+<tr><td>Priya Patel</td><td>31</td></tr>
+<tr><td>Marcus Lee</td><td>42</td></tr>
+<tr><td>Sofia García</td><td>26</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">5 rows returned</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Column aliases</h4>
+<p><code>SELECT name AS user_name</code>. The output has "user_name" instead of "name". Useful for reports, APIs, and readable output. The actual column doesn't change.</p>
+</div>
+<div class="concept-card">
+<h4>Computed columns</h4>
+<p><code>SELECT price * quantity AS total</code>. Arithmetic, string concatenation, functions — anything can be aliased. Essential for calculated metrics in reports.</p>
+</div>
+<div class="concept-card">
+<h4>Table aliases</h4>
+<p><code>FROM users AS u</code>. Shortens queries with JOINs: <code>SELECT u.name, o.total FROM users u JOIN orders o ON ...</code>. Reduces typing and improves readability.</p>
+</div>
+<div class="concept-card">
+<h4>AS is optional</h4>
+<p><code>SELECT name user_name</code> works in most databases. But use AS — it's clearer and prevents mistakes. The three-character savings isn't worth the readability cost.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Alias computed columns in every report.</strong> <code>SELECT price * quantity AS total</code> produces a column header of "total" in your output. Without the alias, it's "price * quantity" — ugly in every export to CSV, Excel, or a dashboard. For anything user-facing, aliases are mandatory. Even for internal use, they make debugging easier.</p>
+</div>
+</section>
+
+<section id="top-n">
+<h2 class="section-title">🏆 Top N queries — the pattern</h2>
+<p class="section-sub">The most common report. Sort descending, limit, done.</p>
+
+<div class="code-block" id="block-top-n">
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('block-top-n', 'code', this)">Code</button>
+<button onclick="switchCodeOutput('block-top-n', 'output', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="code">
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;">-- Top 3 highest spenders
+SELECT
+name,
+total_spent AS "Total Spent ($`)"
+FROM users
+WHERE total_spent > 0
+ORDER BY total_spent DESC
+LIMIT 3;
+
+-- 5 most recent orders
+SELECT
+id,
+user_id,
+amount AS "Amount (`$)",
+created_at AS "Date"
+FROM orders
+ORDER BY created_at DESC
+LIMIT 5;
+
+-- 10 cheapest products in stock
+SELECT
+name,
+price AS "Price (latex
+)" FROM products WHERE stock &gt; 0 ORDER BY price ASC LIMIT 10;&lt;/pre&gt; &lt;/div&gt; &lt;div class="code-output-pane" data-pane="output"&gt; &lt;div style="padding:1rem;background:#060f1c;"&gt; &lt;p style="color:#64748b;font-size:0.72rem;margin:0 0 6px 0;text-transform:uppercase;letter-spacing:0.05em;font-weight:700;"&gt;Result of query 1: Top 3 highest spenders&lt;/p&gt; &lt;table class="sql-output-table"&gt; &lt;thead&gt; &lt;tr&gt;&lt;th&gt;name&lt;/th&gt;&lt;th&gt;Total Spent (
+
+)</th></tr>
+</thead>
+<tbody>
+<tr><td>Marcus Lee</td><td>2,847.50</td></tr>
+<tr><td>Alice Chen</td><td>1,932.00</td></tr>
+<tr><td>Priya Patel</td><td>1,205.75</td></tr>
+</tbody>
+</table>
+<div class="sql-output-rows">3 rows returned (LIMIT 3)</div>
+</div>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Top N highest</h4>
+<p><code>ORDER BY amount DESC LIMIT n</code>. Top customers, top products, highest scores. The most common report pattern.</p>
+</div>
+<div class="concept-card">
+<h4>Top N lowest</h4>
+<p><code>ORDER BY price ASC LIMIT n</code>. Cheapest products, lowest scores, oldest items. Used for "bargain" and "urgent" lists.</p>
+</div>
+<div class="concept-card">
+<h4>Most recent N</h4>
+<p><code>ORDER BY created_at DESC LIMIT n</code>. Recent orders, latest signups, newest messages. Used everywhere — activity feeds, notifications.</p>
+</div>
+<div class="concept-card">
+<h4>Oldest N</h4>
+<p><code>ORDER BY created_at ASC LIMIT n</code>. Oldest accounts, pending items, overdue tasks. Used for "needs attention" queues.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The "Top N" pattern is the single most-used SQL query in production.</strong> Every analytics dashboard, every "recent activity" feed, every "leaderboard" widget uses <code>ORDER BY ... DESC LIMIT n</code>. It's the answer to "show me the most X." Once you internalize this pattern, you can answer almost every product question that starts with "who has the most" or "what was the last."</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different sort/limit pattern.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Basic queries</h4>
+<p>Given a <code>products</code> table with columns id, name, price, stock, created_at:</p>
+<p>1. Return all products sorted by price ascending<br>
+2. Return the 5 most expensive products<br>
+3. Return the 10 most recently added products<br>
+4. Return products sorted by category then by price descending<br>
+5. Return the 3 cheapest products that are in stock</p>
+<p>For each query, predict what the output would look like — how many rows, in what order.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Pagination</h4>
+<p>Given a table with 100 rows, write queries for:</p>
+<p>1. Page 1 with 10 rows per page<br>
+2. Page 5 with 20 rows per page<br>
+3. The 3rd page with 25 rows per page<br>
+4. The last page (assume 10 per page, 100 rows total)</p>
+<p>For each, what's the LIMIT and OFFSET? What happens if the total row count is 95 instead of 100 — how does the last page change?</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Multi-clause query</h4>
+<p>Write a query that answers this question:</p>
+<p>"Give me the top 5 highest-spending customers from the US who have placed more than 3 orders, sorted by total spending descending, with columns: name, total spent (aliased), number of orders (aliased), and last order date (aliased)."</p>
+<p>Break it down:</p>
+<p>• WHERE conditions: country = 'US' AND order_count > 3<br>
+• SELECT columns with aliases: <code>name AS "Customer"</code>, <code>total_spent AS "Total ($)"</code>, etc.<br>
+• ORDER BY: <code>total_spent DESC</code><br>
+• LIMIT: <code>5</code></p>
+<p>This is a real production query — the kind you'd write for a sales dashboard. It combines SELECT, WHERE, ORDER BY, LIMIT, and aliases.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The sort/limit/alias bugs that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. LIMIT without ORDER BY</div>
+<p><code>LIMIT 10</code> without <code>ORDER BY</code> gives 10 arbitrary rows. Not the top 10, not the most recent 10 — just any 10. Always pair LIMIT with ORDER BY.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Forgetting DESC for "top N"</div>
+<p>Default is ASC. <code>ORDER BY revenue LIMIT 10</code> gives the 10 LOWEST revenues, not the highest. Fix: <code>ORDER BY revenue DESC LIMIT 10</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. OFFSET pagination on large data</div>
+<p><code>LIMIT 10 OFFSET 100000</code> scans 100,000 rows before returning any. Fix: keyset pagination (<code>WHERE id > last_id LIMIT 10</code>).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Order by column position instead of name</div>
+<p><code>ORDER BY 2</code> sorts by the 2nd column in SELECT. Works but fragile — adding a column shifts the number. Fix: <code>ORDER BY column_name</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using AS with the wrong syntax</div>
+<p><code>AS 'alias'</code> (single quotes) treats the alias as a string literal in some databases, not an identifier. Fix: <code>AS alias</code> (no quotes) or <code>AS "alias"</code> (double quotes) for aliases with spaces.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Forgetting NULL sorting</div>
+<p>NULLs sort first or last depending on the database. If your "top 10" query includes NULL values, they might appear at the top. Fix: <code>WHERE amount IS NOT NULL</code>, or use <code>NULLS LAST</code> (PostgreSQL).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Multi-column sort in wrong order</div>
+<p><code>ORDER BY age DESC, country ASC</code> sorts by age first, then country. If you wanted country first, the order is wrong. Fix: <code>ORDER BY country ASC, age DESC</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Aliases with reserved words</div>
+<p><code>AS order</code> or <code>AS table</code> — these are SQL keywords and may cause errors. Fix: <code>AS "order"</code> (quoted) or better, use a different alias (<code>AS order_info</code>).</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">You can read, filter, sort, and paginate. Next: combining multiple tables.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/sql/lessons/joins.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 3: JOINs</div>
+<div class="text-xs text-slate-400 mt-1">Combine data from multiple tables</div>
+</a>
+<a href="/courses/sql/lessons/group-by.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 4: GROUP BY</div>
+<div class="text-xs text-slate-400 mt-1">Count, sum, and aggregate</div>
+</a>
+<a href="/courses/sql/lessons/select-where.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 1: SELECT and WHERE</div>
+<div class="text-xs text-slate-400 mt-1">Review the basics</div>
+</a>
+<a href="/courses/sql/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">SQL learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does ORDER BY do in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">ORDER BY sorts the result rows. Without it, SQL returns rows in arbitrary order. ORDER BY column ASC sorts ascending. ORDER BY column DESC sorts descending. You can sort by multiple columns: ORDER BY country ASC, age DESC.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does LIMIT do in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">LIMIT restricts the number of rows returned. SELECT * FROM users LIMIT 10 returns at most 10 rows. Combined with ORDER BY, LIMIT answers "top N" questions. LIMIT without ORDER BY is meaningless.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is OFFSET and how does it work with LIMIT?</summary>
+<p class="mt-2 text-sm text-slate-300">OFFSET skips the first N rows before returning results. LIMIT 10 OFFSET 20 returns rows 21-30 (page 3 at 10 per page). Together, LIMIT and OFFSET implement pagination. But OFFSET on large tables is slow — the database has to count through all skipped rows.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is an alias in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">An alias renames a column or table in the output, using AS. SELECT name AS user_name renames the column. SELECT price * quantity AS total creates a computed column. Aliases only affect the output — the actual column name in the database doesn't change.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between LIMIT and TOP?</summary>
+<p class="mt-2 text-sm text-slate-300">Same concept, different syntax. LIMIT is PostgreSQL/MySQL/SQLite. TOP is SQL Server. Oracle uses FETCH FIRST N ROWS ONLY. Use whichever your database supports.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I ORDER BY a column not in SELECT?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. You can ORDER BY any column in the table, even if it's not in the SELECT list. SELECT name FROM users ORDER BY age works — the output has only name, but rows are sorted by age.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I sort NULLs in SQL?</summary>
+<p class="mt-2 text-sm text-slate-300">NULL sorting depends on the database. PostgreSQL: NULLs sort last in ASC. MySQL: NULLs sort first in ASC. To control it: ORDER BY age ASC NULLS LAST (PostgreSQL, Oracle). The portable trick: ORDER BY (age IS NULL) ASC, age ASC.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I paginate with SQL safely?</summary>
+<p class="mt-2 text-sm text-slate-300">OFFSET pagination is simple but slow on large datasets. For tables with millions of rows, use keyset pagination: instead of LIMIT 10 OFFSET 10000, use WHERE id > 12345 ORDER BY id LIMIT 10. The database jumps directly to the position via the index.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://sqlbolt.com/lesson/select_queries_with_constraints" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">SQLBolt: SELECT with constraints</a></li>
+<li>→ <a href="https://www.postgresql.org/docs/current/queries-limit.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">PostgreSQL: LIMIT and OFFSET</a></li>
+<li>→ <a href="https://www.postgresql.org/docs/current/queries-order.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">PostgreSQL: ORDER BY</a></li>
+</ul>
+</section>
+
+<a href="/courses/sql/index.html" class="back-link">← Back to SQL track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the SQL track · Lesson 2 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
