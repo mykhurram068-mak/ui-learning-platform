@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React State & useState — Complete Guide with Examples (2026)</title>
+<meta name="description" content="Learn React state and the useState hook. Add interactive state to components, understand re-renders, batching, updater functions, and lifting state up.">
+<meta name="keywords" content="react useState, react state, react hooks tutorial, react re-render, react lifting state, react state examples">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React State & useState — Complete Guide with Examples">
+<meta property="og:description" content="Learn React state and the useState hook. Add interactive state to components, understand re-renders, batching, updater functions, and lifting state up.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/lessons/state.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React State & useState — Complete Guide with Examples">
+<meta name="twitter:description" content="Learn React state and the useState hook. Add interactive state to components.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/lessons/state.html">
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"TechArticle","headline":"React State & useState — Complete Guide with Examples","description":"Learn React state and the useState hook. Add interactive state to components, understand re-renders, batching, updater functions, and lifting state up.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-10-26","dateModified":"2026-10-26","proficiencyLevel":"Intermediate","dependencies":"React 19"}
+</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is state in React?","acceptedAnswer":{"@type":"Answer","text":"State is data that a component owns and can change over time. When state changes, React re-renders the component with the new value. Unlike props (which come from the parent and are read-only), state is managed inside the component itself. In function components, state is added with the useState hook. The mental model: props flow down, state lives inside."}},{"@type":"Question","name":"What does useState return?","acceptedAnswer":{"@type":"Answer","text":"useState(initialValue) returns an array with two items: the current state value and a setter function. Destructure them: const [count, setCount] = useState(0). The setter updates the state and triggers a re-render. The first value is the current state (read-only — never assign directly). The second is the function to change it (the only way to update state)."}},{"@type":"Question","name":"Why do I need to use useState instead of a regular variable?","acceptedAnswer":{"@type":"Answer","text":"A regular variable (let count = 0) would reset to 0 on every render, and changing it wouldn't trigger a re-render — so the UI wouldn't update. useState persists the value across re-renders AND triggers a re-render when you call its setter. That's the entire reason the hook exists. Regular variables can't do either thing."}},{"@type":"Question","name":"What does it mean that setState is asynchronous?","acceptedAnswer":{"@type":"Answer","text":"Calling setCount(5) doesn't immediately change count. React schedules the update and batches it with other pending updates. The new value is available on the next render. If you log count right after calling setCount, you'll see the old value — because the update hasn't been applied yet. If you need to compute new state based on old state, use the updater function form: setCount(prev => prev + 1)."}},{"@type":"Question","name":"What is the updater function form of setState?","acceptedAnswer":{"@type":"Answer","text":"setCount(prev => prev + 1) instead of setCount(count + 1). The updater receives the current state and returns the new state. This is important when calling setState multiple times in a row — because setCount(count + 1) uses the stale value of count on each call, so three calls add 1 total, not 3. The updater form always uses the latest value, so three calls add 3 total. Use the updater form whenever the new state depends on the old state."}},{"@type":"Question","name":"How do I update an object in state?","acceptedAnswer":{"@type":"Answer","text":"Spread the old object and override properties: setUser({ ...user, name: 'Bob' }). Never mutate: user.name = 'Bob' — this doesn't trigger a re-render because React compares state by reference. For nested objects, spread at each level: setUser({ ...user, address: { ...user.address, city: 'NYC' } }). Same pattern for arrays: setItems([...items, newItem]) to add, setItems(items.filter(x => x.id !== id)) to remove."}},{"@type":"Question","name":"Can I call useState conditionally?","acceptedAnswer":{"@type":"Answer","text":"No. Hooks must be called in the same order on every render. Writing if (x) { useState(0) } breaks React — the second render might call useState in a different order, so React can't match state to the correct hook. Fix: call all hooks at the top of the component unconditionally. The eslint-plugin-react-hooks plugin catches this automatically."}},{"@type":"Question","name":"What is lifting state up?","acceptedAnswer":{"@type":"Answer","text":"When two or more components need to share state, move the state to their closest common parent. Pass the state and its setter down as props. The children display the state and call the setter (or a callback) to change it. This is the standard React pattern for shared state — it keeps data flowing one direction and makes the app predictable. It's called 'lifting state up' because the state moves up the component tree."}}]}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Lesson 3</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">State & useState</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 3</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Lesson 3 · 20 minutes</div>
+<h1>State & useState.<br><span class="py-accent">Where React clicks.</span></h1>
+<p class="lead">
+Props make components configurable. State makes them interactive. When state changes, React re-renders — the UI updates to reflect the new value. This is the moment React stops feeling like fancy HTML and starts feeling like an application. Every interactive feature you'll ever build — counters, forms, toggles, search, filters, carts — is built on this one hook.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~20 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Beginner</span>
+<span><i class="fa-solid fa-code"></i> React 19</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/react/index.html">React path</a>
+<a href="/courses/react/lessons/props.html">← Lesson 2</a>
+<a href="#first-state">First state</a>
+<a href="#why">Why useState</a>
+<a href="#async">Async & batching</a>
+<a href="#updater">Updater function</a>
+<a href="#objects">Objects & arrays</a>
+<a href="#lifting">Lifting state</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<code>const [count, setCount] = useState(0)</code> gives a function component local state. The first item is the current value — read-only. The second is the setter — the only way to update it. Calling the setter triggers a re-render. Never mutate state directly; always use the setter. When state depends on the previous value, use the updater form: <code>setCount(prev => prev + 1)</code>. Hooks must be called unconditionally at the top of the component.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#61dafb !important;">Before this lesson:</strong> complete <a href="/courses/react/lessons/props.html" style="color:#7ee8fc; text-decoration:underline;">Lesson 2</a>. You need to understand props before learning state.
+</p>
+</div>
+
+<section id="first-state">
+<h2 class="section-title">🎯 Your first piece of state</h2>
+<p class="section-sub">One line adds state. The setter updates it. React re-renders.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Before state, components were static — they rendered the same thing every time. With state, a component can hold data that changes: a counter, a form value, a list of items. The mechanism is small: call <code>useState</code>, get back the current value and a setter, call the setter to change it, React re-renders.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">src/Counter.jsx</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">Counter</span>() {
+<span class="com">// Declare a state variable 'count', initialized to 0</span>
+<span class="com">// setCount is the ONLY way to update it</span>
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">return</span> (
+<div style={{ padding: <span class="str">'2rem'</span>, textAlign: <span class="str">'center'</span> }}>
+<h1 style={{ fontSize: <span class="str">'3rem'</span>, margin: <span class="str">'0 0 1rem'</span> }}>
+{count}
+</h1>
+<button onClick={() => <span class="fn">setCount</span>(count - <span class="num">1</span>)}>
+−1
+</button>
+<button onClick={() => <span class="fn">setCount</span>(count + <span class="num">1</span>)} style={{ marginLeft: <span class="str">'0.5rem'</span> }}>
++1
+</button>
+</div>
+);
+}
+
+<span class="kw">export default</span> Counter;</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>useState(initialValue)</h4>
+<p>Returns <code>[value, setter]</code>. The initial value is only used on the first render — subsequent renders ignore it. Initial can be a primitive, object, array, or function.</p>
+</div>
+<div class="concept-card">
+<h4>The destructure</h4>
+<p><code>const [count, setCount] = useState(0)</code> — array destructuring. Name them whatever you want, but the convention is <code>[value, setValue]</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Reading state</h4>
+<p>Use <code>count</code> anywhere in the JSX or logic. It's the current value from the last render. Each render gets a fresh snapshot of state.</p>
+</div>
+<div class="concept-card">
+<h4>Updating state</h4>
+<p>Call <code>setCount(newValue)</code>. React schedules a re-render. On the next render, <code>count</code> will be the new value. Calling the setter doesn't return anything.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The mental model: state is a snapshot.</strong> Each render, React gives your component a fresh <code>count</code> value — a snapshot of what state is right now. When you call <code>setCount(5)</code>, React doesn't change <code>count</code> in the current render. It schedules the next render with the new value. That's why logging <code>count</code> right after <code>setCount</code> shows the OLD value — you're still looking at this render's snapshot. This concept unlocks everything else about React state.</p>
+</div>
+</section>
+
+<section id="why">
+<h2 class="section-title">🤔 Why useState — not a regular variable</h2>
+<p class="section-sub">A regular <code>let count = 0</code> fails in two ways. useState fixes both.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Two failures of regular variables</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="com">// ❌ BROKEN — regular variable doesn't work</span>
+<span class="kw">function</span> <span class="fn">BrokenCounter</span>() {
+<span class="kw">let</span> count = <span class="num">0</span>; <span class="com">// resets to 0 every render</span>
+
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+count = count + <span class="num">1</span>; <span class="com">// changes the local variable</span>
+<span class="fn">console</span>.<span class="fn">log</span>(count); <span class="com">// logs 1, 2, 3...</span>
+}
+
+<span class="kw">return</span> <button onClick={handleClick}>{count}</button>;
+}
+
+<span class="com">// Two problems:
+// 1. React doesn't re-render when 'count' changes.
+// The UI stays at 0 forever.
+// 2. Even if it did re-render, 'let count = 0' resets
+// to 0 on every render. The value is lost.
+// useState fixes both: it persists the value across
+// renders AND triggers a re-render when it changes.</span>
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// ✅ CORRECT — useState works</span>
+<span class="kw">function</span> <span class="fn">WorkingCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="fn">setCount</span>(count + <span class="num">1</span>); <span class="com">// schedules a re-render</span>
+}
+
+<span class="kw">return</span> <button onClick={handleClick}>{count}</button>;
+}
+
+<span class="com">// 1. React re-renders when setCount is called.
+// 2. The value persists across renders (React manages it).
+// The UI updates to reflect the new count.</span></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Persistence</h4>
+<p>Regular variables reset on every render. useState values persist. React stores them outside the function, associated with this component instance.</p>
+</div>
+<div class="concept-card">
+<h4>Triggers re-render</h4>
+<p>Regular variables don't cause re-renders. Calling the setter does. React re-runs the component function, gets new JSX, and patches the DOM.</p>
+</div>
+<div class="concept-card">
+<h4>Multiple state variables</h4>
+<p>Call <code>useState</code> as many times as you need. Each call is independent. <code>const [name, setName] = useState('')</code>, <code>const [age, setAge] = useState(0)</code>.</p>
+</div>
+<div class="concept-card">
+<h4>One state per concern</h4>
+<p>Don't put everything in one state object. Split by what changes together. <code>name</code> and <code>age</code> are separate states. <code>firstName</code> + <code>lastName</code> might be one object if they always change together.</p>
+</div>
+</div>
+</section>
+
+<section id="async">
+<h2 class="section-title">⏱️ Async state & batching</h2>
+<p class="section-sub">setState doesn't update immediately. Understanding why prevents a whole class of bugs.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">The async trap</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="kw">function</span> <span class="fn">Counter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="fn">setCount</span>(count + <span class="num">1</span>);
+<span class="fn">console</span>.<span class="fn">log</span>(count); <span class="com">// LOGS THE OLD VALUE!</span>
+<span class="com">// Why? Because setCount schedules a re-render.
+// The current render still has the old count value.
+// The new value is available NEXT render.</span>
+}
+
+<span class="com">// Three clicks in a row — how much does count increase?</span>
+<span class="kw">function</span> <span class="fn">handleTripleClick</span>() {
+<span class="fn">setCount</span>(count + <span class="num">1</span>); <span class="com">// uses this render's count</span>
+<span class="fn">setCount</span>(count + <span class="num">1</span>); <span class="com">// uses this render's count again</span>
+<span class="fn">setCount</span>(count + <span class="num">1</span>); <span class="com">// uses this render's count again</span>
+<span class="com">// Result: count increases by 1, not 3!
+// All three calls use the SAME stale count value.
+// The last call wins (batched).</span>
+}
+
+<span class="kw">return</span> (
+<div>
+<p>Count: {count}</p>
+<button onClick={handleClick}>+1</button>
+<button onClick={handleTripleClick}>+3 (broken)</button>
+</div>
+);
+}</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>setState is async</h4>
+<p>Calling <code>setCount(5)</code> doesn't change <code>count</code> in the current render. It schedules the next render with the new value. <code>count</code> stays the same until that render happens.</p>
+</div>
+<div class="concept-card">
+<h4>State is a snapshot</h4>
+<p>Each render captures the current value of every state variable. The <code>count</code> variable in this render is frozen — it's the value from when the render started, even after setState is called.</p>
+</div>
+<div class="concept-card">
+<h4>Batching</h4>
+<p>React batches multiple setState calls in the same event handler into one re-render. Three <code>setCount</code> calls = one re-render. Efficient, but the staleness is the tradeoff.</p>
+</div>
+<div class="concept-card">
+<h4>The consequence</h4>
+<p>If new state depends on old state, don't use <code>setCount(count + 1)</code>. It uses the stale value. Use the updater form (next section) to always get the latest value.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>The stale-state trap.</strong> <code>setCount(count + 1)</code> inside a click handler works fine once. But call it three times in a row and count only increases by 1 — because all three calls use the same <code>count</code> value from the current render. This isn't a React bug, it's a consequence of state being a snapshot. Fix: use the updater form <code>setCount(prev => prev + 1)</code>, which always receives the latest pending state. Do this any time the new state depends on the old state.</p>
+</div>
+</section>
+
+<section id="updater">
+<h2 class="section-title">🔁 The updater form — when state depends on state</h2>
+<p class="section-sub">Pass a function to the setter. It receives the previous value. Always current.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Direct vs updater</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="kw">function</span> <span class="fn">Counter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="com">// ❌ WRONG — uses stale count on each call</span>
+<span class="kw">function</span> <span class="fn">badTriple</span>() {
+<span class="fn">setCount</span>(count + <span class="num">1</span>); <span class="com">// count = 0, schedules 1</span>
+<span class="fn">setCount</span>(count + <span class="num">1</span>); <span class="com">// count is STILL 0, schedules 1</span>
+<span class="fn">setCount</span>(count + <span class="num">1</span>); <span class="com">// count is STILL 0, schedules 1</span>
+<span class="com">// Result: count increases by 1</span>
+}
+
+<span class="com">// ✅ CORRECT — each call receives the pending value</span>
+<span class="kw">function</span> <span class="fn">goodTriple</span>() {
+<span class="fn">setCount</span>(prev => prev + <span class="num">1</span>); <span class="com">// prev = 0, schedules 1</span>
+<span class="fn">setCount</span>(prev => prev + <span class="num">1</span>); <span class="com">// prev = 1, schedules 2</span>
+<span class="fn">setCount</span>(prev => prev + <span class="num">1</span>); <span class="com">// prev = 2, schedules 3</span>
+<span class="com">// Result: count increases by 3</span>
+}
+
+<span class="kw">return</span> (
+<div>
+<p>Count: {count}</p>
+<button onClick={badTriple}>+3 broken</button>
+<button onClick={goodTriple}>+3 correct</button>
+</div>
+);
+}
+
+<span class="com">// Rule of thumb:
+// If new state = f(old state), use the updater form.
+// If new state = a specific new value, direct is fine.
+//
+// setCount(5) ← fine (setting a specific value)
+// setCount(count + 1) ← WRONG if called multiple times
+// setCount(prev => prev+1) ← always correct</span></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Direct update</h4>
+<p><code>setCount(5)</code> — sets count to 5. Works when you have the exact new value. Doesn't depend on previous state.</p>
+</div>
+<div class="concept-card">
+<h4>Updater update</h4>
+<p><code>setCount(prev => prev + 1)</code> — passes a function. React calls it with the pending state. Always returns based on the latest value.</p>
+</div>
+<div class="concept-card">
+<h4>When it matters</h4>
+<p>Multiple setState calls in one handler. SetState inside setTimeout / useEffect where the value might be stale. Anything where "the current count" isn't what you have in scope.</p>
+</div>
+<div class="concept-card">
+<h4>Always safe</h4>
+<p>The updater form always works. It's more verbose but never wrong. When in doubt, use it. Many teams use it exclusively for numeric state changes.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Use the updater form by default for numeric state.</strong> <code>setCount(prev => prev + 1)</code> reads slightly more verbosely than <code>setCount(count + 1)</code>, but it's never wrong. The direct form only works when you're certain the value in scope is current — which is usually true in a single click handler, but breaks in loops, setTimeout callbacks, and other async contexts. The updater form doesn't have that problem. Make it a habit.</p>
+</div>
+</section>
+
+<section id="objects">
+<h2 class="section-title">📦 Objects and arrays in state</h2>
+<p class="section-sub">Never mutate. Always replace. Spread to create a new value.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Objects and arrays</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="com">// ❌ BROKEN — mutating state</span>
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>({ name: <span class="str">'Alice'</span>, age: <span class="num">28</span> });
+
+<span class="kw">function</span> <span class="fn">badRename</span>() {
+user.name = <span class="str">'Bob'</span>; <span class="com">// mutates the object directly</span>
+<span class="com">// React doesn't detect the change — no re-render.
+// The UI stays at "Alice" even though user.name is "Bob".</span>
+}
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// ✅ CORRECT — spread to create new object</span>
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>({ name: <span class="str">'Alice'</span>, age: <span class="num">28</span> });
+
+<span class="kw">function</span> <span class="fn">goodRename</span>() {
+<span class="fn">setUser</span>({ ...user, name: <span class="str">'Bob'</span> });
+<span class="com">// New object with name updated, age preserved.
+// React sees a new reference → re-renders → UI updates.</span>
+}
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// Nested objects — spread at each level</span>
+<span class="kw">const</span> [user2, setUser2] = <span class="fn">useState</span>({
+name: <span class="str">'Alice'</span>,
+address: { city: <span class="str">'NYC'</span>, zip: <span class="str">'10001'</span> },
+});
+
+<span class="kw">function</span> <span class="fn">moveCity</span>() {
+<span class="fn">setUser2</span>({
+...user2,
+address: { ...user2.address, city: <span class="str">'LA'</span> },
+});
+}
+
+<span class="com">// ─────────────────────────────────────────</span>
+
+<span class="com">// Arrays — same pattern</span>
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span>([<span class="str">'apple'</span>, <span class="str">'banana'</span>]);
+
+<span class="com">// Add</span>
+<span class="fn">setItems</span>([...items, <span class="str">'cherry'</span>]);
+
+<span class="com">// Remove</span>
+<span class="fn">setItems</span>(items.<span class="fn">filter</span>(item => item !== <span class="str">'banana'</span>));
+
+<span class="com">// Replace one</span>
+<span class="fn">setItems</span>(items.<span class="fn">map</span>(item => item === <span class="str">'apple'</span> ? <span class="str">'apricot'</span> : item));
+
+<span class="com">// Remove by id (objects)</span>
+<span class="fn">setUsers</span>(users.<span class="fn">filter</span>(u => u.id !== idToDelete));</pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Never mutate</h4>
+<p><code>user.name = 'Bob'</code> and <code>items.push(x)</code> modify the existing object. React compares state by reference — same reference means no re-render.</p>
+</div>
+<div class="concept-card">
+<h4>Always create new</h4>
+<p><code>{ ...user, name: 'Bob' }</code> creates a new object. <code>[...items, x]</code> creates a new array. New reference = React detects the change = re-render.</p>
+</div>
+<div class="concept-card">
+<h4>Spread is shallow</h4>
+<p><code>{ ...user }</code> copies top-level properties but nested objects are still referenced. For nested updates, spread at each level.</p>
+</div>
+<div class="concept-card">
+<h4>Array methods return new</h4>
+<p><code>filter</code>, <code>map</code>, <code>slice</code>, <code>concat</code> — all return new arrays. <code>push</code>, <code>pop</code>, <code>splice</code>, <code>sort</code> mutate in place. Use the non-mutating versions.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>The most common React bug: mutating state directly.</strong> <code>user.name = 'Bob'</code> looks like it should work — the value changes. But React never re-renders, because the object reference hasn't changed. The UI stays stuck at the old value while the state silently diverges. Fix: always use the setter with a new object or array. If your UI isn't updating, check whether you mutated state by accident — it's the cause 80% of the time.</p>
+</div>
+</section>
+
+<section id="lifting">
+<h2 class="section-title">⬆️ Lifting state up</h2>
+<p class="section-sub">Two components need the same state? Move it to their closest common parent.</p>
+
+<div class="code-block">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">Lifted state</span>
+</div>
+<pre style="margin:0;padding:1rem;color:#e8eef7;font-size:0.8rem;line-height:1.7;overflow-x:auto;font-family:'SF Mono',Consolas,Monaco,monospace;background:#060f1c;"><span class="com">// Both Display and Controls need the count.
+// So App owns the state and passes it down.</span>
+<span class="kw">function</span> <span class="fn">App</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">return</span> (
+<div>
+<Display count={count} />
+<Controls
+onIncrement={() => <span class="fn">setCount</span>(prev => prev + <span class="num">1</span>)}
+onReset={() => <span class="fn">setCount</span>(<span class="num">0</span>)}
+/>
+</div>
+);
+}
+
+<span class="com">// Display receives count as a prop — reads only</span>
+<span class="kw">function</span> <span class="fn">Display</span>({ count }) {
+<span class="kw">return</span> <h1>{count}</h1>;
+}
+
+<span class="com">// Controls receives callbacks — doesn't touch state directly</span>
+<span class="kw">function</span> <span class="fn">Controls</span>({ onIncrement, onReset }) {
+<span class="kw">return</span> (
+<div>
+<button onClick={onIncrement}>+1</button>
+<button onClick={onReset}>Reset</button>
+</div>
+);
+}
+
+<span class="com">// Why this pattern:
+// - Single source of truth — count lives in one place (App)
+// - Display and Controls stay simple — no internal state
+// - The setter and callbacks flow down as props
+// - When count changes, both children re-render with the new value</span></pre>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Closest common parent</h4>
+<p>Move state to the nearest ancestor of every component that needs it. Not the top of the tree — the closest common parent. Keep it as low as possible.</p>
+</div>
+<div class="concept-card">
+<h4>Single source of truth</h4>
+<p>If two components have their own copy of the same state, they drift apart. One central state = guaranteed consistency. This is React's core promise.</p>
+</div>
+<div class="concept-card">
+<h4>Data down, callbacks up</h4>
+<p>Parent passes state as props (data down). Parent passes setters or callbacks as props (events up). Children stay dumb and reusable — they don't own state.</p>
+</div>
+<div class="concept-card">
+<h4>When NOT to lift</h4>
+<p>If only one component needs the state, keep it local. Lifting is for sharing, not for tidiness. Over-lifting makes components harder to reuse.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The "single source of truth" is what makes React predictable.</strong> When state lives in one place, there's exactly one correct value at any moment. No sync bugs. No "which copy is right?" No drift between components. This is why React discourages keeping the same state in multiple components — even if it feels convenient in the moment, it always leads to bugs. Lifting state up is the standard fix, and it's what you should reach for whenever two components need to stay in sync.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different state pattern.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Counter with limits</h4>
+<p>Build a counter component that:</p>
+<p>1. Has +1 and -1 buttons<br>
+2. Won't go below 0 (disable the -1 button when count is 0)<br>
+3. Won't go above 10 (disable the +1 button when count is 10)<br>
+4. Has a Reset button that sets count back to 0<br>
+5. Shows the count in a large heading</p>
+<p>Use the updater form for the +1 and -1 handlers. Test by clicking rapidly — count should never go out of bounds.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Todo list with state</h4>
+<p>Build a todo list component with:</p>
+<p>1. State for the list of todos (array of objects: <code>{ id, text, done }</code>)<br>
+2. State for the input field value<br>
+3. An "Add" button that appends a new todo to the list<br>
+4. Each todo has a "Delete" button<br>
+5. Each todo has a checkbox to toggle done status</p>
+<p>All state updates must use the immutable pattern: <code>[...todos, newTodo]</code>, <code>todos.filter(...)</code>, <code>todos.map(...)</code>. Never mutate the array or the todo objects directly.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Lift state up</h4>
+<p>Build a temperature converter:</p>
+<p>1. Two input fields: Celsius and Fahrenheit<br>
+2. Typing in Celsius updates Fahrenheit, and vice versa<br>
+3. Both inputs are their own components (<code>CelsiusInput</code>, <code>FahrenheitInput</code>)<br>
+4. State lives in a parent (<code>App</code>) as a single temperature value<br>
+5. Both children receive the value and a setter</p>
+<p>Test: type 100 in Celsius — Fahrenheit shows 212. Type 32 in Fahrenheit — Celsius shows 0. This is the classic "lifting state up" exercise — it forces you to keep a single source of truth and derive everything from it.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The state bugs that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Mutating state directly</div>
+<p><code>items.push(x)</code> or <code>user.name = 'Bob'</code> doesn't trigger a re-render. Fix: <code>setItems([...items, x])</code> or <code>setUser({...user, name: 'Bob'})</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using stale state in handlers</div>
+<p><code>setCount(count + 1)</code> called three times adds 1, not 3. Fix: <code>setCount(prev => prev + 1)</code>. The updater form always gets the latest value.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Reading state right after setState</div>
+<p><code>setCount(5); console.log(count);</code> logs the OLD value. Fix: state is async. The new value is available next render. Use useEffect to react to changes.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Calling hooks conditionally</div>
+<p><code>if (x) { useState(0) }</code> breaks React. Fix: call all hooks unconditionally at the top of the component. Hooks must run in the same order every render.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Initializing useState with a function call</div>
+<p><code>useState(getInitialValue())</code> calls the function on every render. Fix: <code>useState(getInitialValue)</code> (no parens) — React only calls it once.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Too much state in one variable</div>
+<p><code>const [state, setState] = useState({ name, age, email, address, ... })</code> — every update re-renders for all changes. Fix: split into separate useState calls by concern.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Duplicating state from props</div>
+<p><code>const [name, setName] = useState(props.name)</code> — if props.name changes, state won't update. Fix: use props directly, or derive with useMemo.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Setting state during render</div>
+<p>Calling <code>setCount(count + 1)</code> outside an event handler or effect causes infinite re-renders. Fix: state updates belong in event handlers, effects, or updater callbacks.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">➡️ What's next</h2>
+<p class="section-sub">You can hold state. Next: handle user input.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/events-forms.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 4: Events & forms</div>
+<div class="text-xs text-slate-400 mt-1">Controlled inputs and submission</div>
+</a>
+<a href="/courses/react/lessons/props.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Lesson 2: Props & composition</div>
+<div class="text-xs text-slate-400 mt-1">Review passing data</div>
+</a>
+<a href="/courses/react/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">React learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+<a href="/courses/javascript/lessons/functions.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">JavaScript: Functions</div>
+<div class="text-xs text-slate-400 mt-1">Review the prerequisite</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is state in React?</summary>
+<p class="mt-2 text-sm text-slate-300">State is data that a component owns and can change over time. When state changes, React re-renders the component with the new value. Unlike props (which come from the parent and are read-only), state is managed inside the component itself.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does useState return?</summary>
+<p class="mt-2 text-sm text-slate-300">useState(initialValue) returns an array with two items: the current state value and a setter function. Destructure them: const [count, setCount] = useState(0). The setter updates the state and triggers a re-render.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why do I need to use useState instead of a regular variable?</summary>
+<p class="mt-2 text-sm text-slate-300">A regular variable would reset on every render, and changing it wouldn't trigger a re-render — so the UI wouldn't update. useState persists the value across re-renders AND triggers a re-render when you call its setter.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does it mean that setState is asynchronous?</summary>
+<p class="mt-2 text-sm text-slate-300">Calling setCount(5) doesn't immediately change count. React schedules the update and batches it with other pending updates. The new value is available on the next render. If you log count right after calling setCount, you'll see the old value.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the updater function form of setState?</summary>
+<p class="mt-2 text-sm text-slate-300">setCount(prev => prev + 1) instead of setCount(count + 1). The updater receives the current state and returns the new state. This is important when calling setState multiple times in a row — because setCount(count + 1) uses the stale value on each call.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I update an object in state?</summary>
+<p class="mt-2 text-sm text-slate-300">Spread the old object and override properties: setUser({ ...user, name: 'Bob' }). Never mutate: user.name = 'Bob' — this doesn't trigger a re-render because React compares state by reference. For arrays, use setItems([...items, newItem]) or setItems(items.filter(...)).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I call useState conditionally?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Hooks must be called in the same order on every render. Writing if (x) { useState(0) } breaks React. Fix: call all hooks at the top of the component unconditionally. The eslint-plugin-react-hooks plugin catches this automatically.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is lifting state up?</summary>
+<p class="mt-2 text-sm text-slate-300">When two or more components need to share state, move the state to their closest common parent. Pass the state and its setter down as props. This is the standard React pattern for shared state — it keeps data flowing one direction and makes the app predictable.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue your React path</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/events-forms.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 4: Events & forms</div>
+<div class="text-xs text-slate-400 mt-1">Controlled inputs and submission</div>
+</a>
+<a href="/courses/react/lessons/props.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 2: Props & composition</div>
+<div class="text-xs text-slate-400 mt-1">Review passing data down</div>
+</a>
+<a href="/courses/react/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗺️ React learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🟨 JavaScript track</div>
+<div class="text-xs text-slate-400 mt-1">The prerequisite for everything React</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://react.dev/learn/state-a-components-memory" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — State: A Component's Memory</a></li>
+<li>→ <a href="https://react.dev/reference/react/useState" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — useState reference</a></li>
+<li>→ <a href="https://react.dev/learn/updating-objects-in-state" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — Updating Objects in State</a></li>
+<li>→ <a href="https://react.dev/learn/sharing-state-between-components" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">react.dev — Sharing State Between Components</a></li>
+</ul>
+</section>
+
+<a href="/courses/react/index.html" class="back-link">← Back to React track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the React track · Lesson 3 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
