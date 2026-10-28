@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>When to Use the satisfies Operator in TypeScript (2026)</title>
+<meta name="description" content="Learn when to use the TypeScript satisfies operator. Type checking without widening — for config objects, route maps, and literal unions. Working code.">
+<meta name="keywords" content="typescript satisfies, satisfies operator typescript, typescript satisfies vs as, typescript const assertion, satisfies config">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="When to Use the satisfies Operator in TypeScript">
+<meta property="og:description" content="Type checking without widening — for config objects, route maps, and literal unions.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/satisfies-operator.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="When to Use the satisfies Operator in TypeScript">
+<meta name="twitter:description" content="Type checking without widening.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/satisfies-operator.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "When to Use the satisfies Operator in TypeScript",
+"description": "Learn when to use the TypeScript satisfies operator. Type checking without widening — for config objects, route maps, and literal unions.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What does the satisfies operator do in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"satisfies checks that a value matches a type without changing the value's inferred type. Without satisfies, annotating a value with a type widens it to that type — losing literal types. With satisfies, the value keeps its narrow literal type while being checked against the specified type. Syntax: const x = { ... } satisfies SomeType. The check is compile-time only; the output JavaScript is unchanged."}},
+{"@type":"Question","name":"What is the difference between satisfies and as?","acceptedAnswer":{"@type":"Answer","text":"as is a cast — it tells TypeScript 'trust me, this is that type' and doesn't check. satisfies is a check — it verifies the value matches the type and errors if it doesn't. as can lie; satisfies cannot. Use as only when you know more than the compiler; use satisfies when you want to enforce that a value matches a shape without widening its type."}},
+{"@type":"Question","name":"When should I use satisfies instead of a type annotation?","acceptedAnswer":{"@type":"Answer","text":"Use satisfies when you want the value to keep its narrow literal type AND match a shape. Classic case: a config object where you want every field checked against a Config type, but you also want to keep the specific string literal for each field (not widened to string). Use a type annotation when you want the value to be that exact type — widening is fine. Use satisfies for constants that need shape validation without losing precision."}},
+{"@type":"Question","name":"Does satisfies exist at runtime?","acceptedAnswer":{"@type":"Answer","text":"No. satisfies is a compile-time-only operator. It's erased at build time — the output JavaScript is identical to the code without it. Its only job is to run a type check during compilation. Zero runtime cost."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · satisfies</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">satisfies</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>When to use <code>satisfies</code>.<br><span class="py-accent">Check without widening.</span></h1>
+<p class="lead">
+Before TypeScript 4.9, you had two choices: annotate with a type and lose literal types, or leave the value inferred and get no shape check. The <code>satisfies</code> operator gives you both — check that a value matches a shape, while keeping its narrow inferred type. This is the operator that fixed config objects and route tables.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>satisfies SomeType</code> when you want to verify a value matches a type <strong>without widening</strong> to that type. It keeps the specific literal types of the value (e.g. <code>'admin'</code>, not <code>string</code>) while still enforcing the shape. Use a type annotation when widening is fine. Use <code>as</code> only when you need to force a type. <code>satisfies</code> is the safe middle ground.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — <code>satisfies</code> vs type annotation</h2>
+<p class="section-sub">Same check, different result — annotation widens, satisfies doesn't.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The difference is subtle but important. A type annotation says "this value IS this type" — the compiler widens the value to match. <code>satisfies</code> says "this value MUST match this type" — the compiler checks it but keeps the narrower literal type. When the exact literal matters downstream (as a discriminant, a route name, a config key), <code>satisfies</code> is the answer.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">satisfies.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── The setup ───────────────────────────────</span>
+<span class="kw">type</span> Route = <span class="str">'home'</span> | <span class="str">'about'</span> | <span class="str">'blog'</span>;
+<span class="kw">type</span> Routes = <span class="fn">Record</span><Route, <span class="fn">string</span>>;
+
+<span class="com">// ─── Annotation WIDENS (loses literal types) ─</span>
+<span class="kw">const</span> routes1: Routes = {
+home: <span class="str">'/'</span>,
+about: <span class="str">'/about'</span>,
+blog: <span class="str">'/blog'</span>
+};
+<span class="com">// routes1.home: string
+// ↑ widened — can't use routes1 keys as a Route union downstream</span>
+
+<span class="com">// ─── satisfies KEEPS literal types ───────────</span>
+<span class="kw">const</span> routes2 = {
+home: <span class="str">'/'</span>,
+about: <span class="str">'/about'</span>,
+blog: <span class="str">'/blog'</span>
+} <span class="fn">satisfies</span> Routes;
+
+<span class="com">// routes2.home: '/' (literal, not string)
+// keys: 'home' | 'about' | 'blog' (kept as literals)
+// AND it's checked against Routes — missing key = error</span>
+
+<span class="com">// ─── What satisfies catches ───────────────────</span>
+<span class="kw">const</span> bad = {
+home: <span class="str">'/'</span>,
+about: <span class="str">'/about'</span>
+<span class="com">// ❌ missing 'blog' — satisfies Routes fails</span>
+} <span class="fn">satisfies</span> Routes;
+
+<span class="com">// ─── Real use: discriminant lookup ───────────</span>
+<span class="kw">type</span> Status = <span class="str">'idle'</span> | <span class="str">'loading'</span> | <span class="str">'success'</span> | <span class="str">'error'</span>;
+
+<span class="kw">const</span> statusLabels = {
+idle: <span class="str">'Ready'</span>,
+loading: <span class="str">'Loading…'</span>,
+success: <span class="str">'Done'</span>,
+error: <span class="str">'Failed'</span>
+} <span class="fn">satisfies</span> <span class="fn">Record</span><Status, <span class="fn">string</span>>;
+
+<span class="com">// Now you can do:
+// function getStatusLabel(s: Status): string {
+// return statusLabels[s]; // s is Status, keys match
+// }</span>
+
+console.<span class="fn">log</span>(routes2.home, statusLabels.success);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// satisfies erased at compile time. Output is identical to without it.</span>
+
+<span class="kw">const</span> routes1 = {
+home: <span class="str">'/'</span>,
+about: <span class="str">'/about'</span>,
+blog: <span class="str">'/blog'</span>
+};
+
+<span class="kw">const</span> routes2 = {
+home: <span class="str">'/'</span>,
+about: <span class="str">'/about'</span>,
+blog: <span class="str">'/blog'</span>
+};
+
+<span class="kw">const</span> bad = {
+home: <span class="str">'/'</span>,
+about: <span class="str">'/about'</span>
+};
+
+<span class="kw">const</span> statusLabels = {
+idle: <span class="str">'Ready'</span>,
+loading: <span class="str">'Loading…'</span>,
+success: <span class="str">'Done'</span>,
+error: <span class="str">'Failed'</span>
+};
+
+console.<span class="fn">log</span>(routes2.home, statusLabels.success);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Annotation widens</h4>
+<p><code>const x: Type = value</code> — the value becomes exactly <code>Type</code>. Literal types are widened (<code>'/'</code> → <code>string</code>).</p>
+</div>
+<div class="concept-card">
+<h4><code>satisfies</code> checks without widening</h4>
+<p><code>const x = value satisfies Type</code> — x keeps its narrow literal types, but is verified against <code>Type</code>. Shape check + literal precision.</p>
+</div>
+<div class="concept-card">
+<h4>Catches missing/wrong</h4>
+<p>If the value doesn't match the type (missing key, wrong value type), <code>satisfies</code> errors. Same check strength as annotation.</p>
+</div>
+<div class="concept-card">
+<h4>Discriminant lookups</h4>
+<p>For <code>Record<Status, string></code> lookups, <code>satisfies</code> keeps <code>statusLabels</code> keys as <code>Status</code> literals — perfect for indexing with a <code>Status</code> value.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong><code>satisfies</code> replaces the "<code>as const</code> + annotation" dance.</strong> Before 4.9, the only way to get literal types AND a shape check was <code>const routes = { ... } as const satisfies Routes</code> — with <code>as const</code> alone you got literals but no shape check; with annotation alone you got the check but no literals. <code>satisfies</code> does both in one word. If you find yourself writing <code>as const</code> just to preserve literal types on an object that should also match a shape, you want <code>satisfies</code> instead.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — <code>satisfies</code> vs <code>as</code> (check vs cast)</h2>
+<p class="section-sub">One verifies, the other lies. Never use <code>as</code> when <code>satisfies</code> will do.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Both appear after a value. They do opposite things. <code>as</code> is a <em>cast</em> — it tells the compiler "trust me, this is <code>T</code>," and disables checking. <code>satisfies</code> is a <em>check</em> — it verifies the value actually matches <code>T</code> and errors if not. When you want correctness, <code>satisfies</code> is always the right tool.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">satisfies-vs-as.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">interface</span> Config {
+host: <span class="fn">string</span>;
+port: <span class="fn">number</span>;
+}
+
+<span class="com">// ─── as lies — no checking ─────────────────</span>
+<span class="kw">const</span> bad = {
+host: <span class="str">'localhost'</span>,
+port: <span class="str">'not a number'</span> <span class="com">// ⚠️ wrong type</span>
+} <span class="kw">as</span> Config;
+<span class="com">// ✅ compiles — as trusts you
+// ❌ runtime bugs — port is actually a string</span>
+
+<span class="com">// ─── satisfies checks — errors if wrong ────</span>
+<span class="kw">const</span> good = {
+host: <span class="str">'localhost'</span>,
+port: <span class="num">3000</span>
+} <span class="fn">satisfies</span> Config;
+
+<span class="kw">const</span> wrong = {
+host: <span class="str">'localhost'</span>,
+port: <span class="str">'not a number'</span>
+<span class="com">// ❌ Type 'string' is not assignable to type 'number'</span>
+} <span class="fn">satisfies</span> Config;
+
+<span class="com">// ─── When as is actually needed ────────────</span>
+<span class="com">// as is legitimate when you're converting a type
+// that the compiler can't express — e.g. narrowing
+// a widened JSON.parse result after a real check:</span>
+
+<span class="kw">function</span> <span class="fn">parseConfig</span>(json: <span class="fn">string</span>): Config {
+<span class="kw">const</span> raw = <span class="fn">JSON</span>.<span class="fn">parse</span>(json) <span class="kw">as</span> <span class="fn">unknown</span>;
+<span class="com">// ... validate with a type guard, then return ...</span>
+<span class="kw">return</span> raw <span class="kw">as</span> Config; <span class="com">// after the guard, this is safe</span>
+}
+
+<span class="com">// ─── satisfies with generics ───────────────</span>
+<span class="kw">type</span> ConfigMap = <span class="fn">Record</span><<span class="str">'dev'</span> | <span class="str">'prod'</span>, Config>;
+
+<span class="kw">const</span> configs = {
+dev: { host: <span class="str">'localhost'</span>, port: <span class="num">3000</span> },
+prod: { host: <span class="str">'api.example.com'</span>, port: <span class="num">443</span> }
+} <span class="fn">satisfies</span> ConfigMap;
+<span class="com">// Both dev and prod checked against Config
+// All keys preserved as literals</span>
+
+<span class="com">// ─── The rule ────────────────────────────────
+// Want to check? → satisfies
+// Want to force? → as (rarely)
+// Want a type? → annotation (: Type)
+//
+// Prefer satisfies over as in almost every case.</span>
+
+console.<span class="fn">log</span>(good.port, configs.prod.port);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">const</span> bad = {
+host: <span class="str">'localhost'</span>,
+port: <span class="str">'not a number'</span>
+};
+
+<span class="kw">const</span> good = {
+host: <span class="str">'localhost'</span>,
+port: <span class="num">3000</span>
+};
+
+<span class="kw">const</span> wrong = {
+host: <span class="str">'localhost'</span>,
+port: <span class="str">'not a number'</span>
+};
+
+<span class="kw">function</span> <span class="fn">parseConfig</span>(json) {
+<span class="kw">const</span> raw = <span class="fn">JSON</span>.<span class="fn">parse</span>(json);
+<span class="kw">return</span> raw;
+}
+
+<span class="kw">const</span> configs = {
+dev: { host: <span class="str">'localhost'</span>, port: <span class="num">3000</span> },
+prod: { host: <span class="str">'api.example.com'</span>, port: <span class="num">443</span> }
+};
+
+console.<span class="fn">log</span>(good.port, configs.prod.port);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>as</code> = trust me</h4>
+<p>Disables checking. Wrong types compile silently. Use only when you know the runtime type better than the compiler can express.</p>
+</div>
+<div class="concept-card">
+<h4><code>satisfies</code> = verify</h4>
+<p>Runs the same check as annotation. Wrong types are compile errors. The value keeps its narrow type.</p>
+</div>
+<div class="concept-card">
+<h4>Post-validation <code>as</code> is legit</h4>
+<p>After a type guard proves the shape, <code>as T</code> is safe — the guard did the verification. Before, <code>as</code> is a lie.</p>
+</div>
+<div class="concept-card">
+<h4>Generics + satisfies</h4>
+<p><code>satisfies ConfigMap</code> checks every nested value against <code>Config</code>. No <code>as</code> needed anywhere.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — <code>satisfies</code> with <code>as const</code></h2>
+<p class="section-sub">Literal types AND shape validation, in one expression.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The most powerful combination: <code>as const</code> freezes every value to its literal type, then <code>satisfies</code> validates the shape. This is the idiom for lookup tables where you need every value to be exact — event maps, routes, config schemas, i18n dictionaries.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">as-const-satisfies.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── i18n dictionary ─────────────────────────</span>
+<span class="kw">type</span> Locale = <span class="str">'en'</span> | <span class="str">'fr'</span> | <span class="str">'es'</span>;
+<span class="kw">type</span> Messages = <span class="fn">Record</span><Locale, <span class="fn">Record</span><<span class="str">'greeting'</span> | <span class="str">'farewell'</span>, <span class="fn">string</span>>>;
+
+<span class="kw">const</span> messages = {
+en: { greeting: <span class="str">'Hello'</span>, farewell: <span class="str">'Goodbye'</span> },
+fr: { greeting: <span class="str">'Bonjour'</span>, farewell: <span class="str">'Au revoir'</span> },
+es: { greeting: <span class="str">'Hola'</span>, farewell: <span class="str">'Adiós'</span> }
+} <span class="kw">as const</span> <span class="fn">satisfies</span> Messages;
+
+<span class="com">// messages.en.greeting: 'Hello' (literal, not string)
+// All locales present — checked by satisfies
+// All message keys present — checked by satisfies</span>
+
+<span class="com">// ─── Config schemas ──────────────────────────</span>
+<span class="kw">type</span> Env = <span class="str">'development'</span> | <span class="str">'production'</span>;
+<span class="kw">interface</span> EnvConfig {
+apiUrl: <span class="fn">string</span>;
+debug: <span class="fn">boolean</span>;
+logLevel: <span class="str">'error'</span> | <span class="str">'warn'</span> | <span class="str">'info'</span> | <span class="str">'debug'</span>;
+}
+
+<span class="kw">const</span> envConfig = {
+development: {
+apiUrl: <span class="str">'http://localhost:3000'</span>,
+debug: <span class="kw">true</span>,
+logLevel: <span class="str">'debug'</span>
+},
+production: {
+apiUrl: <span class="str">'https://api.example.com'</span>,
+debug: <span class="kw">false</span>,
+logLevel: <span class="str">'error'</span>
+}
+} <span class="kw">as const</span> <span class="fn">satisfies</span> <span class="fn">Record</span><Env, EnvConfig>;
+
+<span class="com">// envConfig.development.apiUrl: 'http://localhost:3000' (literal)
+// logLevel: 'debug' (not 'error' | 'warn' | ... — exactly what you wrote)</span>
+
+<span class="com">// ─── Typed event map ─────────────────────────</span>
+<span class="kw">type</span> EventName = <span class="str">'click'</span> | <span class="str">'submit'</span> | <span class="str">'change'</span>;
+
+<span class="kw">const</span> eventLabels = {
+click: <span class="str">'Clicked'</span>,
+submit: <span class="str">'Submitted'</span>,
+change: <span class="str">'Changed'</span>
+} <span class="kw">as const</span> <span class="fn">satisfies</span> <span class="fn">Record</span><EventName, <span class="fn">string</span>>;
+
+<span class="kw">function</span> <span class="fn">label</span>(e: EventName): <span class="kw">typeof</span> eventLabels[EventName] {
+<span class="kw">return</span> eventLabels[e];
+}
+
+<span class="com">// ─── The rule ────────────────────────────────
+// as const → freeze literal types
+// satisfies Type → check against shape
+// combined → both, in one expression
+//
+// This is the modern idiom for config objects
+// and lookup tables. Use it whenever you have
+// a constant that needs both precision and safety.</span>
+
+console.<span class="fn">log</span>(messages.en.greeting);
+console.<span class="fn">log</span>(envConfig.production.logLevel);
+console.<span class="fn">log</span>(<span class="fn">label</span>(<span class="str">'click'</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">const</span> messages = {
+en: { greeting: <span class="str">'Hello'</span>, farewell: <span class="str">'Goodbye'</span> },
+fr: { greeting: <span class="str">'Bonjour'</span>, farewell: <span class="str">'Au revoir'</span> },
+es: { greeting: <span class="str">'Hola'</span>, farewell: <span class="str">'Adiós'</span> }
+};
+
+<span class="kw">const</span> envConfig = {
+development: {
+apiUrl: <span class="str">'http://localhost:3000'</span>,
+debug: <span class="kw">true</span>,
+logLevel: <span class="str">'debug'</span>
+},
+production: {
+apiUrl: <span class="str">'https://api.example.com'</span>,
+debug: <span class="kw">false</span>,
+logLevel: <span class="str">'error'</span>
+}
+};
+
+<span class="kw">const</span> eventLabels = {
+click: <span class="str">'Clicked'</span>,
+submit: <span class="str">'Submitted'</span>,
+change: <span class="str">'Changed'</span>
+};
+
+<span class="kw">function</span> <span class="fn">label</span>(e) {
+<span class="kw">return</span> eventLabels[e];
+}
+
+console.<span class="fn">log</span>(messages.en.greeting);
+console.<span class="fn">log</span>(envConfig.production.logLevel);
+console.<span class="fn">log</span>(<span class="fn">label</span>(<span class="str">'click'</span>));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>as const</code> alone</h4>
+<p>Freezes literal types but doesn't check the shape. <code>{ a: 'x', b: 'y' } as const</code> — no shape validation.</p>
+</div>
+<div class="concept-card">
+<h4><code>satisfies</code> alone</h4>
+<p>Checks the shape but values stay widened (unless the source is already literal). <code>string</code>, not <code>'Hello'</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Combined</h4>
+<p><code>as const satisfies T</code> — literal types AND shape check. The idiom for any lookup table where every value must be exact.</p>
+</div>
+<div class="concept-card">
+<h4>Order matters</h4>
+<p><code>as const satisfies T</code> — <code>as const</code> first, then <code>satisfies</code>. Reversing breaks the narrowing. Follow the standard order.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>satisfies</code> when the value should be widened.</strong> If a config value is <code>'http://localhost:3000'</code> and you want it typed as <code>string</code> (not the literal), use a type annotation, not <code>satisfies</code>. <code>satisfies</code> is for cases where the exact literal matters downstream. If it doesn't matter, annotation is simpler and clearer. Use <code>satisfies</code> deliberately — not as a replacement for annotation everywhere.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The satisfies operator traps that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using satisfies where annotation is fine</div>
+<p>If you don't need the literal type, annotation is simpler. Fix: use <code>satisfies</code> only when preserving narrow types.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using <code>as</code> instead of <code>satisfies</code></div>
+<p><code>as Config</code> disables checking. If you want verification, use <code>satisfies Config</code>. Fix: prefer satisfies for checks, as only for genuine casts.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Forgetting <code>as const</code> before satisfies</div>
+<p>Without <code>as const</code>, values widen. <code>satisfies</code> checks the widened type, not the literal. Fix: <code>as const satisfies T</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Reversing the order</div>
+<p><code>satisfies T as const</code> — syntax error or broken narrowing. Fix: <code>as const</code> first, then <code>satisfies T</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Expecting runtime behavior</div>
+<p><code>satisfies</code> is compile-time only. It doesn't validate at runtime. Fix: for runtime validation, use a type guard or a schema library (Zod, Valibot).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Using satisfies on function bodies</div>
+<p><code>satisfies</code> only works on expressions. You can't <code>satisfies</code> a function's body — annotate the return type instead.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Confusing satisfies with a validation library</div>
+<p><code>satisfies</code> checks against a type at compile time. Zod checks at runtime. They solve different problems. Fix: use both — satisfies for the type, Zod for untrusted data.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not using satisfies for discriminant lookups</div>
+<p>Annotating <code>Record<Status, string></code> widens keys and values, losing the discriminant. Fix: <code>satisfies</code> keeps both.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does the satisfies operator do in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">satisfies checks that a value matches a type without changing the value's inferred type. Without satisfies, annotating a value with a type widens it to that type — losing literal types. With satisfies, the value keeps its narrow literal type while being checked against the specified type. Syntax: const x = { ... } satisfies SomeType.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between satisfies and as?</summary>
+<p class="mt-2 text-sm text-slate-300">as is a cast — it tells TypeScript 'trust me, this is that type' and doesn't check. satisfies is a check — it verifies the value matches the type and errors if it doesn't. as can lie; satisfies cannot.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use satisfies instead of a type annotation?</summary>
+<p class="mt-2 text-sm text-slate-300">Use satisfies when you want the value to keep its narrow literal type AND match a shape. Classic case: a config object where you want every field checked against a Config type, but you also want to keep the specific string literal for each field.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does satisfies exist at runtime?</summary>
+<p class="mt-2 text-sm text-slate-300">No. satisfies is a compile-time-only operator. It's erased at build time — the output JavaScript is identical to the code without it. Its only job is to run a type check during compilation.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/utility-types.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 6: Utility types</div>
+<div class="text-xs text-slate-400 mt-1">Record, Partial, Pick, Omit</div>
+</a>
+<a href="/courses/typescript/problems/unknown-vs-any.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 unknown vs any</div>
+<div class="text-xs text-slate-400 mt-1">The safe alternative to as</div>
+</a>
+<a href="/courses/typescript/problems/dynamic-keys.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to type dynamic keys</div>
+<div class="text-xs text-slate-400 mt-1">Record in depth</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
