@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TypeScript "Object is Possibly Null" — How to Fix It (2026)</title>
+<meta name="description" content="Fix the TypeScript error "Object is possibly null or undefined" with 4 approaches: early return, optional chaining, nullish coalescing, non-null assertion. Working code.">
+<meta name="keywords" content="typescript object is possibly null, typescript strict null checks, typescript null undefined fix, typescript optional chaining, typescript nullish coalescing">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="TypeScript "Object is Possibly Null" — How to Fix It">
+<meta property="og:description" content="Fix the error with 4 approaches: early return, optional chaining, nullish coalescing, non-null assertion.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/object-possibly-null.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TypeScript "Object is Possibly Null" — How to Fix It">
+<meta name="twitter:description" content="4 approaches to fix the error safely.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/object-possibly-null.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "TypeScript "Object is Possibly Null" — How to Fix It",
+"description": "Fix the TypeScript error "Object is possibly null or undefined" with 4 approaches.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I fix "Object is possibly null" in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Four approaches depending on the case. (1) Early return: if (!obj) return; — narrows obj for the rest of the function. (2) Optional chaining: obj?.prop — returns undefined instead of throwing. (3) Nullish coalescing: obj ?? fallback — provides a default value. (4) Non-null assertion: obj!.prop — tells the compiler to trust you, but doesn't check at runtime. Prefer the first three; the fourth is a last resort. All are enabled by strictNullChecks, which is the most valuable tsconfig option."}},
+{"@type":"Question","name":"Why does TypeScript say "possibly null" if my code checks it?","acceptedAnswer":{"@type":"Answer","text":"Because the check must be in a scope the compiler can track. If the check is in a different function or in an async callback, the narrowing doesn't carry over. Also, if the value is reassigned after the check, the narrowing is lost. Fix: perform the check where the access happens, or extract to a helper that takes the narrowed type. The compiler only narrows within the flow it can see."}},
+{"@type":"Question","name":"What is the difference between ?. and ??","acceptedAnswer":{"@type":"Answer","text":"?. is optional chaining — it short-circuits to undefined if the value is null or undefined. obj?.prop returns undefined if obj is null. ?? is nullish coalescing — it provides a fallback when the left side is null or undefined. obj ?? fallback returns fallback if obj is null. They often appear together: obj?.prop ?? defaultValue. Both were added in ES2020 and are supported everywhere."}},
+{"@type":"Question","name":"Should I use the non-null assertion operator (!)?","acceptedAnswer":{"@type":"Answer","text":"Rarely. The ! operator (obj!.prop) tells TypeScript 'trust me, this is not null' — it doesn't check at runtime. If the value IS null, you crash. Use it only when: (1) you've just validated the value in a way TypeScript can't see (e.g. a thrown check), (2) you're working with an external library that doesn't type correctly. Everywhere else, use early returns or optional chaining. Non-null assertions are a bug waiting to happen."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · possibly null</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Object is possibly null</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>"Object is possibly null".<br><span class="py-accent">Four ways to fix it safely.</span></h1>
+<p class="lead">
+You enabled <code>strictNullChecks</code>, and now half your codebase has red squiggles: <em>"Object is possibly 'null'"</em> or <em>"possibly 'undefined'"</em>. This is the compiler doing its job — those null checks you skipped for years are now surfaced. Here are the four ways to handle it, from safest to riskiest.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use the right fix for the case. <strong>Early return</strong> (<code>if (!obj) return</code>) for functions that shouldn't run without the value. <strong>Optional chaining</strong> (<code>obj?.prop</code>) for potentially missing properties. <strong>Nullish coalescing</strong> (<code>obj ?? fallback</code>) when you have a sensible default. <strong>Non-null assertion</strong> (<code>obj!.prop</code>) only when you've verified the value elsewhere — and even then, rarely. Every fix is compile-time only; the runtime behavior depends on which you pick.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Early return (safest)</h2>
+<p class="section-sub">Narrow once, use safely for the rest of the function.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The cleanest fix: check at the top of the function, return early if the value is null, and use the narrowed type for the rest. TypeScript's control flow analysis tracks this — after the early return, the value is non-null for the rest of the scope. No <code>!</code>, no <code>?.</code>, no noise.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">early-return.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── The error ───────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">greet</span>(user: User | <span class="fn">null</span>): <span class="fn">string</span> {
+<span class="com">// return Hello, ${user.name}`;
+// ❌ 'user' is possibly 'null'</span>
+<span class="kw">return</span> <span class="str">''</span>;
+}
+
+<span class="com">// ─── Fix 1: early return ─────────────────────</span>
+<span class="kw">function</span> <span class="fn">greet2</span>(user: User | <span class="fn">null</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (!user) {
+<span class="kw">return</span> <span class="str">'Hello, guest'</span>;
+}
+<span class="com">// user is User here — the null case returned</span>
+<span class="kw">return</span> <span class="str">Hello,${user.name}`</span>; <span class="com">// ✅ no error</span>
+}
+
+<span class="com">// ─── Early return with throw ─────────────────</span>
+<span class="kw">function</span> <span class="fn">mustGreet</span>(user: User | <span class="fn">null</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (!user) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'User required'</span>);
+}
+<span class="kw">return</span> <span class="str">Hello, ${user.name}`</span>; <span class="com">// ✅ narrowed after throw</span>
+}
+
+<span class="com">// ─── Guard clauses — multiple checks ─────────</span>
+<span class="kw">function</span> <span class="fn">display</span>(user: User | <span class="fn">null</span>, prefix?: <span class="fn">string</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (!user) <span class="kw">return</span> <span class="str">'(no user)'</span>;
+<span class="kw">if</span> (!prefix) <span class="kw">return</span> user.name;
+<span class="kw">return</span> <span class="str">``${prefix} ${user.name}</span>;
+}
+
+<span class="com">// ─── Why it's the safest fix ─────────────────
+//
+// 1. No non-null assertions — the compiler knows.
+// 2. No optional chaining everywhere.
+// 3. No silent undefined → the caller sees the
+// fallback value or a thrown error explicitly.
+// 4. Idiomatic — every TypeScript style guide
+// recommends this pattern.</span>
+
+<span class="kw">const</span> alice: User = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> };
+
+console.<span class="fn">log</span>(<span class="fn">greet2</span>(alice), <span class="fn">greet2</span>(<span class="fn">null</span>));
+console.<span class="fn">log</span>(<span class="fn">display</span>(alice, <span class="str">'Hi'</span>), <span class="fn">display</span>(<span class="fn">null</span>));
+<span class="kw">try</span> { <span class="fn">mustGreet</span>(<span class="fn">null</span>); } <span class="kw">catch</span> (e) { console.<span class="fn">log</span>(e); }</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">greet</span>(user) {
+<span class="kw">return</span> <span class="str">''</span>;
+}
+
+<span class="kw">function</span> <span class="fn">greet2</span>(user) {
+<span class="kw">if</span> (!user) {
+<span class="kw">return</span> <span class="str">'Hello, guest'</span>;
+}
+<span class="kw">return</span> <span class="str">Hello,${user.name}`</span>;
+}
+
+<span class="kw">function</span> <span class="fn">mustGreet</span>(user) {
+<span class="kw">if</span> (!user) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'User required'</span>);
+}
+<span class="kw">return</span> <span class="str">Hello, ${user.name}`</span>;
+}
+
+<span class="kw">function</span> <span class="fn">display</span>(user, prefix) {
+<span class="kw">if</span> (!user) <span class="kw">return</span> <span class="str">'(no user)'</span>;
+<span class="kw">if</span> (!prefix) <span class="kw">return</span> user.name;
+<span class="kw">return</span> <span class="str">``${prefix} ${user.name}`</span>;
+}
+
+<span class="kw">const</span> alice = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> };
+
+console.<span class="fn">log</span>(<span class="fn">greet2</span>(alice), <span class="fn">greet2</span>(<span class="fn">null</span>));
+console.<span class="fn">log</span>(<span class="fn">display</span>(alice, <span class="str">'Hi'</span>), <span class="fn">display</span>(<span class="fn">null</span>));
+<span class="kw">try</span> { <span class="fn">mustGreet</span>(<span class="fn">null</span>); } <span class="kw">catch</span> (e) { console.<span class="fn">log</span>(e); }</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Narrow once</h4>
+<p>One <code>if (!user) return</code> narrows the type for the rest of the function. No repeated checks, no <code>?.</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Explicit fallback</h4>
+<p>Return a real value or throw. The caller knows exactly what happens when the value is null — no silent undefined behavior.</p>
+</div>
+<div class="concept-card">
+<h4>Works after throw</h4>
+<p><code>if (!user) throw ...</code> also narrows — after the throw, <code>user</code> is <code>User</code>. Ideal for functions that require a value.</p>
+</div>
+<div class="concept-card">
+<h4>Guard clauses stack</h4>
+<p>Multiple early returns flatten nesting. Each check handles one condition and exits. The happy path is at the bottom, unindented.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Adopt guard clauses as a habit before you enable <code>strict</code>.</strong> The biggest migration pain with <code>strictNullChecks</code> is that every function that used to work now has red squiggles. The teams that migrate smoothly do so because they already write in the guard-clause style — check at the top, use at the bottom. It's not just an error fix; it's better code. Flatter, more readable, and the compiler helps you. Retrofitting this style during a <code>strict</code> migration is much harder than adopting it now.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Optional chaining (<code>?.</code>)</h2>
+<p class="section-sub">When the property might genuinely be missing.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">For property access on a value that might be null or undefined, <code>obj?.prop</code> is the cleanest syntax. It short-circuits to <code>undefined</code> if <code>obj</code> is null, avoiding the crash. This is the right fix when "property is missing" is a legitimate state — not an error condition.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">optional-chaining.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+address?: { city: <span class="fn">string</span>; zip: <span class="fn">string</span> };
+}
+
+<span class="com">// ─── Optional chaining on nullable objects ───</span>
+<span class="kw">function</span> <span class="fn">getCity</span>(user: User | <span class="fn">null</span>): <span class="fn">string</span> | <span class="fn">undefined</span> {
+<span class="kw">return</span> user?.address?.city;
+<span class="com">// ↑ ↑
+// user might be null
+// address might be undefined
+// Returns undefined if either is missing</span>
+}
+
+<span class="com">// ─── Optional chaining on methods ────────────</span>
+<span class="kw">function</span> <span class="fn">getUpperName</span>(user: User | <span class="fn">null</span>): <span class="fn">string</span> | <span class="fn">undefined</span> {
+<span class="kw">return</span> user?.name.<span class="fn">toUpperCase</span>(); <span class="com">// if user null → undefined</span>
+}
+
+<span class="com">// ─── Optional chaining on arrays ─────────────</span>
+<span class="kw">function</span> <span class="fn">firstTag</span>(tags?: <span class="fn">string</span>[]): <span class="fn">string</span> | <span class="fn">undefined</span> {
+<span class="kw">return</span> tags?.[<span class="num">0</span>]; <span class="com">// if tags undefined → undefined</span>
+}
+
+<span class="com">// ─── Optional chaining on function calls ─────</span>
+<span class="kw">function</span> <span class="fn">callHandler</span>(handler?: () => <span class="fn">void</span>): <span class="fn">void</span> {
+handler?.(); <span class="com">// if handler undefined → does nothing</span>
+}
+
+<span class="com">// ─── Combined with nullish coalescing ────────</span>
+<span class="kw">function</span> <span class="fn">getCityOr</span>(user: User | <span class="fn">null</span>, fallback = <span class="str">'Unknown'</span>): <span class="fn">string</span> {
+<span class="kw">return</span> user?.address?.city ?? fallback;
+<span class="com">// ↑ optional chain ↑ nullish fallback
+// If city is undefined → fallback</span>
+}
+
+<span class="com">// ─── What it compiles to ─────────────────────</span>
+<span class="com">// user?.address?.city
+// →
+// user === null || user === undefined ? undefined :
+// user.address === null || user.address === undefined ? undefined :
+// user.address.city
+//
+// Much cleaner to write, same semantics.</span>
+
+<span class="kw">const</span> alice: User = {
+id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>,
+address: { city: <span class="str">'Springfield'</span>, zip: <span class="str">'12345'</span> }
+};
+<span class="kw">const</span> bob: User = { id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> };
+
+console.<span class="fn">log</span>(<span class="fn">getCity</span>(alice), <span class="fn">getCity</span>(bob), <span class="fn">getCity</span>(<span class="fn">null</span>));
+console.<span class="fn">log</span>(<span class="fn">getCityOr</span>(bob, <span class="str">'N/A'</span>));
+console.<span class="fn">log</span>(<span class="fn">getUpperName</span>(alice));
+console.<span class="fn">log</span>(<span class="fn">firstTag</span>([<span class="str">'a'</span>, <span class="str">'b'</span>]));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">getCity</span>(user) {
+<span class="kw">return</span> user?.address?.city;
+}
+
+<span class="kw">function</span> <span class="fn">getUpperName</span>(user) {
+<span class="kw">return</span> user?.name.<span class="fn">toUpperCase</span>();
+}
+
+<span class="kw">function</span> <span class="fn">firstTag</span>(tags) {
+<span class="kw">return</span> tags?.[<span class="num">0</span>];
+}
+
+<span class="kw">function</span> <span class="fn">callHandler</span>(handler) {
+handler?.();
+}
+
+<span class="kw">function</span> <span class="fn">getCityOr</span>(user, fallback = <span class="str">'Unknown'</span>) {
+<span class="kw">return</span> user?.address?.city ?? fallback;
+}
+
+<span class="kw">const</span> alice = {
+id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>,
+address: { city: <span class="str">'Springfield'</span>, zip: <span class="str">'12345'</span> }
+};
+<span class="kw">const</span> bob = { id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> };
+
+console.<span class="fn">log</span>(<span class="fn">getCity</span>(alice), <span class="fn">getCity</span>(bob), <span class="fn">getCity</span>(<span class="fn">null</span>));
+console.<span class="fn">log</span>(<span class="fn">getCityOr</span>(bob, <span class="str">'N/A'</span>));
+console.<span class="fn">log</span>(<span class="fn">getUpperName</span>(alice));
+console.<span class="fn">log</span>(<span class="fn">firstTag</span>([<span class="str">'a'</span>, <span class="str">'b'</span>]));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>?.</code> short-circuits</h4>
+<p><code>obj?.prop</code> returns <code>undefined</code> if <code>obj</code> is null or undefined. Same for <code>?.[</code> for arrays and <code>?.(</code> for functions.</p>
+</div>
+<div class="concept-card">
+<h4>Chains work</h4>
+<p><code>a?.b?.c?.d</code> — every link is checked. If any is null, the whole expression is <code>undefined</code>. Deep property access made safe.</p>
+</div>
+<div class="concept-card">
+<h4>Return type is <code>T | undefined</code></h4>
+<p>The result of <code>obj?.prop</code> is <code>string | undefined</code>, not <code>string</code>. The <code>undefined</code> reflects the possibility that <code>obj</code> was null.</p>
+</div>
+<div class="concept-card">
+<h4>Combine with <code>??</code></h4>
+<p><code>obj?.prop ?? fallback</code> — the safest idiom. If obj is null or prop is undefined, you get the fallback. No exceptions, no crashes.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Nullish coalescing (<code>??</code>) and non-null assertion</h2>
+<p class="section-sub">The default value pattern, plus the risky shortcut.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3"><code>??</code> provides a default when the left side is null or undefined. It's the cleanest way to say "use this, or fall back to that." The non-null assertion (<code>!</code>) is the opposite — it tells the compiler "trust me" and disables the check entirely. Both are useful in specific cases, but <code>??</code> is safe and <code>!</code> is not.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">coalescing.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<span class="com">// ─── Nullish coalescing — fallback values ────</span>
+<pre id="code-sol3"><span class="kw">interface</span> Config {
+port?: <span class="fn">number</span>;
+host?: <span class="fn">string</span>;
+debug?: <span class="fn">boolean</span>;
+}
+
+<span class="com">// ─── ?? provides a fallback for null/undefined</span>
+<span class="kw">function</span> <span class="fn">getPort</span>(cfg: Config): <span class="fn">number</span> {
+<span class="kw">return</span> cfg.port ?? <span class="num">3000</span>;
+}
+
+<span class="com">// The difference between ?? and ||:
+// cfg.port ?? 3000 → only null/undefined trigger the fallback
+// cfg.port || 3000 → ALSO triggers on 0, '', false
+//
+// For config values where 0 is valid, use ??.</span>
+
+<span class="kw">const</span> cfg1: Config = { port: <span class="num">0</span> };
+console.<span class="fn">log</span>(cfg1.port ?? <span class="num">3000</span>); <span class="com">// 0 (correct!)</span>
+console.<span class="fn">log</span>(cfg1.port || <span class="num">3000</span>); <span class="com">// 3000 (probably wrong)</span>
+
+<span class="com">// ─── Combined ?? and ?. — the safe idiom ─────</span>
+<span class="kw">function</span> <span class="fn">getHost</span>(cfg: Config | <span class="fn">null</span>): <span class="fn">string</span> {
+<span class="kw">return</span> cfg?.host ?? <span class="str">'localhost'</span>;
+}
+
+<span class="com">// ─── Non-null assertion — trust me ───────────</span>
+<span class="com">// The ! operator removes null and undefined
+// from the type, without any runtime check.</span>
+
+<span class="kw">function</span> <span class="fn">processUser</span>(user: User | <span class="fn">null</span>): <span class="fn">string</span> {
+<span class="com">// We checked above and know it's non-null:</span>
+<span class="kw">if</span> (!user) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'user required'</span>);
+
+<span class="com">// Now user is User — no ! needed. TypeScript
+// narrows after the throw, so the following is
+// just for demonstration:</span>
+
+<span class="kw">return</span> user.name; <span class="com">// ✅ no ! needed</span>
+}
+
+<span class="com">// When ! is legitimately needed:
+//
+// 1. External library that returns T | null but
+// you know it's T after some invariant.
+// 2. After a custom check the compiler can't see:
+// if (user !== null && 'name' in user) { ... }
+// TypeScript narrows 'name' but not 'user'.
+// 3. Immediately after an assignment in a
+// synchronous block where you control the value.</span>
+
+<span class="kw">function</span> <span class="fn">legitUse</span>(user: User | <span class="fn">null</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (user === <span class="fn">null</span>) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'required'</span>);
+<span class="kw">return</span> user.name; <span class="com">// compiler narrows — no ! needed</span>
+}
+
+<span class="com">// ─── When NOT to use ! ───────────────────────
+//
+// ❌ function f(user: User | null) {
+// return user!.name;
+// }
+// If user is null → runtime TypeError.
+//
+// ❌ function f(users: User[]) {
+// return users[0]!.name;
+// }
+// If array is empty → runtime TypeError.
+//
+// Every ! is a promise the compiler can't verify.
+// Prefer ?? or early return.</span>
+
+console.<span class="fn">log</span>(<span class="fn">getPort</span>({}), <span class="fn">getPort</span>({ port: <span class="num">8080</span> }));
+console.<span class="fn">log</span>(<span class="fn">getHost</span>(<span class="fn">null</span>), <span class="fn">getHost</span>({ host: <span class="str">'example.com'</span> }));
+console.<span class="fn">log</span>(<span class="fn">processUser</span>({ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> }));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">getPort</span>(cfg) {
+<span class="kw">return</span> cfg.port ?? <span class="num">3000</span>;
+}
+
+<span class="kw">const</span> cfg1 = { port: <span class="num">0</span> };
+console.<span class="fn">log</span>(cfg1.port ?? <span class="num">3000</span>);
+console.<span class="fn">log</span>(cfg1.port || <span class="num">3000</span>);
+
+<span class="kw">function</span> <span class="fn">getHost</span>(cfg) {
+<span class="kw">return</span> cfg?.host ?? <span class="str">'localhost'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">processUser</span>(user) {
+<span class="kw">if</span> (!user) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'user required'</span>);
+<span class="kw">return</span> user.name;
+}
+
+<span class="kw">function</span> <span class="fn">legitUse</span>(user) {
+<span class="kw">if</span> (user === <span class="fn">null</span>) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'required'</span>);
+<span class="kw">return</span> user.name;
+}
+
+console.<span class="fn">log</span>(<span class="fn">getPort</span>({}), <span class="fn">getPort</span>({ port: <span class="num">8080</span> }));
+console.<span class="fn">log</span>(<span class="fn">getHost</span>(<span class="fn">null</span>), <span class="fn">getHost</span>({ host: <span class="str">'example.com'</span> }));
+console.<span class="fn">log</span>(<span class="fn">processUser</span>({ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> }));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>??</code> only for null/undefined</h4>
+<p><code>x ?? fallback</code> — fallback only if x is null or undefined. Unlike <code>||</code>, which also triggers on <code>0</code>, <code>''</code>, <code>false</code>.</p>
+</div>
+<div class="concept-card">
+<h4><code>?.</code> + <code>??</code> combo</h4>
+<p><code>cfg?.host ?? 'localhost'</code> — safe access + default value. The idiomatic safe read for config, props, optional data.</p>
+</div>
+<div class="concept-card">
+<h4><code>!</code> bypasses the check</h4>
+<p><code>user!.name</code> tells the compiler "trust me." No runtime check. If wrong, you crash. Use almost never.</p>
+</div>
+<div class="concept-card">
+<h4>When <code>!</code> is legit</h4>
+<p>After a check the compiler can't track (custom guard), or with a library that mistypes its return. Even then, prefer alternatives.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Every <code>!</code> in your codebase is a potential production bug.</strong> When you write <code>user!.name</code>, you're saying "I checked this somewhere and the compiler can't tell." But if that "somewhere" is wrong, or the invariant breaks, or the code changes and the check is removed — you crash at runtime, in production, on a Friday afternoon. <code>!</code> is a promise the compiler can't verify. Use it only after a guard the compiler can't express (<code>if ('name' in user)</code>), and only with a comment explaining why. Every <code>!</code> is a bug waiting to happen.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The null/undefined handling bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using <code>!</code> instead of proper handling</div>
+<p><code>user!.name</code> — bypasses the check. If user is null, crash. Fix: early return, optional chaining, or nullish coalescing.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Confusing <code>??</code> and <code>||</code></div>
+<p><code>x || fallback</code> triggers on <code>0</code>, <code>''</code>, <code>false</code>. Fix: use <code>??</code> unless you truly want all falsy values to trigger the fallback.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Optional chaining everywhere</div>
+<p>Every <code>?.</code> on a required property hides real bugs. Fix: use <code>?.</code> only for genuinely optional data (config fields, optional params).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Narrowing lost after async</div>
+<p><code>if (user) { await something(); user.name }</code> — user might be reassigned. Fix: capture the narrowed value in a <code>const</code> before the await.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Narrowing lost after callbacks</div>
+<p><code>if (user) { setTimeout(() => user.name, 0) }</code> — narrowing doesn't cross function boundaries. Fix: capture in a <code>const</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Checking the wrong variable</div>
+<p><code>if (user.address) { user.address.city }</code> — narrows <code>user.address</code>, not <code>user</code>. Fix: check the full chain or use optional chaining.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Forgetting array access can be undefined</div>
+<p><code>users[0].name</code> — <code>users[0]</code> is <code>User | undefined</code>. Fix: check, or use <code>users[0]?.name</code>, or <code>users.at(0)?.name</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Disabling strictNullChecks</div>
+<p>Turning it off to make the errors go away. Fix: keep it on. The errors are real bugs — every one is a potential runtime crash.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix "Object is possibly null" in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Four approaches depending on the case. (1) Early return: if (!obj) return; — narrows obj for the rest of the function. (2) Optional chaining: obj?.prop. (3) Nullish coalescing: obj ?? fallback. (4) Non-null assertion: obj!.prop — tells the compiler to trust you, but doesn't check at runtime. Prefer the first three.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does TypeScript say "possibly null" if my code checks it?</summary>
+<p class="mt-2 text-sm text-slate-300">Because the check must be in a scope the compiler can track. If the check is in a different function or in an async callback, the narrowing doesn't carry over. Also, if the value is reassigned after the check, the narrowing is lost.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between ?. and ??</summary>
+<p class="mt-2 text-sm text-slate-300">?. is optional chaining — it short-circuits to undefined if the value is null or undefined. ?? is nullish coalescing — it provides a fallback when the left side is null or undefined. They often appear together: obj?.prop ?? defaultValue.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use the non-null assertion operator (!)?</summary>
+<p class="mt-2 text-sm text-slate-300">Rarely. The ! operator tells TypeScript 'trust me, this is not null' — it doesn't check at runtime. If the value IS null, you crash. Use it only when you've just validated the value in a way TypeScript can't see, or with an external library that doesn't type correctly.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/narrowing.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 4: Unions & narrowing</div>
+<div class="text-xs text-slate-400 mt-1">Every narrowing technique</div>
+</a>
+<a href="/courses/typescript/problems/property-does-not-exist.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 "Property does not exist on type"</div>
+<div class="text-xs text-slate-400 mt-1">The related error</div>
+</a>
+<a href="/courses/typescript/problems/unknown-vs-any.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 unknown vs any</div>
+<div class="text-xs text-slate-400 mt-1">The safe alternative to !</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
