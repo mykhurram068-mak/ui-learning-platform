@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TypeScript Modules & Tooling — tsconfig, ESM, Vite, .d.ts (2026)</title>
+<meta name="description" content="Learn TypeScript tooling. Understand tsconfig.json (strict, target, module, paths, lib, noEmit), ESM vs CommonJS, path aliases, .d.ts declaration files, @types packages, and Vite + TypeScript setup. Every option explained with real project structure.">
+<meta name="keywords" content="typescript tsconfig, typescript esm commonjs, typescript path aliases, typescript d.ts, typescript vited, typescript setup project, typescript module resolution">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="TypeScript Modules & Tooling — tsconfig, ESM, Vite, .d.ts">
+<meta property="og:description" content="Learn TypeScript tooling. tsconfig.json deep-dive, ESM vs CommonJS, path aliases, .d.ts files, @types packages, Vite + TypeScript setup.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/lessons/tooling.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TypeScript Modules & Tooling — tsconfig, ESM, Vite, .d.ts">
+<meta name="twitter:description" content="Learn TypeScript tooling. tsconfig.json deep-dive, ESM vs CommonJS, path aliases, .d.ts files, @types packages, Vite + TypeScript setup.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/lessons/tooling.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "TypeScript Modules & Tooling — tsconfig, ESM, Vite, .d.ts",
+"description": "Learn TypeScript tooling. tsconfig.json deep-dive, ESM vs CommonJS, path aliases, .d.ts files, @types packages, Vite + TypeScript setup.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is tsconfig.json?","acceptedAnswer":{"@type":"Answer","text":"tsconfig.json is the configuration file for the TypeScript compiler. It tells tsc which files to compile, what JavaScript version to target, which module system to output, how strict to be, and dozens of other settings. Every TypeScript project has one at the root. Vite, Next.js, and other tools read it automatically. Without it, tsc uses defaults that are usually too permissive."}},
+{"@type":"Question","name":"What does the strict flag do?","acceptedAnswer":{"@type":"Answer","text":"strict: true turns on eight type-checking options at once, including strictNullChecks (null and undefined must be handled), noImplicitAny (untyped variables are errors), strictFunctionTypes, and strictPropertyInitialization. It's the single most important tsconfig option — it catches the bugs that matter. Always enable it from day one. Retrofitting strict into an existing codebase is painful because it surfaces hundreds of errors."}},
+{"@type":"Question","name":"What is the difference between ESM and CommonJS?","acceptedAnswer":{"@type":"Answer","text":"ESM (ECMAScript Modules) is the modern standard: import / export syntax, top-level await, tree-shakeable. CommonJS is the older Node.js system: require() / module.exports, synchronous loading. TypeScript can compile to either. For new projects, use ESM — it's what browsers support and what Vite bundles. CommonJS is for maintaining older Node code or specific library compatibility."}},
+{"@type":"Question","name":"What is a .d.ts file?","acceptedAnswer":{"@type":"Answer","text":"A .d.ts file is a TypeScript declaration file — it contains only type information, no runtime code. It's how you tell TypeScript about JavaScript code that has no built-in types, like a library you installed with npm. When you npm install lodash, it ships with lodash.d.ts (or you install @types/lodash) that describes lodash's API. Your compiler reads it, you get autocomplete and type checking, but the .d.ts itself produces no JS output."}},
+{"@type":"Question","name":"What are @types packages?","acceptedAnswer":{"@type":"Answer","text":"@types packages are community-maintained type definitions for JavaScript libraries that don't ship their own types. They live under the @types scope on npm: @types/node, @types/react, @types/lodash. When you install one, TypeScript automatically finds it in node_modules/@types and uses it. If a library ships its own types, you don't need @types — installing both causes conflicts."}},
+{"@type":"Question","name":"What are path aliases in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Path aliases let you import using short names instead of relative paths. Instead of import { User } from '../../../types/user', you write import { User } from '@/types/user'. Configure them in tsconfig.json under compilerOptions.paths, and your bundler (Vite, webpack) needs the same aliases in its config. Common aliases: @/ for src/, @components/, @utils/. They make imports stable when you move files."}},
+{"@type":"Question","name":"How do I set up TypeScript with Vite?","acceptedAnswer":{"@type":"Answer","text":"Run npm create vite@latest my-app -- --template react-ts (or vanilla-ts, vue-ts). Vite scaffolds the project with tsconfig.json, package.json, and a src/ folder. Vite uses esbuild to compile TS during dev (fast) and Rollup for production builds. For type checking, run tsc --noEmit separately — Vite doesn't type check by default because it's slow. Standard pattern: Vite for speed, tsc --noEmit in CI for correctness."}},
+{"@type":"Question","name":"What is the difference between tsc and a bundler?","acceptedAnswer":{"@type":"Answer","text":"tsc is the TypeScript compiler — it checks types and outputs JavaScript (one .js per .ts). A bundler (Vite, webpack, Rollup, esbuild) combines many modules into one file for browsers, handles CSS/assets, and does optimizations. Modern setups use both: a bundler for production builds (fast, optimized), and tsc --noEmit for type checking. Or a bundler that includes TS compilation (Vite, esbuild) plus tsc --noEmit as a separate check."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Lesson 7</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Modules & tooling</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 7</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Lesson 7 · 20 minutes</div>
+<h1>Modules & tooling.<br><span class="py-accent">From .ts file to shipped app.</span></h1>
+<p class="lead">
+Everything up to now has been syntax. This lesson is about the layer underneath: how TypeScript compiles, how to configure it, how to structure a project, and how it integrates with the bundlers and frameworks you'll actually use. tsconfig.json in depth — the 10 options you need and the 50 you can ignore. ESM vs CommonJS. Path aliases that keep imports sane. .d.ts files and @types/* packages. Vite + TypeScript, the modern setup. This is the lesson that takes you from "I understand the syntax" to "I can ship a TypeScript project."
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~20 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> TypeScript 5 · Vite 5 · tsc</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/typescript/index.html">TypeScript path</a>
+<a href="#tsconfig">tsconfig.json</a>
+<a href="#modules">ESM vs CommonJS</a>
+<a href="#paths">Path aliases</a>
+<a href="#dts">.d.ts & @types</a>
+<a href="#vite">Vite + TS setup</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<code>tsconfig.json</code> configures the compiler. The essential options: <code>strict: true</code> (turn this on day one), <code>target: "ES2022"</code>, <code>module: "ESNext"</code>, <code>moduleResolution: "bundler"</code>, <code>noEmit: true</code> (when using a bundler), <code>paths</code> for aliases. <strong>ESM</strong> (<code>import/export</code>) is the modern standard; <strong>CommonJS</strong> (<code>require</code>) is legacy. <strong>Path aliases</strong> (<code>@/</code> → <code>src/</code>) need config in both <code>tsconfig</code> and your bundler. <strong>.d.ts</strong> files describe JS libraries' types. <strong>Vite</strong> compiles TS with esbuild during dev; <strong>tsc --noEmit</strong> type-checks separately (run in CI).
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#3178C6 !important;">Before this lesson:</strong> complete <a href="/courses/typescript/lessons/utility-types.html" style="color:#5B9BD5; text-decoration:underline;">Lesson 6</a> — you've seen every type-level feature you'll need. Now we connect it to real tooling.
+</p>
+</div>
+
+<section id="tsconfig">
+<h2 class="section-title">⚙️ tsconfig.json — the 10 options you need</h2>
+<p class="section-sub">A full tsconfig has ~100 options. You'll actually use about 10.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">tsconfig.json is the TypeScript compiler configuration. It's a JSON file at the project root, and every tool (tsc, Vite, Next.js, VS Code) reads it. Getting it right on day one saves months of pain later. Getting it wrong — especially strict — causes the exact bugs TypeScript exists to prevent.</p>
+
+<div class="code-block" id="demo-tsconfig">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">tsconfig.json</span>
+<button class="copy-btn" onclick="copyCode('code-tsconfig', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-tsconfig', 'ts', this)">Config</button>
+<button onclick="switchCodeOutput('demo-tsconfig', 'js', this)">Explained</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-tsconfig">{
+<span class="com">// ─── The one that matters most ────────────</span>
+<span class="str">"compilerOptions"</span>: {
+<span class="str">"strict"</span>: <span class="kw">true</span>,
+
+<span class="com">// ─── Output target ──────────────────────</span>
+<span class="str">"target"</span>: <span class="str">"ES2022"</span>,
+<span class="str">"lib"</span>: [<span class="str">"ES2022"</span>, <span class="str">"DOM"</span>, <span class="str">"DOM.Iterable"</span>],
+
+<span class="com">// ─── Module system ──────────────────────</span>
+<span class="str">"module"</span>: <span class="str">"ESNext"</span>,
+<span class="str">"moduleResolution"</span>: <span class="str">"bundler"</span>,
+
+<span class="com">// ─── Compatibility flags ────────────────</span>
+<span class="str">"esModuleInterop"</span>: <span class="kw">true</span>,
+<span class="str">"resolveJsonModule"</span>: <span class="kw">true</span>,
+<span class="str">"isolatedModules"</span>: <span class="kw">true</span>,
+
+<span class="com">// ─── Emit behavior ──────────────────────</span>
+<span class="str">"noEmit"</span>: <span class="kw">true</span>,
+<span class="str">"skipLibCheck"</span>: <span class="kw">true</span>,
+
+<span class="com">// ─── Path aliases ───────────────────────</span>
+<span class="str">"baseUrl"</span>: <span class="str">"."</span>,
+<span class="str">"paths"</span>: {
+<span class="str">"@/*"</span>: [<span class="str">"src/*"</span>]
+}
+},
+<span class="str">"include"</span>: [<span class="str">"src"</span>],
+<span class="str">"exclude"</span>: [<span class="str">"node_modules"</span>, <span class="str">"dist"</span>]
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// ─── What each option does ─────────────────</span>
+
+<span class="com">// strict: true
+// Turns on 8 sub-flags at once: strictNullChecks,
+// noImplicitAny, strictFunctionTypes, etc. Catches
+// null/undefined bugs, implicit any, and more.
+// ALWAYS enable this from day one.</span>
+
+<span class="com">// target: "ES2022"
+// JavaScript version to compile down to. ES2022
+// supports top-level await, class fields, .at().
+// Modern enough for 2026 browsers. Use ES2020 if
+// you must support older browsers.</span>
+
+<span class="com">// lib: ["ES2022", "DOM", "DOM.Iterable"]
+// Which built-in types exist. DOM adds document,
+// window, fetch. Add other libs for other envs.</span>
+
+<span class="com">// module: "ESNext"
+// Output module syntax. ESNext keeps import/export.
+// "CommonJS" would convert to require(). Use ESNext
+// for modern bundlers.</span>
+
+<span class="com">// moduleResolution: "bundler"
+// How to resolve imports. "bundler" (new in TS 5)
+// matches how Vite, webpack, esbuild work. Use it
+// for any modern bundler. "node" is for Node.js.</span>
+
+<span class="com">// esModuleInterop: true
+// Lets you import CJS modules as if they were ESM.
+// import express from 'express' works without this
+// only if the library ships compatible types. Set it.</span>
+
+<span class="com">// resolveJsonModule: true
+// Lets you import JSON files with proper types.
+// import data from './data.json' works.</span>
+
+<span class="com">// isolatedModules: true
+// Each file must be independently compilable.
+// Required by esbuild, Vite, and Babel. Set it.</span>
+
+<span class="com">// noEmit: true
+// Don't output .js files — just type check.
+// Set when a bundler (Vite) handles the build.
+// Set to false if you use plain tsc for output.</span>
+
+<span class="com">// skipLibCheck: true
+// Skip type checking of .d.ts files in node_modules.
+// Speeds up builds significantly. Some disagree with
+// it, but for most projects the trade is worth it.</span>
+
+<span class="com">// paths: { "@/*": ["src/*"] }
+// Path aliases. "@/" → "src/". Requires the same
+// config in your bundler.</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>strict: true</code> — non-negotiable</h4>
+<p>The single most important tsconfig option. Catches null/undefined, implicit any, and more. Enable from day one — retrofitting later is painful because it surfaces hundreds of errors.</p>
+</div>
+<div class="concept-card">
+<h4><code>target</code> and <code>lib</code></h4>
+<p><code>target</code> = output JavaScript version. <code>lib</code> = which built-in types exist (<code>DOM</code>, <code>ES2022</code>). Choose target for the browser you support; choose lib for the APIs you use.</p>
+</div>
+<div class="concept-card">
+<h4><code>module</code> and <code>moduleResolution</code></h4>
+<p><code>module: ESNext</code> keeps modern import syntax. <code>moduleResolution: bundler</code> matches Vite/webpack resolution rules. Use this pair for modern tooling.</p>
+</div>
+<div class="concept-card">
+<h4><code>noEmit: true</code></h4>
+<p>When a bundler handles compilation (Vite, Next.js), set <code>noEmit</code> — tsc only type checks. Output comes from the bundler. Standard in 2026.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't turn on <code>strict</code> after building 10,000 lines of non-strict code.</strong> The errors will overwhelm you. If you're starting a new project: <code>strict: true</code> from commit one. If you're retrofitting an existing project: enable it one file at a time with <code>// @ts-strict-ignore</code> or migrate to a <code>strict: true</code> tsconfig slowly. The cost of retrofitting is real — the cost of <em>not</em> having it is a class of bugs that ship to production. Pay it now or pay it forever.</p>
+</div>
+</section>
+
+<section id="modules">
+<h2 class="section-title">📦 ESM vs CommonJS — the two module systems</h2>
+<p class="section-sub">Modern standard vs legacy Node. Here's the difference and what to use.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">JavaScript has two module systems in active use: ESM (ECMAScript Modules, the standard) and CommonJS (the Node.js legacy system). TypeScript compiles to either. For new projects, use ESM. For maintaining old Node code, you'll encounter CommonJS. Knowing the difference saves hours of "Cannot use import statement outside a module" errors.</p>
+
+<div class="code-block" id="demo-modules">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">modules.ts</span>
+<button class="copy-btn" onclick="copyCode('code-modules', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-modules', 'ts', this)">TypeScript (ESM)</button>
+<button onclick="switchCodeOutput('demo-modules', 'js', this)">Compiled output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-modules"><span class="com">// ─── ESM syntax (what you write) ─────────────</span>
+<span class="kw">import</span> { <span class="fn">useState</span> } <span class="kw">from</span> <span class="str">'react'</span>;
+<span class="kw">import</span> express <span class="kw">from</span> <span class="str">'express'</span>;
+<span class="kw">import</span> <span class="fn">type</span> { User } <span class="kw">from</span> <span class="str">'./types/user'</span>;
+
+<span class="kw">export function</span> <span class="fn">greet</span>(name: <span class="fn">string</span>): <span class="fn">string</span> {
+<span class="kw">return</span> <span class="str">Hello, ${name}`</span>;
+}
+
+<span class="kw">export const</span> VERSION = <span class="str">'1.0.0'</span>;
+
+<span class="com">// ─── Default export ──────────────────────────</span>
+<span class="kw">export default function</span> <span class="fn">app</span>() { <span class="kw">return</span> <span class="str">'app'</span>; }
+
+<span class="com">// ─── Type-only imports ───────────────────────</span>
+<span class="com">// import type is erased at compile time.
+// Use it when you only need types, not values.
+// Prevents accidental runtime imports of unused code.</span>
+
+<span class="com">// ─── Namespace imports ──────────────────────</span>
+<span class="kw">import</span> * <span class="kw">as</span> React <span class="kw">from</span> <span class="str">'react'</span>;</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// With module: "ESNext" — output keeps import/export.
+// This is what modern bundlers expect.</span>
+
+<span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+<span class="kw">import</span> express <span class="kw">from</span> <span class="str">'express'</span>;
+<span class="com">// Type-only import erased entirely</span>
+
+<span class="kw">export function</span> <span class="fn">greet</span>(name) {
+<span class="kw">return</span> <span class="str">Hello,${name}`</span>;
+}
+
+<span class="kw">export const</span> VERSION = <span class="str">'1.0.0'</span>;
+
+<span class="kw">export default function</span> <span class="fn">app</span>() { <span class="kw">return</span> <span class="str">'app'</span>; }
+
+<span class="kw">import</span> * <span class="kw">as</span> React <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─────────────────────────────────────────────
+// If module: "CommonJS" were set instead, the
+// output would be:
+//
+// const { useState } = require('react');
+// const express = require('express');
+// exports.greet = function(name) {...};
+// exports.VERSION = '1.0.0';
+//
+// Both work. ESM is the modern standard.</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>ESM — the modern standard</h4>
+<p><code>import</code> / <code>export</code>, top-level await, tree-shakeable. What browsers support natively. What Vite bundles. What every library publishes. Use this for new code.</p>
+</div>
+<div class="concept-card">
+<h4>CommonJS — Node legacy</h4>
+<p><code>require()</code> / <code>module.exports</code>, synchronous, no static analysis. Older Node code uses this. Some libraries ship only CJS. You can use both — but not always in the same file.</p>
+</div>
+<div class="concept-card">
+<h4><code>import type</code></h4>
+<p>Type-only imports are erased at compile time. Use when you import types without runtime values. Prevents accidental imports of unused code. Required with <code>isolatedModules: true</code>.</p>
+</div>
+<div class="concept-card">
+<h4><code>.mts</code> and <code>.cts</code></h4>
+<p>File extensions for "force ESM" and "force CommonJS" — override tsconfig's <code>module</code> setting per file. Rarely needed in 2026 but useful for edge cases.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Use ESM. Add CommonJS support only if a dependency forces you to.</strong> Every modern framework is ESM-first: Vite, Next.js, Astro, Remix, Deno, Bun. Node.js 20+ supports ESM natively. If you're starting a new project in 2026, <code>module: "ESNext"</code> and <code>moduleResolution: "bundler"</code> — that's it. CommonJS is only necessary when you're maintaining legacy Node servers or dealing with libraries that haven't updated. Don't reach for it by default.</p>
+</div>
+</section>
+
+<section id="paths">
+<h2 class="section-title">🛤️ Path aliases — imports that survive refactoring</h2>
+<p class="section-sub"><code>../../../types/user</code> is a smell. <code>@/types/user</code> is a fix.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">As projects grow, relative imports multiply: <code>import { User } from '../../../../types/user'</code>. Move a file one directory and every import breaks. Path aliases solve this: <code>@/types/user</code> always resolves from <code>src/</code>, no matter where the importing file lives. Requires config in both tsconfig (for the compiler) and your bundler (for the build).</p>
+
+<div class="code-block" id="demo-paths">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">paths setup</span>
+<button class="copy-btn" onclick="copyCode('code-paths', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-paths', 'ts', this)">tsconfig.json</button>
+<button onclick="switchCodeOutput('demo-paths', 'js', this)">vite.config.ts</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-paths">{
+<span class="str">"compilerOptions"</span>: {
+<span class="str">"baseUrl"</span>: <span class="str">"."</span>,
+<span class="str">"paths"</span>: {
+<span class="str">"@/"</span>: [<span class="str">"./src/*"</span>],
+<span class="str">"@components/"</span>: [<span class="str">"./src/components/*"</span>],
+<span class="str">"@utils/"</span>: [<span class="str">"./src/utils/*"</span>],
+<span class="str">"@types/"</span>: [<span class="str">"./src/types/*"</span>]
+}
+}
+}
+
+<span class="com">// Now in any file, anywhere in src/:</span>
+<span class="com">// import { User } from '@/types/user';</span>
+<span class="com">// import { Button } from '@components/Button';</span>
+<span class="com">// import { format } from '@utils/format';</span>
+
+<span class="com">// BEFORE — fragile:</span>
+<span class="com">// import { User } from '../../../types/user';</span>
+<span class="com">// import { Button } from '../../../../components/Button';</span>
+<span class="com">// Move a file → every relative path breaks.</span>
+
+<span class="com">// AFTER — stable:</span>
+<span class="com">// import { User } from '@/types/user';</span>
+<span class="com">// import { Button } from '@components/Button';</span>
+<span class="com">// Move a file → paths still work.</span></pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Vite config MUST mirror the tsconfig paths.
+// TS config makes the type checker happy.
+// Vite config makes the actual bundling work.
+// Both are required — one without the other breaks.</span>
+
+<span class="kw">import</span> { defineConfig } <span class="kw">from</span> <span class="str">'vite'</span>;
+<span class="kw">import</span> react <span class="kw">from</span> <span class="str">'@vitejs/plugin-react'</span>;
+<span class="kw">import</span> path <span class="kw">from</span> <span class="str">'path'</span>;
+
+<span class="kw">export default</span> <span class="fn">defineConfig</span>({
+<span class="fn">plugins</span>: [<span class="fn">react</span>()],
+<span class="fn">resolve</span>: {
+<span class="fn">alias</span>: {
+<span class="str">'@'</span>: path.<span class="fn">resolve</span>(__dirname, <span class="str">'./src'</span>),
+<span class="str">'@components'</span>: path.<span class="fn">resolve</span>(__dirname, <span class="str">'./src/components'</span>),
+<span class="str">'@utils'</span>: path.<span class="fn">resolve</span>(__dirname, <span class="str">'./src/utils'</span>),
+<span class="str">'@types'</span>: path.<span class="fn">resolve</span>(__dirname, <span class="str">'./src/types'</span>)
+}
+}
+});
+
+<span class="com">// ─────────────────────────────────────────────
+// Webpack, Rollup, esbuild, Next.js — same idea,
+// different config syntax. Every bundler supports
+// aliases, but each has its own way of declaring them.
+// If you use Next.js, tsconfig paths work out of the box
+// (no bundler config needed). Vite requires both.</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Why aliases</h4>
+<p>Relative imports scale badly. Move one file and every <code>../../../</code> breaks. Aliases keep imports stable — <code>@/types/user</code> works from any file, any depth.</p>
+</div>
+<div class="concept-card">
+<h4>Two configs required</h4>
+<p>tsconfig <code>paths</code> tells the type checker. Bundler <code>alias</code> tells the build. Both must match or imports break at compile or runtime. Copy-paste the same list in both.</p>
+</div>
+<div class="concept-card">
+<h4><code>baseUrl</code> + <code>paths</code></h4>
+<p><code>baseUrl</code> is the root for resolution (<code>"."</code> = project root). <code>paths</code> maps patterns to locations. <code>"@/*": ["./src/*"]</code> means <code>@/x</code> resolves to <code>src/x</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Conventions</h4>
+<p><code>@/</code> for <code>src/</code> is the most common. Some projects use <code>~/</code> or module-specific prefixes like <code>@components/</code>. Pick a convention and enforce it with ESLint.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Set up path aliases on day one, not month three.</strong> Adding aliases to an existing codebase requires editing every import in every file — a painful mechanical refactor. Adding them at project start takes 5 minutes: two config files, one search-replace. Every project over 20 files benefits. Every project over 100 files <em>needs</em> them. This is the highest-ROI 5 minutes of TypeScript setup you'll ever spend.</p>
+</div>
+</section>
+
+<section id="dts">
+<h2 class="section-title">📜 .d.ts files & @types — describing JavaScript</h2>
+<p class="section-sub">How TypeScript knows about libraries written in JavaScript.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A <code>.d.ts</code> file contains only type information — no runtime code. It's how TypeScript understands JavaScript libraries that don't ship types. When you <code>npm install lodash</code>, TypeScript looks for <code>lodash.d.ts</code> or a matching <code>@types/lodash</code> package. Without it, imports of that library are <code>any</code> — losing all safety.</p>
+
+<div class="code-block" id="demo-dts">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">declarations.ts</span>
+<button class="copy-btn" onclick="copyCode('code-dts', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-dts', 'ts', this)">.d.ts file</button>
+<button onclick="switchCodeOutput('demo-dts', 'js', this)">Usage</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-dts"><span class="com">// ─── types/my-lib.d.ts ────────────────────────</span>
+<span class="com">// A .d.ts file declares the shape of a library.
+// It has no implementation — only signatures.
+// At compile time, TS uses it. At runtime, it's ignored.</span>
+
+<span class="kw">declare module</span> <span class="str">'my-lib'</span> {
+<span class="kw">export interface</span> Config {
+apiKey: <span class="fn">string</span>;
+endpoint?: <span class="fn">string</span>;
+}
+
+<span class="kw">export function</span> <span class="fn">initialize</span>(config: Config): <span class="fn">void</span>;
+
+<span class="kw">export function</span> <span class="fn">query</span>(sql: <span class="fn">string</span>, params?: <span class="fn">unknown</span>[]): <span class="fn">Promise</span><<span class="fn">unknown</span>[]>;
+
+<span class="kw">export default</span> {
+initialize: <span class="kw">typeof</span> initialize;
+query: <span class="kw">typeof</span> query;
+};
+}
+
+<span class="com">// ─── Global declarations ─────────────────────</span>
+<span class="com">// Add types to global scope (window, document extensions):</span>
+
+<span class="kw">declare global</span> {
+<span class="kw">interface</span> Window {
+myAnalytics: {
+<span class="fn">track</span>(event: <span class="fn">string</span>, props?: Record<<span class="fn">string</span>, <span class="fn">unknown</span>>): <span class="fn">void</span>;
+};
+}
+}
+
+<span class="kw">export</span> {};
+
+<span class="com">// ─── Ambient module without a body ───────────</span>
+<span class="com">// If a module has no types and you just want to
+// silence the error and use any (not recommended):</span>
+
+<span class="kw">declare module</span> <span class="str">'untyped-lib'</span>;
+<span class="com">// Now import x from 'untyped-lib' — x is any</span>
+
+<span class="com">// ─── Global type declarations ────────────────</span>
+<span class="kw">declare type</span> UUID = <span class="fn">string</span>;
+<span class="kw">declare const</span> APP_VERSION: <span class="fn">string</span>;</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// ─── Using a library with .d.ts types ─────────</span>
+
+<span class="kw">import</span> { <span class="fn">initialize</span>, <span class="fn">query</span>, Config } <span class="kw">from</span> <span class="str">'my-lib'</span>;
+
+<span class="com">// Full autocomplete + type checking — from the .d.ts file</span>
+<span class="fn">initialize</span>({
+apiKey: <span class="str">'abc123'</span>,
+endpoint: <span class="str">'https://api.example.com'</span>
+});
+
+<span class="kw">const</span> result = <span class="kw">await</span> <span class="fn">query</span>(<span class="str">'SELECT * FROM users'</span>);
+<span class="com">// result: unknown[] (from the .d.ts return type)</span>
+
+<span class="com">// ─── How @types/* works ───────────────────────</span>
+<span class="com">// When you install:
+// npm install lodash
+// npm install --save-dev @types/lodash
+//
+// TypeScript looks in:
+// node_modules/@types/lodash/index.d.ts
+//
+// It finds types automatically — no import needed.
+// You just get them when you import lodash.</span>
+
+<span class="com">// ─── Do I need @types? ────────────────────────
+// If the library ships its own .d.ts (most modern libs do):
+// → no @types needed. Installing both causes conflicts.
+//
+// If the library is plain JavaScript (older libs):
+// → install @types/libname. If it exists, great. If not,
+// you might need to write your own .d.ts or use any.
+//
+// Popular @types packages:
+// @types/node, @types/react, @types/express,
+// @types/lodash, @types/jest, @types/lodash.debounce</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Types only, no code</h4>
+<p><code>.d.ts</code> files have no implementation. They declare signatures. The compiler uses them for checking; the runtime ignores them entirely. Zero bytes in the bundle.</p>
+</div>
+<div class="concept-card">
+<h4><code>declare module</code></h4>
+<p>Wrap declarations in <code>declare module 'libname' { ... }</code> to describe a module. Any import of that name will use these types.</p>
+</div>
+<div class="concept-card">
+<h4><code>declare global</code></h4>
+<p>Add types to global scope (extensions to <code>window</code>, <code>document</code>, built-ins). Requires <code>export {}</code> at the end to make the file a module.</p>
+</div>
+<div class="concept-card">
+<h4><code>@types/</code> auto-resolution</h4>
+<p>TS automatically finds <code>node_modules/@types/</code>. Install <code>@types/node</code> and you get types for Node APIs — no import, no config.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Never write <code>declare module 'lib';</code> with no body to silence errors.</strong> This makes the entire module <code>any</code> — you lose autocomplete, type checking, everything. It's the same as turning TypeScript off for that library. If a library has no types, either find an <code>@types/*</code> package, write a proper <code>.d.ts</code> with real signatures, or use it via a guarded interface. The silent-<code>any</code> shortcut defeats the entire point of using TypeScript.</p>
+</div>
+</section>
+
+<section id="vite">
+<h2 class="section-title">⚡ Vite + TypeScript — the modern setup</h2>
+<p class="section-sub">Three commands, full TypeScript, hot reload, production build.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Vite is the modern standard for frontend build tooling. It's what React, Vue, Svelte, and Solid recommend. For TypeScript: Vite compiles TS with esbuild (fast, ~10x faster than tsc) during dev, and bundles with Rollup for production. The one catch: Vite doesn't type check by default — you run <code>tsc --noEmit</code> separately. That's a feature: dev stays fast, and type checking runs in CI.</p>
+
+<div class="code-block" id="demo-vite">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">terminal</span>
+<button class="copy-btn" onclick="copyCode('code-vite', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-vite', 'ts', this)">Setup</button>
+<button onclick="switchCodeOutput('demo-vite', 'js', this)">package.json</button>
+<button onclick="switchCodeOutput('demo-vite', 'out', this)">Project structure</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-vite"><span class="com"># ─── Scaffold a Vite + TS project ────────────</span>
+<span class="cmd">npm create vite@latest my-app -- --template react-ts</span>
+<span class="com"># Other templates: vanilla-ts, vue-ts, svelte-ts, solid-ts</span>
+
+<span class="cmd">cd my-app</span>
+<span class="cmd">npm install</span>
+<span class="cmd">npm run dev</span>
+
+<span class="out"> VITE v5.4.0 ready in 312 ms</span>
+<span class="out"> ➜ Local: http://localhost:5173/</span>
+
+<span class="com"># ─── Type check separately ───────────────────</span>
+<span class="com"># Vite uses esbuild — fast but skips type checking.
+Add tsc --noEmit for the full check:</span>
+
+<span class="cmd">npx tsc --noEmit</span>
+
+<span class="com"># No output = no errors. Fast (uses incremental cache).</span>
+<span class="com"># This is what CI runs before building.</span>
+
+<span class="com"># ─── Production build ────────────────────────</span>
+<span class="cmd">npm run build</span>
+<span class="com"># Runs tsc --noEmit + vite build (Rollup bundle)</span>
+
+<span class="cmd">npm run preview</span>
+<span class="com"># Serves the built output locally</span></pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>{
+<span class="str">"name"</span>: <span class="str">"my-app"</span>,
+<span class="str">"scripts"</span>: {
+<span class="str">"dev"</span>: <span class="str">"vite"</span>,
+<span class="str">"build"</span>: <span class="str">"tsc --noEmit && vite build"</span>,
+<span class="str">"preview"</span>: <span class="str">"vite preview"</span>
+},
+<span class="str">"devDependencies"</span>: {
+<span class="str">"typescript"</span>: <span class="str">"^5.6.0"</span>,
+<span class="str">"vite"</span>: <span class="str">"^5.4.0"</span>,
+<span class="str">"@vitejs/plugin-react"</span>: <span class="str">"^4.3.0"</span>
+}
+}
+
+<span class="com">// ─── The build script is the key ─────────────
+// "tsc --noEmit && vite build"
+//
+// 1. tsc --noEmit — type check every file.
+// Fails the build if any type error exists.
+// 2. vite build — bundles TS → optimized JS.
+// Uses esbuild, doesn't check types.
+//
+// This pattern: type check FIRST, then build.
+// If types fail, you never ship a broken build.
+// If types pass, Vite produces optimized output.
+//
+// CI runs npm run build — full safety, fast dev.</span></pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="com">// ─── Typical Vite + TS project structure ────</span>
+
+my-app/
+├── node_modules/
+├── public/ <span class="com">// static assets</span>
+├── src/
+│ ├── components/ <span class="com">// .tsx files</span>
+│ ├── hooks/ <span class="com">// use*.ts files</span>
+│ ├── types/ <span class="com">// shared types</span>
+│ ├── utils/ <span class="com">// helpers</span>
+│ ├── App.tsx <span class="com">// root component</span>
+│ ├── main.tsx <span class="com">// entry point</span>
+│ └── vite-env.d.ts <span class="com">// Vite type refs</span>
+├── index.html <span class="com">// single HTML entry</span>
+├── package.json
+├── tsconfig.json <span class="com">// base config</span>
+├── tsconfig.node.json <span class="com">// config for vite.config.ts</span>
+└── vite.config.ts <span class="com">// Vite config (with aliases)</span>
+
+<span class="com">// ─── Two tsconfig files — why? ──────────────
+// tsconfig.json → for src/ (browser code)
+// tsconfig.node.json → for vite.config.ts (Node code)
+//
+// The two files have different targets and libs:
+// src/ needs DOM; vite.config.ts needs Node.
+// Vite scaffolds both automatically.</span>
+
+<span class="com">// ─── vite-env.d.ts — what's in it ───────────
+// /// <reference types="vite/client" />
+//
+// This one line tells TS about Vite's env vars,
+// asset imports (import logo from './logo.svg'),
+// and other Vite-specific features.</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>esbuild during dev</h4>
+<p>Vite uses esbuild (written in Go) to compile TS — ~10x faster than tsc. That's why dev startup is instant even on large projects. The trade: esbuild doesn't type check.</p>
+</div>
+<div class="concept-card">
+<h4><code>tsc --noEmit</code> separately</h4>
+<p>Run this to catch type errors. Vite doesn't do it (too slow for dev). In CI, run <code>tsc --noEmit</code> before <code>vite build</code> — the standard pattern.</p>
+</div>
+<div class="concept-card">
+<h4>Two tsconfig files</h4>
+<p><code>tsconfig.json</code> for browser code, <code>tsconfig.node.json</code> for tooling config. Different targets (DOM vs Node), different types. Vite scaffolds both automatically.</p>
+</div>
+<div class="concept-card">
+<h4><code>vite-env.d.ts</code></h4>
+<p>One line: <code>/// <reference types="vite/client" /></code>. Gives you types for Vite env vars, asset imports, and Vite-specific globals. Auto-generated.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Vite's "no type check in dev" is a feature, not a bug.</strong> Beginners complain that Vite lets type errors through in dev — but that's exactly what makes it fast. Your editor (VS Code) type checks on every keystroke (via the TS language server). Your CI type checks on every PR (<code>tsc --noEmit</code>). Vite's job is to compile and serve as fast as possible, not to re-verify what your editor already checked. If a type error slips through, you'll see it in the editor's red squiggles immediately. Trust the layered checks — don't try to make Vite do everything.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each builds a real piece of project infrastructure.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Configure a project from scratch</h4>
+<p>Create a fresh Vite + TS project. Then modify the tsconfig:</p>
+<p>1. Scaffold with <code>npm create vite@latest my-app -- --template vanilla-ts</code><br>
+2. Open <code>tsconfig.json</code> — read every option it ships with<br>
+3. Add a path alias: <code>"@/*": ["./src/*"]</code> under <code>paths</code> (create <code>baseUrl: "."</code> if missing)<br>
+4. Add the matching alias to <code>vite.config.ts</code> using <code>path.resolve</code><br>
+5. Create <code>src/types/user.ts</code> with a <code>User</code> interface<br>
+6. In <code>src/main.ts</code>, import it via <code>import type { User } from '@/types/user'</code><br>
+7. Verify the import works in the browser (dev server) and in <code>npx tsc --noEmit</code></p>
+<p>If the alias fails at runtime but works in <code>tsc</code>: your vite config is missing. If it fails in <code>tsc</code> but works at runtime: your tsconfig is missing. Both failures are instructive.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Write a .d.ts for an untyped library</h4>
+<p>Build type declarations for a library that ships without types:</p>
+<p>1. Create <code>src/types/my-lib.d.ts</code><br>
+2. Declare a module <code>'my-lib'</code> with: an <code>init(config: { key: string })</code> function, a <code>fetchData<T>(url: string): Promise<T></code> function, and a default export with both<br>
+3. In <code>src/main.ts</code>, import from <code>'my-lib'</code> (don't npm install it — the .d.ts makes it work)<br>
+4. Call <code>init({ key: 'abc' })</code> and <code>fetchData<User>('/api/user')</code><br>
+5. Verify autocomplete works and the generic preserves the return type<br>
+6. Try calling <code>init({ wrong: 1 })</code> — confirm the compile error</p>
+<p>The point: writing .d.ts files is how you integrate any untyped codebase. Every JavaScript library you'll ever touch can get types this way.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Set up layered type checking</h4>
+<p>Build the CI-ready type checking pipeline:</p>
+<p>1. In your Vite project, add to <code>package.json</code> scripts: <code>"typecheck": "tsc --noEmit"</code> and <code>"ci": "npm run typecheck && npm run build"</code><br>
+2. Run <code>npm run typecheck</code> — confirm no errors<br>
+3. Deliberately introduce a type error (e.g. <code>const x: number = 'string'</code> in <code>main.ts</code>)<br>
+4. Run <code>npm run dev</code> — notice the browser still runs (Vite ignores types)<br>
+5. Run <code>npm run typecheck</code> — confirm it fails with a clear error<br>
+6. Run <code>npm run ci</code> — confirm the build fails at the typecheck step<br>
+7. Fix the error and confirm both pass</p>
+<p>The point: Vite lets you develop quickly with type errors, but your CI gate catches them before shipping. This is the standard 2026 pipeline. Once you've seen the flow, you'll set it up on every project.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The tooling bugs that cost hours if you hit them cold.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Skipping <code>strict: true</code></div>
+<p>Default tsconfig is permissive — null and undefined sneak through. Fix: <code>"strict": true</code> from day one. Retrofitting later is painful.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Path alias without bundler config</div>
+<p>Aliases work in <code>tsc</code> but fail at runtime because Vite/webpack doesn't know them. Fix: same aliases in <code>vite.config.ts</code> as <code>tsconfig.paths</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using <code>module: "CommonJS"</code> with Vite</div>
+<p>Vite expects ESM. CommonJS output breaks tree-shaking and hot reload. Fix: <code>module: "ESNext"</code> and <code>moduleResolution: "bundler"</code> for Vite projects.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Installing <code>@types/*</code> for libraries that ship types</div>
+<p><code>@types/react</code> vs React 19's built-in types → conflicts, duplicated definitions. Fix: check if the library ships <code>.d.ts</code> first. If yes, no <code>@types</code> needed.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using <code>declare module 'lib';</code> with no body</div>
+<p>Silences the error but makes the entire library <code>any</code>. Fix: write real types, or install <code>@types/lib</code>. The silent-any shortcut defeats TypeScript.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Expecting Vite to type check</div>
+<p>Vite uses esbuild — no type checking. Fix: run <code>tsc --noEmit</code> separately, in CI, or in your build script. Vite is for speed, not type safety.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Mixing ESM and CJS in the same project</div>
+<p>Some files use <code>import</code>, others use <code>require</code>. Breaks module resolution. Fix: pick one — ESM for new projects, CJS only for legacy Node.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Forgetting <code>import type</code> with <code>isolatedModules</code></div>
+<p>With <code>isolatedModules: true</code> (required by esbuild/Vite), types must be imported with <code>import type</code>. Fix: use <code>import type { User }</code> for type-only imports.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is tsconfig.json?</summary>;
+<p class="mt-2 text-sm text-slate-300">tsconfig.json is the configuration file for the TypeScript compiler. It tells tsc which files to compile, what JavaScript version to target, which module system to output, how strict to be, and dozens of other settings. Every TypeScript project has one at the root. Vite, Next.js, and other tools read it automatically.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does the strict flag do?</summary>
+<p class="mt-2 text-sm text-slate-300">strict: true turns on eight type-checking options at once, including strictNullChecks, noImplicitAny, strictFunctionTypes, and strictPropertyInitialization. It's the single most important tsconfig option — it catches the bugs that matter. Always enable it from day one.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between ESM and CommonJS?</summary>
+<p class="mt-2 text-sm text-slate-300">ESM (ECMAScript Modules) is the modern standard: import / export syntax, top-level await, tree-shakeable. CommonJS is the older Node.js system: require() / module.exports, synchronous loading. For new projects, use ESM. CommonJS is for maintaining older Node code.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a .d.ts file?</summary>
+<p class="mt-2 text-sm text-slate-300">A .d.ts file is a TypeScript declaration file — it contains only type information, no runtime code. It's how you tell TypeScript about JavaScript code that has no built-in types. When you npm install lodash, it ships with lodash.d.ts (or you install @types/lodash) that describes lodash's API.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are @types packages?</summary>
+<p class="mt-2 text-sm text-slate-300">@types packages are community-maintained type definitions for JavaScript libraries that don't ship their own types. They live under the @types scope on npm: @types/node, @types/react, @types/lodash. If a library ships its own types, you don't need @types — installing both causes conflicts.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are path aliases in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Path aliases let you import using short names instead of relative paths. Instead of import { User } from '../../../types/user', you write import { User } from '@/types/user'. Configure them in tsconfig.json under compilerOptions.paths, and your bundler needs the same aliases in its config.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I set up TypeScript with Vite?</summary>
+<p class="mt-2 text-sm text-slate-300">Run npm create vite@latest my-app -- --template react-ts (or vanilla-ts). Vite scaffolds the project with tsconfig.json, package.json, and a src/ folder. Vite uses esbuild to compile TS during dev and Rollup for production builds. For type checking, run tsc --noEmit separately.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between tsc and a bundler?</summary>
+<p class="mt-2 text-sm text-slate-300">tsc is the TypeScript compiler — it checks types and outputs JavaScript. A bundler (Vite, webpack, Rollup, esbuild) combines many modules into one file for browsers, handles CSS/assets, and does optimizations. Modern setups use both: a bundler for production builds, and tsc --noEmit for type checking.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue your TypeScript path</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/react-ts.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 8: TypeScript with React</div>
+<div class="text-xs text-slate-400 mt-1">Props, state, events, refs — final lesson</div>
+</a>
+<a href="/courses/typescript/lessons/utility-types.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 6: Utility types</div>
+<div class="text-xs text-slate-400 mt-1">The prior lesson — type-level programming</div>
+</a>
+<a href="/courses/react/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ React track</div>
+<div class="text-xs text-slate-400 mt-1">Next lesson connects TS directly to React</div>
+</a>
+<a href="/courses/typescript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗺️ TypeScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://www.typescriptlang.org/tsconfig" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">tsconfig reference — every option documented</a></li>
+<li>→ <a href="https://www.typescriptlang.org/docs/handbook/modules.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Handbook — Modules</a></li>
+<li>→ <a href="https://vitejs.dev/guide/" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Vite — getting started</a></li>
+<li>→ <a href="https://www.typescriptlang.org/docs/handbook/declaration-files/introduction.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Handbook — Declaration files</a></li>
+</ul>
+</section>
+
+<a href="/courses/typescript/index.html" class="back-link">← Back to TypeScript track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the TypeScript track · Lesson 7 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
