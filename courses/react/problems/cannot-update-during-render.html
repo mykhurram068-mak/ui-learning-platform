@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React "Cannot update a component while rendering" — How to Fix (2026)</title>
+<meta name="description" content="Fix React error "Cannot update a component while rendering a different component." Learn the real cause, three fixes, and how to restructure state correctly.">
+<meta name="keywords" content="react cannot update component while rendering, react warning fix, react setstate in render, react render error">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React "Cannot update a component while rendering" — How to Fix">
+<meta property="og:description" content="Learn the real cause, three fixes, and how to restructure state correctly.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/cannot-update-during-render.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React "Cannot update a component while rendering"">
+<meta name="twitter:description" content="The real cause and three fixes.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/cannot-update-during-render.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React "Cannot update a component while rendering" — How to Fix",
+"description": "Fix React error "Cannot update a component while rendering a different component."",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What does "Cannot update a component while rendering" mean in React?","acceptedAnswer":{"@type":"Answer","text":"It means you called setState during a component's render phase — inside the component function, not inside an event handler or effect. React renders are supposed to be pure: same props, same JSX, no side effects. Calling setState during render schedules an update to another component (or the same one), which triggers a re-render during a render — React warns because it can cause bugs and infinite loops. Fix: move the setState out of render, into an event handler, useEffect, or restructure the state itself."}},
+{"@type":"Question","name":"Why did this error start appearing after I upgraded React?","acceptedAnswer":{"@type":"Answer","text":"React 18+ is stricter about calling setState during render. The warning existed in React 16-17 but was easier to ignore. React 18 added concurrency features that make the warning a hard error in some cases. The fix is the same: don't call setState during render. This is a real bug in your code — the warning is protecting you from a state that might be inconsistent or an infinite loop."}},
+{"@type":"Question","name":"How do I fix it if I need to derive state from props?","acceptedAnswer":{"@type":"Answer","text":"Don't store derived state in useState. Compute it inline: instead of const [full, setFull] = useState(first + ' ' + last), write const full = first + ' ' + last. If computation is expensive, wrap in useMemo: const full = useMemo(() => expensive(a, b), [a, b]). If you must sync (rare), use the render-time pattern: store the previous props in a state, compare during render, and setState only if changed — or use the key prop to remount the component when the input changes."}},
+{"@type":"Question","name":"What is the difference between calling setState during render vs inside useEffect?","acceptedAnswer":{"@type":"Answer","text":"setState during render happens synchronously as React renders — it interrupts the render with a new render, which is what causes the warning. setState inside useEffect runs after the render completes, so React schedules another render normally. Effect-based setState is also not ideal (it means you have redundant state) but it's not a warning — it's just an extra render. The best fix is usually to remove the state entirely and compute the value during render."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · cannot update during render</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Cannot update during render</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>"Cannot update a component while rendering."<br><span class="py-accent">Three fixes, one root cause.</span></h1>
+<p class="lead">
+You called <code>setState</code> inside render — inside the component body, not inside an event handler. React's warning is precise: renders must be pure. This page shows the three causes, the three fixes, and the underlying pattern that eliminates the bug entirely.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Remove the <code>setState</code> call from render. If you're syncing state to props, <strong>don't store derived state</strong> — compute it inline or with <code>useMemo</code>. If you're calling <code>setState</code> in response to a prop change, use <code>useEffect</code> (still not ideal) or the <code>key</code> prop to remount. If you're calling <code>setState</code> in a child during a parent's render, move the call to an event handler or a callback. The fix always removes the <code>setState</code> from the render phase.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Don't store derived state</h2>
+<p class="section-sub">The most common cause. Compute, don't store.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If a value can be computed from props or other state, it doesn't belong in <code>useState</code>. Storing it forces you to keep it in sync — usually via <code>useEffect</code> or <code>setState</code> during render. Both are unnecessary. Compute the value directly in the render function; the compiler optimizes the rest.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">derived-state.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: derived state in useState ──────────</span>
+<span class="kw">function</span> <span class="fn">BadFullName</span>() {
+<span class="kw">const</span> [first, setFirst] = <span class="fn">useState</span>(<span class="str">'Alice'</span>);
+<span class="kw">const</span> [last, setLast] = <span class="fn">useState</span>(<span class="str">'Smith'</span>);
+<span class="kw">const</span> [full, setFull] = <span class="fn">useState</span>(first + <span class="str">' '</span> + last); <span class="com">// ⚠️ derived</span>
+
+<span class="com">// ❌ Calling setState during render</span>
+<span class="fn">setFull</span>(first + <span class="str">' '</span> + last);
+<span class="com">// ⚠️ Warning: Cannot update a component while rendering</span>
+
+<span class="kw">return</span> <p>{full}</p>;
+}
+
+<span class="com">// ─── GOOD: compute during render ────────────</span>
+<span class="kw">function</span> <span class="fn">GoodFullName</span>() {
+<span class="kw">const</span> [first, setFirst] = <span class="fn">useState</span>(<span class="str">'Alice'</span>);
+<span class="kw">const</span> [last, setLast] = <span class="fn">useState</span>(<span class="str">'Smith'</span>);
+
+<span class="com">// ✅ Computed every render — always correct, no state</span>
+<span class="kw">const</span> full = first + <span class="str">' '</span> + last;
+
+<span class="kw">return</span> (
+<div>
+<input value={first} onChange={e => <span class="fn">setFirst</span>(e.target.value)} />
+<input value={last} onChange={e => <span class="fn">setLast</span>(e.target.value)} />
+<p>{full}</p>
+</div>
+);
+}
+
+<span class="com">// ─── GOOD: useMemo for expensive derivations ─</span>
+<span class="kw">function</span> <span class="fn">ExpensiveDerived</span>({ items }: { items: <span class="fn">number</span>[] }) {
+<span class="com">// Only recompute when items changes</span>
+<span class="kw">const</span> total = <span class="fn">useMemo</span>(
+() => items.<span class="fn">reduce</span>((sum, n) => sum + n, <span class="num">0</span>),
+[items]
+);
+<span class="kw">return</span> <p>Total: {total}</p>;
+}
+
+<span class="com">// ─── Rule ────────────────────────────────────
+//
+// If X can be computed from props or other state:
+// const X = compute(props, otherState);
+//
+// If that computation is expensive:
+// const X = useMemo(() => compute(props), [props]);
+//
+// Never:
+// const [X, setX] = useState(...);
+// setX(...) // in render — warning
+// useEffect(() => setX(...), [props]); // extra render, still wrong</span>
+
+console.<span class="fn">log</span>(<span class="fn">BadFullName</span>, <span class="fn">GoodFullName</span>, <span class="fn">ExpensiveDerived</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadFullName</span>() {
+<span class="kw">const</span> [first, setFirst] = <span class="fn">useState</span>(<span class="str">'Alice'</span>);
+<span class="kw">const</span> [last, setLast] = <span class="fn">useState</span>(<span class="str">'Smith'</span>);
+<span class="kw">const</span> [full, setFull] = <span class="fn">useState</span>(first + <span class="str">' '</span> + last);
+<span class="fn">setFull</span>(first + <span class="str">' '</span> + last);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, full);
+}
+
+<span class="kw">function</span> <span class="fn">GoodFullName</span>() {
+<span class="kw">const</span> [first, setFirst] = <span class="fn">useState</span>(<span class="str">'Alice'</span>);
+<span class="kw">const</span> [last, setLast] = <span class="fn">useState</span>(<span class="str">'Smith'</span>);
+<span class="kw">const</span> full = first + <span class="str">' '</span> + last;
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: first, onChange: e => <span class="fn">setFirst</span>(e.target.value) }),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: last, onChange: e => <span class="fn">setLast</span>(e.target.value) }),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, full)
+);
+}
+
+<span class="kw">function</span> <span class="fn">ExpensiveDerived</span>({ items }) {
+<span class="kw">const</span> total = <span class="fn">useMemo</span>(() => items.<span class="fn">reduce</span>((sum, n) => sum + n, <span class="num">0</span>), [items]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Total: '</span>, total);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadFullName</span>, <span class="fn">GoodFullName</span>, <span class="fn">ExpensiveDerived</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Compute during render</h4>
+<p>If a value derives from other state, compute it in the render function. No state, no sync, no warning.</p>
+</div>
+<div class="concept-card">
+<h4>useMemo for expensive</h4>
+<p>If the computation is slow, wrap in <code>useMemo</code> with correct dependencies. Only recomputes when deps change.</p>
+</div>
+<div class="concept-card">
+<h4>No useEffect for derivation</h4>
+<p>Even <code>useEffect(() => setX(...), [props])</code> is wrong — it triggers an extra render. Compute instead.</p>
+</div>
+<div class="concept-card">
+<h4>The rule</h4>
+<p>State is for data that changes over time due to user interaction or external events. Everything else is computed.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The most common React mistake is storing too much in state.</strong> Every <code>useState</code> is a source of truth that can drift out of sync. If a value can be derived from other values, it should be. The bug pattern: you have props and state that disagree, and you add more state or effects to fix the disagreement. The right answer is usually to remove the derived state entirely. If you find yourself writing <code>useEffect(() => setX(...), [something])</code>, stop — you almost never need it. Compute the value in the render function.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Move <code>setState</code> to an event handler or effect</h2>
+<p class="section-sub">When the state genuinely responds to something.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Sometimes you need to update state in response to a user action or external event. That's what <code>setState</code> is for — but only inside event handlers, <code>useEffect</code>, or callbacks. Never inside render. If your code was calling <code>setState</code> during render to respond to a prop change, the correct fix is to move it to an event handler or use a <code>useEffect</code>.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">event-handler.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── BAD: setting state during render ────────</span>
+<span class="kw">function</span> <span class="fn">BadUserDisplay</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="com">// ❌ Called during render</span>
+<span class="kw">if</span> (userId !== user?.id) {
+<span class="fn">setUser</span>(<span class="fn">fetchUserSync</span>(userId));
+}
+
+<span class="kw">return</span> <p>{user?.name ?? <span class="str">'Loading...'</span>}</p>;
+}
+
+<span class="com">// ─── GOOD: use useEffect for external data ───</span>
+<span class="kw">function</span> <span class="fn">GoodUserDisplay</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">let</span> cancelled = <span class="kw">false</span>;
+
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(data => {
+<span class="kw">if</span> (!cancelled) <span class="fn">setUser</span>(data);
+});
+
+<span class="kw">return</span> () => { cancelled = <span class="kw">true</span>; };
+}, [userId]);
+
+<span class="kw">return</span> <p>{user?.name ?? <span class="str">'Loading...'</span>}</p>;
+}
+
+<span class="com">// ─── GOOD: set state in an event handler ─────</span>
+<span class="kw">function</span> <span class="fn">Counter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="com">// ✅ User clicks the button → setCount runs in the event</span>
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}
+
+<span class="kw">return</span> (
+<button onClick={handleClick}>
+Count: {count}
+</button>
+);
+}
+
+<span class="com">// ─── GOOD: use a key to remount instead of syncing</span>
+<span class="com">// If a component should reset its internal state when props
+// change, use key — it forces a fresh mount.</span>
+
+<span class="kw">function</span> <span class="fn">UserForm</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [draft, setDraft] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">return</span> (
+<div>
+<input value={draft} onChange={e => <span class="fn">setDraft</span>(e.target.value)} />
+</div>
+);
+}
+
+<span class="kw">function</span> <span class="fn">App</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="com">// When userId changes, UserForm remounts with fresh state</span>
+<span class="kw">return</span> <UserForm key={userId} userId={userId} />;
+}
+
+<span class="kw">function</span> <span class="fn">fetchUserSync</span>(id: <span class="fn">string</span>): User {
+<span class="kw">return</span> { id, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> };
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadUserDisplay</span>, <span class="fn">GoodUserDisplay</span>, <span class="fn">Counter</span>, <span class="fn">UserForm</span>, <span class="fn">App</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadUserDisplay</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="kw">if</span> (userId !== user?.id) {
+<span class="fn">setUser</span>(<span class="fn">fetchUserSync</span>(userId));
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user?.name ?? <span class="str">'Loading...'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">GoodUserDisplay</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">let</span> cancelled = <span class="kw">false</span>;
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(data => { <span class="kw">if</span> (!cancelled) <span class="fn">setUser</span>(data); });
+<span class="kw">return</span> () => { cancelled = <span class="kw">true</span>; };
+}, [userId]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user?.name ?? <span class="str">'Loading...'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">Counter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: handleClick }, <span class="str">'Count: '</span>, count);
+}
+
+<span class="kw">function</span> <span class="fn">UserForm</span>({ userId }) {
+<span class="kw">const</span> [draft, setDraft] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: draft, onChange: e => <span class="fn">setDraft</span>(e.target.value) })
+);
+}
+
+<span class="kw">function</span> <span class="fn">App</span>({ userId }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(UserForm, { key: userId, userId });
+}
+
+<span class="kw">function</span> <span class="fn">fetchUserSync</span>(id) {
+<span class="kw">return</span> { id, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> };
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadUserDisplay</span>, <span class="fn">GoodUserDisplay</span>, <span class="fn">Counter</span>, <span class="fn">UserForm</span>, <span class="fn">App</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Event handler</h4>
+<p><code>onClick</code>, <code>onChange</code>, <code>onSubmit</code> — these call <code>setState</code>. That's fine. Users trigger, state updates.</p>
+</div>
+<div class="concept-card">
+<h4>useEffect for external</h4>
+<p>Fetching, subscriptions, timers. Set state inside the effect, not during render. Cleanup cancels pending updates.</p>
+</div>
+<div class="concept-card">
+<h4><code>key</code> for resets</h4>
+<p>If a component should reset when props change, pass a <code>key</code>. React remounts with fresh state — no sync needed.</p>
+</div>
+<div class="concept-card">
+<h4>Never in render</h4>
+<p>The render function is pure. No <code>setState</code>, no side effects, no DOM manipulation. Just compute the JSX.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Move <code>setState</code> out of the child's render</h2>
+<p class="section-sub">When a child component triggers a parent update during its own render.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Another variant: a child component calls <code>setState</code> on the parent — or on a shared store — during its own render. React warns because the parent hasn't finished rendering yet. The fix: move the update to a callback that runs after render (event handler, effect) — or lift the state higher so the update is local.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">child-during-render.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: child calls parent setState during render</span>
+<span class="kw">function</span> <span class="fn">BadChild</span>({ onMount }: { onMount: () => <span class="fn">void</span> }) {
+<span class="com">// ❌ Called during render, before BadChild finishes</span>
+<span class="fn">onMount</span>();
+<span class="kw">return</span> <p>Child</p>;
+}
+
+<span class="kw">function</span> <span class="fn">BadParent</span>() {
+<span class="kw">const</span> [mounted, setMounted] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+<span class="kw">return</span> (
+<div>
+<BadChild onMount={() => <span class="fn">setMounted</span>(<span class="kw">true</span>)} />
+<span class="com">{/* ⚠️ Cannot update a component while rendering */}</span>
+<p>{mounted ? <span class="str">'mounted'</span> : <span class="str">'mounting'</span>}</p>
+</div>
+);
+}
+
+<span class="com">// ─── GOOD: use useEffect in the child ────────</span>
+<span class="kw">function</span> <span class="fn">GoodChild</span>({ onMount }: { onMount: () => <span class="fn">void</span> }) {
+<span class="fn">useEffect</span>(() => {
+<span class="com">// ✅ Runs after the child has mounted and rendered</span>
+<span class="fn">onMount</span>();
+}, []);
+
+<span class="kw">return</span> <p>Child</p>;
+}
+
+<span class="kw">function</span> <span class="fn">GoodParent</span>() {
+<span class="kw">const</span> [mounted, setMounted] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+<span class="kw">return</span> (
+<div>
+<GoodChild onMount={() => <span class="fn">setMounted</span>(<span class="kw">true</span>)} />
+<p>{mounted ? <span class="str">'mounted'</span> : <span class="str">'mounting'</span>}</p>
+</div>
+);
+}
+
+<span class="com">// ─── ALTERNATIVE: lift state up ──────────────</span>
+<span class="com">// If the parent needs to know something about the child,
+// the parent usually owns the state. Pass it down as props.</span>
+
+<span class="kw">function</span> <span class="fn">LiftedChild</span>({ isActive }: { isActive: <span class="fn">boolean</span> }) {
+<span class="kw">return</span> <p>{isActive ? <span class="str">'Active'</span> : <span class="str">'Inactive'</span>}</p>;
+}
+
+<span class="kw">function</span> <span class="fn">LiftedParent</span>() {
+<span class="kw">const</span> [isActive, setIsActive] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+<span class="kw">return</span> (
+<div>
+<LiftedChild isActive={isActive} />
+<button onClick={() => <span class="fn">setIsActive</span>(<span class="kw">true</span>)}>Activate</button>
+</div>
+);
+}
+
+<span class="com">// ─── The rules ───────────────────────────────
+//
+// 1. Child never calls parent's setState during render.
+// 2. If a child needs to communicate something,
+// it's usually a callback called from an event,
+// effect, or a lifted state that lives in the parent.
+// 3. If you want the parent to "know" something,
+// the parent probably owns that state.
+
+import</span> { useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+console.<span class="fn">log</span>(<span class="fn">BadParent</span>, <span class="fn">GoodParent</span>, <span class="fn">LiftedParent</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadChild</span>({ onMount }) {
+<span class="fn">onMount</span>();
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Child'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">BadParent</span>() {
+<span class="kw">const</span> [mounted, setMounted] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(BadChild, { onMount: () => <span class="fn">setMounted</span>(<span class="kw">true</span>) }),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, mounted ? <span class="str">'mounted'</span> : <span class="str">'mounting'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodChild</span>({ onMount }) {
+<span class="fn">useEffect</span>(() => {
+<span class="fn">onMount</span>();
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Child'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">GoodParent</span>() {
+<span class="kw">const</span> [mounted, setMounted] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(GoodChild, { onMount: () => <span class="fn">setMounted</span>(<span class="kw">true</span>) }),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, mounted ? <span class="str">'mounted'</span> : <span class="str">'mounting'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">LiftedChild</span>({ isActive }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, isActive ? <span class="str">'Active'</span> : <span class="str">'Inactive'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">LiftedParent</span>() {
+<span class="kw">const</span> [isActive, setIsActive] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(LiftedChild, { isActive }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setIsActive</span>(<span class="kw">true</span>) }, <span class="str">'Activate'</span>)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadParent</span>, <span class="fn">GoodParent</span>, <span class="fn">LiftedParent</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Child → parent updates</h4>
+<p>If a child needs to inform the parent, use a callback called from an event or effect. Never call it during render.</p>
+</div>
+<div class="concept-card">
+<h4>useEffect for lifecycle</h4>
+<p><code>onMount</code> runs after render via <code>useEffect(..., [])</code>. The parent's state updates after render finishes.</p>
+</div>
+<div class="concept-card">
+<h4>Lift state up</h4>
+<p>If the parent truly owns the state, don't ask the child to set it. The parent sets it in the event that triggered the change.</p>
+</div>
+<div class="concept-card">
+<h4>Data flows down</h4>
+<p>The React mental model: props flow down, callbacks flow up. A child doesn't "set" parent state — it calls a callback the parent provided.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>This warning is a real bug, not a style nit.</strong> React 18+ makes calling <code>setState</code> during render an error because it can produce inconsistent UI — the parent might render before the child's update lands, or the update might be discarded in concurrent mode. Fix the actual data flow. Don't wrap it in <code>setTimeout</code> or <code>queueMicrotask</code> to silence the warning — that just moves the bug to a race condition that's harder to debug.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The patterns that trigger this warning.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Calling setState in the component body</div>
+<p><code>function Component() { setX(...); return ...; }</code> — warning. Fix: move to event handler or useEffect.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Syncing props to state with setState</div>
+<p><code>if (props.x !== state) setState(props.x)</code> during render. Fix: don't store props in state. Compute or use <code>key</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using <code>useEffect</code> to "fix" it</div>
+<p><code>useEffect(() => setX(props.x), [props.x])</code> — no warning, but extra render + potential stale state. Fix: derive in render.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Calling <code>setState</code> in a callback during render</div>
+<p><code>{items.map(i => { if (i.bad) setX(...); return ...; })}</code> — warning. Fix: filter in render, or dispatch in an effect.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using <code>setState</code> in a memo selector</div>
+<p>React 18 concurrent mode is strict about this. Fix: derive in the component, not in selectors that run during render.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Child triggering parent update</div>
+<p><code>function Child({ onMount }) { onMount(); return ...; }</code> — warning. Fix: <code>useEffect(() => onMount(), [])</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Silencing with <code>setTimeout</code></div>
+<p><code>setTimeout(() => setX(...), 0)</code> inside render — moves the bug. Fix: restructure the state.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not noticing this in React 17</div>
+<p>The warning existed in React 16-17 but was easy to ignore. React 18+ is stricter. Fix: it was always a bug.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does "Cannot update a component while rendering" mean in React?</summary>
+<p class="mt-2 text-sm text-slate-300">It means you called setState during a component's render phase — inside the component function, not inside an event handler or effect. React renders are supposed to be pure: same props, same JSX, no side effects. Calling setState during render schedules an update to another component (or the same one), which triggers a re-render during a render.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why did this error start appearing after I upgraded React?</summary>
+<p class="mt-2 text-sm text-slate-300">React 18+ is stricter about calling setState during render. The warning existed in React 16-17 but was easier to ignore. React 18 added concurrency features that make the warning a hard error in some cases. The fix is the same: don't call setState during render.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix it if I need to derive state from props?</summary>
+<p class="mt-2 text-sm text-slate-300">Don't store derived state in useState. Compute it inline: instead of const [full, setFull] = useState(first + ' ' + last), write const full = first + ' ' + last. If computation is expensive, wrap in useMemo. If you must sync, use the key prop to remount the component when the input changes.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between calling setState during render vs inside useEffect?</summary>
+<p class="mt-2 text-sm text-slate-300">setState during render happens synchronously as React renders — it interrupts the render with a new render, which is what causes the warning. setState inside useEffect runs after the render completes, so React schedules another render normally. Effect-based setState is also not ideal but it's not a warning.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/infinite-loop.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Maximum update depth exceeded"</div>
+<div class="text-xs text-slate-400 mt-1">The related infinite-loop error</div>
+</a>
+<a href="/courses/react/problems/state-not-updating.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "State is not updating"</div>
+<div class="text-xs text-slate-400 mt-1">The async setState confusion</div>
+</a>
+<a href="/courses/react/lessons/state.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 3: State & useState</div>
+<div class="text-xs text-slate-400 mt-1">The fundamentals of state</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
