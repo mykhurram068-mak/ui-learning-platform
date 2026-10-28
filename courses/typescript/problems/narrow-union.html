@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Narrow a Union Type in TypeScript — typeof, in, instanceof (2026)</title>
+<meta name="description" content="Narrow TypeScript union types with typeof, instanceof, in, equality, and custom type guards. Learn every narrowing technique with working code examples.">
+<meta name="keywords" content="typescript narrow union, typescript type narrowing, typescript typeof narrowing, typescript in operator, typescript type guard, discriminated union narrowing">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Narrow a Union Type in TypeScript — typeof, in, instanceof">
+<meta property="og:description" content="Narrow TypeScript union types with typeof, instanceof, in, equality, and custom type guards. Every technique with working code.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/narrow-union.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Narrow a Union Type in TypeScript">
+<meta name="twitter:description" content="typeof, instanceof, in, equality, and custom type guards — every technique.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/narrow-union.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Narrow a Union Type in TypeScript",
+"description": "Narrow TypeScript union types with typeof, instanceof, in, equality, and custom type guards.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I narrow a union type in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Use a runtime check that TypeScript understands as a narrowing operation. typeof narrows primitives (typeof x === 'string'). instanceof narrows class instances (x instanceof Date). The in operator narrows by property presence ('fly' in animal). Equality with literals narrows discriminated unions (x.kind === 'circle'). Custom type guards (function isX(v): v is X) narrow with a predicate. Each check tells the compiler which member of the union is in play."}},
+{"@type":"Question","name":"What is a discriminated union?","acceptedAnswer":{"@type":"Answer","text":"A discriminated union is a union where each member has a shared property (the discriminant) with a unique literal value. type Shape = { kind: 'circle'; radius: number } | { kind: 'square'; side: number }. Checking shape.kind === 'circle' narrows the type to the circle member, letting you access .radius. This is the pattern that makes unions actually usable — every state machine uses it."}},
+{"@type":"Question","name":"What is a custom type guard?","acceptedAnswer":{"@type":"Answer","text":"A type guard is a function that returns a type predicate: function isUser(x: unknown): x is User { return typeof x === 'object' && x !== null && 'name' in x; }. When called in an if, TypeScript narrows x to User inside the block. Type guards let you extend narrowing to cases typeof and in can't handle — especially runtime validation of API responses and parsed JSON."}},
+{"@type":"Question","name":"Why can't I access a property on a union type?","acceptedAnswer":{"@type":"Answer","text":"TypeScript only allows accessing properties that exist on EVERY member of a union. If Shape is Circle | Square and only Circle has radius, then shape.radius fails — because Square doesn't have it. Fix: narrow to the specific member first (with typeof, in, or a discriminant check), then access the property. Narrowing makes the compiler trust that you're inside the right branch."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · narrow union</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Narrow union</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>How to narrow a union type.<br><span class="py-accent">Every technique, one page.</span></h1>
+<p class="lead">
+A union type says "one of these." But you can't use it until you know <em>which one</em>. That's narrowing — the process of refining a union to a specific member based on a runtime check. TypeScript understands six narrowing patterns. Learn all six, and unions become the most powerful tool in your type system.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use the right runtime check for the union. Primitives → <code>typeof</code>. Classes → <code>instanceof</code>. Property presence → <code>in</code>. Discriminated unions → <code>===</code> on the discriminant. Arrays → <code>Array.isArray</code>. Custom shapes → a type guard (<code>function isX(v): v is X</code>). Once narrowed inside an <code>if</code>, the compiler knows the specific member and unlocks its properties.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — typeof (primitives)</h2>
+<p class="section-sub">The most common narrowing — for string | number | boolean unions.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When the union is a mix of primitive types, <code>typeof</code> narrows. TypeScript recognizes the string return of <code>typeof x</code> and refines the union inside the block. This is the technique every TypeScript tutorial starts with, and it covers a surprising amount of real code.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">typeof.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── Narrowing string | number | boolean ─────</span>
+<span class="kw">function</span> <span class="fn">format</span>(value: <span class="fn">string</span> | <span class="fn">number</span> | <span class="fn">boolean</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (<span class="kw">typeof</span> value === <span class="str">'string'</span>) {
+<span class="kw">return</span> value.<span class="fn">toUpperCase</span>(); <span class="com">// ✅ narrowed to string</span>
+}
+<span class="kw">if</span> (<span class="kw">typeof</span> value === <span class="str">'number'</span>) {
+<span class="kw">return</span> value.<span class="fn">toFixed</span>(<span class="num">2</span>); <span class="com">// ✅ narrowed to number</span>
+}
+<span class="com">// value is boolean here — the only remaining case</span>
+<span class="kw">return</span> value ? <span class="str">'yes'</span> : <span class="str">'no'</span>; <span class="com">// ✅ narrowed to boolean</span>
+}
+
+<span class="com">// ─── typeof null gotcha ──────────────────────</span>
+<span class="kw">function</span> <span class="fn">describe</span>(x: <span class="fn">string</span> | <span class="fn">null</span>): <span class="fn">string</span> {
+<span class="com">// typeof null === 'object' — typeof can't distinguish null</span>
+<span class="kw">if</span> (x === <span class="fn">null</span>) <span class="kw">return</span> <span class="str">'nothing'</span>; <span class="com">// check null explicitly first</span>
+<span class="kw">return</span> <span class="fn">x</span>; <span class="com">// ✅ narrowed to string</span>
+}
+
+<span class="com">// ─── typeof + Array.isArray for arrays ───────</span>
+<span class="kw">function</span> <span class="fn">join</span>(x: <span class="fn">string</span> | <span class="fn">string</span>[]): <span class="fn">string</span> {
+<span class="com">// typeof [] === 'object' — typeof says nothing useful here</span>
+<span class="kw">if</span> (<span class="fn">Array</span>.<span class="fn">isArray</span>(x)) {
+<span class="kw">return</span> x.<span class="fn">join</span>(<span class="str">', '</span>); <span class="com">// ✅ narrowed to string[]</span>
+}
+<span class="kw">return</span> x; <span class="com">// ✅ narrowed to string</span>
+}
+
+<span class="com">// ─── typeof values cheat sheet ───────────────
+// typeof 'x' → 'string'
+// typeof 1 → 'number'
+// typeof true → 'boolean'
+// typeof undefined → 'undefined'
+// typeof null → 'object' ← gotcha
+// typeof {} → 'object'
+// typeof [] → 'object'
+// typeof () => {} → 'function'
+// typeof Symbol() → 'symbol'
+// typeof 1n → 'bigint'</span>
+
+console.<span class="fn">log</span>(<span class="fn">format</span>(<span class="str">'hi'</span>), <span class="fn">format</span>(<span class="num">3.14</span>), <span class="fn">format</span>(<span class="kw">true</span>));
+console.<span class="fn">log</span>(<span class="fn">join</span>([<span class="str">'a'</span>, <span class="str">'b'</span>]));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">format</span>(value) {
+<span class="kw">if</span> (<span class="kw">typeof</span> value === <span class="str">'string'</span>) {
+<span class="kw">return</span> value.<span class="fn">toUpperCase</span>();
+}
+<span class="kw">if</span> (<span class="kw">typeof</span> value === <span class="str">'number'</span>) {
+<span class="kw">return</span> value.<span class="fn">toFixed</span>(<span class="num">2</span>);
+}
+<span class="kw">return</span> value ? <span class="str">'yes'</span> : <span class="str">'no'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">describe</span>(x) {
+<span class="kw">if</span> (x === <span class="fn">null</span>) <span class="kw">return</span> <span class="str">'nothing'</span>;
+<span class="kw">return</span> x;
+}
+
+<span class="kw">function</span> <span class="fn">join</span>(x) {
+<span class="kw">if</span> (<span class="fn">Array</span>.<span class="fn">isArray</span>(x)) {
+<span class="kw">return</span> x.<span class="fn">join</span>(<span class="str">', '</span>);
+}
+<span class="kw">return</span> x;
+}
+
+console.<span class="fn">log</span>(<span class="fn">format</span>(<span class="str">'hi'</span>), <span class="fn">format</span>(<span class="num">3.14</span>), <span class="fn">format</span>(<span class="kw">true</span>));
+console.<span class="fn">log</span>(<span class="fn">join</span>([<span class="str">'a'</span>, <span class="str">'b'</span>]));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>typeof for primitives</h4>
+<p>Narrows <code>string | number | boolean</code> and any primitive union. TypeScript recognizes the <code>typeof x === 'y'</code> check.</p>
+</div>
+<div class="concept-card">
+<h4>The null gotcha</h4>
+<p><code>typeof null === 'object'</code>. To narrow null, use <code>x === null</code> explicitly. <code>typeof</code> can't help here.</p>
+</div>
+<div class="concept-card">
+<h4>Array.isArray</h4>
+<p><code>typeof [] === 'object'</code> — <code>typeof</code> can't distinguish arrays. Use <code>Array.isArray</code> — TypeScript narrows it to <code>T[]</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Remaining type is inferred</h4>
+<p>After the first two <code>if</code> blocks, <code>value</code> is boolean — no need for a third check. TypeScript tracks the remaining union after exclusions.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — discriminated unions (the pattern)</h2>
+<p class="section-sub">A shared discriminant field + <code>switch</code>. The cleanest narrowing.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When your union members all share a field with a unique literal value, that field is the discriminant. Checking it narrows to the exact member. This is how you model state machines, API responses, and any "one of these" data that has structure. It's the single most-used narrowing pattern in production TypeScript.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">discriminated.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── The discriminated union ─────────────────</span>
+<span class="kw">type</span> Shape =
+| { kind: <span class="str">'circle'</span>; radius: <span class="fn">number</span> }
+| { kind: <span class="str">'square'</span>; side: <span class="fn">number</span> }
+| { kind: <span class="str">'triangle'</span>; base: <span class="fn">number</span>; height: <span class="fn">number</span> };
+
+<span class="com">// ─── Switch on the discriminant ──────────────</span>
+<span class="kw">function</span> <span class="fn">area</span>(s: Shape): <span class="fn">number</span> {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>:
+<span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>; <span class="com">// ✅ narrowed to circle</span>
+<span class="kw">case</span> <span class="str">'square'</span>:
+<span class="kw">return</span> s.side ** <span class="num">2</span>; <span class="com">// ✅ narrowed to square</span>
+<span class="kw">case</span> <span class="str">'triangle'</span>:
+<span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>; <span class="com">// ✅ narrowed to triangle</span>
+<span class="kw">default</span>:
+<span class="com">// s is never here — exhaustive check</span>
+<span class="kw">const</span> _exhaustive: <span class="fn">never</span> = s;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="com">// ─── If-else narrows too ─────────────────────</span>
+<span class="kw">function</span> <span class="fn">describe</span>(s: Shape): <span class="fn">string</span> {
+<span class="kw">if</span> (s.kind === <span class="str">'circle'</span>) <span class="kw">return</span> <span class="str">Circle r=${s.radius}</span&gt;; &lt;span class="kw"&gt;if&lt;/span&gt; (s.kind === &lt;span class="str"&gt;'square'&lt;/span&gt;) &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">Square s=${s.side}</span>;
+<span class="kw">return</span> <span class="str">Triangle b=${s.base}`</span>; <span class="com">// ✅ narrowed to triangle</span>
+}
+
+<span class="com">// ─── API response example ────────────────────</span>
+<span class="kw">type</span> ApiResult<T> =
+| { status: <span class="str">'loading'</span> }
+| { status: <span class="str">'success'</span>; data: T }
+| { status: <span class="str">'error'</span>; message: <span class="fn">string</span> };
+
+<span class="kw">function</span> <span class="fn">render</span><T>(r: ApiResult<T>): <span class="fn">string</span> {
+<span class="kw">switch</span> (r.status) {
+<span class="kw">case</span> <span class="str">'loading'</span>: <span class="kw">return</span> <span class="str">'Loading…'</span>;
+<span class="kw">case</span> <span class="str">'success'</span>: <span class="kw">return</span> <span class="fn">String</span>(r.data); <span class="com">// ✅ r.data exists</span>
+<span class="kw">case</span> <span class="str">'error'</span>: <span class="kw">return</span> r.message; <span class="com">// ✅ r.message exists</span>
+}
+}
+
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'circle'</span>, radius: <span class="num">2</span> }));
+console.<span class="fn">log</span>(<span class="fn">describe</span>({ kind: <span class="str">'square'</span>, side: <span class="num">3</span> }));
+console.<span class="fn">log</span>(<span class="fn">render</span>({ status: <span class="str">'success'</span>, data: <span class="num">42</span> }));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">area</span>(s) {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>: <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>: <span class="kw">return</span> s.side ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'triangle'</span>: <span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>;
+<span class="kw">default</span>:
+<span class="kw">const</span> _exhaustive = s;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="kw">function</span> <span class="fn">describe</span>(s) {
+<span class="kw">if</span> (s.kind === <span class="str">'circle'</span>) <span class="kw">return</span> <span class="str">Circle r=${s.radius}</span&gt;; &lt;span class="kw"&gt;if&lt;/span&gt; (s.kind === &lt;span class="str"&gt;'square'&lt;/span&gt;) &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">Square s={s.base}`</span>;
+}
+
+<span class="kw">function</span> <span class="fn">render</span>(r) {
+<span class="kw">switch</span> (r.status) {
+<span class="kw">case</span> <span class="str">'loading'</span>: <span class="kw">return</span> <span class="str">'Loading…'</span>;
+<span class="kw">case</span> <span class="str">'success'</span>: <span class="kw">return</span> <span class="fn">String</span>(r.data);
+<span class="kw">case</span> <span class="str">'error'</span>: <span class="kw">return</span> r.message;
+}
+}
+
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'circle'</span>, radius: <span class="num">2</span> }));
+console.<span class="fn">log</span>(<span class="fn">describe</span>({ kind: <span class="str">'square'</span>, side: <span class="num">3</span> }));
+console.<span class="fn">log</span>(<span class="fn">render</span>({ status: <span class="str">'success'</span>, data: <span class="num">42</span> }));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>The discriminant field</h4>
+<p>A shared field (<code>kind</code>, <code>status</code>, <code>type</code>) with a unique literal value per member. That's the tag the compiler uses to narrow.</p>
+</div>
+<div class="concept-card">
+<h4>Switch narrows automatically</h4>
+<p><code>switch (s.kind)</code> with a case per literal narrows s inside each case. No manual checks — the compiler tracks the branch.</p>
+</div>
+<div class="concept-card">
+<h4>Exhaustiveness with never</h4>
+<p>The default case gets <code>s: never</code>. If you add a new member and forget it, the compiler errors. Unions stay safe as they grow.</p>
+</div>
+<div class="concept-card">
+<h4>Impossible states prevented</h4>
+<p><code>{ kind: 'loading', data: {...} }</code> is impossible — the loading member has no data field. The union makes it unrepresentable.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — <code>in</code>, <code>instanceof</code>, and custom guards</h2>
+<p class="section-sub">The remaining techniques for non-primitive, non-discriminated unions.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Sometimes the union has no clean discriminant — just different shapes. <code>in</code> narrows by property presence. <code>instanceof</code> narrows class instances. A custom type guard narrows anything else, including unknown API shapes. Together they cover everything <code>typeof</code> and discriminated unions don't.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">guards.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── in — narrow by property presence ──────</span>
+<span class="kw">interface</span> Bird { fly(): <span class="fn">void</span>; layEggs(): <span class="fn">void</span> }
+<span class="kw">interface</span> Fish { swim(): <span class="fn">void</span>; layEggs(): <span class="fn">void</span> }
+
+<span class="kw">function</span> <span class="fn">move</span>(animal: Bird | Fish): <span class="fn">string</span> {
+<span class="kw">if</span> (<span class="str">'fly'</span> <span class="kw">in</span> animal) {
+animal.<span class="fn">fly</span>(); <span class="com">// ✅ narrowed to Bird</span>
+<span class="kw">return</span> <span class="str">'flew'</span>;
+}
+animal.<span class="fn">swim</span>(); <span class="com">// ✅ narrowed to Fish</span>
+<span class="kw">return</span> <span class="str">'swam'</span>;
+}
+
+<span class="com">// ─── instanceof — narrow class instances ─────</span>
+<span class="kw">class</span> <span class="fn">Cat</span> { <span class="fn">meow</span>() { <span class="kw">return</span> <span class="str">'meow'</span>; } }
+<span class="kw">class</span> <span class="fn">Dog</span> { <span class="fn">bark</span>() { <span class="kw">return</span> <span class="str">'woof'</span>; } }
+
+<span class="kw">function</span> <span class="fn">speak</span>(pet: Cat | Dog): <span class="fn">string</span> {
+<span class="kw">if</span> (pet <span class="kw">instanceof</span> Cat) {
+<span class="kw">return</span> pet.<span class="fn">meow</span>(); <span class="com">// ✅ narrowed to Cat</span>
+}
+<span class="kw">return</span> pet.<span class="fn">bark</span>(); <span class="com">// ✅ narrowed to Dog</span>
+}
+
+<span class="com">// ─── instanceof works with built-ins too ─────</span>
+<span class="kw">function</span> <span class="fn">describeError</span>(err: <span class="fn">Error</span> | <span class="fn">TypeError</span> | <span class="fn">RangeError</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (err <span class="kw">instanceof</span> <span class="fn">TypeError</span>) <span class="kw">return</span> <span class="str">'type error'</span>;
+<span class="kw">if</span> (err <span class="kw">instanceof</span> <span class="fn">RangeError</span>) <span class="kw">return</span> <span class="str">'range error'</span>;
+<span class="kw">return</span> <span class="str">'error'</span>;
+}
+
+<span class="com">// ─── Custom type guard — narrow anything ─────</span>
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+
+<span class="kw">function</span> <span class="fn">isUser</span>(x: <span class="fn">unknown</span>): x <span class="kw">is</span> User {
+<span class="kw">return</span> (
+<span class="kw">typeof</span> x === <span class="str">'object'</span> &&
+x !== <span class="fn">null</span> &&
+<span class="str">'id'</span> <span class="kw">in</span> x &&
+<span class="str">'name'</span> <span class="kw">in</span> x &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).id === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).name === <span class="str">'string'</span>
+);
+}
+
+<span class="kw">function</span> <span class="fn">greet</span>(x: <span class="fn">unknown</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (<span class="fn">isUser</span>(x)) {
+<span class="kw">return</span> <span class="str">Hello, ${x.name}`</span>; <span class="com">// ✅ narrowed to User</span>
+}
+<span class="kw">return</span> <span class="str">'Hello, stranger'</span>;
+}
+
+<span class="com">// ─── Equality with literals (without a switch) ─</span>
+<span class="kw">type</span> Method = <span class="str">'GET'</span> | <span class="str">'POST'</span> | <span class="str">'PUT'</span> | <span class="str">'DELETE'</span>;
+
+<span class="kw">function</span> <span class="fn">isSafe</span>(m: Method): <span class="fn">boolean</span> {
+<span class="kw">if</span> (m === <span class="str">'GET'</span>) <span class="kw">return</span> <span class="kw">true</span>; <span class="com">// narrowed to 'GET'</span>
+<span class="kw">if</span> (m === <span class="str">'DELETE'</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="kw">return</span> <span class="kw">false</span>; <span class="com">// narrowed to 'POST' | 'PUT'</span>
+}
+
+console.<span class="fn">log</span>(<span class="fn">move</span>({ fly() {}, layEggs() {} }));
+console.<span class="fn">log</span>(<span class="fn">speak</span>(<span class="kw">new</span> <span class="fn">Cat</span>()), <span class="fn">speak</span>(<span class="kw">new</span> <span class="fn">Dog</span>()));
+console.<span class="fn">log</span>(<span class="fn">greet</span>({ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }));
+console.<span class="fn">log</span>(<span class="fn">isSafe</span>(<span class="str">'GET'</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">move</span>(animal) {
+<span class="kw">if</span> (<span class="str">'fly'</span> <span class="kw">in</span> animal) {
+animal.<span class="fn">fly</span>();
+<span class="kw">return</span> <span class="str">'flew'</span>;
+}
+animal.<span class="fn">swim</span>();
+<span class="kw">return</span> <span class="str">'swam'</span>;
+}
+
+<span class="kw">class</span> <span class="fn">Cat</span> { <span class="fn">meow</span>() { <span class="kw">return</span> <span class="str">'meow'</span>; } }
+<span class="kw">class</span> <span class="fn">Dog</span> { <span class="fn">bark</span>() { <span class="kw">return</span> <span class="str">'woof'</span>; } }
+
+<span class="kw">function</span> <span class="fn">speak</span>(pet) {
+<span class="kw">if</span> (pet <span class="kw">instanceof</span> Cat) {
+<span class="kw">return</span> pet.<span class="fn">meow</span>();
+}
+<span class="kw">return</span> pet.<span class="fn">bark</span>();
+}
+
+<span class="kw">function</span> <span class="fn">describeError</span>(err) {
+<span class="kw">if</span> (err <span class="kw">instanceof</span> <span class="fn">TypeError</span>) <span class="kw">return</span> <span class="str">'type error'</span>;
+<span class="kw">if</span> (err <span class="kw">instanceof</span> <span class="fn">RangeError</span>) <span class="kw">return</span> <span class="str">'range error'</span>;
+<span class="kw">return</span> <span class="str">'error'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">isUser</span>(x) {
+<span class="kw">return</span> (
+<span class="kw">typeof</span> x === <span class="str">'object'</span> &&
+x !== <span class="fn">null</span> &&
+<span class="str">'id'</span> <span class="kw">in</span> x &&
+<span class="str">'name'</span> <span class="kw">in</span> x &&
+<span class="kw">typeof</span> x.id === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> x.name === <span class="str">'string'</span>
+);
+}
+
+<span class="kw">function</span> <span class="fn">greet</span>(x) {
+<span class="kw">if</span> (<span class="fn">isUser</span>(x)) {
+<span class="kw">return</span> <span class="str">Hello,${x.name}`</span>;
+}
+<span class="kw">return</span> <span class="str">'Hello, stranger'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">isSafe</span>(m) {
+<span class="kw">if</span> (m === <span class="str">'GET'</span>) <span class="kw">return</span> <span class="kw">true</span>;
+<span class="kw">if</span> (m === <span class="str">'DELETE'</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="kw">return</span> <span class="kw">false</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">move</span>({ fly() {}, layEggs() {} }));
+console.<span class="fn">log</span>(<span class="fn">speak</span>(<span class="kw">new</span> <span class="fn">Cat</span>()), <span class="fn">speak</span>(<span class="kw">new</span> <span class="fn">Dog</span>()));
+console.<span class="fn">log</span>(<span class="fn">greet</span>({ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }));
+console.<span class="fn">log</span>(<span class="fn">isSafe</span>(<span class="str">'GET'</span>));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>in</code> for shape narrowing</h4>
+<p><code>'fly' in animal</code> narrows to the member that has <code>fly</code>. Works when members have distinct property names but no discriminant.</p>
+</div>
+<div class="concept-card">
+<h4><code>instanceof</code> for classes</h4>
+<p><code>pet instanceof Cat</code> narrows to <code>Cat</code>. Works with custom classes and built-ins (<code>Date</code>, <code>Error</code>, <code>Map</code>).</p>
+</div>
+<div class="concept-card">
+<h4>Custom guards narrow anything</h4>
+<p><code>function isUser(x): x is User</code> — the predicate <code>x is User</code> is what narrows. The body just needs to return a boolean.</p>
+</div>
+<div class="concept-card">
+<h4>Equality with literals</h4>
+<p><code>m === 'GET'</code> narrows a literal union to that one value. This is what makes <code>switch</code> work without a discriminant field.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The narrowing bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Accessing union properties without narrowing</div>
+<p><code>(s: Circle | Square).radius</code> fails — Square has no radius. Fix: narrow first (<code>if ('radius' in s)</code> or discriminant check).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using <code>typeof</code> on object unions</div>
+<p><code>typeof {a:1} === typeof {b:2}</code> — both are <code>'object'</code>. Fix: use a discriminant field or <code>in</code> for object shapes.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Forgetting <code>null</code> before <code>typeof</code></div>
+<p><code>typeof null === 'object'</code> — narrows incorrectly. Fix: <code>x === null</code> check before <code>typeof</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using <code>as</code> instead of narrowing</div>
+<p><code>(x as Circle).radius</code> — bypasses the check. The cast doesn't verify anything at runtime. Fix: narrow with a real check.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting exhaustiveness</div>
+<p>No <code>default</code> with <code>never</code> — adding a new union member doesn't error. Fix: always include <code>const _: never = x</code> in the default.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Using type guards that lie</div>
+<p><code>function isUser(x): x is User { return true; }</code> — narrows incorrectly. Fix: the guard body must actually validate the shape.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Non-discriminated unions without a tag</div>
+<p>Two object types with no shared literal field are hard to narrow. Fix: add a <code>kind</code>/<code>status</code> field — the discriminant is what makes narrowing automatic.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Truthiness filtering empty string</div>
+<p><code>if (name)</code> filters <code>''</code>, not just null. Fix: <code>name !== null && name !== undefined</code> if empty is valid.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I narrow a union type in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Use a runtime check that TypeScript understands as a narrowing operation. typeof narrows primitives. instanceof narrows class instances. The in operator narrows by property presence. Equality with literals narrows discriminated unions. Custom type guards narrow with a predicate. Each check tells the compiler which member of the union is in play.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a discriminated union?</summary>
+<p class="mt-2 text-sm text-slate-300">A discriminated union is a union where each member has a shared property (the discriminant) with a unique literal value. type Shape = { kind: 'circle'; radius: number } | { kind: 'square'; side: number }. Checking shape.kind === 'circle' narrows the type to the circle member.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a custom type guard?</summary>
+<p class="mt-2 text-sm text-slate-300">A type guard is a function that returns a type predicate: function isUser(x: unknown): x is User { return typeof x === 'object' && x !== null && 'name' in x; }. When called in an if, TypeScript narrows x to User inside the block.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why can't I access a property on a union type?</summary>
+<p class="mt-2 text-sm text-slate-300">TypeScript only allows accessing properties that exist on EVERY member of a union. If Shape is Circle | Square and only Circle has radius, then shape.radius fails. Fix: narrow to the specific member first, then access the property.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/narrowing.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 4: Unions & narrowing</div>
+<div class="text-xs text-slate-400 mt-1">Every technique, with challenges</div>
+</a>
+<a href="/courses/typescript/problems/discriminated-union.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Discriminated unions</div>
+<div class="text-xs text-slate-400 mt-1">The pattern that makes narrowing automatic</div>
+</a>
+<a href="/courses/typescript/problems/object-possibly-null.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Object is possibly null</div>
+<div class="text-xs text-slate-400 mt-1">The other narrowing error</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
