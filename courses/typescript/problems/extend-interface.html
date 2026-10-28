@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Extend an Interface in TypeScript — extends vs & (2026)</title>
+<meta name="description" content="Extend a TypeScript interface with extends, intersections, and composition. Learn the 3 approaches, when inheritance is wrong, and how to model hierarchical shapes.">
+<meta name="keywords" content="typescript extend interface, typescript interface inheritance, typescript extends vs intersection, typescript interface composition, typescript multiple extends">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Extend an Interface in TypeScript — extends vs &">
+<meta property="og:description" content="Extend a TypeScript interface with extends, intersections, and composition. The 3 approaches and when inheritance is wrong.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/extend-interface.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Extend an Interface in TypeScript — extends vs &">
+<meta name="twitter:description" content="extends, intersections, and composition — when to use each.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/extend-interface.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Extend an Interface in TypeScript — extends vs &",
+"description": "Extend a TypeScript interface with extends, intersections, and composition. The 3 approaches and when inheritance is wrong.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I extend an interface in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Use the extends keyword: interface Admin extends User { role: 'admin' }. The new interface inherits all properties from User plus the new ones. You can extend multiple interfaces with a comma: interface Post extends User, Timestamps. For type aliases, use intersection instead: type Admin = User & { role: 'admin' }. Both produce the same shape."}},
+{"@type":"Question","name":"What is the difference between extends and intersection?","acceptedAnswer":{"@type":"Answer","text":"extends is interface-only syntax that reads as inheritance; & is a type operator that works with both interfaces and types. interface Admin extends User is equivalent to type Admin = User & { ... }. Both produce the same compiled type with the same checking behavior. extends reads cleaner for hierarchical shapes; & is more flexible for composition of many small types. There's no functional difference for object shapes."}},
+{"@type":"Question","name":"Can an interface extend multiple interfaces?","acceptedAnswer":{"@type":"Answer","text":"Yes: interface Post extends User, Timestamps { ... }. The resulting interface inherits properties from all parents. If two parents declare the same property with incompatible types, you get a compile error. If they declare the same property with the same type, it's fine. Multiple extends is how interfaces compose without a diamond-inheritance problem — types just need to be compatible."}},
+{"@type":"Question","name":"When should I use extends vs intersection vs composition?","acceptedAnswer":{"@type":"Answer","text":"Use extends for clear 'is-a' hierarchies (Admin is a User) with a single parent chain. Use intersection (&) when combining multiple independent shapes (Base & Timestamps & Auditable) — it reads as composition. Use a class with implements when you need runtime behavior. All three produce the same compile output for object shapes; pick whichever reads most clearly for the specific case."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · extend interface</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Extend interface</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>How to extend an interface.<br><span class="py-accent">Three ways, one shape.</span></h1>
+<p class="lead">
+You have an interface. You need a version of it with extra fields. TypeScript gives you three tools: <code>extends</code>, the intersection operator (<code>&</code>), and composition via multiple small types. Each produces the same output — but each reads differently and is right for different cases. Here's the decision rule and the working code for each.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>interface Admin extends User</code> for clear hierarchies. Use <code>type Admin = User & { ... }</code> when combining independent shapes. Use multiple extends (<code>interface Post extends User, Timestamps</code>) when composing two base types. All three produce identical compiled output — pick whichever reads most clearly for the specific case.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — <code>extends</code> (single parent)</h2>
+<p class="section-sub">The clearest syntax for "this interface plus more."</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The <code>extends</code> keyword inherits all properties from the parent interface and adds the new ones. This is the most-readable form for hierarchical shapes — an <code>Admin</code> is a <code>User</code> with extra fields. Inheritance flows naturally.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">extends.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── Base interface ──────────────────────────</span>
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── Extend it ───────────────────────────────</span>
+<span class="kw">interface</span> Admin <span class="kw">extends</span> User {
+role: <span class="str">'admin'</span>;
+permissions: <span class="fn">string</span>[];
+}
+
+<span class="com">// Admin has: id, name, email (inherited) + role, permissions</span>
+
+<span class="kw">const</span> admin: Admin = {
+id: <span class="str">'u_1'</span>,
+name: <span class="str">'Alice'</span>,
+email: <span class="str">'a@x.com'</span>,
+role: <span class="str">'admin'</span>,
+permissions: [<span class="str">'read'</span>, <span class="str">'write'</span>, <span class="str">'delete'</span>]
+};
+
+<span class="com">// ─── Admin is assignable to User ─────────────</span>
+<span class="kw">function</span> <span class="fn">greet</span>(u: User): <span class="fn">string</span> {
+<span class="kw">return</span> <span class="str">Hello, ${u.name}`</span>;
+}
+
+<span class="fn">greet</span>(admin); <span class="com">// ✅ Admin has every property User requires</span>
+
+<span class="com">// ─── Missing inherited field is an error ─────</span>
+<span class="com">// const bad: Admin = {
+// id: '1', role: 'admin', permissions: []
+// // ❌ missing name, email
+// };</span>
+
+<span class="com">// ─── Override inherited property types ────────</span>
+<span class="com">// You can narrow (but not widen) an inherited type:</span>
+<span class="kw">interface</span> EmailUser <span class="kw">extends</span> User {
+name: <span class="str">'email-verified'</span> | <span class="str">'pending'</span>; <span class="com">// narrower than string</span>
+}
+
+console.<span class="fn">log</span>(<span class="fn">greet</span>(admin));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// All type syntax erased. Only the runtime value remains.</span>
+
+<span class="kw">const</span> admin = {
+id: <span class="str">'u_1'</span>,
+name: <span class="str">'Alice'</span>,
+email: <span class="str">'a@x.com'</span>,
+role: <span class="str">'admin'</span>,
+permissions: [<span class="str">'read'</span>, <span class="str">'write'</span>, <span class="str">'delete'</span>]
+};
+
+<span class="kw">function</span> <span class="fn">greet</span>(u) {
+<span class="kw">return</span> <span class="str">Hello,${u.name}`</span>;
+}
+
+<span class="fn">greet</span>(admin);
+
+console.<span class="fn">log</span>(<span class="fn">greet</span>(admin));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Inherits all properties</h4>
+<p>The child interface has every property from the parent, plus its own. No repetition — the parent is the source of truth.</p>
+</div>
+<div class="concept-card">
+<h4>Assignable to parent</h4>
+<p>An <code>Admin</code> value works wherever a <code>User</code> is expected. The child is a subtype of the parent.</p>
+</div>
+<div class="concept-card">
+<h4>Missing fields fail</h4>
+<p>An <code>Admin</code> missing <code>name</code> fails to compile — it must have every inherited property, plus the new ones.</p>
+</div>
+<div class="concept-card">
+<h4>Can narrow inherited types</h4>
+<p>A child interface can override a parent property with a narrower type (e.g. <code>string</code> → <code>'a' | 'b'</code>). Widening is an error.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Multiple extends (composition)</h2>
+<p class="section-sub">Combine two independent interfaces into one.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">An interface can extend multiple parents with a comma-separated list. This is how you compose independent concerns: <code>Post</code> is a <code>User</code> <em>and</em> has <code>Timestamps</code> <em>and</em> has content. There's no diamond-inheritance problem — types just need to be structurally compatible.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">multiple-extends.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── Two independent base interfaces ────────</span>
+<span class="kw">interface</span> Author {
+authorId: <span class="fn">string</span>;
+authorName: <span class="fn">string</span>;
+}
+
+<span class="kw">interface</span> Timestamps {
+createdAt: <span class="fn">Date</span>;
+updatedAt: <span class="fn">Date</span>;
+}
+
+<span class="com">// ─── Compose both + add content ──────────────</span>
+<span class="kw">interface</span> Post <span class="kw">extends</span> Author, Timestamps {
+id: <span class="fn">string</span>;
+title: <span class="fn">string</span>;
+body: <span class="fn">string</span>;
+}
+
+<span class="com">// Post has: authorId, authorName, createdAt, updatedAt,
+// id, title, body — all from composition.</span>
+
+<span class="kw">const</span> post: Post = {
+id: <span class="str">'p_1'</span>,
+title: <span class="str">'Hello TypeScript'</span>,
+body: <span class="str">'...'</span>,
+authorId: <span class="str">'u_1'</span>,
+authorName: <span class="str">'Alice'</span>,
+createdAt: <span class="kw">new</span> <span class="fn">Date</span>(),
+updatedAt: <span class="kw">new</span> <span class="fn">Date</span>()
+};
+
+<span class="com">// ─── Conflict detection ──────────────────────</span>
+<span class="com">// If two parents declare the same property with
+// INCOMPATIBLE types, you get an error:</span>
+<span class="kw">interface</span> A { status: <span class="str">'active'</span> }
+<span class="kw">interface</span> B { status: <span class="str">'inactive'</span> }
+<span class="com">// interface C extends A, B { }
+// ❌ Interface 'C' cannot simultaneously extend types 'A' and 'B'.
+// Named property 'status' of types 'A' and 'B' are not identical.</span>
+
+<span class="com">// ─── Compatible overlap is fine ─────────────</span>
+<span class="kw">interface</span> X { id: <span class="fn">string</span> }
+<span class="kw">interface</span> Y { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+<span class="kw">interface</span> Z <span class="kw">extends</span> X, Y { age: <span class="fn">number</span> }
+<span class="com">// ✅ Z has: id, name, age — id is compatible</span>
+
+<span class="com">// ─── Composition is not a hierarchy ──────────</span>
+<span class="com">// Author and Timestamps are independent — you can
+// use them alone anywhere. Multiple extends combines
+// them for Post, but doesn't establish a lineage.</span>
+
+console.<span class="fn">log</span>(post.title, post.authorName);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">const</span> post = {
+id: <span class="str">'p_1'</span>,
+title: <span class="str">'Hello TypeScript'</span>,
+body: <span class="str">'...'</span>,
+authorId: <span class="str">'u_1'</span>,
+authorName: <span class="str">'Alice'</span>,
+createdAt: <span class="kw">new</span> <span class="fn">Date</span>(),
+updatedAt: <span class="kw">new</span> <span class="fn">Date</span>()
+};
+
+console.<span class="fn">log</span>(post.title, post.authorName);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Comma-separated parents</h4>
+<p><code>interface Post extends Author, Timestamps</code> — the child inherits from both. Combine as many as needed.</p>
+</div>
+<div class="concept-card">
+<h4>Conflicts are errors</h4>
+<p>If two parents declare the same property with incompatible types, the compiler errors. This catches contradictions at compile time.</p>
+</div>
+<div class="concept-card">
+<h4>Compatible overlap is fine</h4>
+<p>If both parents declare <code>id: string</code>, the child inherits one <code>id: string</code>. No conflict if types match.</p>
+</div>
+<div class="concept-card">
+<h4>Composition, not inheritance</h4>
+<p>Multiple extends is composition — you're combining independent traits. There's no parent hierarchy; just intersection of shapes.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Prefer many small interfaces composed with extends over one giant interface.</strong> A <code>Post</code> that's <code>Author & Timestamps & Content & Metadata</code> is easier to reason about, easier to change, and easier to reuse than a 20-field flat interface. When you find yourself adding the 15th field to one interface, ask: is this really one shape, or is it three shapes that happen to appear together? Composition answers the question honestly.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Intersection operator (<code>&</code>)</h2>
+<p class="section-sub">Same result, different syntax — and it works with type aliases too.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The <code>&</code> operator combines two types into one that has all properties of both. <code>User & { role: 'admin' }</code> is structurally identical to <code>interface Admin extends User { role: 'admin' }</code>. The difference: <code>&</code> works with both interfaces and type aliases, and reads as composition rather than inheritance.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">intersection.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── Same result as extends, with & ──────────</span>
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+}
+
+<span class="com">// These two are equivalent:</span>
+<span class="kw">interface</span> Admin1 <span class="kw">extends</span> User {
+role: <span class="str">'admin'</span>;
+}
+
+<span class="kw">type</span> Admin2 = User & {
+role: <span class="str">'admin'</span>;
+};
+
+<span class="com">// Both produce: { id: string; name: string; role: 'admin' }
+// Both accept the same values. Both reject the same mistakes.</span>
+
+<span class="com">// ─── Compose many small shapes ───────────────</span>
+<span class="kw">type</span> Entity = { id: <span class="fn">string</span> };
+<span class="kw">type</span> Named = { name: <span class="fn">string</span> };
+<span class="kw">type</span> Timestamped = { createdAt: <span class="fn">Date</span> };
+<span class="kw">type</span> Auditable = { createdBy: <span class="fn">string</span> };
+
+<span class="kw">type</span> Post = Entity & Named & Timestamped & Auditable & {
+body: <span class="fn">string</span>;
+};
+
+<span class="com">// Post has: id, name, createdAt, createdBy, body
+// — composed from four independent traits.</span>
+
+<span class="kw">const</span> post: Post = {
+id: <span class="str">'p_1'</span>,
+name: <span class="str">'Hello'</span>,
+createdAt: <span class="kw">new</span> <span class="fn">Date</span>(),
+createdBy: <span class="str">'u_1'</span>,
+body: <span class="str">'...'</span>
+};
+
+<span class="com">// ─── Intersection + union composition ────────</span>
+<span class="kw">type</span> LoadState = { status: <span class="str">'loading'</span> };
+<span class="kw">type</span> SuccessState = { status: <span class="str">'success'</span>; data: <span class="fn">unknown</span> };
+<span class="kw">type</span> ErrorState = { status: <span class="str">'error'</span>; message: <span class="fn">string</span> };
+
+<span class="kw">type</span> State = (LoadState | SuccessState | ErrorState) & { id: <span class="fn">string</span> };
+<span class="com">// Every state has id + its own fields</span>
+
+<span class="com">// ─── When to use & instead of extends ────────</span>
+<span class="com">// - Combining 2+ independent shapes (composition)
+// - Composing with type aliases (unions, tuples)
+// - Reading "this AND that" — reads naturally with &
+//
+// When to use extends instead:
+// - Clear is-a hierarchy (Admin is-a User)
+// - Parent might be extended by many children
+// - Readability favors inheritance for the case</span>
+
+console.<span class="fn">log</span>(post.name);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">const</span> post = {
+id: <span class="str">'p_1'</span>,
+name: <span class="str">'Hello'</span>,
+createdAt: <span class="kw">new</span> <span class="fn">Date</span>(),
+createdBy: <span class="str">'u_1'</span>,
+body: <span class="str">'...'</span>
+};
+
+console.<span class="fn">log</span>(post.name);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Works with types and interfaces</h4>
+<p><code>&</code> is an operator — it combines any two types. <code>extends</code> only works on interfaces. For type aliases, <code>&</code> is the only option.</p>
+</div>
+<div class="concept-card">
+<h4>Reads as composition</h4>
+<p><code>Entity & Named & Timestamped</code> reads as "this AND that AND that." For many small shapes, it's clearer than a chain of extends.</p>
+</div>
+<div class="concept-card">
+<h4>Conflicts produce never</h4>
+<p><code>{ a: string } & { a: number }</code> gives <code>{ a: never }</code> — an impossible type. The conflict surfaces when you try to assign a value.</p>
+</div>
+<div class="concept-card">
+<h4>Same compiled output</h4>
+<p>Both <code>extends</code> and <code>&</code> produce identical type-checking results. Choose based on readability and whether you need to combine type aliases.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Intersection is not object merge.</strong> <code>A & B</code> requires a value to satisfy <em>both</em> A and B. If A has <code>id: string</code> and B has <code>id: number</code>, the result is <code>{ id: never }</code> — a type with zero valid values. This is a feature: it catches incompatible composition at compile time. But it also means you can create impossible types accidentally if you intersect two shapes that were never meant to combine. Test with a real value.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The interface extension traps that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Copy-pasting fields instead of extending</div>
+<p><code>interface Admin { id: string; name: string; email: string; role: 'admin' }</code> — duplicates the base. Fix: <code>interface Admin extends User { role: 'admin' }</code>. Parent stays the source of truth.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Trying to extend a union with interface</div>
+<p><code>interface X extends Status</code> where <code>Status = 'a' | 'b'</code> — interface can't extend a union. Fix: use <code>type X = Status & { ... }</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Widening an inherited type</div>
+<p><code>interface Admin extends User { name: string | number }</code> — widening <code>string</code> to <code>string | number</code> fails. Fix: narrower or same, never wider.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using extends across type aliases</div>
+<p><code>type X extends Y</code> is a syntax error. <code>extends</code> is interface-only. Fix: <code>type X = Y & { ... }</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Intersecting conflicting property types</div>
+<p><code>{ id: string } & { id: number }</code> gives <code>{ id: never }</code> — an impossible type. Fix: check that both sides agree, or use a union instead of intersection.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Deep inheritance chains</div>
+<p><code>User → Admin → SuperAdmin → RootAdmin → GodAdmin</code> — a change to <code>User</code> ripples through five files. Fix: prefer composition — small independent shapes combined with <code>&</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Forgetting that extends is structural</div>
+<p>If <code>Admin extends User</code> and <code>User</code> requires <code>name</code>, then <code>Admin</code> requires <code>name</code> — even if <code>Admin</code> seems unrelated. Fix: keep base interfaces minimal.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using extends when composition is clearer</div>
+<p><code>interface Post extends Author, Timestamps, Content, Metadata</code> — five parents is a signal you should compose with <code>&</code>. Fix: <code>type Post = Author & Timestamps & Content & Metadata</code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I extend an interface in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Use the extends keyword: interface Admin extends User { role: 'admin' }. The new interface inherits all properties from User plus the new ones. You can extend multiple interfaces with a comma: interface Post extends User, Timestamps. For type aliases, use intersection instead: type Admin = User & { role: 'admin' }.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between extends and intersection?</summary>
+<p class="mt-2 text-sm text-slate-300">extends is interface-only syntax that reads as inheritance; & is a type operator that works with both interfaces and types. Both produce the same compiled type with the same checking behavior. extends reads cleaner for hierarchical shapes; & is more flexible for composition.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can an interface extend multiple interfaces?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes: interface Post extends User, Timestamps { ... }. The resulting interface inherits properties from all parents. If two parents declare the same property with incompatible types, you get a compile error. If they declare the same property with the same type, it's fine.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use extends vs intersection vs composition?</summary>
+<p class="mt-2 text-sm text-slate-300">Use extends for clear 'is-a' hierarchies (Admin is a User) with a single parent chain. Use intersection (&) when combining multiple independent shapes (Base & Timestamps & Auditable) — it reads as composition. Use a class with implements when you need runtime behavior. All three produce the same compile output for object shapes.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/interfaces.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 2: Interfaces & types</div>
+<div class="text-xs text-slate-400 mt-1">Optional, readonly, extends, and index signatures</div>
+</a>
+<a href="/courses/typescript/problems/interface-vs-type.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 interface vs type — the one real difference</div>
+<div class="text-xs text-slate-400 mt-1">Declaration merging and the decision rule</div>
+</a>
+<a href="/courses/typescript/problems/partial.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to make all properties optional</div>
+<div class="text-xs text-slate-400 mt-1">Partial<T>, DeepPartial, and composition</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
