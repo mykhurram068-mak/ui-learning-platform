@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TypeScript Functions & Generics — Signatures, Overloads, <T> (2026)</title>
+<meta name="description" content="Learn TypeScript functions and generics. Type function signatures, optional and default params, overloads, then write reusable generic functions with constraints. Every example compiled side-by-side.">
+<meta name="keywords" content="typescript functions, typescript generics, generic functions typescript, typescript function overloads, typescript constraints, typescript arrow functions">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="TypeScript Functions & Generics — Signatures, Overloads, <T>">
+<meta property="og:description" content="Learn TypeScript functions and generics. Type function signatures, optional and default params, overloads, then write reusable generic functions with constraints.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/lessons/generics.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TypeScript Functions & Generics — Signatures, Overloads, <T>">
+<meta name="twitter:description" content="Learn TypeScript functions and generics. Type function signatures, optional and default params, overloads, then write reusable generic functions with constraints.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/lessons/generics.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "TypeScript Functions & Generics — Signatures, Overloads, <T>",
+"description": "Learn TypeScript functions and generics. Type function signatures, optional and default params, overloads, then write reusable generic functions with constraints.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I type a function in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Annotate the parameters and the return type: function add(a: number, b: number): number { return a + b; }. Parameters always need annotations — there's no initial value to infer from. Return types are inferred, but writing them on exported functions catches accidental API changes. For function-typed variables use type Handler = (e: Event) => void; const onClick: Handler = (e) => {}."}},
+{"@type":"Question","name":"What are generics in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Generics let you write functions and types that work with any type while preserving the specific type flowing through. function identity<T>(x: T): T { return x; } — T is a type parameter filled in by the caller. identity('hi') infers T = string and returns string. identity(42) infers T = number and returns number. Generics are how you write reusable, type-safe code — the type is a variable for types."}},
+{"@type":"Question","name":"What is the difference between a generic and any?","acceptedAnswer":{"@type":"Answer","text":"any erases type information — a function returning any loses the input type at the call site. Generics preserve it: identity<T>(x: T): T returns the same type as the input. any is "I don't know, don't check." Generics are "I don't know yet, but I'll track it." For reusable code, generics are always preferred over any — they keep safety that any throws away."}},
+{"@type":"Question","name":"What are generic constraints?","acceptedAnswer":{"@type":"Answer","text":"A constraint restricts what types a generic can be. function getLength<T extends { length: number }>(x: T) { return x.length; } — T must have a length property. This lets you access T's properties inside the function. Constraints use extends: <T extends SomeType>. You can constrain to primitives, object shapes, other generics, or unions."}},
+{"@type":"Question","name":"What are function overloads?","acceptedAnswer":{"@type":"Answer","text":"Overloads let one function name have multiple call signatures. You declare each signature without a body, then implement a general version that handles all cases. function parse(x: string): number; function parse(x: number): string; function parse(x: string | number) { ... } — callers see the specific signatures, the implementation handles the union. Use sparingly: discriminated unions with type guards are often cleaner."}},
+{"@type":"Question","name":"What is the difference between function declaration and arrow function?","acceptedAnswer":{"@type":"Answer","text":"Both work in TypeScript. Arrow functions capture this from the surrounding scope, function declarations define their own this. Type inference works the same way. The typing difference: arrow functions assigned to variables need the variable to have a type, function declarations have an inferred signature. For React components prefer arrow functions (matches the JSX ecosystem). For utilities, either works."}},
+{"@type":"Question","name":"Can generics have default types?","acceptedAnswer":{"@type":"Answer","text":"Yes. function create<T = string>(): T[] { return []; } — if the caller doesn't specify T, it defaults to string. Defaults are useful when a generic is optional but you want a sensible fallback. For example: type Response<T = unknown> = { data: T; status: number }. Callers can write Response (T = unknown) or Response<User> (T = User)."}},
+{"@type":"Question","name":"When should I use generics?","acceptedAnswer":{"@type":"Answer","text":"Use generics when (1) the input type and output type are the same — identity, first, last, map. (2) you want to preserve type info across a transformation — map<T, U>, filter<T>, groupBy. (3) the function works with any type but needs to call a method on it — getLength<T extends { length: number }>. Don't use generics when the function actually works with one specific type — that's just a type annotation. Generics are for "same input and output, or related input and output" relationships."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Lesson 3</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Functions & generics</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 3</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Lesson 3 · 18 minutes</div>
+<h1>Functions & generics.<br><span class="py-accent">Write it once. Work with any type.</span></h1>
+<p class="lead">
+Functions are where TypeScript earns its keep. Typed signatures catch mismatched arguments before they run. Generics go further — they let one function work with any type while keeping the exact type flowing through. This lesson covers typed signatures, optional and default parameters, function overloads, and then generics from the ground up: the syntax, inference, constraints, and the patterns that show up in every library you'll ever read. This is the lesson where TypeScript clicks.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~18 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> TypeScript 5 · generics</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/typescript/index.html">TypeScript path</a>
+<a href="#signatures">Signatures</a>
+<a href="#optional">Optional & default</a>
+<a href="#overloads">Overloads</a>
+<a href="#generics"><T> generics</a>
+<a href="#constraints">Constraints</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+Annotate function <strong>parameters</strong> — they have no initial value, so inference can't help. <strong>Return types</strong> are inferred, but write them on exported functions. <strong>Generics</strong> use <code><T></code> to preserve type info through a transformation: <code>function first<T>(arr: T[]): T | undefined</code> returns the same type as the array elements. <strong>Constraints</strong> restrict generics: <code><T extends { length: number }></code> lets you access <code>.length</code> inside the function. Generics are the difference between "works with any type" (<code>any</code>) and "works with any type, keeps type safety" (<code><T></code>).
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#3178C6 !important;">Before this lesson:</strong> complete <a href="/courses/typescript/lessons/interfaces.html" style="color:#5B9BD5; text-decoration:underline;">Lesson 2</a> — you'll use interfaces as function parameters throughout.
+</p>
+</div>
+
+<section id="signatures">
+<h2 class="section-title">📐 Function signatures — the basics, done right</h2>
+<p class="section-sub">Parameters need annotations. Return types are inferred. That's the rule.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A function signature is the part before the body: the name, the parameters with their types, and the return type. TypeScript checks every call against this signature — passing a string where a number is expected is a compile error, caught before the code runs.</p>
+
+<div class="code-block" id="demo-signatures">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">signatures.ts</span>
+<button class="copy-btn" onclick="copyCode('code-signatures', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-signatures', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-signatures', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-signatures', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-signatures"><span class="com">// ─── Named function declaration ───────────────</span>
+<span class="kw">function</span> <span class="fn">add</span>(a: <span class="fn">number</span>, b: <span class="fn">number</span>): <span class="fn">number</span> {
+<span class="kw">return</span> a + b;
+}
+<span class="com">// ↑ param types ↑ return type</span>
+
+<span class="com">// ─── Arrow function ───────────────────────────</span>
+<span class="kw">const</span> <span class="fn">multiply</span> = (a: <span class="fn">number</span>, b: <span class="fn">number</span>): <span class="fn">number</span> => a * b;
+
+<span class="com">// ─── Function type alias ─────────────────────</span>
+<span class="kw">type</span> MathOp = (a: <span class="fn">number</span>, b: <span class="fn">number</span>) => <span class="fn">number</span>;
+<span class="kw">const</span> subtract: MathOp = (a, b) => a - b;
+<span class="com">// ↑ a and b are inferred from MathOp — no annotations needed</span>
+
+<span class="com">// ─── The compiler catches wrong calls ────────</span>
+<span class="fn">add</span>(<span class="num">1</span>, <span class="num">2</span>); <span class="com">// ✅ 3</span>
+<span class="com">// add('1', '2'); // ❌ string not assignable to number</span>
+<span class="com">// add(1); // ❌ Expected 2 arguments, but got 1</span>
+<span class="com">// add(1, 2, 3); // ❌ Expected 2 arguments, but got 3</span>
+
+<span class="com">// ─── Return type is inferred, but writing it</span>
+<span class="com">// on exported functions is best practice</span>
+<span class="kw">export function</span> <span class="fn">double</span>(n: <span class="fn">number</span>): <span class="fn">number</span> {
+<span class="kw">return</span> n * <span class="num">2</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">add</span>(<span class="num">1</span>, <span class="num">2</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// All annotations erased. The output is plain JavaScript.</span>
+
+<span class="kw">function</span> <span class="fn">add</span>(a, b) {
+<span class="kw">return</span> a + b;
+}
+
+<span class="kw">const</span> <span class="fn">multiply</span> = (a, b) => a * b;
+
+<span class="kw">const</span> subtract = (a, b) => a - b;
+
+<span class="kw">function</span> <span class="fn">double</span>(n) {
+<span class="kw">return</span> n * <span class="num">2</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">add</span>(<span class="num">1</span>, <span class="num">2</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">3</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Parameters need annotations</h4>
+<p>A parameter has no initial value to infer from. <code>function add(a, b)</code> makes both <code>any</code>. Always annotate parameters — this is the non-negotiable rule.</p>
+</div>
+<div class="concept-card">
+<h4>Return type is inferred</h4>
+<p><code>function add(a: number, b: number)</code> infers <code>: number</code> from <code>a + b</code>. For local helpers, skip the return annotation. For exports, write it — it locks the API.</p>
+</div>
+<div class="concept-card">
+<h4>Function type alias</h4>
+<p><code>type MathOp = (a: number, b: number) => number</code> names a signature. Assigning a function to a variable of type <code>MathOp</code> infers parameter types automatically — no repetition.</p>
+</div>
+<div class="concept-card">
+<h4>Arity is checked</h4>
+<p>Wrong number of arguments is a compile error, not a runtime surprise. <code>add(1)</code> fails to compile, not to run. That's the value — errors surface in your editor.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Annotate exports, infer internals.</strong> The rule that scales: <em>every exported function has explicit parameter and return types; internal helpers use inference.</em> Exports are your API — you want them locked down and visible. Internal helpers are implementation — let the compiler do its job and keep the code readable. This one principle eliminates 90% of the "should I annotate this?" decisions.</p>
+</div>
+</section>
+
+<section id="optional">
+<h2 class="section-title">🎛️ Optional and default parameters</h2>
+<p class="section-sub">Two ways to make a parameter not required. They behave differently.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Optional parameters use <code>?</code> — they can be omitted, and their type becomes <code>T | undefined</code>. Default parameters use <code>= value</code> — they can also be omitted, but they're <em>never</em> undefined inside the function. The type difference matters.</p>
+
+<div class="code-block" id="demo-optional">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">params.ts</span>
+<button class="copy-btn" onclick="copyCode('code-optional', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-optional', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-optional', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-optional', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-optional"><span class="com">// ─── Optional parameter with ? ────────────────</span>
+<span class="kw">function</span> <span class="fn">greet</span>(name: <span class="fn">string</span>, greeting?: <span class="fn">string</span>): <span class="fn">string</span> {
+<span class="com">// greeting: string | undefined inside the function</span>
+<span class="kw">return</span> <span class="str">${greeting ?? 'Hello'}, ${name}!</span>;
+}
+
+<span class="fn">greet</span>(<span class="str">'Alice'</span>); <span class="com">// ✅ uses fallback</span>
+<span class="fn">greet</span>(<span class="str">'Alice'</span>, <span class="str">'Hi'</span>); <span class="com">// ✅ uses provided greeting</span>
+<span class="com">// greet(); // ❌ name is required</span>
+
+<span class="com">// ─── Default parameter with = ─────────────────</span>
+<span class="kw">function</span> <span class="fn">greet2</span>(name: <span class="fn">string</span>, greeting = <span class="str">'Hello'</span>): <span class="fn">string</span> {
+<span class="com">// greeting: string inside the function (never undefined)</span>
+<span class="kw">return</span> <span class="str">${greeting}, ${name}!</span>;
+}
+
+<span class="fn">greet2</span>(<span class="str">'Bob'</span>); <span class="com">// ✅ 'Hello, Bob!'</span>
+<span class="fn">greet2</span>(<span class="str">'Bob'</span>, <span class="str">'Hey'</span>); <span class="com">// ✅ 'Hey, Bob!'</span>
+
+<span class="com">// ─── The key difference ──────────────────────</span>
+<span class="com">// optional: type is T | undefined, must narrow before use</span>
+<span class="com">// default: type is T, can use directly</span>
+
+<span class="com">// ─── Where it bites you ──────────────────────</span>
+<span class="com">// Optional can't come before required:</span>
+<span class="com">// function bad(a?: number, b: number) {} // ❌</span>
+<span class="com">// Default can come anywhere:</span>
+<span class="kw">function</span> <span class="fn">ok</span>(a = <span class="num">1</span>, b: <span class="fn">number</span>) { <span class="kw">return</span> a + b; }
+
+console.<span class="fn">log</span>(<span class="fn">greet</span>(<span class="str">'Alice'</span>));
+console.<span class="fn">log</span>(<span class="fn">greet2</span>(<span class="str">'Bob'</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">greet</span>(name, greeting) {
+<span class="kw">return</span> <span class="str">${greeting ?? 'Hello'}, ${name}!</span>;
+}
+
+<span class="kw">function</span> <span class="fn">greet2</span>(name, greeting = <span class="str">'Hello'</span>) {
+<span class="kw">return</span> <span class="str">${greeting}, ${name}!</span>;
+}
+
+<span class="kw">function</span> <span class="fn">ok</span>(a = <span class="num">1</span>, b) { <span class="kw">return</span> a + b; }
+
+console.<span class="fn">log</span>(<span class="fn">greet</span>(<span class="str">'Alice'</span>));
+console.<span class="fn">log</span>(<span class="fn">greet2</span>(<span class="str">'Bob'</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">Hello, Alice!
+Hello, Bob!</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>?</code> gives <code>T | undefined</code></h4>
+<p><code>greeting?: string</code> means inside the function it's <code>string | undefined</code>. You must check it before using as a string. This is intentional — the parameter really might be missing.</p>
+</div>
+<div class="concept-card">
+<h4><code>= value</code> gives <code>T</code></h4>
+<p><code>greeting = 'Hello'</code> means inside the function it's always <code>string</code>. If the caller omits it, the default kicks in. No null check needed — it's never undefined.</p>
+</div>
+<div class="concept-card">
+<h4>Position matters for <code>?</code></h4>
+<p>Optional parameters must come <em>after</em> required ones. <code>function f(a?: number, b: number)</code> is a compile error — callers can't skip <code>a</code> and pass <code>b</code> positionally.</p>
+</div>
+<div class="concept-card">
+<h4>Defaults can be anywhere</h4>
+<p>Default parameters can precede required ones. <code>function f(a = 1, b: number)</code> is legal — the caller passes <code>b</code> as the first argument and <code>a</code> falls back to 1.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Prefer default over optional when you have a sensible fallback.</strong> <code>greeting = 'Hello'</code> is cleaner than <code>greeting?: string</code> with a null check inside. Defaults keep the type as <code>string</code> throughout the function body — no narrowing, no <code>??</code>, no noise. Reserve <code>?</code> for parameters that genuinely have no sensible default and must be handled case-by-case.</p>
+</div>
+</section>
+
+<section id="overloads">
+<h2 class="section-title">🔀 Function overloads — multiple signatures, one implementation</h2>
+<p class="section-sub">Useful for parsing and builders. Often replaceable with unions + guards.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">An overload lets you declare the same function name with different parameter types. Callers see each specific signature and get precise inference. The implementation signature is broad enough to handle all cases, but callers never see it directly.</p>
+
+<div class="code-block" id="demo-overloads">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">overloads.ts</span>
+<button class="copy-btn" onclick="copyCode('code-overloads', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-overloads', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-overloads', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-overloads', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-overloads"><span class="com">// ─── Overload signatures (no body) ────────────</span>
+<span class="kw">function</span> <span class="fn">parse</span>(input: <span class="fn">string</span>): <span class="fn">number</span>;
+<span class="kw">function</span> <span class="fn">parse</span>(input: <span class="fn">number</span>): <span class="fn">string</span>;
+<span class="com">// ─── Implementation signature (broad) ─────────</span>
+<span class="kw">function</span> <span class="fn">parse</span>(input: <span class="fn">string</span> | <span class="fn">number</span>): <span class="fn">string</span> | <span class="fn">number</span> {
+<span class="kw">if</span> (<span class="kw">typeof</span> input === <span class="str">'string'</span>) {
+<span class="kw">return</span> <span class="fn">parseInt</span>(input, <span class="num">10</span>);
+}
+<span class="kw">return</span> <span class="fn">String</span>(input);
+}
+
+<span class="com">// Callers get the specific return type:</span>
+<span class="kw">const</span> a = <span class="fn">parse</span>(<span class="str">'42'</span>); <span class="com">// a: number</span>
+<span class="kw">const</span> b = <span class="fn">parse</span>(<span class="num">42</span>); <span class="com">// b: string</span>
+
+<span class="com">// ─── The modern alternative: unions + guards ──</span>
+<span class="com">// For most cases, this is simpler than overloads:</span>
+<span class="kw">type</span> Parsed<T> = T <span class="kw">extends</span> <span class="fn">string</span> ? <span class="fn">number</span> : <span class="fn">string</span>;
+
+<span class="kw">function</span> <span class="fn">parse2</span><T <span class="kw">extends</span> <span class="fn">string</span> | <span class="fn">number</span>>(input: T): Parsed<T> {
+<span class="kw">if</span> (<span class="kw">typeof</span> input === <span class="str">'string'</span>) {
+<span class="kw">return</span> <span class="fn">parseInt</span>(input, <span class="num">10</span>) <span class="kw">as</span> Parsed<T>;
+}
+<span class="kw">return</span> <span class="fn">String</span>(input) <span class="kw">as</span> Parsed<T>;
+}
+
+<span class="com">// ─── When overloads are actually right ────────</span>
+<span class="com">// DOM APIs, event handlers, and builder functions with</span>
+<span class="com">// fundamentally different shapes per call often need overloads.</span>
+<span class="com">// For simple "input type A → output type B" cases,</span>
+<span class="com">// unions + generic guards are cleaner.</span>
+
+console.<span class="fn">log</span>(a, b);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Overload signatures erased. Only the implementation remains.</span>
+
+<span class="kw">function</span> <span class="fn">parse</span>(input) {
+<span class="kw">if</span> (<span class="kw">typeof</span> input === <span class="str">'string'</span>) {
+<span class="kw">return</span> <span class="fn">parseInt</span>(input, <span class="num">10</span>);
+}
+<span class="kw">return</span> <span class="fn">String</span>(input);
+}
+
+<span class="kw">const</span> a = <span class="fn">parse</span>(<span class="str">'42'</span>);
+<span class="kw">const</span> b = <span class="fn">parse</span>(<span class="num">42</span>);
+
+<span class="kw">function</span> <span class="fn">parse2</span>(input) {
+<span class="kw">if</span> (<span class="kw">typeof</span> input === <span class="str">'string'</span>) {
+<span class="kw">return</span> <span class="fn">parseInt</span>(input, <span class="num">10</span>);
+}
+<span class="kw">return</span> <span class="fn">String</span>(input);
+}
+
+console.<span class="fn">log</span>(a, b);</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">42 '42'</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Overload signatures</h4>
+<p>The first declarations — no body, just the signature. Callers see only these. <code>function parse(input: string): number;</code> tells the world "string in, number out."</p>
+</div>
+<div class="concept-card">
+<h4>Implementation signature</h4>
+<p>The last declaration with a body. Its parameters must be broad enough to handle every overload. Callers don't see it — they only see the overloads above.</p>
+</div>
+<div class="concept-card">
+<h4>Return type per overload</h4>
+<p><code>parse('42')</code> infers <code>number</code>. <code>parse(42)</code> infers <code>string</code>. Each call gets its specific return type — that's the value of overloads over a simple union.</p>
+</div>
+<div class="concept-card">
+<h4>Prefer guards when possible</h4>
+<p>Unions with type guards (lesson 4) often replace overloads. Use overloads for DOM-style APIs or genuinely different shapes. Use unions + guards for simple "A in, B out" cases.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Start with unions. Graduate to overloads only when you must.</strong> A union + type guard solves 80% of the cases people write overloads for, and it's easier to maintain. Overloads become essential when (1) the return type depends on which overload matched, (2) the parameters have genuinely different shapes (e.g. <code>createElement(tag: string)</code> vs <code>createElement(component: Function)</code>), or (3) you're typing an existing API you can't change. For new code, reach for unions first.</p>
+</div>
+</section>
+
+<section id="generics">
+<h2 class="section-title">🧬 Generics — the superpower</h2>
+<p class="section-sub">One function, any type, full type safety. This is what makes TypeScript powerful.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Here's the problem generics solve. You write <code>function first(arr)</code> — what's the parameter type? If you say <code>any[]</code>, the function accepts anything, but the return type is <code>any</code> — you lose type info. If you say <code>number[]</code>, it only works with numbers. A generic (<code><T></code>) solves both: it says "the input is an array of <em>some</em> type T, and the output is a <code>T</code>." The type flows through.</p>
+
+<div class="code-block" id="demo-generics">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">generics.ts</span>
+<button class="copy-btn" onclick="copyCode('code-generics', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-generics', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-generics', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-generics', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-generics"><span class="com">// ─── The problem: any loses type info ─────────</span>
+<span class="kw">function</span> <span class="fn">firstAny</span>(arr: <span class="fn">any</span>[]): <span class="fn">any</span> {
+<span class="kw">return</span> arr[<span class="num">0</span>];
+}
+<span class="kw">const</span> a = <span class="fn">firstAny</span>([<span class="str">'x'</span>, <span class="str">'y'</span>]);
+<span class="com">// a: any — no autocomplete, no type checking</span>
+
+<span class="com">// ─── The solution: generic <T> ────────────────</span>
+<span class="kw">function</span> <span class="fn">first</span><T>(arr: T[]): T | <span class="fn">undefined</span> {
+<span class="kw">return</span> arr[<span class="num">0</span>];
+}
+
+<span class="kw">const</span> b = <span class="fn">first</span>([<span class="str">'x'</span>, <span class="str">'y'</span>]); <span class="com">// b: string | undefined</span>
+<span class="kw">const</span> c = <span class="fn">first</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>]); <span class="com">// c: number | undefined</span>
+<span class="kw">const</span> d = <span class="fn">first</span>([{ id: <span class="num">1</span> }, { id: <span class="num">2</span> }]);
+<span class="com">// d: { id: number } | undefined — full shape preserved</span>
+
+<span class="com">// ─── Explicit type argument ──────────────────</span>
+<span class="kw">const</span> e = <span class="fn">first</span><<span class="fn">string</span>>([<span class="str">'x'</span>, <span class="str">'y'</span>]); <span class="com">// explicit: string | undefined</span>
+<span class="com">// Usually unnecessary — inference handles it</span>
+
+<span class="com">// ─── Multiple type params ────────────────────</span>
+<span class="kw">function</span> <span class="fn">pair</span><A, B>(a: A, b: B): [A, B] {
+<span class="kw">return</span> [a, b];
+}
+<span class="kw">const</span> p = <span class="fn">pair</span>(<span class="str">'x'</span>, <span class="num">1</span>); <span class="com">// [string, number]</span>
+
+<span class="com">// ─── Generic with transformation ─────────────</span>
+<span class="kw">function</span> <span class="fn">map</span><T, U>(arr: T[], fn: (item: T) => U): U[] {
+<span class="kw">return</span> arr.<span class="fn">map</span>(fn);
+}
+
+<span class="kw">const</span> lengths = <span class="fn">map</span>([<span class="str">'a'</span>, <span class="str">'bb'</span>, <span class="str">'ccc'</span>], s => s.length);
+<span class="com">// lengths: number[] — U inferred from the callback</span>
+
+console.<span class="fn">log</span>(b, c, p, lengths);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// All generic syntax erased. Type parameters don't exist at runtime.</span>
+
+<span class="kw">function</span> <span class="fn">firstAny</span>(arr) {
+<span class="kw">return</span> arr[<span class="num">0</span>];
+}
+<span class="kw">const</span> a = <span class="fn">firstAny</span>([<span class="str">'x'</span>, <span class="str">'y'</span>]);
+
+<span class="kw">function</span> <span class="fn">first</span>(arr) {
+<span class="kw">return</span> arr[<span class="num">0</span>];
+}
+
+<span class="kw">const</span> b = <span class="fn">first</span>([<span class="str">'x'</span>, <span class="str">'y'</span>]);
+<span class="kw">const</span> c = <span class="fn">first</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>]);
+<span class="kw">const</span> d = <span class="fn">first</span>([{ id: <span class="num">1</span> }, { id: <span class="num">2</span> }]);
+
+<span class="kw">const</span> e = <span class="fn">first</span>([<span class="str">'x'</span>, <span class="str">'y'</span>]);
+
+<span class="kw">function</span> <span class="fn">pair</span>(a, b) {
+<span class="kw">return</span> [a, b];
+}
+<span class="kw">const</span> p = <span class="fn">pair</span>(<span class="str">'x'</span>, <span class="num">1</span>);
+
+<span class="kw">function</span> <span class="fn">map</span>(arr, fn) {
+<span class="kw">return</span> arr.<span class="fn">map</span>(fn);
+}
+
+<span class="kw">const</span> lengths = <span class="fn">map</span>([<span class="str">'a'</span>, <span class="str">'bb'</span>, <span class="str">'ccc'</span>], s => s.length);
+
+console.<span class="fn">log</span>(b, c, p, lengths);</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">x 1 [ 'x', 1 ] [ 1, 2, 3 ]</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code><T></code> is a type variable</h4>
+<p>Think of T as a slot for a type. The caller fills it in — <code>first(['x'])</code> sets T = string. Inside the function, T is whatever the caller passed.</p>
+</div>
+<div class="concept-card">
+<h4>Inference fills T</h4>
+<p>You rarely write <code>first<string>(...)</code>. TypeScript infers T from the argument. Only specify T explicitly when inference can't figure it out or you want to force a specific type.</p>
+</div>
+<div class="concept-card">
+<h4>Type flows through</h4>
+<p>The return type <code>T</code> is the same T as the parameter. Pass <code>string[]</code>, get <code>string</code>. Pass <code>User[]</code>, get <code>User</code>. The relationship is preserved — that's the whole point.</p>
+</div>
+<div class="concept-card">
+<h4>Multiple params</h4>
+<p><code><T, U></code> declares two type variables. <code>map<T, U>(arr: T[], fn: (item: T) => U): U[]</code> — T is input, U is output, both inferred from the arguments.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Never use <code>any</code> where a generic belongs.</strong> <code>function first(arr: any[]): any</code> compiles but defeats the purpose — you've written an untyped function. <code>function first<T>(arr: T[]): T | undefined</code> is the same length and preserves full type safety. The only legitimate use of <code>any</code> is interop with untyped libraries. If you're writing new code, use a generic.</p>
+</div>
+</section>
+
+<section id="constraints">
+<h2 class="section-title">🔒 Generic constraints — restricting what T can be</h2>
+<p class="section-sub"><code>extends</code> on a type parameter says "T must satisfy this."</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">An unconstrained <code><T></code> can be anything — which means inside the function, you can't do much with it. <code>T.length</code> fails because T might not have a length. A constraint (<code><T extends SomeType></code>) narrows what T can be, and unlocks the properties of that type inside the function.</p>
+
+<div class="code-block" id="demo-constraints">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">constraints.ts</span>
+<button class="copy-btn" onclick="copyCode('code-constraints', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-constraints', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-constraints', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-constraints', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-constraints"><span class="com">// ─── Without a constraint ────────────────────</span>
+<span class="kw">function</span> <span class="fn">lenBad</span><T>(x: T): <span class="fn">number</span> {
+<span class="com">// return x.length; // ❌ Property 'length' does not exist on type 'T'</span>
+<span class="kw">return</span> <span class="num">0</span>;
+}
+
+<span class="com">// ─── With a constraint ───────────────────────</span>
+<span class="kw">function</span> <span class="fn">len</span><T <span class="kw">extends</span> { length: <span class="fn">number</span> }>(x: T): <span class="fn">number</span> {
+<span class="kw">return</span> x.length; <span class="com">// ✅ T is guaranteed to have .length</span>
+}
+
+<span class="fn">len</span>(<span class="str">'hello'</span>); <span class="com">// ✅ 5 — strings have length</span>
+<span class="fn">len</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>]); <span class="com">// ✅ 3 — arrays have length</span>
+<span class="com">// len(42); // ❌ number doesn't have length</span>
+
+<span class="com">// ─── Constraint with keyof ───────────────────</span>
+<span class="kw">function</span> <span class="fn">get</span><T, K <span class="kw">extends</span> <span class="kw">keyof</span> T>(obj: T, key: K): T[K] {
+<span class="kw">return</span> obj[key];
+}
+
+<span class="kw">const</span> user = { name: <span class="str">'Alice'</span>, age: <span class="num">28</span> };
+<span class="kw">const</span> n = <span class="fn">get</span>(user, <span class="str">'name'</span>); <span class="com">// string</span>
+<span class="kw">const</span> g = <span class="fn">get</span>(user, <span class="str">'age'</span>); <span class="com">// number</span>
+<span class="com">// get(user, 'email'); // ❌ 'email' is not a key of user</span>
+
+<span class="com">// ─── Constraint to a known union ─────────────</span>
+<span class="kw">type</span> Sortable = <span class="fn">string</span> | <span class="fn">number</span>;
+<span class="kw">function</span> <span class="fn">sort</span><T <span class="kw">extends</span> Sortable>(arr: T[]): T[] {
+<span class="kw">return</span> [...arr].<span class="fn">sort</span>();
+}
+<span class="fn">sort</span>([<span class="num">3</span>, <span class="num">1</span>, <span class="num">2</span>]); <span class="com">// ✅</span>
+<span class="com">// sort([{ x: 1 }]); // ❌ object not Sortable</span>
+
+<span class="com">// ─── Constraint to an interface ──────────────</span>
+<span class="kw">interface</span> HasId { id: <span class="fn">string</span> }
+<span class="kw">function</span> <span class="fn">findById</span><T <span class="kw">extends</span> HasId>(items: T[], id: <span class="fn">string</span>): T | <span class="fn">undefined</span> {
+<span class="kw">return</span> items.<span class="fn">find</span>(i => i.id === id);
+}
+
+console.<span class="fn">log</span>(<span class="fn">len</span>(<span class="str">'hello'</span>), n, g);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">lenBad</span>(x) {
+<span class="kw">return</span> <span class="num">0</span>;
+}
+
+<span class="kw">function</span> <span class="fn">len</span>(x) {
+<span class="kw">return</span> x.length;
+}
+
+<span class="fn">len</span>(<span class="str">'hello'</span>);
+<span class="fn">len</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>]);
+
+<span class="kw">function</span> <span class="fn">get</span>(obj, key) {
+<span class="kw">return</span> obj[key];
+}
+
+<span class="kw">const</span> user = { name: <span class="str">'Alice'</span>, age: <span class="num">28</span> };
+<span class="kw">const</span> n = <span class="fn">get</span>(user, <span class="str">'name'</span>);
+<span class="kw">const</span> g = <span class="fn">get</span>(user, <span class="str">'age'</span>);
+
+<span class="kw">function</span> <span class="fn">sort</span>(arr) {
+<span class="kw">return</span> [...arr].<span class="fn">sort</span>();
+}
+<span class="fn">sort</span>([<span class="num">3</span>, <span class="num">1</span>, <span class="num">2</span>]);
+
+<span class="kw">function</span> <span class="fn">findById</span>(items, id) {
+<span class="kw">return</span> items.<span class="fn">find</span>(i => i.id === id);
+}
+
+console.<span class="fn">log</span>(<span class="fn">len</span>(<span class="str">'hello'</span>), n, g);</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">5 Alice 28</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>extends</code> on a type param</h4>
+<p><code><T extends SomeType></code> restricts T to types compatible with SomeType. Any type that satisfies the shape is allowed — you're describing a minimum requirement.</p>
+</div>
+<div class="concept-card">
+<h4>Unlocks properties</h4>
+<p>Without a constraint, you can't access any specific property on T — it could be anything. The constraint tells the compiler "T has at least these properties," which unlocks using them.</p>
+</div>
+<div class="concept-card">
+<h4><code>keyof</code> constraint</h4>
+<p><code>K extends keyof T</code> restricts K to the keys of T. <code>get(user, 'name')</code> returns <code>string</code>; <code>get(user, 'email')</code> is a compile error. This is the pattern behind every typed <code>pick</code> and <code>get</code> function.</p>
+</div>
+<div class="concept-card">
+<h4>Constraint to a union</h4>
+<p><code><T extends string | number></code> allows only strings or numbers. Simple, readable, and often enough — unions are a powerful constraint form.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The <code>keyof</code> + index pattern is a superpower.</strong> <code>function get<T, K extends keyof T>(obj: T, key: K): T[K]</code> is one of the most useful generic signatures in TypeScript. It returns the <em>precise</em> type of the property you access — <code>get(user, 'name')</code> gives <code>string</code>, <code>get(user, 'age')</code> gives <code>number</code>. Every typed object utility (lodash's <code>get</code>, Immer's drafts, React Hook Form's <code>register</code>) is built on this pattern. Learn it once, recognize it everywhere.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different function/generic skill.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Generic utility functions</h4>
+<p>Write these three functions. Type each signature before writing the body:</p>
+<p>1. <code>last<T>(arr: T[]): T | undefined</code> — returns the last element or undefined if empty<br>
+2. <code>unique<T>(arr: T[]): T[]</code> — removes duplicates (hint: <code>new Set(arr)</code>, but return the array)<br>
+3. <code>groupBy<T, K extends string>(arr: T[], key: (item: T) => K): Record<K, T[]></code> — groups items by a key function</p>
+<p>For each, call the function with two different array types and hover over the result in VS Code to confirm the inferred return type. If it's not what you expect, read the compiler error and fix the signature — this is where generics become muscle memory.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Constraint with keyof</h4>
+<p>Build a typed <code>pluck</code> function:</p>
+<p>1. Signature: <code>pluck<T, K extends keyof T>(arr: T[], key: K): T[K][]</code><br>
+2. Given an array of objects and a key, return an array of that key's values<br>
+3. Example: <code>pluck([{ name: 'A', age: 1 }, { name: 'B', age: 2 }], 'name')</code> returns <code>['A', 'B']</code> typed as <code>string[]</code><br>
+4. Test that <code>pluck(users, 'email')</code> fails to compile if <code>email</code> isn't a key</p>
+<p>The point: <code>keyof</code> + indexed access (<code>T[K]</code>) lets TypeScript track the exact output type through the function. This is the pattern behind <code>_.pluck</code> and every typed data transformation library.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Build the alternative to overloads</h4>
+<p>Take a function that has two overloads (e.g. <code>format(x: string): number; format(x: number): string</code>) and rewrite it as a single generic function using a union + conditional type. Compare the two approaches:</p>
+<p>1. Which is easier to read?<br>
+2. Which produces better error messages when called wrong?<br>
+3. Which would you rather maintain?</p>
+<p>There's no single right answer — sometimes overloads win (DOM-style APIs), sometimes unions + conditional types win (data transformations). The exercise is to know both and make the trade consciously. This is the kind of judgment call that separates intermediate from senior TypeScript developers.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The function and generic bugs that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Forgetting parameter annotations</div>
+<p><code>function add(a, b)</code> makes both <code>any</code> — you've disabled type checking. Fix: always annotate parameters. This is the single most common TypeScript mistake.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using <code>any</code> where a generic belongs</div>
+<p><code>function first(arr: any[]): any</code> works but loses all type info. Fix: <code>function first<T>(arr: T[]): T | undefined</code>. Same length, full safety.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Accessing properties on unconstrained T</div>
+<p><code>function getLength<T>(x: T) { return x.length; }</code> — T might not have a length. Fix: constrain. <code><T extends { length: number }></code> tells the compiler "T has length."</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Optional before required</div>
+<p><code>function f(a?: number, b: number)</code> is a compile error — you can't skip a positional param and pass a later one. Fix: put required params first, or use an options object.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Overusing overloads</div>
+<p>Three or more overloads usually means the API should be redesigned. Fix: discriminated unions, generic conditional types, or a single options object. Overloads are a tool, not a default.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Forgetting that overloads don't narrow</div>
+<p>Inside the implementation of an overloaded function, TypeScript doesn't narrow automatically — the parameter is the broad union. Fix: check with <code>typeof</code>, <code>instanceof</code>, or <code>in</code> inside the body.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Explicit type args when inference works</div>
+<p><code>first<string>(['x'])</code> is redundant — inference already gives T = string. Fix: only specify type args when inference can't figure it out or you're forcing a wider type.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using generics when one type suffices</div>
+<p><code>function double<T>(n: T)</code> is wrong — <code>n * 2</code> fails on T. Fix: <code>function double(n: number)</code>. Only generic when the type genuinely varies AND you need to preserve the relationship between input and output.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I type a function in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Annotate the parameters and the return type: function add(a: number, b: number): number { return a + b; }. Parameters always need annotations — there's no initial value to infer from. Return types are inferred, but writing them on exported functions catches accidental API changes.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are generics in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Generics let you write functions and types that work with any type while preserving the specific type flowing through. function identity<T>(x: T): T { return x; } — T is a type parameter filled in by the caller. identity('hi') infers T = string and returns string. identity(42) infers T = number and returns number.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between a generic and any?</summary>
+<p class="mt-2 text-sm text-slate-300">any erases type information — a function returning any loses the input type at the call site. Generics preserve it: identity<T>(x: T): T returns the same type as the input. any is "I don't know, don't check." Generics are "I don't know yet, but I'll track it." For reusable code, generics are always preferred over any.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are generic constraints?</summary>
+<p class="mt-2 text-sm text-slate-300">A constraint restricts what types a generic can be. function getLength<T extends { length: number }>(x: T) { return x.length; } — T must have a length property. This lets you access T's properties inside the function. Constraints use extends: <T extends SomeType>.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are function overloads?</summary>
+<p class="mt-2 text-sm text-slate-300">Overloads let one function name have multiple call signatures. You declare each signature without a body, then implement a general version that handles all cases. Callers see the specific signatures, the implementation handles the union. Use sparingly: discriminated unions with type guards are often cleaner.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between function declaration and arrow function?</summary>
+<p class="mt-2 text-sm text-slate-300">Both work in TypeScript. Arrow functions capture this from the surrounding scope, function declarations define their own this. Type inference works the same way. For React components prefer arrow functions. For utilities, either works.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can generics have default types?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. function create<T = string>(): T[] { return []; } — if the caller doesn't specify T, it defaults to string. Defaults are useful when a generic is optional but you want a sensible fallback. For example: type Response<T = unknown> = { data: T; status: number }.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use generics?</summary>
+<p class="mt-2 text-sm text-slate-300">Use generics when (1) the input type and output type are the same — identity, first, last, map. (2) you want to preserve type info across a transformation — map<T, U>, filter<T>. (3) the function works with any type but needs to call a method on it — getLength<T extends { length: number }>. Don't use generics when the function actually works with one specific type.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue your TypeScript path</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/narrowing.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 4: Unions & narrowing</div>
+<div class="text-xs text-slate-400 mt-1">Model "one of these" safely</div>
+</a>
+<a href="/courses/typescript/lessons/interfaces.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 2: Interfaces & types</div>
+<div class="text-xs text-slate-400 mt-1">The prior lesson — describing shapes</div>
+</a>
+<a href="/courses/typescript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗺️ TypeScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🟨 JavaScript track</div>
+<div class="text-xs text-slate-400 mt-1">The prerequisite for everything TypeScript</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://www.typescriptlang.org/docs/handbook/2/functions.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Handbook — More on Functions</a></li>
+<li>→ <a href="https://www.typescriptlang.org/docs/handbook/2/generics.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Handbook — Generics</a></li>
+<li>→ <a href="https://www.typescriptlang.org/play" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">TypeScript Playground — try every snippet</a></li>
+</ul>
+</section>
+
+<a href="/courses/typescript/index.html" class="back-link">← Back to TypeScript track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the TypeScript track · Lesson 3 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
