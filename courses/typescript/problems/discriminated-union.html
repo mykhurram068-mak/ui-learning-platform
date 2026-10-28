@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Use Discriminated Unions in TypeScript (2026)</title>
+<meta name="description" content="Learn discriminated unions in TypeScript. Model state machines, API responses, and Redux actions with impossible states unrepresentable. Working code.">
+<meta name="keywords" content="typescript discriminated union, discriminated union pattern typescript, typescript state machine, typescript union tag, typescript exhaustive check">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Use Discriminated Unions in TypeScript">
+<meta property="og:description" content="Model state machines, API responses, and Redux actions with impossible states unrepresentable.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/discriminated-union.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Use Discriminated Unions in TypeScript">
+<meta name="twitter:description" content="The pattern that makes impossible states unrepresentable.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/discriminated-union.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Use Discriminated Unions in TypeScript",
+"description": "Learn discriminated unions in TypeScript. Model state machines, API responses, and Redux actions with impossible states unrepresentable.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is a discriminated union in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"A discriminated union is a union where every member has a shared property (the discriminant) with a unique literal value. type Result = { status: 'loading' } | { status: 'success'; data: User } | { status: 'error'; message: string }. The status field is the discriminant. Checking result.status === 'success' narrows the type to that specific member, unlocking its data field. This pattern models any 'one of these states' data and makes impossible states unrepresentable."}},
+{"@type":"Question","name":"Why use a discriminated union instead of optional fields?","acceptedAnswer":{"@type":"Answer","text":"Optional fields allow impossible combinations. { loading: boolean; data?: User; error?: Error } permits { loading: true, data: user, error: error } — a state that shouldn't exist. A discriminated union makes it unrepresentable: { status: 'loading' } has no data field, so you can't construct that bug. Every impossible state becomes a compile error."}},
+{"@type":"Question","name":"What is exhaustive checking?","acceptedAnswer":{"@type":"Answer","text":"Exhaustive checking ensures you handle every member of a union. In a switch with a case per discriminant, the default branch gets type never. Assigning the value to a never variable proves all cases were handled — and adding a new union member without handling it causes a compile error. The pattern: default: const _exhaustive: never = value; return _exhaustive;. This is how discriminated unions stay safe as they grow."}},
+{"@type":"Question","name":"What should I name the discriminant field?","acceptedAnswer":{"@type":"Answer","text":"Common conventions: kind (for shapes), status (for state machines), type (for Redux actions), tag (for tagged unions). The name doesn't matter to TypeScript — any field with a unique literal per member works. Pick a name that matches the domain: a shape has a kind, a request has a status, an action has a type. Consistency within a codebase matters more than the specific choice."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · discriminated union</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Discriminated union</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 6 min read</div>
+<h1>How to use discriminated unions.<br><span class="py-accent">Impossible states, unrepresentable.</span></h1>
+<p class="lead">
+A discriminated union is the single most important pattern in TypeScript. It's how you model any "one of these states" data — API responses, form states, Redux actions, UI modes. Every member shares a tag field with a unique literal, and checking that tag narrows to the exact member. This is what makes large app state manageable — impossible states become compile errors, not production bugs.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Give every union member a shared literal field (<code>kind</code>, <code>status</code>, <code>type</code>) with a unique value. <code>type Result = { status: 'loading' } | { status: 'success'; data: User } | { status: 'error'; message: string }</code>. Then <code>switch (result.status)</code> narrows to the exact member — you get <code>data</code> only on success, <code>message</code> only on error. Add exhaustive checking with <code>never</code> and the compiler finds every case you forgot.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Model an API response</h2>
+<p class="section-sub">The most common real-world use case.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A fetch request has exactly three or four possible states: idle, loading, success, error. Each state has different fields. A discriminated union makes the relationship explicit — you can't accidentally read <code>data</code> while loading, and you can't have <code>loading: true</code> alongside a <code>data</code> field.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">api-result.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── The discriminated union ─────────────────</span>
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+
+<span class="kw">type</span> ApiResult<T> =
+| { status: <span class="str">'idle'</span> }
+| { status: <span class="str">'loading'</span>; startedAt: <span class="fn">Date</span> }
+| { status: <span class="str">'success'</span>; data: T }
+| { status: <span class="str">'error'</span>; message: <span class="fn">string</span>; retryable: <span class="fn">boolean</span> };
+
+<span class="com">// ─── Render function with full narrowing ─────</span>
+<span class="kw">function</span> <span class="fn">render</span><T>(r: ApiResult<T>): <span class="fn">string</span> {
+<span class="kw">switch</span> (r.status) {
+<span class="kw">case</span> <span class="str">'idle'</span>:
+<span class="kw">return</span> <span class="str">'Ready'</span>;
+<span class="kw">case</span> <span class="str">'loading'</span>:
+<span class="kw">return</span> <span class="str">Loading since ${r.startedAt.toISOString()}</span&gt;; &lt;span class="kw"&gt;case&lt;/span&gt; &lt;span class="str"&gt;'success'&lt;/span&gt;: &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">Data: ${JSON.stringify(r.data)}</span>; <span class="com">// ✅ r.data</span>
+<span class="kw">case</span> <span class="str">'error'</span>:
+<span class="kw">return</span> <span class="str">Error: ${r.message}`</span>; <span class="com">// ✅ r.message</span>
+}
+}
+
+<span class="com">// ─── The compiler prevents impossible states ─</span>
+<span class="com">// Can't construct loading with data:
+// const bad: ApiResult<User> = {
+// status: 'loading',
+// data: { id: '1', name: 'Alice' }
+// // ❌ 'data' not in loading member
+// };
+//
+// Can't read data on loading:
+// function f(r: ApiResult<User>) {
+// if (r.status === 'loading') return r.data;
+// // ❌ Property 'data' does not exist on type '{ status: "loading"; ... }'
+// }</span>
+
+<span class="com">// ─── Type guards for reuse ───────────────────</span>
+<span class="kw">function</span> <span class="fn">isSuccess</span><T>(r: ApiResult<T>): r <span class="kw">is</span> { status: <span class="str">'success'</span>; data: T } {
+<span class="kw">return</span> r.status === <span class="str">'success'</span>;
+}
+
+<span class="kw">const</span> result: ApiResult<User> = { status: <span class="str">'success'</span>, data: { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> } };
+
+<span class="kw">if</span> (<span class="fn">isSuccess</span>(result)) {
+console.<span class="fn">log</span>(result.data.name); <span class="com">// ✅ narrowed to success member</span>
+}
+
+console.<span class="fn">log</span>(<span class="fn">render</span>(result));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">render</span>(r) {
+<span class="kw">switch</span> (r.status) {
+<span class="kw">case</span> <span class="str">'idle'</span>: <span class="kw">return</span> <span class="str">'Ready'</span>;
+<span class="kw">case</span> <span class="str">'loading'</span>: <span class="kw">return</span> <span class="str">Loading since${r.startedAt.toISOString()}</span&gt;; &lt;span class="kw"&gt;case&lt;/span&gt; &lt;span class="str"&gt;'success'&lt;/span&gt;: &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">Data: {r.message}`</span>;
+}
+}
+
+<span class="kw">function</span> <span class="fn">isSuccess</span>(r) {
+<span class="kw">return</span> r.status === <span class="str">'success'</span>;
+}
+
+<span class="kw">const</span> result = { status: <span class="str">'success'</span>, data: { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> } };
+
+<span class="kw">if</span> (<span class="fn">isSuccess</span>(result)) {
+console.<span class="fn">log</span>(result.data.name);
+}
+
+console.<span class="fn">log</span>(<span class="fn">render</span>(result));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Shared discriminant</h4>
+<p><code>status</code> on every member, unique literal per state. That's the field the compiler uses to narrow.</p>
+</div>
+<div class="concept-card">
+<h4>Per-member fields</h4>
+<p><code>data</code> only on <code>success</code>. <code>message</code> only on <code>error</code>. Accessing the wrong field is a compile error.</p>
+</div>
+<div class="concept-card">
+<h4>Switch narrows automatically</h4>
+<p><code>switch (r.status)</code> — each case narrows <code>r</code> to the exact member. No casts, no assertions.</p>
+</div>
+<div class="concept-card">
+<h4>Generics compose</h4>
+<p><code>ApiResult<T></code> — the success data type is a generic. One result type for every API endpoint.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>If your state has more than two related fields, make it a discriminated union.</strong> The <code>{ loading: boolean; data?: T; error?: Error }</code> shape permits <code>{ loading: true, data: user, error: err }</code> — three impossible combinations that the compiler can't catch. A discriminated union makes those combinations unrepresentable. Two-way switches on a single literal are the cleanest way to model any UI state, form state, or request state in a real app. This is the pattern that separates robust codebases from buggy ones.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Exhaustive checking with <code>never</code></h2>
+<p class="section-sub">Catch missing cases at compile time, forever.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When you add a new state to a discriminated union, TypeScript won't automatically warn you about all the places that need updating. Exhaustive checking solves this: force the compiler to verify every member is handled. Adding a new state triggers errors at every place that forgot it — like a compiler-enforced checklist.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">exhaustive.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── The pattern ─────────────────────────────</span>
+<span class="kw">type</span> Shape =
+| { kind: <span class="str">'circle'</span>; radius: <span class="fn">number</span> }
+| { kind: <span class="str">'square'</span>; side: <span class="fn">number</span> }
+| { kind: <span class="str">'triangle'</span>; base: <span class="fn">number</span>; height: <span class="fn">number</span> };
+
+<span class="kw">function</span> <span class="fn">area</span>(s: Shape): <span class="fn">number</span> {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>:
+<span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>:
+<span class="kw">return</span> s.side ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'triangle'</span>:
+<span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>;
+<span class="kw">default</span>:
+<span class="com">// s is never here — all cases handled</span>
+<span class="kw">const</span> _exhaustive: <span class="fn">never</span> = s;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="com">// ─── Add a new member → compile error ────────</span>
+<span class="kw">type</span> Shape2 =
+| { kind: <span class="str">'circle'</span>; radius: <span class="fn">number</span> }
+| { kind: <span class="str">'square'</span>; side: <span class="fn">number</span> }
+| { kind: <span class="str">'triangle'</span>; base: <span class="fn">number</span>; height: <span class="fn">number</span> }
+| { kind: <span class="str">'rectangle'</span>; width: <span class="fn">number</span>; height: <span class="fn">number</span> };
+
+<span class="kw">function</span> <span class="fn">area2</span>(s: Shape2): <span class="fn">number</span> {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>: <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>: <span class="kw">return</span> s.side ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'triangle'</span>: <span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>;
+<span class="com">// forgot rectangle!</span>
+<span class="kw">default</span>:
+<span class="com">// ❌ Type 'Shape2' is not assignable to type 'never'.
+// Type '{ kind: "rectangle"; ... }' is not assignable</span>
+<span class="kw">const</span> _exhaustive: <span class="fn">never</span> = s;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="com">// ─── The helper version ──────────────────────</span>
+<span class="kw">function</span> <span class="fn">assertNever</span>(x: <span class="fn">never</span>): <span class="fn">never</span> {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">Unexpected value: ${JSON.stringify(x)}`</span>);
+}
+
+<span class="kw">function</span> <span class="fn">area3</span>(s: Shape): <span class="fn">number</span> {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>: <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>: <span class="kw">return</span> s.side ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'triangle'</span>: <span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>;
+<span class="kw">default</span>:
+<span class="kw">return</span> <span class="fn">assertNever</span>(s); <span class="com">// cleaner</span>
+}
+}
+
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'circle'</span>, radius: <span class="num">2</span> }));
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'square'</span>, side: <span class="num">3</span> }));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">area</span>(s) {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>: <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>: <span class="kw">return</span> s.side ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'triangle'</span>: <span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>;
+<span class="kw">default</span>:
+<span class="kw">const</span> _exhaustive = s;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="kw">function</span> <span class="fn">area2</span>(s) {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>: <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>: <span class="kw">return</span> s.side ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'triangle'</span>: <span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>;
+<span class="kw">default</span>:
+<span class="kw">const</span> _exhaustive = s;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="kw">function</span> <span class="fn">assertNever</span>(x) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">Unexpected value:${JSON.stringify(x)}`</span>);
+}
+
+<span class="kw">function</span> <span class="fn">area3</span>(s) {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>: <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>: <span class="kw">return</span> s.side ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'triangle'</span>: <span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>;
+<span class="kw">default</span>:
+<span class="kw">return</span> <span class="fn">assertNever</span>(s);
+}
+}
+
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'circle'</span>, radius: <span class="num">2</span> }));
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'square'</span>, side: <span class="num">3</span> }));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>never</code> as proof</h4>
+<p>When all cases are handled, <code>s</code> is <code>never</code>. Assigning it proves no cases were missed — it's a compile-time proof of exhaustiveness.</p>
+</div>
+<div class="concept-card">
+<h4>New member = error</h4>
+<p>Add a case to the union, forget the switch, and the <code>default</code> fails. The compiler finds every place that needs updating.</p>
+</div>
+<div class="concept-card">
+<h4><code>assertNever</code> helper</h4>
+<p>A function that takes <code>never</code>. If reached at runtime, throws. Cleaner than inline <code>const _: never</code> in every function.</p>
+</div>
+<div class="concept-card">
+<h4>Works with if-else too</h4>
+<p>Same pattern with if-else: after all the branches, <code>s</code> is <code>never</code>. Assign to a variable of type <code>never</code> at the end.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Reducer actions with discriminated unions</h2>
+<p class="section-sub">The pattern behind Redux, useReducer, and every state machine.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Every action in a reducer is one of a fixed set. Each action has different payload requirements. A discriminated union makes this explicit — <code>type: 'add'</code> requires a <code>by</code>, <code>type: 'reset'</code> requires nothing. Dispatching a wrong shape is a compile error, not a silent no-op.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">reducer.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── State and actions ───────────────────────</span>
+<span class="kw">interface</span> State {
+count: <span class="fn">number</span>;
+history: <span class="fn">number</span>[];
+}
+
+<span class="kw">type</span> Action =
+| { type: <span class="str">'increment'</span> }
+| { type: <span class="str">'decrement'</span> }
+| { type: <span class="str">'add'</span>; by: <span class="fn">number</span> }
+| { type: <span class="str">'reset'</span> }
+| { type: <span class="str">'undo'</span> };
+
+<span class="com">// ─── The reducer ─────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">reducer</span>(state: State, action: Action): State {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'increment'</span>:
+<span class="kw">return</span> { count: state.count + <span class="num">1</span>, history: [...state.history, state.count + <span class="num">1</span>] };
+<span class="kw">case</span> <span class="str">'decrement'</span>:
+<span class="kw">return</span> { count: state.count - <span class="num">1</span>, history: [...state.history, state.count - <span class="num">1</span>] };
+<span class="kw">case</span> <span class="str">'add'</span>:
+<span class="kw">return</span> { count: state.count + action.by, history: [...state.history, state.count + action.by] };
+<span class="com">// ↑ action.by exists only here</span>
+<span class="kw">case</span> <span class="str">'reset'</span>:
+<span class="kw">return</span> { count: <span class="num">0</span>, history: [] };
+<span class="kw">case</span> <span class="str">'undo'</span>:
+<span class="kw">const</span> prev = state.history[state.history.length - <span class="num">2</span>] ?? <span class="num">0</span>;
+<span class="kw">return</span> { count: prev, history: state.history.<span class="fn">slice</span>(<span class="num">0</span>, -<span class="num">1</span>) };
+<span class="kw">default</span>:
+<span class="kw">const</span> _exhaustive: <span class="fn">never</span> = action;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="com">// ─── Dispatch type-safety ────────────────────</span>
+<span class="kw">function</span> <span class="fn">dispatch</span>(action: Action): <span class="fn">void</span> {
+console.<span class="fn">log</span>(<span class="str">'dispatch'</span>, action);
+}
+
+<span class="fn">dispatch</span>({ type: <span class="str">'increment'</span> }); <span class="com">// ✅ no payload</span>
+<span class="fn">dispatch</span>({ type: <span class="str">'add'</span>, by: <span class="num">5</span> }); <span class="com">// ✅ by: number required</span>
+<span class="fn">dispatch</span>({ type: <span class="str">'reset'</span> }); <span class="com">// ✅</span>
+
+<span class="com">// ─── Type errors caught at dispatch ──────────</span>
+<span class="com">// dispatch({ type: 'add' });
+// ❌ Property 'by' is missing</span>
+<span class="com">// dispatch({ type: 'reset', by: 5 });
+// ❌ Object literal may only specify known properties</span>
+<span class="com">// dispatch({ type: 'multiply' });
+// ❌ Type '"multiply"' is not assignable to type 'Action["type"]'</span>
+
+<span class="com">// ─── Same shape for Redux ────────────────────</span>
+<span class="com">// Redux Toolkit uses exactly this pattern:
+//
+// const slice = createSlice({
+// name: 'counter',
+// initialState: { count: 0 } as State,
+// reducers: {
+// increment: (s) => { s.count++ },
+// add: (s, action: PayloadAction<number>) => { s.count += action.payload }
+// }
+// });
+//
+// Every action is a discriminated union member —
+// action.type narrows to the exact shape.</span>
+
+<span class="com">// ─── useReducer in React ─────────────────────
+// The same pattern applies directly:
+//
+// const [state, dispatch] = useReducer(reducer, { count: 0, history: [] });
+// dispatch({ type: 'add', by: 10 });
+//
+// dispatch is fully typed from the Action union.
+// Try dispatching a wrong shape — compile error.</span>
+
+<span class="kw">const</span> initial: State = { count: <span class="num">0</span>, history: [] };
+<span class="kw">const</span> after1 = <span class="fn">reducer</span>(initial, { type: <span class="str">'increment'</span> });
+<span class="kw">const</span> after2 = <span class="fn">reducer</span>(after1, { type: <span class="str">'add'</span>, by: <span class="num">10</span> });
+console.<span class="fn">log</span>(after2);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">reducer</span>(state, action) {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'increment'</span>:
+<span class="kw">return</span> { count: state.count + <span class="num">1</span>, history: [...state.history, state.count + <span class="num">1</span>] };
+<span class="kw">case</span> <span class="str">'decrement'</span>:
+<span class="kw">return</span> { count: state.count - <span class="num">1</span>, history: [...state.history, state.count - <span class="num">1</span>] };
+<span class="kw">case</span> <span class="str">'add'</span>:
+<span class="kw">return</span> { count: state.count + action.by, history: [...state.history, state.count + action.by] };
+<span class="kw">case</span> <span class="str">'reset'</span>:
+<span class="kw">return</span> { count: <span class="num">0</span>, history: [] };
+<span class="kw">case</span> <span class="str">'undo'</span>:
+<span class="kw">const</span> prev = state.history[state.history.length - <span class="num">2</span>] ?? <span class="num">0</span>;
+<span class="kw">return</span> { count: prev, history: state.history.<span class="fn">slice</span>(<span class="num">0</span>, -<span class="num">1</span>) };
+<span class="kw">default</span>:
+<span class="kw">const</span> _exhaustive = action;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="kw">function</span> <span class="fn">dispatch</span>(action) {
+console.<span class="fn">log</span>(<span class="str">'dispatch'</span>, action);
+}
+
+<span class="fn">dispatch</span>({ type: <span class="str">'increment'</span> });
+<span class="fn">dispatch</span>({ type: <span class="str">'add'</span>, by: <span class="num">5</span> });
+<span class="fn">dispatch</span>({ type: <span class="str">'reset'</span> });
+
+<span class="kw">const</span> initial = { count: <span class="num">0</span>, history: [] };
+<span class="kw">const</span> after1 = <span class="fn">reducer</span>(initial, { type: <span class="str">'increment'</span> });
+<span class="kw">const</span> after2 = <span class="fn">reducer</span>(after1, { type: <span class="str">'add'</span>, by: <span class="num">10</span> });
+console.<span class="fn">log</span>(after2);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Actions as union</h4>
+<p>Each action variant is a member with its own required fields. <code>'add'</code> requires <code>by: number</code>; <code>'reset'</code> requires nothing.</p>
+</div>
+<div class="concept-card">
+<h4>Switch narrows the action</h4>
+<p><code>switch (action.type)</code> — each case gets the specific action shape. <code>action.by</code> only exists in the <code>'add'</code> case.</p>
+</div>
+<div class="concept-card">
+<h4>Dispatch is checked</h4>
+<p><code>dispatch({ type: 'add' })</code> fails — <code>by</code> is missing. <code>dispatch({ type: 'multiply' })</code> fails — not a valid type.</p>
+</div>
+<div class="concept-card">
+<h4>Works with useReducer</h4>
+<p>Same pattern inside <code>useReducer</code>. <code>dispatch</code> is typed from the <code>Action</code> union. React's built-in reducer support takes this shape directly.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The discriminated union bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using optional fields instead</div>
+<p><code>{ loading: boolean; data?: User; error?: Error }</code> allows impossible combinations. Fix: discriminated union — each state is its own shape.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Missing the discriminant field</div>
+<p>Two objects with no shared literal field can't be narrowed. Fix: add <code>kind</code>, <code>status</code>, or <code>type</code> to every member.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Not using exhaustive checking</div>
+<p>No <code>never</code> in the default — adding a new state doesn't error. Fix: always include <code>const _: never = x</code> in the default.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using a non-literal discriminant</div>
+<p><code>status: string</code> isn't a discriminant — it's an index signature. Fix: <code>status: 'loading' | 'success' | 'error'</code> — must be literal types.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting to handle a case</div>
+<p><code>switch</code> with a missing case — TypeScript may allow it if no <code>never</code> check. Fix: exhaustive pattern finds these.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Casting instead of narrowing</div>
+<p><code>(r as Success).data</code> — bypasses the check. Fix: check <code>r.status === 'success'</code> first. The compiler then narrows without a cast.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using the discriminant in a variable</div>
+<p><code>const s = r.status; if (s === 'success') { r.data }</code> — <code>s</code> being success doesn't narrow <code>r</code>. Fix: check <code>r.status === 'success'</code> directly.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not extracting per-state helpers</div>
+<p>Every component doing its own <code>switch</code> is repetition. Fix: extract <code>isSuccess</code>, <code>isError</code> guards — reusable, composable.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a discriminated union in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">A discriminated union is a union where every member has a shared property (the discriminant) with a unique literal value. type Result = { status: 'loading' } | { status: 'success'; data: User } | { status: 'error'; message: string }. The status field is the discriminant. Checking result.status === 'success' narrows the type to that specific member.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why use a discriminated union instead of optional fields?</summary>
+<p class="mt-2 text-sm text-slate-300">Optional fields allow impossible combinations. { loading: boolean; data?: User; error?: Error } permits { loading: true, data: user, error: error } — a state that shouldn't exist. A discriminated union makes it unrepresentable: { status: 'loading' } has no data field, so you can't construct that bug.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is exhaustive checking?</summary>
+<p class="mt-2 text-sm text-slate-300">Exhaustive checking ensures you handle every member of a union. In a switch with a case per discriminant, the default branch gets type never. Assigning the value to a never variable proves all cases were handled — and adding a new union member without handling it causes a compile error.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What should I name the discriminant field?</summary>
+<p class="mt-2 text-sm text-slate-300">Common conventions: kind (for shapes), status (for state machines), type (for Redux actions), tag (for tagged unions). The name doesn't matter to TypeScript — any field with a unique literal per member works. Pick a name that matches the domain.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/narrowing.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 4: Unions & narrowing</div>
+<div class="text-xs text-slate-400 mt-1">The full narrowing toolkit</div>
+</a>
+<a href="/courses/typescript/problems/narrow-union.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to narrow a union type</div>
+<div class="text-xs text-slate-400 mt-1">Every narrowing technique</div>
+</a>
+<a href="/courses/typescript/problems/usestate-object.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to type useState with an object</div>
+<div class="text-xs text-slate-400 mt-1">Combine with discriminated unions</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
