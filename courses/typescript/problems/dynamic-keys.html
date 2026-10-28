@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Type an Object with Dynamic Keys in TypeScript (2026)</title>
+<meta name="description" content="Type an object with dynamic keys in TypeScript using Record, index signatures, and generics. Learn the 3 approaches and when to use each — with working code.">
+<meta name="keywords" content="typescript dynamic keys, typescript object dynamic keys, typescript record type, typescript index signature, typescript typed dictionary">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Type an Object with Dynamic Keys in TypeScript">
+<meta property="og:description" content="Type an object with dynamic keys in TypeScript using Record, index signatures, and generics. 3 approaches, working code, when to use each.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/dynamic-keys.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Type an Object with Dynamic Keys in TypeScript">
+<meta name="twitter:description" content="Type an object with dynamic keys in TypeScript using Record, index signatures, and generics.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/dynamic-keys.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Type an Object with Dynamic Keys in TypeScript",
+"description": "Type an object with dynamic keys in TypeScript using Record, index signatures, and generics. Learn the 3 approaches and when to use each.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I type an object with dynamic keys in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Use Record<K, V> when you know the set of keys (e.g. Record<'admin' | 'user', Permissions>). Use an index signature { [key: string]: V } when keys are truly open-ended. Use a Map<K, V> when keys are non-string. Record is almost always the right choice — it constrains both keys and values, while a plain index signature only constrains values."}},
+{"@type":"Question","name":"What is the difference between Record and index signature?","acceptedAnswer":{"@type":"Answer","text":"Both describe dictionaries. The index signature { [key: string]: T } allows any string key — no autocomplete, no typo protection. Record<'a' | 'b', T> restricts keys to a known union — autocomplete works, and using an unknown key is a compile error. Prefer Record when the keys are known at compile time; use index signatures only for truly open-ended keys like parsed JSON."}},
+{"@type":"Question","name":"Can I type dynamic keys with computed property names?","acceptedAnswer":{"@type":"Answer","text":"Yes, but TypeScript requires the key to be a literal type. const key = 'name' as const; const obj = { [key]: 'Alice' } — this works and gives obj the type { name: string }. Without as const, key is inferred as string, and the computed property produces an index signature. Use as const on the key, or define the shape with Record."}},
+{"@type":"Question","name":"How do I type a Map with dynamic keys?","acceptedAnswer":{"@type":"Answer","text":"Use Map<K, V> instead of a plain object when keys can be numbers, booleans, or objects — not just strings. new Map<string, number>() has typed .get, .set, .has. Plain objects only support string and symbol keys; Maps support any key type. For string-keyed dictionaries, Record is usually simpler than Map."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · dynamic keys</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Dynamic keys</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>How to type an object with dynamic keys.<br><span class="py-accent">Three approaches, one answer.</span></h1>
+<p class="lead">
+You have an object where the keys aren't known upfront — a dictionary, a lookup table, a cache. TypeScript needs a type for it, and the syntax isn't obvious. Here's the answer: <code>Record</code> for known keys, index signatures for open-ended keys, and generics when the value type depends on the key.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>Record<K, V></code> when the keys are known (<code>Record<'admin' | 'user', Permission[]></code>). Use <code>{ [key: string]: V }</code> when keys are truly open-ended. Use <code>Map<K, V></code> when keys aren't strings. <strong>Record is almost always the right choice</strong> — it constrains keys and values, where a plain index signature only constrains values.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — <code>Record<K, V></code> (the modern default)</h2>
+<p class="section-sub">When the set of keys is known at compile time.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Record takes two type parameters: the key type and the value type. If the keys are a union of literal strings — <code>'admin' | 'user' | 'guest'</code> — the resulting type has exactly those three keys, with the value type for each. This is the safest way to type a dictionary, and it's what every library uses.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">record.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── Record with known keys ─────────────────</span>
+<span class="kw">type</span> Role = <span class="str">'admin'</span> | <span class="str">'user'</span> | <span class="str">'guest'</span>;
+<span class="kw">type</span> Permissions = <span class="fn">Record</span><Role, <span class="fn">string</span>[]>;
+
+<span class="kw">const</span> perms: Permissions = {
+admin: [<span class="str">'read'</span>, <span class="str">'write'</span>, <span class="str">'delete'</span>],
+user: [<span class="str">'read'</span>, <span class="str">'write'</span>],
+guest: [<span class="str">'read'</span>]
+<span class="com">// ❌ Missing 'guest' → compile error (Record enforces all keys)</span>
+};
+
+<span class="com">// ─── Autocomplete + typo protection ─────────</span>
+perms.admin; <span class="com">// ✅ string[] — autocomplete works</span>
+perms.admim; <span class="com">// ❌ Property 'admim' does not exist</span>
+
+<span class="com">// ─── Record with value transforms ───────────</span>
+<span class="kw">type</span> Status = <span class="str">'idle'</span> | <span class="str">'loading'</span> | <span class="str">'success'</span> | <span class="str">'error'</span>;
+<span class="kw">type</span> StatusLabels = <span class="fn">Record</span><Status, <span class="fn">string</span>>;
+
+<span class="kw">const</span> labels: StatusLabels = {
+idle: <span class="str">'Ready'</span>,
+loading: <span class="str">'Loading…'</span>,
+success: <span class="str">'Done'</span>,
+error: <span class="str">'Failed'</span>
+};
+
+<span class="com">// ─── Record with a general string key ───────</span>
+<span class="com">// If keys really are arbitrary strings:</span>
+<span class="kw">type</span> StringDict = <span class="fn">Record</span><<span class="fn">string</span>, <span class="fn">number</span>>;
+<span class="kw">const</span> scores: StringDict = { alice: <span class="num">90</span>, bob: <span class="num">85</span> };
+<span class="com">// ⚠️ No typo protection — any string key works.
+// Prefer a literal union when you can.</span>
+
+console.<span class="fn">log</span>(perms.admin, labels.success, scores.alice);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Record type erased at compile time. Only values remain.</span>
+
+<span class="kw">const</span> perms = {
+admin: [<span class="str">'read'</span>, <span class="str">'write'</span>, <span class="str">'delete'</span>],
+user: [<span class="str">'read'</span>, <span class="str">'write'</span>],
+guest: [<span class="str">'read'</span>]
+};
+
+perms.admin;
+<span class="com">// perms.admim; ← would return undefined in JS. TS catches it.</span>
+
+<span class="kw">const</span> labels = {
+idle: <span class="str">'Ready'</span>,
+loading: <span class="str">'Loading…'</span>,
+success: <span class="str">'Done'</span>,
+error: <span class="str">'Failed'</span>
+};
+
+<span class="kw">const</span> scores = { alice: <span class="num">90</span>, bob: <span class="num">85</span> };
+
+console.<span class="fn">log</span>(perms.admin, labels.success, scores.alice);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Two type params</h4>
+<p><code>Record<K, V></code> — K is the key type (usually a literal union), V is the value type. Both are required.</p>
+</div>
+<div class="concept-card">
+<h4>Enforces all keys</h4>
+<p>If K is <code>'a' | 'b' | 'c'</code>, the object must have all three. This catches "forgot a role" bugs at compile time.</p>
+</div>
+<div class="concept-card">
+<h4>Autocomplete works</h4>
+<p>TypeScript knows the exact set of keys. Hovering over the object shows all valid keys. Typos fail to compile.</p>
+</div>
+<div class="concept-card">
+<h4>When K is <code>string</code></h4>
+<p><code>Record<string, V></code> allows any string key — equivalent to an index signature. Use a literal union whenever possible.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Record is the single most-used utility type in production code.</strong> Look at any codebase's config, i18n messages, role maps, or feature flags — they're all <code>Record<SomeUnion, SomeType></code>. The pattern is universal: define your keys as a union type, then build a Record from it. When you see <code>{ [key: string]: T }</code> in code, ask "could these keys be a union?" If yes, replace with Record — you gain compile-time key checking, autocomplete, and automatic exhaustiveness.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Index signature (open-ended keys)</h2>
+<p class="section-sub">When keys are genuinely arbitrary — parsed JSON, unknown API responses.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">An index signature <code>{ [key: string]: V }</code> says "any string key maps to a value of type V." Unlike Record, it doesn't restrict which keys exist — any key is valid, and any key returns V. Use it only when you can't enumerate the keys, like when parsing arbitrary JSON.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">index-signature.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── Index signature ─────────────────────────</span>
+<span class="kw">interface</span> StringDict {
+[key: <span class="fn">string</span>]: <span class="fn">number</span>;
+}
+
+<span class="kw">const</span> scores: StringDict = {
+alice: <span class="num">90</span>,
+bob: <span class="num">85</span>
+<span class="com">// any string key works — no restriction</span>
+};
+
+scores.charlie = <span class="num">77</span>; <span class="com">// ✅ any string key allowed</span>
+<span class="com">// scores.dave = 'A'; // ❌ value must be number</span>
+
+<span class="com">// ─── Type of unknown keys ────────────────────</span>
+<span class="com">// Accessing an arbitrary key returns V, NOT V | undefined.
+// TypeScript doesn't know if the key exists.</span>
+<span class="kw">const</span> x: <span class="fn">number</span> = scores.nonexistent; <span class="com">// ⚠️ compiles, but is undefined at runtime</span>
+
+<span class="com">// ─── Add known keys alongside ────────────────</span>
+<span class="kw">interface</span> Config {
+[key: <span class="fn">string</span>]: <span class="fn">string</span>;
+version: <span class="fn">string</span>; <span class="com">// known key — must match index signature type</span>
+host: <span class="fn">string</span>;
+}
+
+<span class="kw">const</span> cfg: Config = {
+version: <span class="str">'1.0'</span>,
+host: <span class="str">'localhost'</span>,
+extra: <span class="str">'value'</span> <span class="com">// ✅ allowed by index signature</span>
+};
+
+<span class="com">// ─── When to use this vs Record ──────────────</span>
+<span class="com">// Use index signature when keys are parsed at runtime:
+// const data: unknown = JSON.parse(text);
+// if (isStringDict(data)) { ... }</span>
+
+console.<span class="fn">log</span>(scores.alice, cfg.version);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Index signature erased. Runtime is a plain object.</span>
+
+<span class="kw">const</span> scores = {
+alice: <span class="num">90</span>,
+bob: <span class="num">85</span>
+};
+
+scores.charlie = <span class="num">77</span>;
+<span class="com">// scores.dave = 'A'; ← TS prevents; JS allows (bug)</span>
+
+<span class="kw">const</span> x = scores.nonexistent; <span class="com">// undefined</span>
+
+<span class="kw">const</span> cfg = {
+version: <span class="str">'1.0'</span>,
+host: <span class="str">'localhost'</span>,
+extra: <span class="str">'value'</span>
+};
+
+console.<span class="fn">log</span>(scores.alice, cfg.version);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Any key allowed</h4>
+<p><code>{ [key: string]: V }</code> — any string key works. No enumeration, no autocomplete. The value type is still checked.</p>
+</div>
+<div class="concept-card">
+<h4>Accessing is unsafe</h4>
+<p><code>dict.anything</code> returns <code>V</code>, not <code>V | undefined</code>. TypeScript can't know if the key exists. Check with <code>key in obj</code> or use <code>Record</code> instead.</p>
+</div>
+<div class="concept-card">
+<h4>Can combine with known keys</h4>
+<p>A type can have both specific properties and an index signature. The specific ones must match the index signature's value type.</p>
+</div>
+<div class="concept-card">
+<h4>Legitimate use: JSON parsing</h4>
+<p>The one case where index signatures are right: when keys come from runtime data you can't enumerate. Narrow the result with a type guard.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Index signatures don't give you the safety you might expect.</strong> <code>scores.nonexistent</code> compiles and returns <code>undefined</code> at runtime — TypeScript assumes every string key exists. This is why <code>Record</code> with a literal union is preferred: it makes <em>which</em> keys exist part of the type. Reach for index signatures only when keys truly can't be enumerated (parsed JSON, feature flags, i18n dictionaries loaded at runtime).</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — <code>Map<K, V></code> (non-string keys)</h2>
+<p class="section-sub">When keys are numbers, booleans, or objects — not strings.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Plain objects only support string and symbol keys. If you need number keys, object keys, or any other type, use <code>Map</code>. It's a standard library feature with typed <code>.get</code>, <code>.set</code>, <code>.has</code>, <code>.delete</code>, and correct handling of missing keys (<code>undefined</code>, not a silent assumption).</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">map.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── Map with number keys ───────────────────</span>
+<span class="kw">const</span> userById = <span class="kw">new</span> <span class="fn">Map</span><<span class="fn">number</span>, <span class="fn">string</span>>();
+userById.<span class="fn">set</span>(<span class="num">1</span>, <span class="str">'Alice'</span>);
+userById.<span class="fn">set</span>(<span class="num">2</span>, <span class="str">'Bob'</span>);
+
+userById.<span class="fn">get</span>(<span class="num">1</span>); <span class="com">// string | undefined</span>
+userById.<span class="fn">has</span>(<span class="num">3</span>); <span class="com">// boolean — safe check</span>
+<span class="com">// userById.set('x', 'y'); // ❌ key must be number</span>
+
+<span class="com">// ─── Map with object keys ───────────────────</span>
+<span class="kw">interface</span> User { id: <span class="fn">number</span>; name: <span class="fn">string</span> }
+<span class="kw">const</span> scores = <span class="kw">new</span> <span class="fn">Map</span><User, <span class="fn">number</span>>();
+<span class="kw">const</span> alice: User = { id: <span class="num">1</span>, name: <span class="str">'Alice'</span> };
+scores.<span class="fn">set</span>(alice, <span class="num">100</span>);
+
+<span class="com">// ─── Map with string keys (still fine) ──────</span>
+<span class="kw">const</span> flags = <span class="kw">new</span> <span class="fn">Map</span><<span class="fn">string</span>, <span class="fn">boolean</span>>();
+flags.<span class="fn">set</span>(<span class="str">'darkMode'</span>, <span class="kw">true</span>);
+flags.<span class="fn">set</span>(<span class="str">'notifications'</span>, <span class="kw">false</span>);
+
+<span class="com">// ─── Iterating a Map is predictable ─────────</span>
+<span class="kw">for</span> (<span class="kw">const</span> [id, name] <span class="kw">of</span> userById) {
+console.<span class="fn">log</span>(id, name); <span class="com">// id: number, name: string</span>
+}
+
+<span class="com">// ─── Size is O(1) ───────────────────────────</span>
+console.<span class="fn">log</span>(userById.size); <span class="com">// number</span>
+
+console.<span class="fn">log</span>(userById.<span class="fn">get</span>(<span class="num">1</span>), flags.<span class="fn">get</span>(<span class="str">'darkMode'</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Map is a runtime class — no erasure. Types are annotations only.</span>
+
+<span class="kw">const</span> userById = <span class="kw">new</span> <span class="fn">Map</span>();
+userById.<span class="fn">set</span>(<span class="num">1</span>, <span class="str">'Alice'</span>);
+userById.<span class="fn">set</span>(<span class="num">2</span>, <span class="str">'Bob'</span>);
+
+userById.<span class="fn">get</span>(<span class="num">1</span>);
+userById.<span class="fn">has</span>(<span class="num">3</span>);
+
+<span class="kw">const</span> scores = <span class="kw">new</span> <span class="fn">Map</span>();
+<span class="kw">const</span> alice = { id: <span class="num">1</span>, name: <span class="str">'Alice'</span> };
+scores.<span class="fn">set</span>(alice, <span class="num">100</span>);
+
+<span class="kw">const</span> flags = <span class="kw">new</span> <span class="fn">Map</span>();
+flags.<span class="fn">set</span>(<span class="str">'darkMode'</span>, <span class="kw">true</span>);
+flags.<span class="fn">set</span>(<span class="str">'notifications'</span>, <span class="kw">false</span>);
+
+<span class="kw">for</span> (<span class="kw">const</span> [id, name] <span class="kw">of</span> userById) {
+console.<span class="fn">log</span>(id, name);
+}
+
+console.<span class="fn">log</span>(userById.size);
+
+console.<span class="fn">log</span>(userById.<span class="fn">get</span>(<span class="num">1</span>), flags.<span class="fn">get</span>(<span class="str">'darkMode'</span>));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Any key type</h4>
+<p><code>Map<K, V></code> accepts any K, including numbers, booleans, objects, and other Maps. Plain objects only support strings and symbols.</p>
+</div>
+<div class="concept-card">
+<h4>Safe missing keys</h4>
+<p><code>.get(k)</code> returns <code>V | undefined</code> — TypeScript forces you to handle the missing case. <code>.has(k)</code> gives a boolean check.</p>
+</div>
+<div class="concept-card">
+<h4>Ordered iteration</h4>
+<p>Maps preserve insertion order. Iterating with <code>for...of</code> gives <code>[K, V]</code> tuples — correctly typed.</p>
+</div>
+<div class="concept-card">
+<h4>O(1) size</h4>
+<p><code>.size</code> is O(1) on Maps. On plain objects, you need <code>Object.keys(obj).length</code>, which is O(n).</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Choose based on key type, not habit.</strong> If keys are strings or a literal union of strings → <code>Record</code>. If keys are numbers, objects, or anything else → <code>Map</code>. If keys are truly arbitrary strings you can't enumerate (parsed JSON) → index signature. That's the entire decision tree. Ninety percent of the time, it's <code>Record</code>. The other ten percent, it's <code>Map</code>. Index signatures are the rarest — and they should be.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The dynamic-key bugs that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using index signature when you know the keys</div>
+<p><code>{ [key: string]: number }</code> for a fixed set of role names loses all type safety. Fix: <code>Record<'admin' | 'user', number></code>. Autocomplete, typo protection, exhaustiveness — all free.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Expecting index signature to catch missing keys</div>
+<p><code>scores.nonexistent</code> compiles and returns <code>undefined</code>. Fix: use <code>Record</code> for known keys, or check with <code>if (key in obj)</code> before access.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using <code>any</code> as the value type</div>
+<p><code>{ [key: string]: any }</code> defeats the point. Fix: <code>{ [key: string]: User }</code> or <code>Record<string, User></code>. The value type is the whole check.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Forgetting that number keys coerce to strings</div>
+<p><code>{ [1]: 'a' }</code> in JS uses the string <code>'1'</code> as the key. Fix: use <code>Map<number, V></code> if you truly need numeric keys.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using computed property names without <code>as const</code></div>
+<p><code>const k = 'name'; const obj = { [k]: 'Alice' }</code> — obj has type <code>{ [x: string]: string }</code>, not <code>{ name: string }</code>. Fix: <code>const k = 'name' as const;</code> — then the key is the literal type.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Trying to iterate Record with <code>for...of</code></div>
+<p><code>for (const k of obj)</code> fails — objects aren't iterable. Fix: <code>Object.keys(obj).forEach(k => ...)</code>, or use <code>Map</code> if iteration is core to the design.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Confusing <code>Record<string, V></code> with <code>Map<string, V></code></div>
+<p>They're different at runtime — Record is a plain object, Map is a class. Fix: use Record for literal objects, Map for mutable collections that need <code>.size</code>, iteration, or non-string keys.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using <code>Record<string, T></code> everywhere</div>
+<p><code>Record<string, T></code> allows any string key — same problem as an index signature. Fix: constrain K to a union of known strings whenever possible. Only fall back to <code>string</code> when the keys are truly open-ended.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I type an object with dynamic keys in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Use Record<K, V> when you know the set of keys (e.g. Record<'admin' | 'user', Permissions>). Use an index signature { [key: string]: V } when keys are truly open-ended. Use a Map<K, V> when keys are non-string. Record is almost always the right choice — it constrains both keys and values, while a plain index signature only constrains values.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between Record and index signature?</summary>
+<p class="mt-2 text-sm text-slate-300">Both describe dictionaries. The index signature { [key: string]: T } allows any string key — no autocomplete, no typo protection. Record<'a' | 'b', T> restricts keys to a known union — autocomplete works, and using an unknown key is a compile error. Prefer Record when the keys are known at compile time; use index signatures only for truly open-ended keys like parsed JSON.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I type dynamic keys with computed property names?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, but TypeScript requires the key to be a literal type. const key = 'name' as const; const obj = { [key]: 'Alice' } — this works and gives obj the type { name: string }. Without as const, key is inferred as string, and the computed property produces an index signature. Use as const on the key, or define the shape with Record.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I type a Map with dynamic keys?</summary>
+<p class="mt-2 text-sm text-slate-300">Use Map<K, V> instead of a plain object when keys can be numbers, booleans, or objects — not just strings. new Map<string, number>() has typed .get, .set, .has. Plain objects only support string and symbol keys; Maps support any key type. For string-keyed dictionaries, Record is usually simpler than Map.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/utility-types.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 6: Utility types</div>
+<div class="text-xs text-slate-400 mt-1">Record, Partial, Pick, Omit in depth</div>
+</a>
+<a href="/courses/typescript/lessons/interfaces.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 2: Interfaces & types</div>
+<div class="text-xs text-slate-400 mt-1">Index signatures and object shapes</div>
+</a>
+<a href="/courses/typescript/problems/record-type.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to use Record in TypeScript</div>
+<div class="text-xs text-slate-400 mt-1">Deeper dive on Record patterns</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
