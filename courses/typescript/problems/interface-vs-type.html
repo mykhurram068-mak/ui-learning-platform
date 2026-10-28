@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TypeScript interface vs type — When to Use Each (2026)</title>
+<meta name="description" content="The real difference between interface and type in TypeScript: declaration merging, extend vs intersection, and the decision rule. Every example compiled side-by-side.">
+<meta name="keywords" content="typescript interface vs type, interface or type typescript, typescript declaration merging, extend interface vs type, typescript type alias">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="TypeScript interface vs type — When to Use Each">
+<meta property="og:description" content="The real difference between interface and type in TypeScript: declaration merging, extend vs intersection, and the decision rule.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/interface-vs-type.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TypeScript interface vs type — When to Use Each">
+<meta name="twitter:description" content="The real difference: declaration merging, extend vs intersection, and the decision rule.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/interface-vs-type.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "TypeScript interface vs type — When to Use Each",
+"description": "The real difference between interface and type in TypeScript: declaration merging, extend vs intersection, and the decision rule.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between interface and type in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Both describe types and are interchangeable for object shapes in 95% of cases. The one functional difference: interface supports declaration merging (defining the same interface twice combines them), type does not. Also, type can express unions, tuples, and conditional types — interface can only describe object shapes. Rule: interface for object shapes you might extend or that libraries might merge; type for unions, tuples, and everything else."}},
+{"@type":"Question","name":"When should I use interface instead of type?","acceptedAnswer":{"@type":"Answer","text":"Use interface for public object shapes that might be extended with extends, or that other code might need to augment via declaration merging (React props, Express Request, library extension points). Use type when describing unions, tuples, function signatures, mapped types, or any non-object type. If the shape is local and won't be extended, either works — pick one convention and stay consistent across the codebase."}},
+{"@type":"Question","name":"What is declaration merging?","acceptedAnswer":{"@type":"Answer","text":"Declaration merging lets you define an interface multiple times and have all definitions combine into one. interface Config { a: string } and interface Config { b: number } merge to give Config both a and b. This is how libraries let you extend their types — e.g. adding a custom field to Express's Request. Type aliases cannot merge — defining the same type name twice is an error. This is the one case where interface is strictly required."}},
+{"@type":"Question","name":"Does it matter which one I use?","acceptedAnswer":{"@type":"Answer","text":"For most code, no — the compiler produces identical output and error messages are nearly equivalent. The choice matters for: (1) library authors who want consumers to augment their types (use interface), (2) public API shapes that might be extended via inheritance (interface), (3) unions, tuples, and complex types (type only). For app code, consistency within the project matters more than the choice itself. Pick one and apply it uniformly."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · interface vs type</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">interface vs type</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>interface vs type.<br><span class="py-accent">The one real difference.</span></h1>
+<p class="lead">
+You've read conflicting advice. Half the internet says "always use interface," the other half says "just use type, it's more flexible." Both are wrong. There's exactly one functional difference between them, and once you know it, the decision is automatic. This page shows you the difference, the decision rule, and when each wins.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>interface</code> for object shapes that might be extended or merged (public APIs, library types, React props). Use <code>type</code> for everything else — unions, tuples, function signatures, primitives, mapped types. The one real difference: <strong>interface supports declaration merging</strong> (defining it twice combines), type does not. In app code that never needs merging, they're interchangeable — pick one convention and stay consistent.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — The one real difference: declaration merging</h2>
+<p class="section-sub">Everything else is interchangeable. This is not.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If you define two interfaces with the same name, TypeScript <strong>combines them</strong> into one type. This is called declaration merging. It's how libraries let you augment their types — e.g. adding a custom field to Express's <code>Request</code> or Next.js's <code>NextPageContext</code>. Type aliases can't do this — defining the same type name twice is a compile error.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">merging.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── Interfaces MERGE ────────────────────────</span>
+<span class="kw">interface</span> Config {
+host: <span class="fn">string</span>;
+}
+<span class="kw">interface</span> Config {
+port: <span class="fn">number</span>;
+}
+<span class="com">// Result: { host: string; port: number }
+// Both declarations combine. This is the whole reason interface exists.</span>
+
+<span class="kw">const</span> cfg: Config = { host: <span class="str">'localhost'</span>, port: <span class="num">3000</span> };
+
+<span class="com">// ─── Types ERROR on redeclare ────────────────</span>
+<span class="kw">type</span> Config2 = {
+host: <span class="fn">string</span>;
+};
+<span class="com">// type Config2 = { port: number };
+// ❌ Duplicate identifier 'Config2'. Types can't merge.</span>
+
+<span class="com">// ─── Real-world: augmenting library types ────</span>
+<span class="com">// This is how libraries let you extend their types.
+// A library defines:
+//
+// export interface Request {
+// body: unknown;
+// params: Record<string, string>;
+// }
+//
+// You augment it (in a .d.ts file):
+//
+// declare module 'express' {
+// interface Request {
+// user?: User;
+// }
+// }
+//
+// Now every Request has user. This only works with interface.</span>
+
+console.<span class="fn">log</span>(cfg.host, cfg.port);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Interfaces and types are erased entirely.</span>
+<span class="com">// The merging happens at compile time only.</span>
+
+<span class="kw">const</span> cfg = { host: <span class="str">'localhost'</span>, port: <span class="num">3000</span> };
+
+console.<span class="fn">log</span>(cfg.host, cfg.port);</pre>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>This is the ONLY functional difference. Everything else is style.</strong> Interfaces can extend with <code>extends</code>; types use <code>&</code>. Interfaces can describe object shapes; types can describe object shapes <em>and</em> unions and tuples and primitives. But none of those difference matter unless you need merging. In 95% of app code, <code>interface X { a: string }</code> and <code>type X = { a: string }</code> are identical — same compile output, same error messages, same autocomplete. The merging behavior is the only thing that forces the choice.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — When type is strictly required</h2>
+<p class="section-sub">Unions, tuples, primitives — interface can't express these.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Interfaces can only describe object shapes — keys and values. Types can describe <em>any</em> TypeScript type: unions, tuples, primitives, function signatures, mapped types, conditional types. If your type isn't an object shape, it must be <code>type</code>. There's no alternative.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">type-only.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── Unions — type only ──────────────────────</span>
+<span class="kw">type</span> Status = <span class="str">'idle'</span> | <span class="str">'loading'</span> | <span class="str">'success'</span> | <span class="str">'error'</span>;
+<span class="com">// interface Status = 'idle' | 'loading'; // ❌ syntax error</span>
+
+<span class="kw">type</span> ID = <span class="fn">string</span> | <span class="fn">number</span>;
+<span class="kw">type</span> Result = { ok: <span class="kw">true</span>; data: <span class="fn">string</span> } | { ok: <span class="kw">false</span>; error: <span class="fn">string</span> };
+<span class="com">// interface can't express a union of shapes either</span>
+
+<span class="com">// ─── Tuples — type only ──────────────────────</span>
+<span class="kw">type</span> Point = [<span class="fn">number</span>, <span class="fn">number</span>];
+<span class="kw">type</span> Entry = [<span class="fn">string</span>, <span class="fn">number</span>];
+<span class="com">// interface Point = [number, number]; // ❌ syntax error</span>
+
+<span class="com">// ─── Function types — type only ──────────────</span>
+<span class="kw">type</span> Handler = (e: <span class="fn">MouseEvent</span>) => <span class="fn">void</span>;
+<span class="kw">type</span> Comparator<T> = (a: T, b: T) => <span class="fn">number</span>;
+<span class="com">// interface Handler = (e: MouseEvent) => void; // ❌ syntax error</span>
+
+<span class="com">// ─── Primitives — type only ──────────────────</span>
+<span class="kw">type</span> UserID = <span class="fn">string</span>;
+<span class="kw">type</span> Score = <span class="fn">number</span>;
+<span class="com">// interface UserID = string; // ❌ syntax error</span>
+
+<span class="com">// ─── Mapped types — type only ────────────────</span>
+<span class="kw">type</span> Readonly<T> = { <span class="kw">readonly</span> [K <span class="kw">in</span> <span class="kw">keyof</span> T]: T[K] };
+<span class="com">// interface Readonly { ... } // ❌ can't use mapped syntax</span>
+
+<span class="com">// ─── The pattern ─────────────────────────────</span>
+<span class="com">// If it's an object shape → interface or type (your choice)
+// If it's anything else → type is required</span>
+
+<span class="kw">const</span> s: Status = <span class="str">'loading'</span>;
+<span class="kw">const</span> p: Point = [<span class="num">10</span>, <span class="num">20</span>];
+console.<span class="fn">log</span>(s, p);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// All type aliases erased.</span>
+
+<span class="kw">const</span> s = <span class="str">'loading'</span>;
+<span class="kw">const</span> p = [<span class="num">10</span>, <span class="num">20</span>];
+console.<span class="fn">log</span>(s, p);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Unions</h4>
+<p><code>type Status = 'idle' | 'loading'</code> — interface can't express a union. If your type is "one of these," it's a type alias, full stop.</p>
+</div>
+<div class="concept-card">
+<h4>Tuples</h4>
+<p><code>type Point = [number, number]</code> — fixed-length arrays. Interface has no syntax for this.</p>
+</div>
+<div class="concept-card">
+<h4>Function signatures</h4>
+<p><code>type Handler = (e: Event) => void</code> — interface can't describe a function type directly.</p>
+</div>
+<div class="concept-card">
+<h4>Mapped / conditional</h4>
+<p><code>type Readonly<T> = { readonly [K in keyof T]: T[K] }</code> — mapped type syntax is type-only.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — When interface is preferred</h2>
+<p class="section-sub">Object shapes that might be extended or augmented.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When the type is an object shape <em>and</em> might be extended by others (or is part of a public API), interface is the better default. It gives you <code>extends</code> syntax, slightly cleaner error messages, and — critically — the option for consumers to merge their own fields via declaration merging. Libraries depend on this.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">public-api.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── Public object shape — use interface ─────</span>
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── Extendable — interface reads cleaner ────</span>
+<span class="kw">interface</span> Admin <span class="kw">extends</span> User {
+role: <span class="str">'admin'</span>;
+permissions: <span class="fn">string</span>[];
+}
+
+<span class="com">// Equivalent with type:</span>
+<span class="kw">type</span> Admin2 = User & {
+role: <span class="str">'admin'</span>;
+permissions: <span class="fn">string</span>[];
+};
+
+<span class="com">// ─── Both work. Interface reads slightly better
+// for hierarchical shapes. Use interface here.</span>
+
+<span class="com">// ─── Multi-extends (interface only) ──────────</span>
+<span class="kw">interface</span> Timestamps {
+createdAt: <span class="fn">Date</span>;
+updatedAt: <span class="fn">Date</span>;
+}
+
+<span class="kw">interface</span> Post <span class="kw">extends</span> User, Timestamps {
+title: <span class="fn">string</span>;
+body: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── Real-world: React props ─────────────────</span>
+<span class="com">// React's Props types are interfaces so you can
+// augment them in your own .d.ts. This is the pattern:
+//
+// interface Theme {
+// primary: string;
+// }
+//
+// // later, in another file:
+// interface Theme {
+// secondary: string; // merged
+// }</span>
+
+<span class="kw">const</span> admin: Admin = {
+id: <span class="str">'1'</span>,
+name: <span class="str">'Alice'</span>,
+email: <span class="str">'a@x.com'</span>,
+role: <span class="str">'admin'</span>,
+permissions: [<span class="str">'read'</span>]
+};
+
+console.<span class="fn">log</span>(admin.role);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Interfaces erased. Only the runtime object remains.</span>
+
+<span class="kw">const</span> admin = {
+id: <span class="str">'1'</span>,
+name: <span class="str">'Alice'</span>,
+email: <span class="str">'a@x.com'</span>,
+role: <span class="str">'admin'</span>,
+permissions: [<span class="str">'read'</span>]
+};
+
+console.<span class="fn">log</span>(admin.role);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Hierarchical shapes</h4>
+<p><code>interface Admin extends User</code> reads more naturally than <code>type Admin = User & {...}</code>. Minor, but real.</p>
+</div>
+<div class="concept-card">
+<h4>Multi-extends</h4>
+<p>Interface can extend multiple parents: <code>interface Post extends User, Timestamps</code>. With type, you'd use multiple <code>&</code> — equivalent but noisier.</p>
+</div>
+<div class="concept-card">
+<h4>Library APIs</h4>
+<p>Libraries type their public APIs with interfaces so users can augment via declaration merging. React, Express, Next.js all rely on this.</p>
+</div>
+<div class="concept-card">
+<h4>Better errors</h4>
+<p>Interface errors are slightly cleaner — the compiler can name the interface rather than expand its structure. Marginal, but noticeable in large codebases.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The interface-vs-type traps that waste real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Mixing randomly across the codebase</div>
+<p>Half your code uses <code>type User = {...}</code>, half uses <code>interface User {...}</code>. No reason — just history. Fix: pick one convention. Most teams use interface for object shapes, type for everything else.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using interface for unions</div>
+<p><code>interface Status = 'idle' | 'loading'</code> — syntax error. Interfaces can only describe object shapes. Fix: <code>type Status = 'idle' | 'loading'</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Relying on merging without knowing</div>
+<p>Naming two interfaces <code>Config</code> in different files silently merges them. Sometimes that's what you want (augmentation), often it's a bug. Fix: check your codebase for duplicate interface names.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using type when interface would be cleaner</div>
+<p><code>type Admin = User & { role: 'admin' }</code> works, but <code>interface Admin extends User</code> reads better for hierarchical shapes. Fix: interface for "is a" relationships.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Thinking types can't be extended</div>
+<p>They can — with <code>&</code>. <code>type Admin = User & { ... }</code>. The result is equivalent to interface extends. Fix: use whichever reads better for the case.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Using interface for function types</div>
+<p><code>interface Handler = (e: Event) => void</code> — syntax error. Fix: <code>type Handler = (e: Event) => void</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Assuming one is faster</div>
+<p>Compile time and runtime performance are essentially identical. Don't choose based on performance — there's no meaningful difference.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Following blog advice blindly</div>
+<p>"Always use interface" and "always use type" are both wrong. Both have cases. Fix: know the one real difference (merging) and pick accordingly.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between interface and type in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Both describe types and are interchangeable for object shapes in 95% of cases. The one functional difference: interface supports declaration merging (defining the same interface twice combines them), type does not. Also, type can express unions, tuples, and conditional types — interface can only describe object shapes.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use interface instead of type?</summary>
+<p class="mt-2 text-sm text-slate-300">Use interface for public object shapes that might be extended with extends, or that other code might need to augment via declaration merging. Use type when describing unions, tuples, function signatures, mapped types, or any non-object type.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is declaration merging?</summary>
+<p class="mt-2 text-sm text-slate-300">Declaration merging lets you define an interface multiple times and have all definitions combine into one. interface Config { a: string } and interface Config { b: number } merge to give Config both a and b. This is how libraries let you extend their types. Type aliases cannot merge.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does it matter which one I use?</summary>
+<p class="mt-2 text-sm text-slate-300">For most code, no — the compiler produces identical output and error messages are nearly equivalent. The choice matters for library authors who want consumers to augment their types (use interface) and for unions, tuples, and complex types (type only). For app code, consistency within the project matters more than the choice itself.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/interfaces.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 2: Interfaces & types</div>
+<div class="text-xs text-slate-400 mt-1">The full lesson — optional, readonly, extends</div>
+</a>
+<a href="/courses/typescript/problems/extend-interface.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to extend an interface</div>
+<div class="text-xs text-slate-400 mt-1">extends vs & — the composition patterns</div>
+</a>
+<a href="/courses/typescript/problems/dynamic-keys.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to type dynamic keys</div>
+<div class="text-xs text-slate-400 mt-1">Record, index signatures, Maps</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
