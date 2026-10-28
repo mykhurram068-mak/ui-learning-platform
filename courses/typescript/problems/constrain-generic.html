@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Constrain a Generic Type in TypeScript (extends) — 2026</title>
+<meta name="description" content="Constrain TypeScript generics with extends. Learn to access properties, restrict unions, and use keyof constraints. Working code with 3 constraint patterns.">
+<meta name="keywords" content="typescript generic constraints, typescript extends generic, typescript keyof constraint, typescript generic extends, constrain type parameter">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Constrain a Generic Type in TypeScript">
+<meta property="og:description" content="Constrain TypeScript generics with extends. Access properties, restrict unions, and use keyof constraints.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/constrain-generic.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Constrain a Generic Type in TypeScript">
+<meta name="twitter:description" content="Access properties, restrict unions, and use keyof constraints.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/constrain-generic.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Constrain a Generic Type in TypeScript",
+"description": "Constrain TypeScript generics with extends. Access properties, restrict unions, and use keyof constraints.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I constrain a generic type in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Use extends after the type parameter: function getLength<T extends { length: number }>(x: T). This restricts T to types with a length property. Without the constraint, T is unconstrained and you can't access any specific property. The constraint unlocks using T's properties inside the function while preserving the caller's specific type."}},
+{"@type":"Question","name":"Why do I need to constrain generics?","acceptedAnswer":{"@type":"Answer","text":"An unconstrained T could be anything — including types that don't have the property you want to access. If you write function getLength<T>(x: T) { return x.length; } the compiler errors because T might be a number. Constraining with T extends { length: number } tells the compiler 'T has at least a length property', which unlocks the access. Constraints are how you promise what T can do."}},
+{"@type":"Question","name":"What is a keyof constraint?","acceptedAnswer":{"@type":"Answer","text":"keyof T produces a union of T's keys. Using it as a constraint: function get<T, K extends keyof T>(obj: T, key: K): T[K]. K can only be a key of T, and the return type T[K] is the specific value type for that key. This is the pattern behind typed getters, pick functions, and every safe property access helper."}},
+{"@type":"Question","name":"Can a generic have multiple constraints?","acceptedAnswer":{"@type":"Answer","text":"Not with multiple extends clauses. But you can combine constraints with intersection: <T extends HasId & HasName>. T must have both id and name. This reads as 'T satisfies both shapes.' You can also constrain to a union (T extends string | number) — T is then one of those primitives. And generic constraints can reference other type parameters: <K extends keyof T>."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · generic constraints</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Constrain generic</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>How to constrain a generic type.<br><span class="py-accent">Tell the compiler what T can do.</span></h1>
+<p class="lead">
+You write <code>function getLength<T>(x: T) { return x.length; }</code> and get an error: <em>Property 'length' does not exist on type 'T'</em>. Of course it doesn't — <code>T</code> could be a number. The fix is a constraint: tell the compiler that <code>T</code> has at least a <code>length</code> property. This is the pattern behind every typed helper you'll write — and behind the <code>keyof</code> pattern that powers every typed getter.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Add <code>extends</code> to the type parameter: <code><T extends Shape></code>. The constraint tells the compiler "T has at least these properties," which unlocks accessing them inside the function. The pattern for typed property access: <code><T, K extends keyof T></code>. Constraints can be object shapes, unions, or other type parameters.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Constrain to an object shape</h2>
+<p class="section-sub">When you need to access a property on T.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The most common constraint: "T must have this property." Without it, accessing <code>x.length</code>, <code>x.id</code>, or any specific property on a bare <code>T</code> fails. The constraint describes the minimum requirement — T can be anything that satisfies it, and you get access to the required fields.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">constraints.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── The problem: unconstrained T ────────────</span>
+<span class="kw">function</span> <span class="fn">badLength</span><T>(x: T): <span class="fn">number</span> {
+<span class="com">// return x.length;
+// ❌ Property 'length' does not exist on type 'T'.
+// T could be a number, an object, anything — no guarantee
+// it has 'length'.</span>
+<span class="kw">return</span> <span class="num">0</span>;
+}
+
+<span class="com">// ─── The fix: constrain T ────────────────────</span>
+<span class="kw">function</span> <span class="fn">getLength</span><T <span class="kw">extends</span> { length: <span class="fn">number</span> }>(x: T): <span class="fn">number</span> {
+<span class="kw">return</span> x.length; <span class="com">// ✅ T guaranteed to have length: number</span>
+}
+
+<span class="fn">getLength</span>(<span class="str">'hello'</span>); <span class="com">// ✅ string has length</span>
+<span class="fn">getLength</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>]); <span class="com">// ✅ array has length</span>
+<span class="fn">getLength</span>({ length: <span class="num">5</span> }); <span class="com">// ✅ any object with length</span>
+<span class="com">// getLength(42); // ❌ number doesn't have length</span>
+<span class="com">// getLength({ name: 'x' }); // ❌ no length property</span>
+
+<span class="com">// ─── Constrain to a named interface ──────────</span>
+<span class="kw">interface</span> HasId {
+id: <span class="fn">string</span>;
+}
+
+<span class="kw">function</span> <span class="fn">findById</span><T <span class="kw">extends</span> HasId>(items: T[], id: <span class="fn">string</span>): T | <span class="fn">undefined</span> {
+<span class="kw">return</span> items.<span class="fn">find</span>(item => item.id === id);
+}
+
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+<span class="kw">interface</span> Post { id: <span class="fn">string</span>; title: <span class="fn">string</span> }
+
+<span class="kw">const</span> users: User[] = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }];
+<span class="kw">const</span> posts: Post[] = [{ id: <span class="str">'p1'</span>, title: <span class="str">'Hello'</span> }];
+
+<span class="fn">findById</span>(users, <span class="str">'1'</span>); <span class="com">// ✅ returns User | undefined</span>
+<span class="fn">findById</span>(posts, <span class="str">'p1'</span>); <span class="com">// ✅ returns Post | undefined</span>
+
+<span class="com">// ─── Multiple constraints via & ──────────────</span>
+<span class="kw">interface</span> HasName { name: <span class="fn">string</span> }
+
+<span class="kw">function</span> <span class="fn">greetById</span><T <span class="kw">extends</span> HasId & HasName>(item: T): <span class="fn">string</span> {
+<span class="kw">return</span> <span class="str">${item.id}: ${item.name}</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">getLength</span>(<span class="str">'hello'</span>), <span class="fn">findById</span>(users, <span class="str">'1'</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">badLength</span>(x) {
+<span class="kw">return</span> <span class="num">0</span>;
+}
+
+<span class="kw">function</span> <span class="fn">getLength</span>(x) {
+<span class="kw">return</span> x.length;
+}
+
+<span class="fn">getLength</span>(<span class="str">'hello'</span>);
+<span class="fn">getLength</span>([<span class="num">1</span>, <span class="num">2</span>, <span class="num">3</span>]);
+<span class="fn">getLength</span>({ length: <span class="num">5</span> });
+
+<span class="kw">function</span> <span class="fn">findById</span>(items, id) {
+<span class="kw">return</span> items.<span class="fn">find</span>(item => item.id === id);
+}
+
+<span class="kw">const</span> users = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }];
+<span class="kw">const</span> posts = [{ id: <span class="str">'p1'</span>, title: <span class="str">'Hello'</span> }];
+
+<span class="fn">findById</span>(users, <span class="str">'1'</span>);
+<span class="fn">findById</span>(posts, <span class="str">'p1'</span>);
+
+<span class="kw">function</span> <span class="fn">greetById</span>(item) {
+<span class="kw">return</span> <span class="str">${item.id}: ${item.name}</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">getLength</span>(<span class="str">'hello'</span>), <span class="fn">findById</span>(users, <span class="str">'1'</span>));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Constraint = minimum</h4>
+<p><code><T extends { length: number }></code> means "T can be any type that has at least <code>length: number</code>." Extra properties are fine.</p>
+</div>
+<div class="concept-card">
+<h4>Unlocks property access</h4>
+<p>Inside the function, <code>T</code> is guaranteed to have the constraint's properties. <code>x.length</code> compiles because the constraint says so.</p>
+</div>
+<div class="concept-card">
+<h4>Preserves caller's type</h4>
+<p>The caller still gets back the exact type passed in. <code>findById(users, '1')</code> returns <code>User | undefined</code>, not <code>HasId | undefined</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Multiple via <code>&</code></h4>
+<p><code><T extends A & B></code> — T must satisfy both shapes. <code><T extends HasId & HasName></code> requires both properties.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Constraints are promises, not restrictions on you.</strong> Beginners think "constraint" means "narrow T down." It doesn't — it means "promise the compiler that T has at least these properties, and I'll use them." The caller can still pass anything that satisfies the promise. <code>findById</code> works for <code>User</code>, <code>Post</code>, <code>Comment</code>, or any future type with an <code>id: string</code>. The constraint is the smallest contract that lets the function do its job.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — <code>keyof</code> constraint (typed property access)</h2>
+<p class="section-sub">The pattern behind every typed getter.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If you want a function that takes an object and a key, returns the value at that key, and preserves the specific type — <code>keyof</code> is the constraint. <code>K extends keyof T</code> means "K must be one of T's keys," and the return type <code>T[K]</code> is the exact type of the value at that key. This is the most-used generic pattern in library code.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">keyof-constraint.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+age: <span class="fn">number</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── The typed getter ────────────────────────</span>
+<span class="kw">function</span> <span class="fn">get</span><T, K <span class="kw">extends</span> <span class="kw">keyof</span> T>(obj: T, key: K): T[K] {
+<span class="kw">return</span> obj[key];
+}
+
+<span class="kw">const</span> user: User = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, age: <span class="num">28</span>, email: <span class="str">'a@x.com'</span> };
+
+<span class="kw">const</span> n = <span class="fn">get</span>(user, <span class="str">'name'</span>); <span class="com">// n: string — exact type</span>
+<span class="kw">const</span> a = <span class="fn">get</span>(user, <span class="str">'age'</span>); <span class="com">// a: number — exact type</span>
+<span class="kw">const</span> e = <span class="fn">get</span>(user, <span class="str">'email'</span>); <span class="com">// e: string</span>
+<span class="com">// get(user, 'foo'); // ❌ 'foo' not a key of User</span>
+
+<span class="com">// ─── Pluck — pull a field from an array ──────</span>
+<span class="kw">function</span> <span class="fn">pluck</span><T, K <span class="kw">extends</span> <span class="kw">keyof</span> T>(items: T[], key: K): T[K][] {
+<span class="kw">return</span> items.<span class="fn">map</span>(item => item[key]);
+}
+
+<span class="kw">const</span> users: User[] = [
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, age: <span class="num">28</span>, email: <span class="str">'a@x.com'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span>, age: <span class="num">34</span>, email: <span class="str">'b@x.com'</span> }
+];
+
+<span class="kw">const</span> names = <span class="fn">pluck</span>(users, <span class="str">'name'</span>); <span class="com">// string[]</span>
+<span class="kw">const</span> ages = <span class="fn">pluck</span>(users, <span class="str">'age'</span>); <span class="com">// number[]</span>
+<span class="com">// pluck(users, 'foo'); // ❌</span>
+
+<span class="com">// ─── Set a property by key ───────────────────</span>
+<span class="kw">function</span> <span class="fn">setProp</span><T, K <span class="kw">extends</span> <span class="kw">keyof</span> T>(obj: T, key: K, value: T[K]): T {
+<span class="kw">return</span> { ...obj, [key]: value };
+}
+
+<span class="kw">const</span> updated = <span class="fn">setProp</span>(user, <span class="str">'name'</span>, <span class="str">'Alicia'</span>); <span class="com">// ✅ value must be string</span>
+<span class="com">// setProp(user, 'name', 42); // ❌ must be string</span>
+<span class="com">// setProp(user, 'age', 'x'); // ❌ must be number</span>
+
+<span class="com">// ─── Omit by key at runtime ──────────────────</span>
+<span class="kw">function</span> <span class="fn">omitKey</span><T, K <span class="kw">extends</span> <span class="kw">keyof</span> T>(obj: T, key: K): <span class="fn">Omit</span><T, K> {
+<span class="kw">const</span> { [key]: _, ...rest } = obj;
+<span class="kw">return</span> rest <span class="kw">as</span> <span class="fn">Omit</span><T, K>;
+}
+
+<span class="kw">const</span> noEmail = <span class="fn">omitKey</span>(user, <span class="str">'email'</span>);
+<span class="com">// noEmail: Omit<User, 'email'> = { id, name, age }</span>
+
+console.<span class="fn">log</span>(n, a, names, ages);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">get</span>(obj, key) {
+<span class="kw">return</span> obj[key];
+}
+
+<span class="kw">const</span> user = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, age: <span class="num">28</span>, email: <span class="str">'a@x.com'</span> };
+
+<span class="kw">const</span> n = <span class="fn">get</span>(user, <span class="str">'name'</span>);
+<span class="kw">const</span> a = <span class="fn">get</span>(user, <span class="str">'age'</span>);
+<span class="kw">const</span> e = <span class="fn">get</span>(user, <span class="str">'email'</span>);
+
+<span class="kw">function</span> <span class="fn">pluck</span>(items, key) {
+<span class="kw">return</span> items.<span class="fn">map</span>(item => item[key]);
+}
+
+<span class="kw">const</span> users = [
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, age: <span class="num">28</span>, email: <span class="str">'a@x.com'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span>, age: <span class="num">34</span>, email: <span class="str">'b@x.com'</span> }
+];
+
+<span class="kw">const</span> names = <span class="fn">pluck</span>(users, <span class="str">'name'</span>);
+<span class="kw">const</span> ages = <span class="fn">pluck</span>(users, <span class="str">'age'</span>);
+
+<span class="kw">function</span> <span class="fn">setProp</span>(obj, key, value) {
+<span class="kw">return</span> { ...obj, [key]: value };
+}
+
+<span class="kw">const</span> updated = <span class="fn">setProp</span>(user, <span class="str">'name'</span>, <span class="str">'Alicia'</span>);
+
+<span class="kw">function</span> <span class="fn">omitKey</span>(obj, key) {
+<span class="kw">const</span> { [key]: _, ...rest } = obj;
+<span class="kw">return</span> rest;
+}
+
+<span class="kw">const</span> noEmail = <span class="fn">omitKey</span>(user, <span class="str">'email'</span>);
+
+console.<span class="fn">log</span>(n, a, names, ages);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>K extends keyof T</code></h4>
+<p>K must be one of T's keys. <code>get(user, 'name')</code> works; <code>get(user, 'foo')</code> fails. The constraint IS the check.</p>
+</div>
+<div class="concept-card">
+<h4><code>T[K]</code> — indexed access</h4>
+<p>The return type is the exact type of the value at key K. <code>get(user, 'age')</code> returns <code>number</code>, not <code>string | number</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Value parameter matches key</h4>
+<p><code>setProp<T, K extends keyof T>(obj: T, key: K, value: T[K])</code> — value must match the key's type. <code>'name'</code> requires a string.</p>
+</div>
+<div class="concept-card">
+<h4>The library pattern</h4>
+<p>This is how lodash's <code>get</code>, Immer's drafts, and every typed object utility work. Learn it once, recognize it everywhere.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Constrain to a union</h2>
+<p class="section-sub">When T must be one of a fixed set of primitive types.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Sometimes you don't want any object — you want one of a specific set of types. <code><T extends string | number></code> restricts T to strings or numbers. This is a constraint too, just a narrower one. It's how you write sorting functions, comparison helpers, and any generic that only works with a subset of types.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">union-constraint.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── Constrain to primitives ─────────────────</span>
+<span class="kw">type</span> Sortable = <span class="fn">string</span> | <span class="fn">number</span>;
+
+<span class="kw">function</span> <span class="fn">sortArray</span><T <span class="kw">extends</span> Sortable>(arr: T[]): T[] {
+<span class="kw">return</span> [...arr].<span class="fn">sort</span>();
+}
+
+<span class="fn">sortArray</span>([<span class="num">3</span>, <span class="num">1</span>, <span class="num">2</span>]); <span class="com">// ✅ number[]</span>
+<span class="fn">sortArray</span>([<span class="str">'c'</span>, <span class="str">'a'</span>, <span class="str">'b'</span>]); <span class="com">// ✅ string[]</span>
+<span class="com">// sortArray([{ id: 1 }]); // ❌ object not Sortable</span>
+
+<span class="com">// ─── Constrain to a literal union ────────────</span>
+<span class="kw">type</span> HttpMethod = <span class="str">'GET'</span> | <span class="str">'POST'</span> | <span class="str">'PUT'</span> | <span class="str">'DELETE'</span>;
+
+<span class="kw">function</span> <span class="fn">request</span><M <span class="kw">extends</span> HttpMethod>(url: <span class="fn">string</span>, method: M): <span class="fn">void</span> {
+console.<span class="fn">log</span>(method, url);
+}
+
+<span class="fn">request</span>(<span class="str">'/api/users'</span>, <span class="str">'GET'</span>); <span class="com">// ✅</span>
+<span class="fn">request</span>(<span class="str">'/api/users'</span>, <span class="str">'POST'</span>); <span class="com">// ✅</span>
+<span class="com">// request('/api/users', 'PATCH'); // ❌ 'PATCH' not in HttpMethod</span>
+
+<span class="com">// ─── Constrain to "has callable method" ──────</span>
+<span class="kw">function</span> <span class="fn">callIt</span><T <span class="kw">extends</span> { (): <span class="fn">void</span> }>(fn: T): <span class="fn">void</span> {
+<span class="fn">fn</span>(); <span class="com">// ✅ T is guaranteed callable</span>
+}
+
+<span class="fn">callIt</span>(() => console.<span class="fn">log</span>(<span class="str">'hi'</span>)); <span class="com">// ✅</span>
+<span class="com">// callIt('not a function'); // ❌</span>
+
+<span class="com">// ─── Constraint referencing another param ────</span>
+<span class="kw">function</span> <span class="fn">hasKey</span><T, K <span class="kw">extends</span> <span class="kw">keyof</span> T>(obj: T, key: K): <span class="fn">boolean</span> {
+<span class="kw">return</span> key <span class="kw">in</span> obj;
+}
+
+<span class="com">// K's constraint depends on T — that's fine.
+// TypeScript fills in T first, then constrains K.</span>
+
+<span class="kw">const</span> user = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> };
+<span class="fn">hasKey</span>(user, <span class="str">'name'</span>); <span class="com">// ✅ K='name'</span>
+<span class="com">// hasKey(user, 'foo'); // ❌ 'foo' not a key</span>
+
+<span class="com">// ─── Constraints compose with utility types ──</span>
+<span class="kw">function</span> <span class="fn">ensureId</span><T <span class="kw">extends</span> { id?: <span class="fn">string</span> }>(obj: T): T & { id: <span class="fn">string</span> } {
+<span class="kw">return</span> { ...obj, id: obj.id ?? <span class="fn">crypto</span>.<span class="fn">randomUUID</span>() };
+}
+
+<span class="kw">const</span> withId = <span class="fn">ensureId</span>({ name: <span class="str">'x'</span> });
+<span class="com">// withId: { name: string; id: string }</span>
+
+console.<span class="fn">log</span>(<span class="fn">sortArray</span>([<span class="num">3</span>, <span class="num">1</span>, <span class="num">2</span>]), withId);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">sortArray</span>(arr) {
+<span class="kw">return</span> [...arr].<span class="fn">sort</span>();
+}
+
+<span class="fn">sortArray</span>([<span class="num">3</span>, <span class="num">1</span>, <span class="num">2</span>]);
+<span class="fn">sortArray</span>([<span class="str">'c'</span>, <span class="str">'a'</span>, <span class="str">'b'</span>]);
+
+<span class="kw">function</span> <span class="fn">request</span>(url, method) {
+console.<span class="fn">log</span>(method, url);
+}
+
+<span class="fn">request</span>(<span class="str">'/api/users'</span>, <span class="str">'GET'</span>);
+<span class="fn">request</span>(<span class="str">'/api/users'</span>, <span class="str">'POST'</span>);
+
+<span class="kw">function</span> <span class="fn">callIt</span>(fn) {
+<span class="fn">fn</span>();
+}
+
+<span class="fn">callIt</span>(() => console.<span class="fn">log</span>(<span class="str">'hi'</span>));
+
+<span class="kw">function</span> <span class="fn">hasKey</span>(obj, key) {
+<span class="kw">return</span> key <span class="kw">in</span> obj;
+}
+
+<span class="kw">const</span> user = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> };
+<span class="fn">hasKey</span>(user, <span class="str">'name'</span>);
+
+<span class="kw">function</span> <span class="fn">ensureId</span>(obj) {
+<span class="kw">return</span> { ...obj, id: obj.id ?? <span class="fn">crypto</span>.<span class="fn">randomUUID</span>() };
+}
+
+<span class="kw">const</span> withId = <span class="fn">ensureId</span>({ name: <span class="str">'x'</span> });
+
+console.<span class="fn">log</span>(<span class="fn">sortArray</span>([<span class="num">3</span>, <span class="num">1</span>, <span class="num">2</span>]), withId);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Union constraints</h4>
+<p><code><T extends string | number></code> — T is one of those. Useful for primitives-only generics (sorting, comparison, hashing).</p>
+</div>
+<div class="concept-card">
+<h4>Literal union constraints</h4>
+<p><code><M extends 'GET' | 'POST'></code> — M is one of the literals. The most precise constraint: catches typos at compile time.</p>
+</div>
+<div class="concept-card">
+<h4>Callable constraint</h4>
+<p><code><T extends () => void></code> — T must be callable. Lets you call <code>T()</code> inside the function without knowing its exact signature.</p>
+</div>
+<div class="concept-card">
+<h4>Cross-parameter constraints</h4>
+<p><code><K extends keyof T></code> — K's constraint depends on T. TypeScript resolves T first, then constrains K accordingly. Very common.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The generic constraint bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Forgetting to constrain</div>
+<p><code>function f<T>(x: T) { return x.length; }</code> fails — T might be a number. Fix: <code><T extends { length: number }></code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using <code>any</code> instead of constraining</div>
+<p><code>function f(x: any) { return x.length; }</code> works but loses all type info. Fix: generic + constraint. Same length, full safety.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Over-constraining</div>
+<p><code><T extends User></code> when you only need <code>id</code>. Fix: <code><T extends { id: string }></code> — minimal constraint, maximum reuse.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Trying multiple <code>extends</code></div>
+<p><code><T extends A extends B></code> is a syntax error. Fix: <code><T extends A & B></code> — combine with intersection.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting <code>keyof</code> in cross-parameter constraints</div>
+<p><code><K extends keyof T></code> — K must be a key of T. Without <code>keyof</code>, K is unconstrained and <code>T[K]</code> fails. Fix: use the pattern exactly.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Constraint too specific</div>
+<p><code><T extends { id: string; name: string; email: string }></code> when you only access <code>id</code>. Fix: constrain only what you use. Smaller constraint = more types allowed = more reuse.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Constraint that breaks inference</div>
+<p><code><T extends string>(x: T)</code> — T is inferred but T[K] doesn't apply. Fix: for primitives, constraining is fine; for objects with keys, use <code>keyof</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not constraining when inference breaks</div>
+<p><code>function f<T>(x: T, y: T)</code> — T is inferred from both; a string and number conflict. Fix: constrain to the union, or use two parameters <code><T, U></code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I constrain a generic type in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Use extends after the type parameter: function getLength<T extends { length: number }>(x: T). This restricts T to types with a length property. Without the constraint, T is unconstrained and you can't access any specific property.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why do I need to constrain generics?</summary>
+<p class="mt-2 text-sm text-slate-300">An unconstrained T could be anything — including types that don't have the property you want to access. Constraining tells the compiler 'T has at least a length property', which unlocks the access. Constraints are how you promise what T can do.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a keyof constraint?</summary>
+<p class="mt-2 text-sm text-slate-300">keyof T produces a union of T's keys. Using it as a constraint: function get<T, K extends keyof T>(obj: T, key: K): T[K]. K can only be a key of T, and the return type T[K] is the specific value type for that key. This is the pattern behind typed getters, pick functions, and every safe property access helper.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can a generic have multiple constraints?</summary>
+<p class="mt-2 text-sm text-slate-300">Not with multiple extends clauses. But you can combine constraints with intersection: <T extends HasId & HasName>. T must have both id and name. You can also constrain to a union (T extends string | number) — T is then one of those primitives.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/generics.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 3: Functions & generics</div>
+<div class="text-xs text-slate-400 mt-1">Generic syntax, inference, constraints</div>
+</a>
+<a href="/courses/typescript/problems/generic-vs-any.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Generic vs any</div>
+<div class="text-xs text-slate-400 mt-1">Why <T> preserves what any throws away</div>
+</a>
+<a href="/courses/typescript/problems/type-keyof.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to use keyof</div>
+<div class="text-xs text-slate-400 mt-1">Key unions, indexed access, and the get pattern</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
