@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Type useState with an Object in React + TypeScript (2026)</title>
+<meta name="description" content="Type React useState with objects in TypeScript: null initial values, partial updates, spread patterns, and the generic annotation that fixes it. Working code.">
+<meta name="keywords" content="typescript usestate object, react usestate typescript, usestate generic typescript, react typescript state, usestate null typescript">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Type useState with an Object in React + TypeScript">
+<meta property="og:description" content="Type React useState with objects in TypeScript: null initial values, partial updates, spread patterns, and the generic annotation that fixes it.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/usestate-object.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Type useState with an Object in React + TypeScript">
+<meta name="twitter:description" content="null initial values, partial updates, spread patterns, and the generic annotation.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/usestate-object.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Type useState with an Object in React + TypeScript",
+"description": "Type React useState with objects in TypeScript: null initial values, partial updates, spread patterns, and the generic annotation that fixes it.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19, TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I type useState with an object in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Provide the type as a generic argument to useState: const [user, setUser] = useState<User>({ id: '1', name: 'Alice' }). If the state starts as null and the object comes later, use a union: useState<User | null>(null). Without the annotation, useState(null) infers null and setUser(user) fails. The generic is what tells TypeScript the full range of values the state can hold."}},
+{"@type":"Question","name":"How do I update a single field of an object in useState?","acceptedAnswer":{"@type":"Answer","text":"Use the functional setter with spread: setUser(prev => ({ ...prev, name: 'Bob' })). The spread copies all fields, then 'name' overwrites one. This is required for correctness — mutating prev.name directly doesn't trigger a re-render because React compares by reference. Always return a new object from the setter."}},
+{"@type":"Question","name":"Why does useState(null) fail to accept setUser(user)?","acceptedAnswer":{"@type":"Answer","text":"Because TypeScript infers the state type from the initial value. useState(null) gives type null — not User | null. Calling setUser(user) then fails because User isn't assignable to null. Fix: provide the generic explicitly: useState<User | null>(null). The annotation expands the type range to allow both null and User."}},
+{"@type":"Question","name":"Should I use useState or useReducer for object state?","acceptedAnswer":{"@type":"Answer","text":"Use useState if the object is simple and updates are independent (name, email, age — all can change separately). Use useReducer if the object has related fields that must transition together, or if the update logic is complex. With useReducer, each action is a discriminated union and the state transitions are explicit. Rule of thumb: 1–2 fields with simple updates → useState. 3+ related fields, or transitions → useReducer."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React + TS · useState with object</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">useState with object</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>How to type useState with an object.<br><span class="py-accent">Nullable, partial, and correct.</span></h1>
+<p class="lead">
+<code>useState({ name: 'Alice' })</code> works — inference handles it. But <code>useState(null)</code> doesn't, because TypeScript infers <code>null</code>, not <code>User | null</code>. And updating a single field of an object state requires a spread pattern that trips up beginners. This page covers both: the generic annotation for nullable state, and the correct update pattern for object state.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Annotate with the generic when the initial value doesn't cover the full range: <code>useState<User | null>(null)</code>. Update with the functional setter and spread: <code>setUser(prev => ({ ...prev, name: 'Bob' }))</code>. Never mutate the object directly — React compares state by reference and won't re-render.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Generic annotation for nullable state</h2>
+<p class="section-sub">When the object arrives later (fetch, form fill, selection).</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The most common React + TS error: <code>useState(null)</code> infers the type <code>null</code> — nothing else. <code>setUser(user)</code> fails because <code>User</code> isn't assignable to <code>null</code>. Fix: provide the type explicitly. The generic argument expands the state's allowed range.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">nullable.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="kw">function</span> <span class="fn">Profile</span>() {
+<span class="com">// ─── The common mistake ──────────────────────</span>
+<span class="com">// const [user, setUser] = useState(null);
+// ↑ user: null — nothing else.
+// setUser({ id: '1', name: 'A', email: 'a@x' });
+// ❌ Argument of type '{ id: string; ... }' is not assignable
+// to parameter of type 'SetStateAction<null>'</span>
+
+<span class="com">// ─── The fix: annotate with a union ──────────</span>
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+<span class="com">// user: User | null
+// setUser: (u: User | null | ((prev: User | null) => User | null)) => void</span>
+
+<span class="kw">function</span> <span class="fn">load</span>() {
+<span class="fn">setUser</span>({ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> }); <span class="com">// ✅</span>
+}
+
+<span class="kw">function</span> <span class="fn">clear</span>() {
+<span class="fn">setUser</span>(<span class="fn">null</span>); <span class="com">// ✅</span>
+}
+
+<span class="com">// ─── Accessing requires narrowing ────────────</span>
+<span class="com">// return <p>{user.name}</p>;
+// ❌ 'user' is possibly 'null'.</span>
+
+<span class="kw">if</span> (!user) {
+<span class="kw">return</span> <button onClick={load}>Load</button>;
+}
+
+<span class="kw">return</span> (
+<div>
+<p>{user.name}</p>
+<button onClick={clear}>Clear</button>
+</div>
+);
+}
+
+<span class="kw">export default</span> Profile;</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">Profile</span>() {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+
+<span class="kw">function</span> <span class="fn">load</span>() {
+<span class="fn">setUser</span>({ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> });
+}
+
+<span class="kw">function</span> <span class="fn">clear</span>() {
+<span class="fn">setUser</span>(<span class="fn">null</span>);
+}
+
+<span class="kw">if</span> (!user) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: load }, <span class="str">'Load'</span>);
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user.name),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: clear }, <span class="str">'Clear'</span>)
+);
+}
+
+<span class="kw">export default</span> Profile;</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Inference from initial value</h4>
+<p><code>useState(null)</code> → <code>null</code>. <code>useState(0)</code> → <code>number</code>. <code>useState('')</code> → <code>string</code>. The generic only when you need to widen.</p>
+</div>
+<div class="concept-card">
+<h4>The union annotation</h4>
+<p><code>useState<User | null>(null)</code> — the state can hold a User or null. <code>setUser(user)</code> and <code>setUser(null)</code> both compile.</p>
+</div>
+<div class="concept-card">
+<h4>Narrow before access</h4>
+<p><code>user</code> is <code>User | null</code>. Accessing <code>user.name</code> requires narrowing: early return, optional chaining, or a check.</p>
+</div>
+<div class="concept-card">
+<h4>Same pattern for arrays</h4>
+<p><code>useState<User[]>([])</code> — empty array annotation is required, because <code>useState([])</code> infers <code>never[]</code>.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Update a single field with spread</h2>
+<p class="section-sub">The pattern that trips up every React beginner.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Setting object state isn't like setting a primitive. React compares state by reference — mutating the existing object doesn't change the reference, so no re-render. The fix: always return a new object. Use the functional setter with spread: <code>setUser(prev => ({ ...prev, name: 'Bob' }))</code>.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">update-field.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> Form {
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+age: <span class="fn">number</span>;
+}
+
+<span class="kw">function</span> <span class="fn">Form</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span><Form>({
+name: <span class="str">''</span>,
+email: <span class="str">''</span>,
+age: <span class="num">0</span>
+});
+
+<span class="com">// ─── The bug: mutation doesn't re-render ─────</span>
+<span class="kw">function</span> <span class="fn">badUpdate</span>() {
+form.name = <span class="str">'Alice'</span>; <span class="com">// ❌ mutates — React won't re-render</span>
+<span class="fn">setForm</span>(form); <span class="com">// same reference → bail out</span>
+}
+
+<span class="com">// ─── The fix 1: spread (simple) ──────────────</span>
+<span class="kw">function</span> <span class="fn">updateName</span>(name: <span class="fn">string</span>) {
+<span class="fn">setForm</span>({ ...form, name }); <span class="com">// ✅ new object</span>
+}
+
+<span class="com">// ─── The fix 2: functional setter (safest) ───</span>
+<span class="kw">function</span> <span class="fn">updateAge</span>(age: <span class="fn">number</span>) {
+<span class="fn">setForm</span>(prev => ({ ...prev, age })); <span class="com">// ✅ uses latest state</span>
+}
+
+<span class="com">// ─── Why functional setter is better ─────────</span>
+<span class="com">// If two updates happen in the same tick:
+// updateName('X') (closure captures old form)
+// updateAge(30) (closure captures old form)
+// Both spread from the same stale form — one update is lost.
+//
+// With functional setter:
+// setForm(prev => ({ ...prev, name: 'X' }))
+// setForm(prev => ({ ...prev, age: 30 }))
+// Each receives the LATEST state — no lost update.</span>
+
+<span class="com">// ─── Nested object update ────────────────────</span>
+<span class="kw">interface</span> Profile {
+name: <span class="fn">string</span>;
+address: { city: <span class="fn">string</span>; zip: <span class="fn">string</span> };
+}
+
+<span class="kw">const</span> [profile, setProfile] = <span class="fn">useState</span><Profile>({
+name: <span class="str">'Alice'</span>,
+address: { city: <span class="str">'Springfield'</span>, zip: <span class="str">'12345'</span> }
+});
+
+<span class="kw">function</span> <span class="fn">updateCity</span>(city: <span class="fn">string</span>) {
+<span class="fn">setProfile</span>(prev => ({
+...prev,
+address: { ...prev.address, city } <span class="com">// spread every level</span>
+}));
+}
+
+<span class="kw">return</span> (
+<div>
+<input value={form.name} onChange={e => <span class="fn">updateName</span>(e.target.value)} />
+<input type=<span class="str">"number"</span> value={form.age} onChange={e => <span class="fn">updateAge</span>(<span class="fn">Number</span>(e.target.value))} />
+<input value={profile.address.city} onChange={e => <span class="fn">updateCity</span>(e.target.value)} />
+</div>
+);
+}
+
+<span class="kw">export default</span> Form;</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">Form</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span>({
+name: <span class="str">''</span>,
+email: <span class="str">''</span>,
+age: <span class="num">0</span>
+});
+
+<span class="kw">function</span> <span class="fn">badUpdate</span>() {
+form.name = <span class="str">'Alice'</span>;
+<span class="fn">setForm</span>(form);
+}
+
+<span class="kw">function</span> <span class="fn">updateName</span>(name) {
+<span class="fn">setForm</span>({ ...form, name });
+}
+
+<span class="kw">function</span> <span class="fn">updateAge</span>(age) {
+<span class="fn">setForm</span>(prev => ({ ...prev, age }));
+}
+
+<span class="kw">const</span> [profile, setProfile] = <span class="fn">useState</span>({
+name: <span class="str">'Alice'</span>,
+address: { city: <span class="str">'Springfield'</span>, zip: <span class="str">'12345'</span> }
+});
+
+<span class="kw">function</span> <span class="fn">updateCity</span>(city) {
+<span class="fn">setProfile</span>(prev => ({
+...prev,
+address: { ...prev.address, city }
+}));
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: form.name, onChange: e => <span class="fn">updateName</span>(e.target.value) }),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { type: <span class="str">'number'</span>, value: form.age, onChange: e => <span class="fn">updateAge</span>(<span class="fn">Number</span>(e.target.value)) }),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: profile.address.city, onChange: e => <span class="fn">updateCity</span>(e.target.value) })
+);
+}
+
+<span class="kw">export default</span> Form;</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Never mutate</h4>
+<p><code>form.name = 'X'</code> mutates the object. React compares state by reference — same reference, no re-render. Fix: always spread into a new object.</p>
+</div>
+<div class="concept-card">
+<h4>Functional setter</h4>
+<p><code>setForm(prev => ({ ...prev, name }))</code> uses the latest state. Critical when two updates happen in the same tick — otherwise one is lost.</p>
+</div>
+<div class="concept-card">
+<h4>Spread at every level</h4>
+<p>Nested updates need spreads at every level: <code>{ ...prev, address: { ...prev.address, city } }</code>. Each level creates a new object.</p>
+</div>
+<div class="concept-card">
+<h4>Why not Object.assign?</h4>;
+<p><code>Object.assign(form, { name })</code> mutates — same problem as <code>form.name = 'X'</code>. Always return a new object.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The functional setter should be your default, not the exception.</strong> <code>setUser(prev => ({ ...prev, name }))</code> is one extra character than <code>setUser({ ...user, name })</code> but it's always correct. The direct-spread form reads <code>user</code> from the closure — if two updates happen in the same render tick, both see stale state and one is lost. This bug is subtle, hard to reproduce, and shows up in production. Use the functional setter everywhere. You'll never debug a lost update again.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Typed setter helpers</h2>
+<p class="section-sub">Reusable, typed field updaters for object state.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If you have many fields, writing one spread-call per field gets repetitive. A typed helper generates the setter for any field: <code>updateField('name', value)</code>. This is the pattern React Hook Form and similar libraries use internally — and it composes cleanly with TypeScript.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">typed-updater.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> Form {
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+age: <span class="fn">number</span>;
+}
+
+<span class="kw">function</span> <span class="fn">Form</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span><Form>({
+name: <span class="str">''</span>,
+email: <span class="str">''</span>,
+age: <span class="num">0</span>
+});
+
+<span class="com">// ─── Typed field updater ─────────────────────</span>
+<span class="kw">function</span> <span class="fn">updateField</span><K <span class="kw">extends</span> <span class="kw">keyof</span> Form>(key: K, value: Form[K]) {
+<span class="fn">setForm</span>(prev => ({ ...prev, [key]: value }));
+}
+
+<span class="com">// ─── Type-safe usage ─────────────────────────</span>
+<span class="fn">updateField</span>(<span class="str">'name'</span>, <span class="str">'Alice'</span>); <span class="com">// ✅ K='name', value=string</span>
+<span class="fn">updateField</span>(<span class="str">'age'</span>, <span class="num">30</span>); <span class="com">// ✅ K='age', value=number</span>
+<span class="com">// updateField('name', 30); // ❌ value must be string for 'name'</span>
+<span class="com">// updateField('nope', 'x'); // ❌ 'nope' not a key of Form</span>
+
+<span class="com">// ─── One updater handles every field ─────────</span>
+<span class="kw">return</span> (
+<div>
+<input
+value={form.name}
+onChange={e => <span class="fn">updateField</span>(<span class="str">'name'</span>, e.target.value)}
+/>
+<input
+value={form.email}
+onChange={e => <span class="fn">updateField</span>(<span class="str">'email'</span>, e.target.value)}
+/>
+<input
+type=<span class="str">"number"</span>
+value={form.age}
+onChange={e => <span class="fn">updateField</span>(<span class="str">'age'</span>, <span class="fn">Number</span>(e.target.value))}
+/>
+</div>
+);
+}
+
+<span class="com">// ─── Extract the helper for reuse ────────────</span>
+<span class="com">// Pull this into a custom hook:
+//
+// function useObjectState<T extends object>(init: T) {
+// const [state, setState] = useState(init);
+// function update<K extends keyof T>(key: K, value: T[K]) {
+// setState(prev => ({ ...prev, [key]: value }));
+// }
+// return [state, update, setState] as const;
+// }
+//
+// Usage:
+// const [form, updateField] = useObjectState<Form>({
+// name: '', email: '', age: 0
+// });</span>
+
+<span class="kw">export default</span> Form;</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">Form</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span>({
+name: <span class="str">''</span>,
+email: <span class="str">''</span>,
+age: <span class="num">0</span>
+});
+
+<span class="kw">function</span> <span class="fn">updateField</span>(key, value) {
+<span class="fn">setForm</span>(prev => ({ ...prev, [key]: value }));
+}
+
+<span class="fn">updateField</span>(<span class="str">'name'</span>, <span class="str">'Alice'</span>);
+<span class="fn">updateField</span>(<span class="str">'age'</span>, <span class="num">30</span>);
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+value: form.name,
+onChange: e => <span class="fn">updateField</span>(<span class="str">'name'</span>, e.target.value)
+}),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+value: form.email,
+onChange: e => <span class="fn">updateField</span>(<span class="str">'email'</span>, e.target.value)
+}),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+type: <span class="str">'number'</span>,
+value: form.age,
+onChange: e => <span class="fn">updateField</span>(<span class="str">'age'</span>, <span class="fn">Number</span>(e.target.value))
+})
+);
+}
+
+<span class="kw">export default</span> Form;</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code><K extends keyof Form></code></h4>
+<p>K is the key type — must be one of Form's keys. <code>value: Form[K]</code> means the value type depends on the key. This is the generic-from-Lesson-3 pattern applied.</p>
+</div>
+<div class="concept-card">
+<h4>Type-safe dispatch</h4>
+<p><code>updateField('name', 30)</code> fails — 'name' requires a string. This catches field/value mismatches at compile time.</p>
+</div>
+<div class="concept-card">
+<h4>Extract to a hook</h4>
+<p>The same pattern as <code>useObjectState<T></code> gives every form the type-safe <code>updateField</code> for free. Reuse it across the app.</p>
+</div>
+<div class="concept-card">
+<h4>Replaces per-field updaters</h4>
+<p>Instead of <code>updateName</code>, <code>updateEmail</code>, <code>updateAge</code> — one <code>updateField</code> handles all three. Less code, fully typed.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The useState-with-object bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Forgetting the generic on <code>useState(null)</code></div>
+<p><code>useState(null)</code> infers <code>null</code>. <code>setUser(user)</code> fails. Fix: <code>useState<User | null>(null)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Mutating state directly</div>
+<p><code>form.name = 'X'</code> doesn't trigger a re-render — React compares by reference. Fix: always return a new object from the setter.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using the direct-spread form in async code</div>
+<p><code>setForm({ ...form, name })</code> captures stale <code>form</code> if called twice in the same tick. Fix: <code>setForm(prev => ({ ...prev, name }))</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Forgetting to spread nested levels</div>
+<p><code>{ ...prev, address: { city } }</code> drops <code>zip</code>. Fix: <code>{ ...prev, address: { ...prev.address, city } }</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using <code>Object.assign</code></div>
+<p><code>Object.assign(form, { name })</code> mutates. Same bug as direct mutation. Fix: <code>{ ...form, name }</code> or functional setter.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Not annotating empty arrays</div>
+<p><code>useState([])</code> infers <code>never[]</code>. Fix: <code>useState<User[]>([])</code>. Same pattern as nullable objects — annotate when inference isn't enough.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using object state for related fields</div>
+<p>Three <code>useState</code> calls that always change together are a smell. Fix: one <code>useState</code> with an object, or <code>useReducer</code> if transitions matter.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Accessing nullable state without narrowing</div>
+<p><code>user.name</code> when <code>user</code> is <code>User | null</code> fails. Fix: <code>user?.name</code>, early return, or explicit check.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I type useState with an object in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Provide the type as a generic argument to useState: const [user, setUser] = useState<User>({ id: '1', name: 'Alice' }). If the state starts as null and the object comes later, use a union: useState<User | null>(null). The generic is what tells TypeScript the full range of values the state can hold.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I update a single field of an object in useState?</summary>
+<p class="mt-2 text-sm text-slate-300">Use the functional setter with spread: setUser(prev => ({ ...prev, name: 'Bob' })). The spread copies all fields, then 'name' overwrites one. This is required for correctness — mutating prev.name directly doesn't trigger a re-render. Always return a new object from the setter.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does useState(null) fail to accept setUser(user)?</summary>
+<p class="mt-2 text-sm text-slate-300">Because TypeScript infers the state type from the initial value. useState(null) gives type null — not User | null. Calling setUser(user) then fails because User isn't assignable to null. Fix: provide the generic explicitly: useState<User | null>(null).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use useState or useReducer for object state?</summary>
+<p class="mt-2 text-sm text-slate-300">Use useState if the object is simple and updates are independent. Use useReducer if the object has related fields that must transition together, or if the update logic is complex. Rule of thumb: 1–2 fields with simple updates → useState. 3+ related fields, or transitions → useReducer.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/react-ts.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 8: TS with React</div>
+<div class="text-xs text-slate-400 mt-1">Props, state, events, refs</div>
+</a>
+<a href="/courses/react/lessons/state.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ React: State & useState</div>
+<div class="text-xs text-slate-400 mt-1">The React fundamentals</div>
+</a>
+<a href="/courses/typescript/problems/partial.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Partial (all properties optional)</div>
+<div class="text-xs text-slate-400 mt-1">Combine with useState for forms</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React + TS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
