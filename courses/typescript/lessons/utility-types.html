@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TypeScript Utility Types — Partial, Pick, Omit, Record, keyof (2026)</title>
+<meta name="description" content="Learn TypeScript utility types. Partial, Required, Pick, Omit, Record, Readonly, ReturnType, and the advanced operators keyof, typeof, mapped types, and template literal types. Every example compiled side-by-side.">
+<meta name="keywords" content="typescript utility types, partial typescript, pick omit typescript, record typescript, keyof typescript, mapped types, template literal types, typescript advanced">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="TypeScript Utility Types — Partial, Pick, Omit, Record, keyof">
+<meta property="og:description" content="Learn TypeScript utility types. Partial, Required, Pick, Omit, Record, Readonly, ReturnType, and the advanced operators keyof, typeof, mapped types, and template literal types.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/lessons/utility-types.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TypeScript Utility Types — Partial, Pick, Omit, Record, keyof">
+<meta name="twitter:description" content="Learn TypeScript utility types. Partial, Required, Pick, Omit, Record, Readonly, ReturnType, and the advanced operators keyof, typeof, mapped types, and template literal types.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/lessons/utility-types.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "TypeScript Utility Types — Partial, Pick, Omit, Record, keyof",
+"description": "Learn TypeScript utility types. Partial, Required, Pick, Omit, Record, Readonly, ReturnType, and the advanced operators keyof, typeof, mapped types, and template literal types.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What are utility types in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Utility types are built-in generic types that transform other types. They ship with TypeScript and are available everywhere. Partial<T> makes all properties optional. Required<T> makes them all required. Pick<T, K> keeps only specified keys. Omit<T, K> removes specified keys. Record<K, V> builds a dictionary. Readonly<T> marks everything readonly. ReturnType<F> extracts a function's return type. Parameters<F> extracts its parameter types. They're the vocabulary of type-level programming in TypeScript."}},
+{"@type":"Question","name":"What is the difference between Pick and Omit?","acceptedAnswer":{"@type":"Answer","text":"Pick<T, K> keeps only the keys you specify — a whitelist. Omit<T, K> removes the keys you specify — a blacklist. Pick<User, 'id' | 'name'> produces a type with just id and name. Omit<User, 'password'> produces a User without password. Use Pick when you want to select a few known fields. Use Omit when you want most fields and want to remove a few. Both produce new types at compile time with zero runtime cost."}},
+{"@type":"Question","name":"What is the keyof operator?","acceptedAnswer":{"@type":"Answer","text":"keyof T produces a union of T's property names. If User = { id: string; name: string }, then keyof User = 'id' | 'name'. This is the foundation of type-safe property access: function get<T, K extends keyof T>(obj: T, key: K): T[K]. keyof turns an object type into its keys, which you can then constrain generics with or iterate over with mapped types."}},
+{"@type":"Question","name":"What is the typeof operator in type position?","acceptedAnswer":{"@type":"Answer","text":"In a type position, typeof extracts the type of a value. const user = { id: '1', name: 'Alice' }; type User = typeof user; — User is now the inferred shape of user. This is how you reuse the type of an existing variable or function without redeclaring it. Not to be confused with the runtime typeof operator — same keyword, different context."}},
+{"@type":"Question","name":"What are mapped types?","acceptedAnswer":{"@type":"Answer","text":"Mapped types iterate over a union of keys to build a new object type. type Optional<T> = { [K in keyof T]?: T[K] }; — this is how Partial is implemented. Mapped types use the [K in Keys] syntax and can add or remove modifiers (readonly, optional). They're the foundation of all utility types, and they let you generate types from other types with full type safety."}},
+{"@type":"Question","name":"What are template literal types?","acceptedAnswer":{"@type":"Answer","text":"Template literal types use string template syntax at the type level. type Greeting = Hello, ${string}— this type matches any string starting with 'Hello, '. They can build complex string patterns: type EventName =on${Capitalize&lt;string&gt;}. Commonly used to type event handler names, route patterns, and enum-like keys. They're a relatively new TypeScript feature (4.1+) that enables precise string typing without runtime overhead."}},
+{"@type":"Question","name":"What is Record<K, V> used for?","acceptedAnswer":{"@type":"Answer","text":"Record builds an object type where keys are K and values are V. type Roles = Record<'admin' | 'user' | 'guest', boolean> produces { admin: boolean; user: boolean; guest: boolean }. It's the cleanest way to build dictionaries, config maps, and lookup tables. The keys can be a union, a string, or a number — any index signature-compatible type. For type-safe lookups, Record is far superior to plain { [key: string]: V } because it constrains the keys."}},
+{"@type":"Question","name":"What is ReturnType and when is it useful?","acceptedAnswer":{"@type":"Answer","text":"ReturnType<F> extracts the return type of a function type. type UserReturn = ReturnType<typeof getUser> — UserReturn is whatever getUser returns. This is useful when you don't want to duplicate the return type declaration: let the function define it, then extract it with ReturnType. Common in React when typing custom hook return values, or in services when typing the result of a method without redeclaring it."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Lesson 6</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Utility types & advanced</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 6</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Lesson 6 · 20 minutes</div>
+<h1>Utility types & advanced.<br><span class="py-accent">The vocabulary of type programming.</span></h1>
+<p class="lead">
+TypeScript ships with a set of built-in utility types that transform other types — Partial, Required, Pick, Omit, Record, Readonly, ReturnType, Parameters, Awaited. They eliminate the need to redeclare shapes. Underneath them are three operators that power everything: keyof, typeof, and mapped types. And on top sits the newest superpower — template literal types. This lesson covers all of it. By the end, you'll be able to read the source code of any library's types — because most of it is built from the operators in this lesson.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~20 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Advanced</span>
+<span><i class="fa-solid fa-code"></i> TypeScript 5 · utility types</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/typescript/index.html">TypeScript path</a>
+<a href="#essential">Essential utility types</a>
+<a href="#advanced">ReturnType & Parameters</a>
+<a href="#keyof">keyof & typeof</a>
+<a href="#mapped">Mapped types</a>
+<a href="#template">Template literals</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Utility types</strong> transform one type into another. <code>Partial<T></code> makes properties optional; <code>Required<T></code> makes them required; <code>Pick<T, K></code> keeps keys; <code>Omit<T, K></code> removes keys; <code>Record<K, V></code> builds a dictionary; <code>Readonly<T></code> marks fields readonly. <strong>Advanced operators:</strong> <code>keyof T</code> gives the union of T's keys; <code>typeof value</code> extracts a value's type; <strong>mapped types</strong> (<code>[K in keyof T]</code>) iterate over keys to build new types; <strong>template literal types</strong> (<code>on${string}`</code>) type string patterns. These are what every library is built from.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#3178C6 !important;">Before this lesson:</strong> complete <a href="/courses/typescript/lessons/classes.html" style="color:#5B9BD5; text-decoration:underline;">Lesson 5</a> — you'll use generics, constraints, and interfaces throughout.
+</p>
+</div>
+
+<section id="essential">
+<h2 class="section-title">🧰 The essential utility types</h2>
+<p class="section-sub">The nine types you'll use in every real project.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Utility types are built-in generics — TypeScript provides them, you use them. They transform one type into a variant of itself. No runtime cost: everything happens at compile time and disappears in the output.</p>
+
+<div class="code-block" id="demo-essential">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">utility-types.ts</span>
+<button class="copy-btn" onclick="copyCode('code-essential', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-essential', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-essential', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-essential', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-essential"><span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+password: <span class="fn">string</span>;
+age?: <span class="fn">number</span>;
+}
+
+<span class="com">// ─── Partial: all properties optional ────────</span>
+<span class="kw">type</span> PartialUser = <span class="fn">Partial</span><User>;
+<span class="com">// { id?: string; name?: string; email?: string; password?: string; age?: number }</span>
+<span class="kw">const</span> patch: PartialUser = { name: <span class="str">'Alice'</span> }; <span class="com">// ✅ partial update</span>
+
+<span class="com">// ─── Required: all properties required ───────</span>
+<span class="kw">type</span> FullUser = <span class="fn">Required</span><User>;
+<span class="com">// age is now required (number, not number | undefined)</span>
+
+<span class="com">// ─── Pick: keep only these keys ──────────────</span>
+<span class="kw">type</span> UserPreview = <span class="fn">Pick</span><User, <span class="str">'id'</span> | <span class="str">'name'</span>>;
+<span class="com">// { id: string; name: string }</span>
+<span class="kw">const</span> preview: UserPreview = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> };
+
+<span class="com">// ─── Omit: remove these keys ─────────────────</span>
+<span class="kw">type</span> SafeUser = <span class="fn">Omit</span><User, <span class="str">'password'</span>>;
+<span class="com">// { id, name, email, age } — everything except password</span>
+
+<span class="com">// ─── Record: dictionary with typed keys ──────</span>
+<span class="kw">type</span> Role = <span class="str">'admin'</span> | <span class="str">'user'</span> | <span class="str">'guest'</span>;
+<span class="kw">type</span> Permissions = <span class="fn">Record</span><Role, <span class="fn">string</span>[]>;
+<span class="kw">const</span> perms: Permissions = {
+admin: [<span class="str">'read'</span>, <span class="str">'write'</span>, <span class="str">'delete'</span>],
+user: [<span class="str">'read'</span>, <span class="str">'write'</span>],
+guest: [<span class="str">'read'</span>]
+<span class="com">// ❌ Missing 'guest' key = compile error (Record enforces all keys)</span>
+};
+
+<span class="com">// ─── Readonly: mark all properties readonly ──</span>
+<span class="kw">type</span> FrozenUser = <span class="fn">Readonly</span><User>;
+<span class="kw">const</span> fu: FrozenUser = { id: <span class="str">'1'</span>, name: <span class="str">'A'</span>, email: <span class="str">'a@x'</span>, password: <span class="str">'x'</span> };
+<span class="com">// fu.name = 'B'; // ❌ Cannot assign to 'name' (read-only)</span>
+
+console.<span class="fn">log</span>(patch, preview, perms);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Every utility type is erased at compile time.</span>
+<span class="com">// The output has no Partial, Required, Pick, Omit, Record, or Readonly.</span>
+<span class="com">// Only the runtime values remain — same as plain JS.</span>
+
+<span class="kw">const</span> patch = { name: <span class="str">'Alice'</span> };
+
+<span class="kw">const</span> preview = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> };
+
+<span class="kw">const</span> perms = {
+admin: [<span class="str">'read'</span>, <span class="str">'write'</span>, <span class="str">'delete'</span>],
+user: [<span class="str">'read'</span>, <span class="str">'write'</span>],
+guest: [<span class="str">'read'</span>]
+};
+
+<span class="kw">const</span> fu = { id: <span class="str">'1'</span>, name: <span class="str">'A'</span>, email: <span class="str">'a@x'</span>, password: <span class="str">'x'</span> };
+
+console.<span class="fn">log</span>(patch, preview, perms);</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">{ name: 'Alice' }
+{ id: '1', name: 'Alice' }
+{
+admin: [ 'read', 'write', 'delete' ],
+user: [ 'read', 'write' ],
+guest: [ 'read' ]
+}</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>Partial<T></code></h4>
+<p>Makes every property optional (<code>?</code>). Perfect for PATCH endpoints and "update" payloads where any subset of fields can be sent.</p>
+</div>
+<div class="concept-card">
+<h4><code>Required<T></code></h4>
+<p>Makes every property required (removes <code>?</code> and <code>undefined</code>). Useful when a type has optional fields but a specific function needs all of them.</p>
+</div>
+<div class="concept-card">
+<h4><code>Pick<T, K></code> / <code>Omit<T, K></code></h4>
+<p>Whitelist vs blacklist. <code>Pick</code> keeps only specified keys. <code>Omit</code> removes specified keys. Both produce a new type — no runtime cost.</p>
+</div>
+<div class="concept-card">
+<h4><code>Record<K, V></code></h4>
+<p>Builds a dictionary: keys are K, values are V. Far safer than <code>{ [key: string]: V }</code> because it constrains both keys and values — and enforces that all keys are present.</p>
+</div>
+<div class="concept-card">
+<h4><code>Readonly<T></code></h4>
+<p>Marks every property as <code>readonly</code> at compile time. Erased at runtime — the object is still mutable in JS. For deep immutability use <code>as const</code> or <code>Object.freeze</code>.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong><code>Omit</code> is more common than <code>Pick</code> in practice.</strong> When exposing a user to the frontend, you omit <code>password</code> rather than picking every other field. When creating a request from a full entity, you omit <code>id</code> and <code>createdAt</code>. When building a public API, you omit internal fields. The pattern is "I have X, I want a version of X without these specific things" — which is <code>Omit</code>. Reach for <code>Pick</code> only when you want a genuinely minimal subset (e.g. a search result, a list item).</p>
+</div>
+</section>
+
+<section id="advanced">
+<h2 class="section-title">🔬 ReturnType, Parameters, Awaited — extracting types</h2>
+<p class="section-sub">Pull types out of functions instead of redeclaring them.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">These utility types extract information from function signatures. Instead of duplicating a type in two places (the function and the variable that holds its result), you extract it with <code>ReturnType</code>. This keeps types in sync — one change to the function updates every dependent type.</p>
+
+<div class="code-block" id="demo-advanced">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">extract.ts</span>
+<button class="copy-btn" onclick="copyCode('code-advanced', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-advanced', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-advanced', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-advanced', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-advanced"><span class="com">// ─── ReturnType: extract the return type ────</span>
+<span class="kw">function</span> <span class="fn">createUser</span>(name: <span class="fn">string</span>, email: <span class="fn">string</span>) {
+<span class="kw">return</span> {
+id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(),
+name,
+email,
+createdAt: <span class="kw">new</span> <span class="fn">Date</span>()
+};
+}
+
+<span class="kw">type</span> User = <span class="fn">ReturnType</span><<span class="kw">typeof</span> createUser>;
+<span class="com">// { id: string; name: string; email: string; createdAt: Date }</span>
+<span class="com">// No duplication — the function defines the shape, ReturnType pulls it out.</span>
+
+<span class="kw">const</span> u: User = <span class="fn">createUser</span>(<span class="str">'Alice'</span>, <span class="str">'a@x.com'</span>);
+
+<span class="com">// ─── Parameters: extract param types ─────────</span>
+<span class="kw">type</span> CreateUserArgs = <span class="fn">Parameters</span><<span class="kw">typeof</span> createUser>;
+<span class="com">// [string, string]</span>
+
+<span class="kw">const</span> args: CreateUserArgs = [<span class="str">'Bob'</span>, <span class="str">'b@x.com'</span>];
+<span class="com">// const bad: CreateUserArgs = ['x']; // ❌ needs 2 elements</span>
+
+<span class="com">// ─── Works with function types too ───────────</span>
+<span class="kw">type</span> Handler = (event: <span class="fn">MouseEvent</span>, x: <span class="fn">number</span>) => <span class="fn">boolean</span>;
+<span class="kw">type</span> HandlerReturn = <span class="fn">ReturnType</span><Handler>; <span class="com">// boolean</span>
+<span class="kw">type</span> HandlerArgs = <span class="fn">Parameters</span><Handler>; <span class="com">// [MouseEvent, number]</span>
+
+<span class="com">// ─── Awaited: unwrap promises ────────────────</span>
+<span class="kw">async function</span> <span class="fn">fetchUser</span>(id: <span class="fn">string</span>): <span class="fn">Promise</span><User> {
+<span class="kw">return</span> { id, name: <span class="str">'x'</span>, email: <span class="str">'x'</span>, createdAt: <span class="kw">new</span> <span class="fn">Date</span>() };
+}
+
+<span class="kw">type</span> FetchedUser = <span class="fn">Awaited</span><<span class="fn">ReturnType</span><<span class="kw">typeof</span> fetchUser>>;
+<span class="com">// User — unwraps the Promise</span>
+
+<span class="com">// ─── NonNullable: remove null/undefined ──────</span>
+<span class="kw">type</span> MaybeUser = User | <span class="fn">null</span> | <span class="fn">undefined</span>;
+<span class="kw">type</span> SafeUser = <span class="fn">NonNullable</span><MaybeUser>;
+<span class="com">// User</span>
+
+<span class="com">// ─── The pattern: sync types by extraction ───</span>
+<span class="com">// Bad: function f() { return { a: 1 }; } type R = { a: number }; // duplicate</span>
+<span class="com">// Good: function f() { return { a: 1 }; } type R = ReturnType<typeof f>; // synced</span>
+
+console.<span class="fn">log</span>(u.name, args, perms);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// All type extraction erased. Only the runtime functions and values remain.</span>
+
+<span class="kw">function</span> <span class="fn">createUser</span>(name, email) {
+<span class="kw">return</span> {
+id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(),
+name,
+email,
+createdAt: <span class="kw">new</span> <span class="fn">Date</span>()
+};
+}
+
+<span class="kw">const</span> u = <span class="fn">createUser</span>(<span class="str">'Alice'</span>, <span class="str">'a@x.com'</span>);
+
+<span class="kw">const</span> args = [<span class="str">'Bob'</span>, <span class="str">'b@x.com'</span>];
+
+<span class="kw">async function</span> <span class="fn">fetchUser</span>(id) {
+<span class="kw">return</span> { id, name: <span class="str">'x'</span>, email: <span class="str">'x'</span>, createdAt: <span class="kw">new</span> <span class="fn">Date</span>() };
+}
+
+console.<span class="fn">log</span>(u.name, args, perms);</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">Alice [ 'Bob', 'b@x.com' ] {
+admin: [ 'read', 'write', 'delete' ],
+user: [ 'read', 'write' ],
+guest: [ 'read' ]
+}</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>ReturnType<F></code></h4>
+<p>Extracts the return type of a function. Use <code>typeof fn</code> to get the function's type first: <code>ReturnType<typeof fn></code>. The pattern for "reuse the type of what this returns."</p>
+</div>
+<div class="concept-card">
+<h4><code>Parameters<F></code></h4>
+<p>Extracts the parameter types as a tuple. <code>Parameters<typeof fn></code> gives <code>[arg1Type, arg2Type]</code>. Useful for wrapping functions and forwarding arguments.</p>
+</div>
+<div class="concept-card">
+<h4><code>Awaited<P></code></h4>
+<p>Unwraps a <code>Promise</code>. <code>Awaited<Promise<User>></code> = <code>User</code>. Works with nested promises and <code>async</code> function returns. Combine with <code>ReturnType</code> to get the resolved value of an async function.</p>
+</div>
+<div class="concept-card">
+<h4><code>NonNullable<T></code></h4>
+<p>Removes <code>null</code> and <code>undefined</code> from a union. <code>NonNullable<User | null></code> = <code>User</code>. Useful when you know a value is present but the type still carries the nullable variants.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Use <code>ReturnType<typeof fn></code> as your default for API types.</strong> When you write an API client, define the function first (<code>function getUser(id): Promise<User></code>), then extract the types rather than declaring them upfront. If the function changes, every dependent type follows automatically. This is the pattern React codebases use for hooks: <code>type UseUserResult = ReturnType<typeof useUser></code>. It's also how Next.js, tRPC, and React Query propagate types through the whole stack — a single function definition flows into components, hooks, and even the client.</p>
+</div>
+</section>
+
+<section id="keyof">
+<h2 class="section-title">🔑 keyof and typeof — the introspection operators</h2>
+<p class="section-sub">Turn types into values (at type level) and values into types.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3"><code>keyof T</code> produces a union of T's keys. <code>typeof value</code> produces the type of a runtime value. Together they unlock the pattern of writing functions that accept any object and any of its keys, with full type safety on both the object and the key.</p>
+
+<div class="code-block" id="demo-keyof">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">keyof.ts</span>
+<button class="copy-btn" onclick="copyCode('code-keyof', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-keyof', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-keyof', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-keyof', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-keyof"><span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+age: <span class="fn">number</span>;
+}
+
+<span class="com">// ─── keyof: union of property names ──────────</span>
+<span class="kw">type</span> UserKey = <span class="kw">keyof</span> User;
+<span class="com">// 'id' | 'name' | 'email' | 'age'</span>
+
+<span class="kw">const</span> k: UserKey = <span class="str">'name'</span>; <span class="com">// ✅</span>
+<span class="com">// const bad: UserKey = 'foo'; // ❌ 'foo' not a key of User</span>
+
+<span class="com">// ─── The get pattern ─────────────────────────</span>
+<span class="kw">function</span> <span class="fn">get</span><T, K <span class="kw">extends</span> <span class="kw">keyof</span> T>(obj: T, key: K): T[K] {
+<span class="kw">return</span> obj[key];
+}
+
+<span class="kw">const</span> user: User = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x'</span>, age: <span class="num">28</span> };
+<span class="kw">const</span> name = <span class="fn">get</span>(user, <span class="str">'name'</span>); <span class="com">// string</span>
+<span class="kw">const</span> age = <span class="fn">get</span>(user, <span class="str">'age'</span>); <span class="com">// number</span>
+<span class="com">// get(user, 'foo'); // ❌ 'foo' is not a key of User</span>
+
+<span class="com">// ─── typeof: value → type ───────────────────</span>
+<span class="kw">const</span> config = {
+host: <span class="str">'localhost'</span>,
+port: <span class="num">3000</span>,
+debug: <span class="kw">true</span>
+};
+
+<span class="kw">type</span> Config = <span class="kw">typeof</span> config;
+<span class="com">// { host: string; port: number; debug: boolean }</span>
+
+<span class="kw">function</span> <span class="fn">start</span>(c: Config): <span class="fn">string</span> {
+<span class="kw">return</span> <span class="str">``${c.host}:{c.debug ? ' (debug)' : ''}`</span>;
+}
+
+<span class="com">// ─── typeof on functions ─────────────────────</span>
+<span class="kw">function</span> <span class="fn">greet</span>(name: <span class="fn">string</span>): <span class="fn">string</span> {
+<span class="kw">return</span> <span class="str">Hi, ${name}`</span>;
+}
+
+<span class="kw">type</span> GreetFn = <span class="kw">typeof</span> greet;
+<span class="com">// (name: string) => string</span>
+
+<span class="com">// ─── keyof typeof: keys from a value ─────────</span>
+<span class="kw">type</span> ConfigKey = <span class="kw">keyof</span> <span class="kw">typeof</span> config;
+<span class="com">// 'host' | 'port' | 'debug'</span>
+
+console.<span class="fn">log</span>(name, age, k, <span class="fn">start</span>(config));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// keyof and typeof (in type position) are erased.</span>
+<span class="com">// The runtime is plain JavaScript — no type introspection.</span>
+
+<span class="kw">const</span> k = <span class="str">'name'</span>;
+
+<span class="kw">function</span> <span class="fn">get</span>(obj, key) {
+<span class="kw">return</span> obj[key];
+}
+
+<span class="kw">const</span> user = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x'</span>, age: <span class="num">28</span> };
+<span class="kw">const</span> name = <span class="fn">get</span>(user, <span class="str">'name'</span>);
+<span class="kw">const</span> age = <span class="fn">get</span>(user, <span class="str">'age'</span>);
+
+<span class="kw">const</span> config = {
+host: <span class="str">'localhost'</span>,
+port: <span class="num">3000</span>,
+debug: <span class="kw">true</span>
+};
+
+<span class="kw">function</span> <span class="fn">start</span>(c) {
+<span class="kw">return</span> <span class="str">``${c.host}:{c.debug ? ' (debug)' : ''}`</span>;
+}
+
+<span class="kw">function</span> <span class="fn">greet</span>(name) {
+<span class="kw">return</span> <span class="str">Hi, ${name}`</span>;
+}
+
+console.<span class="fn">log</span>(name, age, k, <span class="fn">start</span>(config));</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">Alice 28 name localhost:3000 (debug)</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>keyof T</code> — the key union</h4>
+<p>Produces a union of T's property names. <code>keyof User</code> = <code>'id' | 'name' | 'email' | 'age'</code>. Use it to constrain generics (<code>K extends keyof T</code>) or index into a type (<code>T[K]</code>).</p>
+</div>
+<div class="concept-card">
+<h4><code>typeof value</code> — the type</h4>
+<p>In a type position, extracts the type of a runtime value. <code>typeof config</code> is the inferred type of the <code>config</code> object. Works with variables, functions, imports.</p>
+</div>
+<div class="concept-card">
+<h4><code>keyof typeof</code></h4>
+<p>Combines both: <code>keyof typeof config</code> = <code>'host' | 'port' | 'debug'</code>. The idiomatic way to extract keys from a runtime object. Common in config objects and route definitions.</p>
+</div>
+<div class="concept-card">
+<h4>The <code>get</code> pattern</h4>
+<p><code>function get<T, K extends keyof T>(obj: T, key: K): T[K]</code> — the typed property accessor. Returns the exact type of the property: string for <code>'name'</code>, number for <code>'age'</code>. Every typed getter uses this.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong><code>typeof</code> is two operators in one keyword.</strong> In expression position (<code>typeof x === 'string'</code>) it's the runtime JavaScript operator, returning a string. In type position (<code>type T = typeof x</code>) it's the TypeScript type operator, returning a type. The compiler decides which based on context. This is confusing at first — remember: type position = type operator, expression position = runtime operator.</p>
+</div>
+</section>
+
+<section id="mapped">
+<h2 class="section-title">🗺️ Mapped types — building types from types</h2>
+<p class="section-sub">How <code>Partial</code>, <code>Required</code>, and <code>Readonly</code> are actually implemented.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A mapped type iterates over a union of keys to build a new object type. The syntax <code>{ [K in Keys]: ValueType }</code> says "for each key K in Keys, define a property with type ValueType." This is the foundation of every utility type, and it lets you generate types programmatically.</p>
+
+<div class="code-block" id="demo-mapped">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">mapped.ts</span>
+<button class="copy-btn" onclick="copyCode('code-mapped', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-mapped', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-mapped', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-mapped', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-mapped"><span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+age: <span class="fn">number</span>;
+}
+
+<span class="com">// ─── These are how utilities are actually built ───</span>
+<span class="kw">type</span> MyPartial<T> = { [K <span class="kw">in</span> <span class="kw">keyof</span> T]?: T[K] };
+<span class="kw">type</span> MyRequired<T> = { [K <span class="kw">in</span> <span class="kw">keyof</span> T]-?: T[K] };
+<span class="kw">type</span> MyReadonly<T> = { <span class="kw">readonly</span> [K <span class="kw">in</span> <span class="kw">keyof</span> T]: T[K] };
+
+<span class="com">// MyPartial<User> = { id?: string; name?: string; age?: number }</span>
+
+<span class="com">// ─── Modifiers: + and - ─────────────────────</span>
+<span class="com">// ? adds optional
+// -? removes optional (Required)
+// readonly adds readonly
+// -readonly removes readonly</span>
+
+<span class="kw">type</span> Mutable<T> = { -<span class="kw">readonly</span> [K <span class="kw">in</span> <span class="kw">keyof</span> T]: T[K] };
+<span class="com">// Removes readonly from every field (the inverse of Readonly)</span>
+
+<span class="com">// ─── Change value types via mapped type ──────</span>
+<span class="kw">type</span> Stringify<T> = { [K <span class="kw">in</span> <span class="kw">keyof</span> T]: <span class="fn">string</span> };
+<span class="com">// { id: string; name: string; age: string }</span>
+
+<span class="kw">type</span> Nullable<T> = { [K <span class="kw">in</span> <span class="kw">keyof</span> T]: T[K] | <span class="fn">null</span> };
+<span class="com">// { id: string | null; name: string | null; age: number | null }</span>
+
+<span class="com">// ─── Map over a subset of keys ───────────────</span>
+<span class="kw">type</span> PickByValue<T, V> = {
+[K <span class="kw">in</span> <span class="kw">keyof</span> T <span class="kw">as</span> T[K] <span class="kw">extends</span> V ? K : <span class="fn">never</span>]: T[K]
+};
+<span class="com">// Keeps only keys whose values extend V</span>
+<span class="kw">type</span> StringKeys = PickByValue<User, <span class="fn">string</span>>;
+<span class="com">// { id: string; name: string } — age filtered out</span>
+
+<span class="com">// ─── Conditional value mapping ───────────────</span>
+<span class="kw">type</span> DeepReadonly<T> = {
+<span class="kw">readonly</span> [K <span class="kw">in</span> <span class="kw">keyof</span> T]: T[K] <span class="kw">extends</span> <span class="fn">object</span> ? DeepReadonly<T[K]> : T[K]
+};
+
+<span class="kw">const</span> p: MyPartial<User> = { name: <span class="str">'Alice'</span> };
+<span class="kw">const</span> sk: StringKeys = { id: <span class="str">'1'</span>, name: <span class="str">'A'</span> };
+
+console.<span class="fn">log</span>(p, sk);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Mapped types are erased entirely. The runtime sees only the values.</span>
+
+<span class="kw">const</span> p = { name: <span class="str">'Alice'</span> };
+<span class="kw">const</span> sk = { id: <span class="str">'1'</span>, name: <span class="str">'A'</span> };
+
+console.<span class="fn">log</span>(p, sk);</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">{ name: 'Alice' } { id: '1', name: 'A' }</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>[K in keyof T]</code></h4>
+<p>Iterates over T's keys. <code>K</code> is bound to each key in turn. Inside the body, <code>T[K]</code> gives the value type for that key. This is the core syntax.</p>
+</div>
+<div class="concept-card">
+<h4>Modifiers: <code>?</code> / <code>-?</code></h4>
+<p>Adds or removes optional. <code>?:</code> makes optional (Partial). <code>-?:</code> removes optional (Required). Same for <code>readonly</code> / <code>-readonly</code>.</p>
+</div>
+<div class="concept-card">
+<h4><code>as</code> key remapping</h4>
+<p><code>[K in keyof T as SomeType]</code> transforms the key. <code>as T[K] extends V ? K : never</code> filters out keys. This is how <code>PickByValue</code> and many other advanced types work.</p>
+</div>
+<div class="concept-card">
+<h4>Recursive mapped types</h4>
+<p><code>DeepReadonly</code> recurses into nested objects. Mapped types can recurse — this is how libraries build deep transformations like <code>DeepPartial</code>, <code>DeepReadonly</code>.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Read the TypeScript source — it's surprisingly readable.</strong> Every utility type in <code>lib.es5.d.ts</code> is a mapped type of 1-3 lines. Open <a href="https://github.com/microsoft/TypeScript/blob/main/lib/lib.es5.d.ts" style="color:#5B9BD5;">the source</a> and search for "Partial" — you'll see <code>type Partial<T> = { [P in keyof T]?: T[P] };</code>. Once you understand mapped types, you can read the source of every utility type and — crucially — write your own when none of the built-ins fit. This is where TypeScript stops feeling like "magic syntax" and starts feeling like a language you can extend.</p>
+</div>
+</section>
+
+<section id="template">
+<h2 class="section-title">✨ Template literal types — string patterns at the type level</h2>
+<p class="section-sub">Model string shapes precisely. Catch typos in event names, routes, keys.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Template literal types use template string syntax at the type level. <code>Hello,${string}`</code> matches any string starting with <code>"Hello, "</code>. They compose with utilities like <code>Capitalize</code>, <code>Lowercase</code>, <code>Uppercase</code>. The result: you can model event names, route patterns, and dotted paths without a runtime validation library.</p>
+
+<div class="code-block" id="demo-template">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">template.ts</span>
+<button class="copy-btn" onclick="copyCode('code-template', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-template', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-template', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-template', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-template"><span class="com">// ─── Basic template literal type ─────────────</span>
+<span class="kw">type</span> Greeting = <span class="str">Hello, ${string}`</span>;
+
+<span class="kw">const</span> g1: Greeting = <span class="str">'Hello, Alice'</span>; <span class="com">// ✅</span>
+<span class="kw">const</span> g2: Greeting = <span class="str">'Hello, world'</span>; <span class="com">// ✅</span>
+<span class="com">// const bad: Greeting = 'Hi, Alice'; // ❌ must start with 'Hello, '</span>
+
+<span class="com">// ─── Event names ─────────────────────────────</span>
+<span class="kw">type</span> Event = <span class="str">'click'</span> | <span class="str">'focus'</span> | <span class="str">'blur'</span>;
+<span class="kw">type</span> Handler = <span class="str">on${Capitalize<Event>}`</span>;
+<span class="com">// 'onClick' | 'onFocus' | 'onBlur'</span>
+
+<span class="kw">const</span> h: Handler = <span class="str">'onClick'</span>; <span class="com">// ✅</span>
+<span class="com">// const bad: Handler = 'onScroll'; // ❌ not a known event</span>
+
+<span class="com">// ─── Route patterns ──────────────────────────</span>
+<span class="kw">type</span> Route = <span class="str">/users/${string}</span&gt; | &lt;span class="str">/posts/${string}</span>;
+
+<span class="kw">const</span> r1: Route = <span class="str">'/users/123'</span>; <span class="com">// ✅</span>
+<span class="kw">const</span> r2: Route = <span class="str">'/posts/abc'</span>; <span class="com">// ✅</span>
+<span class="com">// const bad: Route = '/comments/1'; // ❌ not in the union</span>
+
+<span class="com">// ─── Dot-path keys ───────────────────────────</span>
+<span class="kw">interface</span> Config {
+host: <span class="fn">string</span>;
+port: <span class="fn">number</span>;
+}
+<span class="kw">type</span> Dotted<T> = {
+[K <span class="kw">in</span> <span class="kw">keyof</span> T <span class="kw">as</span> <span class="str">${K & string}.`</span> <span class="kw">extends</span> infer P ? <span class="fn">never</span> : K]: T[K]
+};
+
+<span class="com">// ─── Template literal as a transform ─────────</span>
+<span class="kw">type</span> AddPrefix<T, P <span class="kw">extends</span> <span class="fn">string</span>> = {
+[K <span class="kw">in</span> <span class="kw">keyof</span> T <span class="kw">as</span> <span class="str">``${P}${K &amp; string}</span>]: T[K]
+};
+
+<span class="kw">interface</span> Fields {
+name: <span class="fn">string</span>;
+age: <span class="fn">number</span>;
+}
+<span class="kw">type</span> FormFields = AddPrefix<Fields, <span class="str">'form'</span>>;
+<span class="com">// { formname: string; formage: number }</span>
+
+<span class="com">// ─── Real-world: typed API paths ─────────────</span>
+<span class="kw">type</span> Entity = <span class="str">'user'</span> | <span class="str">'post'</span> | <span class="str">'comment'</span>;
+<span class="kw">type</span> ApiPath = <span class="str">/api/${Entity}</span&gt; | &lt;span class="str">/api/{string}`</span>;
+<span class="com">// '/api/user' | '/api/user/123' | '/api/post' | '/api/post/abc' | ...</span>
+
+<span class="kw">const</span> path: ApiPath = <span class="str">'/api/user/42'</span>;
+
+console.<span class="fn">log</span>(g1, h, r1, path);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Template literal types are erased. Runtime is plain strings.</span>
+
+<span class="kw">const</span> g1 = <span class="str">'Hello, Alice'</span>;
+<span class="kw">const</span> g2 = <span class="str">'Hello, world'</span>;
+
+<span class="kw">const</span> h = <span class="str">'onClick'</span>;
+
+<span class="kw">const</span> r1 = <span class="str">'/users/123'</span>;
+<span class="kw">const</span> r2 = <span class="str">'/posts/abc'</span>;
+
+<span class="kw">const</span> path = <span class="str">'/api/user/42'</span>;
+
+console.<span class="fn">log</span>(g1, h, r1, path);</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">Hello, Alice onClick /users/123 /api/user/42</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>The syntax</h4>
+<p><code>prefix${T}suffix</code&gt; — template literal types use backticks and &lt;code&gt;${}</code> just like runtime template strings. The compiler matches the shape.</p>
+</div>
+<div class="concept-card">
+<h4><code>Capitalize</code> utilities</h4>
+<p><code>Capitalize<T></code>, <code>Lowercase<T></code>, <code>Uppercase<T></code>, <code>Uncapitalize<T></code> transform literal string types. Combined with unions, they generate precise patterns.</p>
+</div>
+<div class="concept-card">
+<h4>Routing and events</h4>
+<p>Type your routes as <code>/users/${string}</code&gt; and event names as &lt;code>on${Capitalize&lt;Event&gt;}</code>. Typos fail to compile, and autocomplete suggests valid patterns.</p>
+</div>
+<div class="concept-card">
+<h4>Key remapping with <code>as</code></h4>
+<p><code>[K in keyof T as ${P}${K &amp; string}]</code> — transform every key by adding a prefix. This is how React Query, Zod, and many libraries type their derived shapes.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Template literal types are the modern replacement for enums in string-heavy domains.</strong> Instead of an enum, use <code>type Event = 'click' | 'focus'</code>, then <code>type Handler = on${Capitalize<Event>}`</code> to derive the handler names. No runtime enum, no imports, and the compiler checks both. This is the pattern that Next.js uses for route names, that React Query uses for query keys, and that tRPC uses for its entire API surface. Once you see it, you'll use it in every string-typed API you design.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Four tasks. Each exercises a different advanced feature.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Build your own Partial and Required</h4>
+<p>Without using TypeScript's built-in utilities, write from scratch:</p>
+<p>1. <code>MyPartial<T></code> — makes every property optional<br>
+2. <code>MyRequired<T></code> — makes every property required<br>
+3. <code>MyReadonly<T></code> — marks every property readonly<br>
+4. <code>MyMutable<T></code> — removes readonly (use <code>-readonly</code>)</p>
+<p>Test each against <code>interface User { id: string; name?: string }</code> and verify in VS Code that the resulting types behave exactly like the built-ins. This is the exercise that demystifies "how does Partial actually work?" — it's a mapped type, and you just wrote it.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Extract return types for an API layer</h4>
+<p>Build a mini API layer using type extraction:</p>
+<p>1. Define <code>function fetchUser(id: string): Promise<User></code><br>
+2. Define <code>function fetchPosts(userId: string): Promise<Post[]></code><br>
+3. Extract types with <code>ReturnType</code> and <code>Awaited</code>: <code>type UserResult = Awaited<ReturnType<typeof fetchUser>></code><br>
+4. Build a generic <code>wrapResponse<F extends (...args: any[]) => Promise<any>></code> type that wraps the awaited result in <code>{ data: T; error: null } | { data: null; error: Error }</code><br>
+5. Confirm the type flows correctly at each step</p>
+<p>The point: this is how React Query, SWR, and every modern data-fetching library types their internals. Once you can extract and combine function types, you can type any async API.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Typed config with keyof typeof</h4>
+<p>Given a runtime config object:</p>
+<p><code>const config = { apiUrl: 'https://x.com', timeout: 3000, retries: 5 }</code></p>
+<p>1. Extract its type with <code>typeof config</code><br>
+2. Extract its keys with <code>keyof typeof config</code><br>
+3. Build a typed <code>getConfig<K extends keyof typeof config>(key: K): typeof config[K]</code><br>
+4. Call it with <code>'apiUrl'</code>, <code>'timeout'</code>, <code>'retries'</code> and verify each returns the precise type<br>
+5. Call it with <code>'nonexistent'</code> and confirm the compile error</p>
+<p>The point: the config object is the single source of truth. Its type, its keys, and its value types all flow from one declaration. No duplication. This is how typed config systems work at every scale.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 4 — Template literals for API paths</h4>
+<p>Build a typed API client path system:</p>
+<p>1. <code>type Entity = 'user' | 'post' | 'comment'</code><br>
+2. <code>type Id<E extends Entity> = ``${E}_{E}|/api/{Id<E>}`</code><br>
+4. Write <code>function buildPath<E extends Entity>(entity: E, id?: Id<E>): ApiPath<E></code><br>
+5. Test: <code>buildPath('user', 'user_123')</code> → <code>'/api/user/user_123'</code><br>
+6. Try <code>buildPath('user', 'post_456')</code> — should fail (post ID is wrong type for user path)<br>
+7. Try <code>buildPath('comment', 'comment_789')</code> — should succeed</p>
+<p>The point: this is exactly how typed API clients (tRPC, ts-rest, OpenAPI-derived clients) work. The compiler enforces that entity names, IDs, and paths match — no runtime validation needed.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The utility type and advanced operator bugs that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Confusing <code>typeof</code> runtime vs type</div>
+<p><code>typeof x === 'string'</code> is the runtime operator (returns a string). <code>type T = typeof x</code> is the type operator (returns a type). Fix: context decides — inside expressions = runtime, inside type positions = type-level.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using <code>Pick</code> when you want <code>Omit</code></div>
+<p><code>Pick<User, 'id' | 'name' | 'email' | 'age'></code> when you mean "all but password." Fix: <code>Omit<User, 'password'></code>. Omit scales better when the type grows — new fields are included automatically.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Forgetting <code>typeof</code> before <code>ReturnType</code></div>
+<p><code>ReturnType<createUser></code> fails — createUser is a value, not a type. Fix: <code>ReturnType<typeof createUser></code>. The compiler will tell you, but the error is confusing.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using <code>Record<string, T></code> everywhere</div>
+<p><code>Record<string, User></code> allows any string key — no autocomplete, no typo protection. Fix: constrain the keys — <code>Record<'admin' | 'user', User></code> or <code>Record<keyof MyType, User></code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Thinking mapped types exist at runtime</div>
+<p>Mapped types, <code>keyof</code>, and <code>typeof</code> at the type level are all compile-time only. Fix: never write runtime logic that depends on them — they're erased.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Infinite recursion in mapped types</div>
+<p><code>type DeepPartial<T> = { [K in keyof T]: DeepPartial<T[K]> }</code> recurses infinitely on non-object types. Fix: add a conditional — <code>T[K] extends object ? DeepPartial<T[K]> : T[K]</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Over-constraining template literal types</div>
+<p><code>type R = /${'user' | 'post'}/${string}</code> — the union doesn't distribute correctly in some positions. Fix: sometimes you need a conditional to distribute, or restructure the union.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using <code>Readonly<T></code> for deep immutability</div>
+<p><code>Readonly<T></code> is shallow — nested objects are still mutable. Fix: use <code>as const</code> for literals, or write a recursive <code>DeepReadonly<T></code>. Or <code>Object.freeze</code> at runtime.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are utility types in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Utility types are built-in generic types that transform other types. Partial<T> makes all properties optional. Required<T> makes them all required. Pick<T, K> keeps only specified keys. Omit<T, K> removes specified keys. Record<K, V> builds a dictionary. Readonly<T> marks everything readonly. ReturnType<F> extracts a function's return type.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between Pick and Omit?</summary>
+<p class="mt-2 text-sm text-slate-300">Pick<T, K> keeps only the keys you specify — a whitelist. Omit<T, K> removes the keys you specify — a blacklist. Pick<User, 'id' | 'name'> produces a type with just id and name. Omit<User, 'password'> produces a User without password. Use Pick when you want to select a few known fields. Use Omit when you want most fields and want to remove a few.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the keyof operator?</summary>
+<p class="mt-2 text-sm text-slate-300">keyof T produces a union of T's property names. If User = { id: string; name: string }, then keyof User = 'id' | 'name'. This is the foundation of type-safe property access: function get<T, K extends keyof T>(obj: T, key: K): T[K].</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the typeof operator in type position?</summary>
+<p class="mt-2 text-sm text-slate-300">In a type position, typeof extracts the type of a value. const user = { id: '1', name: 'Alice' }; type User = typeof user; — User is now the inferred shape of user. Not to be confused with the runtime typeof operator — same keyword, different context.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are mapped types?</summary>
+<p class="mt-2 text-sm text-slate-300">Mapped types iterate over a union of keys to build a new object type. type Optional<T> = { [K in keyof T]?: T[K] }; — this is how Partial is implemented. Mapped types use the [K in Keys] syntax and can add or remove modifiers (readonly, optional).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are template literal types?</summary>
+<p class="mt-2 text-sm text-slate-300">Template literal types use string template syntax at the type level. type Greeting = Hello, ${string}— this type matches any string starting with 'Hello, '. They can build complex string patterns: type EventName =on${Capitalize&lt;string&gt;}. Commonly used to type event handler names, route patterns, and enum-like keys.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is Record<K, V> used for?</summary>
+<p class="mt-2 text-sm text-slate-300">Record builds an object type where keys are K and values are V. type Roles = Record<'admin' | 'user' | 'guest', boolean> produces { admin: boolean; user: boolean; guest: boolean }. It's the cleanest way to build dictionaries, config maps, and lookup tables.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is ReturnType and when is it useful?</summary>
+<p class="mt-2 text-sm text-slate-300">ReturnType<F> extracts the return type of a function type. type UserReturn = ReturnType<typeof getUser> — UserReturn is whatever getUser returns. This is useful when you don't want to duplicate the return type declaration: let the function define it, then extract it with ReturnType.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue your TypeScript path</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/tooling.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 7: Modules & tooling</div>
+<div class="text-xs text-slate-400 mt-1">tsconfig, ESM/CJS, path aliases, Vite</div>
+</a>
+<a href="/courses/typescript/lessons/classes.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 5: Classes & OOP</div>
+<div class="text-xs text-slate-400 mt-1">The prior lesson — runtime identity</div>
+</a>
+<a href="/courses/typescript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗺️ TypeScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🟨 JavaScript track</div>
+<div class="text-xs text-slate-400 mt-1">The prerequisite for everything TypeScript</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://www.typescriptlang.org/docs/handbook/utility-types.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Handbook — Utility Types</a></li>
+<li>→ <a href="https://www.typescriptlang.org/docs/handbook/2/mapped-types.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Handbook — Mapped Types</a></li>
+<li>→ <a href="https://www.typescriptlang.org/docs/handbook/2/template-literal-types.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Handbook — Template Literal Types</a></li>
+<li>→ <a href="https://github.com/microsoft/TypeScript/blob/main/lib/lib.es5.d.ts" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">TypeScript source — lib.es5.d.ts (all utility types)</a></li>
+</ul>
+</section>
+
+<a href="/courses/typescript/index.html" class="back-link">← Back to TypeScript track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the TypeScript track · Lesson 6 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
