@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TypeScript "Property does not exist on type" — How to Fix It (2026)</title>
+<meta name="description" content="Fix the TypeScript error "Property does not exist on type" with 3 approaches: correct types, type guards, and index signatures. Every fix with working code.">
+<meta name="keywords" content="typescript property does not exist on type, typescript property not found, typescript error fix, typescript type guards, property does not exist typescript fix">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="TypeScript "Property does not exist on type" — How to Fix It">
+<meta property="og:description" content="Fix the TypeScript error "Property does not exist on type" with 3 approaches: correct types, type guards, and index signatures.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/property-does-not-exist.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TypeScript "Property does not exist on type" — How to Fix It">
+<meta name="twitter:description" content="3 approaches: correct types, type guards, and index signatures.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/property-does-not-exist.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "TypeScript "Property does not exist on type" — How to Fix It",
+"description": "Fix the TypeScript error "Property does not exist on type" with 3 approaches: correct types, type guards, and index signatures.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I fix "Property does not exist on type" in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Three approaches depending on the cause. (1) If your type is missing a property it should have, fix the type — add the missing field or use the correct interface. (2) If the property exists only on some union members, narrow with typeof, in, or a type guard. (3) If the object is truly a dynamic dictionary, use Record or an index signature so the property access is legal. The compiler error names the type and the missing property — that's the clue."}},
+{"@type":"Question","name":"Why does the property exist at runtime but not in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Because TypeScript only knows about the properties declared in your types. If a JSON response has a 'name' field but your interface doesn't declare it, accessing obj.name is a compile error — even though it works at runtime. Fix: add the property to the interface, or use a type guard to narrow to a type that includes it. Never reach for as any — that disables checking for the entire expression."}},
+{"@type":"Question","name":"What does "Object is possibly undefined" mean alongside this error?","acceptedAnswer":{"@type":"Answer","text":"It's a related but different error. "Property does not exist on type" means the type doesn't have that property. "Object is possibly undefined" means the variable might be undefined at access time. Both require narrowing. For the undefined case, use optional chaining (obj?.prop), an early return (if (!obj) return), or null coalescing (obj ?? fallback)."}},
+{"@type":"Question","name":"Should I use as any to fix this error?","acceptedAnswer":{"@type":"Answer","text":"No — as any disables type checking for the entire expression, hiding not just the missing property but every other type error in that line. It's the fastest way to inject runtime bugs. Fix the actual type instead: add the property to the interface, narrow with a type guard, or use an index signature if the object is genuinely dynamic. If you're stuck, unknown + a type guard is safer than any."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · property does not exist</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Property does not exist</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>Property does not exist on type.<br><span class="py-accent">Three fixes, three causes.</span></h1>
+<p class="lead">
+The compiler says a property doesn't exist. Sometimes it's right — your type is missing a field. Sometimes it's wrong — the property exists at runtime but your type doesn't know. Sometimes the property exists on only one member of a union. Each cause needs a different fix. Here are all three, with the actual error message and the actual solution.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Read the error — it tells you the type and the missing property. If the property <em>should</em> be on the type, <strong>add it to the interface</strong>. If the object is one of several shapes, <strong>narrow with a type guard</strong> (<code>typeof</code>, <code>in</code>, or a custom guard). If the object is genuinely dynamic, <strong>use <code>Record</code> or an index signature</strong>. Never use <code>as any</code> — it hides every other type error in the line.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Add the missing property to your type</h2>
+<p class="section-sub">The most common case. The type is incomplete.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">You're accessing <code>user.name</code>, but your <code>User</code> interface only declares <code>id</code> and <code>email</code>. The compiler is correct — the type doesn't have <code>name</code>. Fix: add it to the interface. If the property is optional at runtime, mark it with <code>?</code>.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">missing-property.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── The error ───────────────────────────────</span>
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="kw">const</span> user: User = { id: <span class="str">'1'</span>, email: <span class="str">'a@x.com'</span> };
+<span class="com">// console.log(user.name);
+// ❌ Property 'name' does not exist on type 'User'</span>
+
+<span class="com">// ─── Fix 1: add the property ─────────────────</span>
+<span class="kw">interface</span> User2 {
+id: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+name: <span class="fn">string</span>; <span class="com">// ← added</span>
+}
+
+<span class="kw">const</span> user2: User2 = { id: <span class="str">'1'</span>, email: <span class="str">'a@x.com'</span>, name: <span class="str">'Alice'</span> };
+console.<span class="fn">log</span>(user2.name); <span class="com">// ✅ no error</span>
+
+<span class="com">// ─── Fix 1b: optional property ───────────────</span>
+<span class="kw">interface</span> User3 {
+id: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+name?: <span class="fn">string</span>; <span class="com">// ← optional — may be missing at runtime</span>
+}
+
+<span class="kw">const</span> user3: User3 = { id: <span class="str">'1'</span>, email: <span class="str">'a@x.com'</span> };
+<span class="com">// console.log(user3.name.length); // ❌ 'name' possibly undefined</span>
+console.<span class="fn">log</span>(user3.name?.<span class="fn">length</span>); <span class="com">// ✅ optional chaining</span>
+
+<span class="com">// ─── Fix 1c: when the property isn't known upfront</span>
+<span class="com">// If the response shape varies, model it as a union:</span>
+<span class="kw">interface</span> BaseUser {
+id: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+<span class="kw">interface</span> PersonalUser <span class="kw">extends</span> BaseUser {
+kind: <span class="str">'personal'</span>;
+name: <span class="fn">string</span>;
+}
+<span class="kw">interface</span> BusinessUser <span class="kw">extends</span> BaseUser {
+kind: <span class="str">'business'</span>;
+companyName: <span class="fn">string</span>;
+}
+<span class="kw">type</span> AnyUser = PersonalUser | BusinessUser;
+
+<span class="kw">function</span> <span class="fn">displayName</span>(u: AnyUser): <span class="fn">string</span> {
+<span class="kw">if</span> (u.kind === <span class="str">'personal'</span>) <span class="kw">return</span> u.name; <span class="com">// ✅ narrowed</span>
+<span class="kw">return</span> u.companyName; <span class="com">// ✅ narrowed</span>
+}
+
+console.<span class="fn">log</span>(user2.name, user3.name, <span class="fn">displayName</span>({
+id: <span class="str">'2'</span>, email: <span class="str">'b@x.com'</span>, kind: <span class="str">'personal'</span>, name: <span class="str">'Bob'</span>
+}));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Interfaces erased. All runtime values remain.</span>
+
+<span class="kw">const</span> user = { id: <span class="str">'1'</span>, email: <span class="str">'a@x.com'</span> };
+
+<span class="kw">const</span> user2 = { id: <span class="str">'1'</span>, email: <span class="str">'a@x.com'</span>, name: <span class="str">'Alice'</span> };
+console.<span class="fn">log</span>(user2.name);
+
+<span class="kw">const</span> user3 = { id: <span class="str">'1'</span>, email: <span class="str">'a@x.com'</span> };
+console.<span class="fn">log</span>(user3.name?.<span class="fn">length</span>);
+
+<span class="kw">function</span> <span class="fn">displayName</span>(u) {
+<span class="kw">if</span> (u.kind === <span class="str">'personal'</span>) <span class="kw">return</span> u.name;
+<span class="kw">return</span> u.companyName;
+}
+
+console.<span class="fn">log</span>(user2.name, user3.name, <span class="fn">displayName</span>({
+id: <span class="str">'2'</span>, email: <span class="str">'b@x.com'</span>, kind: <span class="str">'personal'</span>, name: <span class="str">'Bob'</span>
+}));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Read the error</h4>
+<p><code>Property 'name' does not exist on type 'User'</code> — names both the property and the type. The fix is usually "add <code>name</code> to <code>User</code>."</p>
+</div>
+<div class="concept-card">
+<h4>Optional with <code>?</code></h4>
+<p>If the field is sometimes missing at runtime, use <code>name?: string</code>. The type becomes <code>string | undefined</code>, and you'll need to narrow before use.</p>
+</div>
+<div class="concept-card">
+<h4>Union for varying shapes</h4>
+<p>If a response can have different fields in different cases, model it as a discriminated union — not one giant optional-field interface.</p>
+</div>
+<div class="concept-card">
+<h4>Keep types close to data</h4>
+<p>Interface drift happens when types live far from where data is created. Fix: define types next to the code that uses them.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Narrow with a type guard</h2>
+<p class="section-sub">The property exists on only some members of a union.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If your type is a union (<code>Circle | Square</code>), the compiler only allows access to properties that exist on <em>every</em> member. Accessing <code>.radius</code> on the union fails because <code>Square</code> doesn't have it. Fix: narrow to the specific member with a discriminant, <code>typeof</code>, <code>in</code>, or <code>instanceof</code>.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">narrow.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── The error ───────────────────────────────</span>
+<span class="kw">type</span> Shape =
+| { kind: <span class="str">'circle'</span>; radius: <span class="fn">number</span> }
+| { kind: <span class="str">'square'</span>; side: <span class="fn">number</span> };
+
+<span class="kw">function</span> <span class="fn">area</span>(s: Shape): <span class="fn">number</span> {
+<span class="com">// return s.radius;
+// ❌ Property 'radius' does not exist on type 'Shape'.
+// Property 'radius' does not exist on type '{ kind: "square"; side: number }'.</span>
+
+<span class="com">// ─── Fix 1: discriminate by kind ──────────</span>
+<span class="kw">if</span> (s.kind === <span class="str">'circle'</span>) <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>; <span class="com">// ✅ narrowed</span>
+<span class="kw">return</span> s.side ** <span class="num">2</span>; <span class="com">// ✅ narrowed</span>
+}
+
+<span class="com">// ─── Fix 2: use in for shape-based narrowing</span>
+<span class="kw">function</span> <span class="fn">describe</span>(s: Shape): <span class="fn">string</span> {
+<span class="kw">if</span> (<span class="str">'radius'</span> <span class="kw">in</span> s) <span class="kw">return</span> <span class="str">circle with r=${s.radius}</span&gt;; &lt;span class="com"&gt;// ✅ narrowed&lt;/span&gt; &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">square with side=${s.side}</span>; <span class="com">// ✅ narrowed</span>
+}
+
+<span class="com">// ─── Fix 3: typeof narrowing for primitive unions</span>
+<span class="kw">function</span> <span class="fn">process</span>(x: <span class="fn">string</span> | <span class="fn">number</span>): <span class="fn">string</span> {
+<span class="com">// return x.toUpperCase();
+// ❌ Property 'toUpperCase' does not exist on type 'string | number'</span>
+
+<span class="kw">if</span> (<span class="kw">typeof</span> x === <span class="str">'string'</span>) <span class="kw">return</span> x.<span class="fn">toUpperCase</span>(); <span class="com">// ✅ narrowed to string</span>
+<span class="kw">return</span> x.<span class="fn">toFixed</span>(<span class="num">2</span>); <span class="com">// ✅ narrowed to number</span>
+}
+
+<span class="com">// ─── Fix 4: custom type guard ────────────────</span>
+<span class="kw">interface</span> Circle { radius: <span class="fn">number</span> }
+<span class="kw">interface</span> Square { side: <span class="fn">number</span> }
+
+<span class="kw">function</span> <span class="fn">isCircle</span>(s: Circle | Square): s <span class="kw">is</span> Circle {
+<span class="kw">return</span> <span class="str">'radius'</span> <span class="kw">in</span> s;
+}
+
+<span class="kw">function</span> <span class="fn">area2</span>(s: Circle | Square): <span class="fn">number</span> {
+<span class="kw">if</span> (<span class="fn">isCircle</span>(s)) <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>; <span class="com">// ✅ narrowed</span>
+<span class="kw">return</span> s.side ** <span class="num">2</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'circle'</span>, radius: <span class="num">2</span> }));
+console.<span class="fn">log</span>(<span class="fn">describe</span>({ kind: <span class="str">'square'</span>, side: <span class="num">3</span> }));
+console.<span class="fn">log</span>(<span class="fn">process</span>(<span class="num">3.14</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">area</span>(s) {
+<span class="kw">if</span> (s.kind === <span class="str">'circle'</span>) <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">return</span> s.side ** <span class="num">2</span>;
+}
+
+<span class="kw">function</span> <span class="fn">describe</span>(s) {
+<span class="kw">if</span> (<span class="str">'radius'</span> <span class="kw">in</span> s) <span class="kw">return</span> <span class="str">circle with r=${s.radius}</span&gt;; &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">square with side=${s.side}</span>;
+}
+
+<span class="kw">function</span> <span class="fn">process</span>(x) {
+<span class="kw">if</span> (<span class="kw">typeof</span> x === <span class="str">'string'</span>) <span class="kw">return</span> x.<span class="fn">toUpperCase</span>();
+<span class="kw">return</span> x.<span class="fn">toFixed</span>(<span class="num">2</span>);
+}
+
+<span class="kw">function</span> <span class="fn">isCircle</span>(s) {
+<span class="kw">return</span> <span class="str">'radius'</span> <span class="kw">in</span> s;
+}
+
+<span class="kw">function</span> <span class="fn">area2</span>(s) {
+<span class="kw">if</span> (<span class="fn">isCircle</span>(s)) <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">return</span> s.side ** <span class="num">2</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'circle'</span>, radius: <span class="num">2</span> }));
+console.<span class="fn">log</span>(<span class="fn">describe</span>({ kind: <span class="str">'square'</span>, side: <span class="num">3</span> }));
+console.<span class="fn">log</span>(<span class="fn">process</span>(<span class="num">3.14</span>));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Union property rule</h4>
+<p>On a union type, you can only access properties that exist on <em>every</em> member. If a property is specific to one member, narrow first.</p>
+</div>
+<div class="concept-card">
+<h4>Discriminant tag</h4>
+<p><code>if (s.kind === 'circle')</code> narrows to <code>Circle</code>. The best pattern when each member has a distinct <code>kind</code>/<code>type</code> field.</p>
+</div>
+<div class="concept-card">
+<h4><code>in</code> operator</h4>
+<p><code>if ('radius' in s)</code> narrows by property presence. Works when members have distinct property names but no discriminant.</p>
+</div>
+<div class="concept-card">
+<h4>Custom guards</h4>
+<p>A function returning <code>x is T</code> narrows when called in an <code>if</code>. Use when you can't express narrowing with <code>typeof</code> or <code>in</code>.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Use <code>Record</code> or an index signature</h2>
+<p class="section-sub">For genuinely dynamic objects (parsed JSON, dictionaries).</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If the object truly has arbitrary keys — like a JSON response you haven't validated yet — the right type is a dictionary, not a fixed interface. <code>Record<string, V></code> or <code>{ [key: string]: V }</code> allows property access to any key. This isn't a workaround; it's the correct type for that kind of data.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">dynamic.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── The error: unknown JSON shape ───────────</span>
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+}
+
+<span class="kw">const</span> data: User = <span class="fn">JSON</span>.<span class="fn">parse</span>(<span class="str">'{"id":"1","name":"Alice","age":28}'</span>);
+<span class="com">// const age = data.age;
+// ❌ Property 'age' does not exist on type 'User'.
+// The JSON has it, but your type doesn't.</span>
+
+<span class="com">// ─── Fix 1: extend the type (if the field is known)</span>
+<span class="kw">interface</span> User2 {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+age?: <span class="fn">number</span>; <span class="com">// optional — response may or may not include it</span>
+}
+
+<span class="kw">const</span> data2: User2 = <span class="fn">JSON</span>.<span class="fn">parse</span>(<span class="str">'{"id":"1","name":"Alice","age":28}'</span>);
+console.<span class="fn">log</span>(data2.age); <span class="com">// ✅ optional access</span>
+
+<span class="com">// ─── Fix 2: treat as a dictionary ────────────</span>
+<span class="kw">const</span> dict: <span class="fn">Record</span><<span class="fn">string</span>, <span class="fn">unknown</span>> = <span class="fn">JSON</span>.<span class="fn">parse</span>(<span class="str">'{"id":"1","name":"Alice","age":28}'</span>);
+console.<span class="fn">log</span>(dict.age); <span class="com">// ✅ allowed — any key returns unknown</span>
+
+<span class="com">// ─── Better fix: validate at the boundary ────</span>
+<span class="com">// Don't cast JSON — narrow it with a type guard.</span>
+<span class="kw">function</span> <span class="fn">isUser</span>(x: <span class="fn">unknown</span>): x <span class="kw">is</span> User2 {
+<span class="kw">if</span> (<span class="kw">typeof</span> x !== <span class="str">'object'</span> || x === <span class="fn">null</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="kw">const</span> u = x <span class="kw">as</span> <span class="fn">Record</span><<span class="fn">string</span>, <span class="fn">unknown</span>>;
+<span class="kw">return</span> <span class="kw">typeof</span> u.id === <span class="str">'string'</span> && <span class="kw">typeof</span> u.name === <span class="str">'string'</span>;
+}
+
+<span class="kw">const</span> raw: <span class="fn">unknown</span> = <span class="fn">JSON</span>.<span class="fn">parse</span>(<span class="str">'{"id":"1","name":"Alice","age":28}'</span>);
+<span class="kw">if</span> (<span class="fn">isUser</span>(raw)) {
+<span class="com">// raw is User2 here — age is number | undefined</span>
+console.<span class="fn">log</span>(raw.name, raw.age);
+}
+
+console.<span class="fn">log</span>(data2.age, dict.age);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">const</span> data = <span class="fn">JSON</span>.<span class="fn">parse</span>(<span class="str">'{"id":"1","name":"Alice","age":28}'</span>);
+
+<span class="kw">const</span> data2 = <span class="fn">JSON</span>.<span class="fn">parse</span>(<span class="str">'{"id":"1","name":"Alice","age":28}'</span>);
+console.<span class="fn">log</span>(data2.age);
+
+<span class="kw">const</span> dict = <span class="fn">JSON</span>.<span class="fn">parse</span>(<span class="str">'{"id":"1","name":"Alice","age":28}'</span>);
+console.<span class="fn">log</span>(dict.age);
+
+<span class="kw">function</span> <span class="fn">isUser</span>(x) {
+<span class="kw">if</span> (<span class="kw">typeof</span> x !== <span class="str">'object'</span> || x === <span class="fn">null</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="kw">const</span> u = x;
+<span class="kw">return</span> <span class="kw">typeof</span> u.id === <span class="str">'string'</span> && <span class="kw">typeof</span> u.name === <span class="str">'string'</span>;
+}
+
+<span class="kw">const</span> raw = <span class="fn">JSON</span>.<span class="fn">parse</span>(<span class="str">'{"id":"1","name":"Alice","age":28}'</span>);
+<span class="kw">if</span> (<span class="fn">isUser</span>(raw)) {
+console.<span class="fn">log</span>(raw.name, raw.age);
+}
+
+console.<span class="fn">log</span>(data2.age, dict.age);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Extend when known</h4>
+<p>If the field is part of the shape, add it to the interface — <code>age?: number</code>. This is more precise than making everything <code>Record</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Record for truly dynamic</h4>
+<p><code>Record<string, unknown></code> is the correct type for parsed JSON before validation. It permits any key while forcing you to handle <code>unknown</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Validate, don't cast</h4>
+<p><code>JSON.parse(...) as User</code> is a lie. Use <code>as unknown</code>, then a type guard. Only narrowed values are safe to use.</p>
+</div>
+<div class="concept-card">
+<h4>Index signature vs Record</h4>
+<p>Both allow arbitrary keys. <code>Record</code> is preferred — it works with utility types and reads more clearly in function signatures.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The patterns that cause this error (and the fixes).</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using <code>as any</code> to silence the error</div>
+<p><code>(user as any).name</code> hides the error — and every other type error in that expression. Fix: add the property, narrow, or use <code>Record</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Casting JSON without validation</div>
+<p><code>JSON.parse(text) as User</code> is a lie — the actual shape might not match. Fix: <code>as unknown</code>, then a type guard. Validate before accessing.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Accessing a specific property on a union</div>
+<p><code>(s: Circle | Square).radius</code> fails because Square has no radius. Fix: narrow with a discriminant or <code>in</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Forgetting optional chaining after <code>?</code></div>
+<p><code>user.name?.length</code>; still fails if <code>name</code> is optional but you treat it as <code>string</code>. Fix: use <code>user.name?.length</code>; or narrow first.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using bracket syntax as a workaround</div>
+<p><code>user['name']</code> works only if the type has an index signature. Otherwise it's the same error. Fix: understand why the error exists, then fix the type.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Type drift — interface doesn't match data</div>
+<p>Your API returns <code>name</code>, but your interface doesn't have it. Fix: update the interface, or generate types from your API schema.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using optional for everything</div>
+<p>Making every field <code>?string</code> is the lazy fix — it hides the problem and forces null checks everywhere. Fix: use optional only for genuinely optional fields.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Confusing this error with "possibly undefined"</div>
+<p><strong>Property does not exist</strong> = wrong type. <strong>Object is possibly undefined</strong> = nullable value. Fix each with the right technique.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix "Property does not exist on type" in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Three approaches depending on the cause. (1) If your type is missing a property it should have, fix the type. (2) If the property exists only on some union members, narrow with typeof, in, or a type guard. (3) If the object is truly a dynamic dictionary, use Record or an index signature so the property access is legal.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does the property exist at runtime but not in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Because TypeScript only knows about the properties declared in your types. If a JSON response has a 'name' field but your interface doesn't declare it, accessing obj.name is a compile error — even though it works at runtime. Fix: add the property to the interface, or use a type guard.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does "Object is possibly undefined" mean alongside this error?</summary>
+<p class="mt-2 text-sm text-slate-300">It's a related but different error. "Property does not exist on type" means the type doesn't have that property. "Object is possibly undefined" means the variable might be undefined at access time. Both require narrowing — use optional chaining, early returns, or null coalescing.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use as any to fix this error?</summary>
+<p class="mt-2 text-sm text-slate-300">No — as any disables type checking for the entire expression, hiding every other type error in that line. Fix the actual type instead: add the property to the interface, narrow with a type guard, or use an index signature if the object is genuinely dynamic.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/narrowing.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 4: Unions & narrowing</div>
+<div class="text-xs text-slate-400 mt-1">Type guards, discriminated unions, typeof</div>
+</a>
+<a href="/courses/typescript/lessons/interfaces.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 2: Interfaces & types</div>
+<div class="text-xs text-slate-400 mt-1">Optional, readonly, extending</div>
+</a>
+<a href="/courses/typescript/problems/dynamic-keys.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to type dynamic keys</div>
+<div class="text-xs text-slate-400 mt-1">Record, index signatures, Maps</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
