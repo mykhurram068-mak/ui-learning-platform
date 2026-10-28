@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>unknown vs any in TypeScript — The Difference That Matters (2026)</title>
+<meta name="description" content="unknown vs any in TypeScript: why unknown is the safe alternative to any, when any is acceptable, and how to narrow unknown correctly. Working code.">
+<meta name="keywords" content="typescript unknown vs any, typescript unknown type, typescript any type, typescript type safety, unknown narrowing typescript">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="unknown vs any in TypeScript — The Difference That Matters">
+<meta property="og:description" content="Why unknown is the safe alternative to any, when any is acceptable, and how to narrow unknown correctly.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/unknown-vs-any.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="unknown vs any in TypeScript — The Difference That Matters">
+<meta name="twitter:description" content="Why unknown is the safe alternative to any.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/unknown-vs-any.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "unknown vs any in TypeScript — The Difference That Matters",
+"description": "Why unknown is the safe alternative to any, when any is acceptable, and how to narrow unknown correctly.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between unknown and any in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Both can hold any value, but they behave differently at the check site. any disables type checking entirely — you can call any method, access any property, and the compiler won't complain. unknown forces you to narrow before use — you can't call methods or access properties until you've proven the type. Use unknown for values you don't yet know (API responses, JSON, external input); use any almost never."}},
+{"@type":"Question","name":"When should I use unknown?","acceptedAnswer":{"@type":"Answer","text":"Use unknown for any value that arrives from outside your type system: JSON.parse results, fetch response bodies, user input, third-party callbacks, dynamic imports. The pattern: accept unknown, narrow with typeof, in, Array.isArray, or a custom type guard, then use the narrowed type. This is the correct pattern for API boundaries — you never trust the server's actual runtime shape without validation."}},
+{"@type":"Question","name":"Is any ever acceptable in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Yes — in three specific cases. (1) Interop with an untyped library that ships no .d.ts and no @types package (rare; usually better to write a .d.ts). (2) Gradual migration — legacy code being typed incrementally, where a file starts with many anys and gets typed one function at a time. (3) Escape hatch inside a well-tested function where the boundary is genuinely unknowable — annotated with a comment explaining why. Everywhere else, use unknown."}},
+{"@type":"Question","name":"How do I narrow unknown?","acceptedAnswer":{"@type":"Answer","text":"Same techniques as narrowing unions: typeof x === 'string', Array.isArray(x), x instanceof Date, 'field' in x, or a custom type guard. The difference: with unknown, you must narrow before every use — you can't just access .foo or call .bar(). This is the point: unknown forces you to prove the type at every step, which is exactly what catches bugs at the API boundary."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · unknown vs any</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">unknown vs any</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>unknown vs any.<br><span class="py-accent">The line between safe and asleep.</span></h1>
+<p class="lead">
+Both <code>any</code> and <code>unknown</code> can hold any value. The difference is at the check site. <code>any</code> says "trust me, don't check." <code>unknown</code> says "I don't know yet — prove it before you use it." One disables your safety net; the other forces you to use it. This is the most consequential choice in the whole type system, and it's the one most beginners get wrong.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>unknown</code> for any value that enters from outside your type system — <code>JSON.parse</code>, <code>fetch().json()</code>, user input, third-party callbacks. Then narrow it with <code>typeof</code>, <code>in</code>, or a custom guard before use. Use <code>any</code> only for interop with untyped libraries, gradual migrations, or a well-documented escape hatch. Everywhere else, <code>unknown</code> is the correct choice.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — <code>unknown</code> for external data</h2>
+<p class="section-sub">The API boundary pattern — accept unknown, narrow, then use.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When data comes from outside TypeScript's world — a server, a file, user input — you don't know its shape at compile time. Typing it as <code>any</code> pretends you do and disables the compiler. Typing it as <code>unknown</code> forces you to narrow before use. This is the correct pattern for every API response.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">unknown.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── The problem: any disables everything ────</span>
+<span class="kw">function</span> <span class="fn">badFetch</span>(data: <span class="fn">any</span>): <span class="fn">string</span> {
+<span class="com">// No error even though data has nothing:
+// data.name.toUpperCase() ← crashes at runtime
+// data.foo.bar.baz() ← crashes at runtime
+// data + ' concatenation' ← produces "undefined"</span>
+<span class="kw">return</span> data.name.<span class="fn">toUpperCase</span>(); <span class="com">// ✅ compiles ❌ crashes</span>
+}
+
+<span class="com">// ─── The fix: unknown forces narrowing ───────</span>
+<span class="kw">interface</span> User { name: <span class="fn">string</span>; email: <span class="fn">string</span> }
+
+<span class="kw">function</span> <span class="fn">isUser</span>(x: <span class="fn">unknown</span>): x <span class="kw">is</span> User {
+<span class="kw">return</span> (
+<span class="kw">typeof</span> x === <span class="str">'object'</span> &&
+x !== <span class="fn">null</span> &&
+<span class="str">'name'</span> <span class="kw">in</span> x &&
+<span class="str">'email'</span> <span class="kw">in</span> x &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).name === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).email === <span class="str">'string'</span>
+);
+}
+
+<span class="kw">function</span> <span class="fn">goodFetch</span>(data: <span class="fn">unknown</span>): <span class="fn">string</span> {
+<span class="com">// return data.name; // ❌ 'data' is of type 'unknown'</span>
+<span class="kw">if</span> (!<span class="fn">isUser</span>(data)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid response'</span>);
+}
+<span class="kw">return</span> data.name.<span class="fn">toUpperCase</span>(); <span class="com">// ✅ narrowed + safe</span>
+}
+
+<span class="com">// ─── Narrowing unknown with typeof ──────────</span>
+<span class="kw">function</span> <span class="fn">describe</span>(x: <span class="fn">unknown</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (<span class="kw">typeof</span> x === <span class="str">'string'</span>) <span class="kw">return</span> <span class="str">string: ${x}</span&gt;; &lt;span class="kw"&gt;if&lt;/span&gt; (&lt;span class="kw"&gt;typeof&lt;/span&gt; x === &lt;span class="str"&gt;'number'&lt;/span&gt;) &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">number: ${x}</span>;
+<span class="kw">if</span> (<span class="fn">Array</span>.<span class="fn">isArray</span>(x)) <span class="kw">return</span> <span class="str">array of ${x.length}`</span>;
+<span class="kw">if</span> (x === <span class="fn">null</span>) <span class="kw">return</span> <span class="str">'null'</span>;
+<span class="kw">if</span> (<span class="kw">typeof</span> x === <span class="str">'object'</span>) <span class="kw">return</span> <span class="str">'object'</span>;
+<span class="kw">return</span> <span class="str">'something else'</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">describe</span>(<span class="str">'hi'</span>), <span class="fn">describe</span>(<span class="num">42</span>), <span class="fn">describe</span>([<span class="num">1</span>, <span class="num">2</span>]));
+<span class="kw">try</span> {
+console.<span class="fn">log</span>(<span class="fn">goodFetch</span>({ name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> }));
+} <span class="kw">catch</span> (e) {
+console.<span class="fn">log</span>(e);
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">badFetch</span>(data) {
+<span class="kw">return</span> data.name.<span class="fn">toUpperCase</span>();
+}
+
+<span class="kw">function</span> <span class="fn">isUser</span>(x) {
+<span class="kw">return</span> (
+<span class="kw">typeof</span> x === <span class="str">'object'</span> &&
+x !== <span class="fn">null</span> &&
+<span class="str">'name'</span> <span class="kw">in</span> x &&
+<span class="str">'email'</span> <span class="kw">in</span> x &&
+<span class="kw">typeof</span> x.name === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> x.email === <span class="str">'string'</span>
+);
+}
+
+<span class="kw">function</span> <span class="fn">goodFetch</span>(data) {
+<span class="kw">if</span> (!<span class="fn">isUser</span>(data)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid response'</span>);
+}
+<span class="kw">return</span> data.name.<span class="fn">toUpperCase</span>();
+}
+
+<span class="kw">function</span> <span class="fn">describe</span>(x) {
+<span class="kw">if</span> (<span class="kw">typeof</span> x === <span class="str">'string'</span>) <span class="kw">return</span> <span class="str">string:${x}</span&gt;; &lt;span class="kw"&gt;if&lt;/span&gt; (&lt;span class="kw"&gt;typeof&lt;/span&gt; x === &lt;span class="str"&gt;'number'&lt;/span&gt;) &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">number: {x.length}`</span>;
+<span class="kw">if</span> (x === <span class="fn">null</span>) <span class="kw">return</span> <span class="str">'null'</span>;
+<span class="kw">if</span> (<span class="kw">typeof</span> x === <span class="str">'object'</span>) <span class="kw">return</span> <span class="str">'object'</span>;
+<span class="kw">return</span> <span class="str">'something else'</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">describe</span>(<span class="str">'hi'</span>), <span class="fn">describe</span>(<span class="num">42</span>), <span class="fn">describe</span>([<span class="num">1</span>, <span class="num">2</span>]));
+<span class="kw">try</span> {
+console.<span class="fn">log</span>(<span class="fn">goodFetch</span>({ name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> }));
+} <span class="kw">catch</span> (e) {
+console.<span class="fn">log</span>(e);
+}</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>any disables all checks</h4>
+<p><code>data.name.toUpperCase()</code> compiles when <code>data: any</code>, even though <code>data</code> may be <code>42</code> at runtime. You get zero safety.</p>
+</div>
+<div class="concept-card">
+<h4>unknown forces narrowing</h4>
+<p>With <code>data: unknown</code>, accessing <code>data.name</code> fails to compile. You must narrow with <code>typeof</code>, <code>in</code>, or a guard first.</p>
+</div>
+<div class="concept-card">
+<h4>The API boundary pattern</h4>
+<p>Accept <code>unknown</code>, narrow with a guard, use the narrowed type. Never cast (<code>as User</code>) — that's just <code>any</code> in disguise.</p>
+</div>
+<div class="concept-card">
+<h4>Narrowing tools work</h4>
+<p><code>typeof</code>, <code>Array.isArray</code>, <code>instanceof</code>, <code>in</code>, and custom guards all work on <code>unknown</code>. Same tools as unions.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Treat <code>unknown</code> as the default for anything you didn't construct.</strong> Function params from external libraries? Unknown. <code>JSON.parse</code> results? Unknown. Third-party callback payloads? Unknown. Event data from non-React sources? Unknown. Once you adopt this habit, you'll spot bugs the compiler was previously hiding — real bugs that would have crashed at runtime. The <code>any</code> in old code is a debt; <code>unknown</code> is paying it down.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — When <code>any</code> is actually acceptable</h2>
+<p class="section-sub">Three legitimate cases. Everything else is a smell.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Blanket advice "never use any" is wrong. There are three situations where <code>any</code> is the right tool. All three are narrow, documented, and temporary. Knowing them prevents both overuse (which disables the compiler) and rigid avoidance (which makes interop painful).</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">any-cases.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── Case 1: Untyped library interop ─────────
+// An old library ships .js with no .d.ts and no @types.
+// You can't fix the library. Use any to unblock.</span>
+
+<span class="com">// some-legacy-lib.d.ts — a hand-written shim:</span>
+<span class="kw">declare module</span> <span class="str">'some-legacy-lib'</span> {
+<span class="kw">export function</span> <span class="fn">doSomething</span>(input: <span class="fn">any</span>): <span class="fn">any</span>;
+<span class="com">// ⚠️ Marked with a comment why — this is a known escape hatch</span>
+}
+<span class="com">// Better than declare module 'some-legacy-lib'; (whole module any)
+// because at least the function name is typed.</span>
+
+<span class="com">// ─── Case 2: Gradual migration ───────────────
+// Migrating a legacy .js file to .ts.
+// Start with // @ts-nocheck at the top, then type
+// one function at a time, removing any as you go.</span>
+
+<span class="com">// legacy.ts — Day 1:
+// // @ts-nocheck
+// export function processData(data: any) { ... }
+//
+// Day 30:
+// export function processData(data: UserInput) { ... }
+//
+// By the end, no any remains. The path is fine;
+// the destination is the goal.</span>
+
+<span class="com">// ─── Case 3: Documented internal escape hatch ─
+// Sometimes the boundary truly is unknowable.
+// The rule: (1) it's internal, (2) it's documented,
+// (3) it's localized to one function.</span>
+
+<span class="kw">function</span> <span class="fn">parseJSONOrThrow</span>(text: <span class="fn">string</span>): <span class="fn">unknown</span> {
+<span class="kw">try</span> {
+<span class="kw">return</span> <span class="fn">JSON</span>.<span class="fn">parse</span>(text); <span class="com">// JSON.parse returns any — cast to unknown</span>
+} <span class="kw">catch</span> {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid JSON'</span>);
+}
+}
+
+<span class="com">// ─── What "acceptable any" looks like ────────
+//
+// ✅ Marked with a comment explaining why
+// ✅ Localized to one function or one module
+// ✅ Paired with a guard at the entry point
+// ✅ Has a plan to remove it
+//
+// ❌ Spread across a file
+// ❌ Used in a public API signature
+// ❌ Used to "make the error go away"
+// ❌ No comment, no plan</span>
+
+<span class="com">// ─── The migration path ──────────────────────</span>
+<span class="com">// Any → unknown (start here)
+// unknown → type guard (validate)
+// type guard → typed input (ship)</span>
+
+console.<span class="fn">log</span>(<span class="fn">parseJSONOrThrow</span>(<span class="str">'{"a":1}'</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// All any and unknown types are erased.</span>
+
+<span class="kw">function</span> <span class="fn">parseJSONOrThrow</span>(text) {
+<span class="kw">try</span> {
+<span class="kw">return</span> <span class="fn">JSON</span>.<span class="fn">parse</span>(text);
+} <span class="kw">catch</span> {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid JSON'</span>);
+}
+}
+
+console.<span class="fn">log</span>(<span class="fn">parseJSONOrThrow</span>(<span class="str">'{"a":1}'</span>));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Legacy library interop</h4>
+<p>No <code>.d.ts</code>, no <code>@types</code>. Use <code>any</code> in a hand-written shim. Better: write real types. But <code>any</code> unblocks migration.</p>
+</div>
+<div class="concept-card">
+<h4>Gradual migration</h4>
+<p>Migrating <code>.js</code> → <code>.ts</code> with <code>// @ts-nocheck</code> and per-function typing. <code>any</code> is a temporary waypoint, not a destination.</p>
+</div>
+<div class="concept-card">
+<h4>Documented escape hatch</h4>
+<p>Internal, localized, commented. Rare. Never in public APIs. Never "to make the error go away."</p>
+</div>
+<div class="concept-card">
+<h4>The migration path</h4>
+<p><code>any</code> → <code>unknown</code> → type guard → typed input. Anywhere you'd write <code>any</code>, write <code>unknown</code> first. The compiler will tell you what needs narrowing.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong><code>any</code> spreads like a virus.</strong> One <code>any</code> in a function's return type infects every call site — those call sites become <code>any</code> too, and their call sites, and so on. A single <code>any</code> in an API wrapper can disable type checking across half your codebase. This is why <code>unknown</code> is strictly better: it's contagious in the other direction — <code>unknown</code> forces narrowing, which forces real types, which keeps the rest of your code checked. When in doubt, <code>unknown</code>. Always.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Converting any to unknown (a migration recipe)</h2>
+<p class="section-sub">The mechanical process for cleaning up existing <code>any</code>.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">You inherited a codebase with <code>any</code> everywhere. You want to fix it. This is the step-by-step process — the same one used by large teams migrating to strict TypeScript. It's mechanical, safe, and doesn't require rewriting anything.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">migration.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── STEP 1: Change any → unknown ────────────
+// Every compile error now points to a place
+// where the type was relied on. Fix each one.</span>
+
+<span class="com">// BEFORE:
+// function processData(data: any) {
+// return data.user.name;
+// }</span>
+
+<span class="com">// AFTER STEP 1:
+// function processData(data: unknown) {
+// return data.user.name;
+// // ❌ 'data' is of type 'unknown'
+// // → this is the compiler telling you where to narrow
+// }</span>
+
+<span class="com">// ─── STEP 2: Add a type guard ─────────────────</span>
+<span class="kw">interface</span> Payload {
+user: { name: <span class="fn">string</span>; email: <span class="fn">string</span> };
+}
+
+<span class="kw">function</span> <span class="fn">isPayload</span>(x: <span class="fn">unknown</span>): x <span class="kw">is</span> Payload {
+<span class="kw">if</span> (<span class="kw">typeof</span> x !== <span class="str">'object'</span> || x === <span class="fn">null</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="kw">const</span> u = (x <span class="kw">as</span> <span class="fn">Record</span><<span class="fn">string</span>, <span class="fn">unknown</span>>).user;
+<span class="kw">if</span> (<span class="kw">typeof</span> u !== <span class="str">'object'</span> || u === <span class="fn">null</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="kw">const</span> user = u <span class="kw">as</span> <span class="fn">Record</span><<span class="fn">string</span>, <span class="fn">unknown</span>>;
+<span class="kw">return</span> <span class="kw">typeof</span> user.name === <span class="str">'string'</span> && <span class="kw">typeof</span> user.email === <span class="str">'string'</span>;
+}
+
+<span class="com">// ─── STEP 3: Use the guard in the function ────</span>
+<span class="kw">function</span> <span class="fn">processData</span>(data: <span class="fn">unknown</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (!<span class="fn">isPayload</span>(data)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid payload'</span>);
+}
+<span class="kw">return</span> data.user.name; <span class="com">// ✅ narrowed to Payload</span>
+}
+
+<span class="com">// ─── STEP 4: Tighten the signature at the source</span>
+<span class="com">// If the caller controls the type, change it:
+// function sendData(data: Payload) { ... }
+// Now the type checker enforces correctness
+// from creation to use — no guard needed at the boundary.</span>
+
+<span class="com">// ─── The migration checklist ──────────────────</span>
+<span class="com">// [ ] Replace every : any with : unknown
+// [ ] Fix the resulting compile errors one by one
+// [ ] Add a type guard for each unknown input
+// [ ] Change signatures to concrete types where possible
+// [ ] Add a lint rule: no-explicit-any (warn first, error later)
+// [ ] Repeat per module or per feature</span>
+
+console.<span class="fn">log</span>(<span class="fn">processData</span>({ user: { name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> } }));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">isPayload</span>(x) {
+<span class="kw">if</span> (<span class="kw">typeof</span> x !== <span class="str">'object'</span> || x === <span class="fn">null</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="kw">const</span> u = x.user;
+<span class="kw">if</span> (<span class="kw">typeof</span> u !== <span class="str">'object'</span> || u === <span class="fn">null</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="kw">const</span> user = u;
+<span class="kw">return</span> <span class="kw">typeof</span> user.name === <span class="str">'string'</span> && <span class="kw">typeof</span> user.email === <span class="str">'string'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">processData</span>(data) {
+<span class="kw">if</span> (!<span class="fn">isPayload</span>(data)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid payload'</span>);
+}
+<span class="kw">return</span> data.user.name;
+}
+
+console.<span class="fn">log</span>(<span class="fn">processData</span>({ user: { name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> } }));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>any → unknown first</h4>
+<p>Don't try to write the right type immediately. Change <code>any</code> to <code>unknown</code> — the compiler will list every place you need to narrow.</p>
+</div>
+<div class="concept-card">
+<h4>Errors are a map</h4>
+<p>Each compile error is a place where you previously relied on an unchecked value. Fix them one by one — the errors are the work plan.</p>
+</div>
+<div class="concept-card">
+<h4>Guards are reusable</h4>
+<p>One <code>isPayload</code> guard covers every place that narrows the same shape. Write it once, use it everywhere.</p>
+</div>
+<div class="concept-card">
+<h4>Prevent regression</h4>
+<p>Add <code>@typescript-eslint/no-explicit-any</code> as a warning. New <code>any</code> gets a comment justifying it. The rule keeps the codebase clean.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The unknown/any bugs that catch everyone.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using <code>any</code> to make errors go away</div>
+<p>The fastest way to "fix" a compile error is <code>as any</code>. It also hides every other type error in that line. Fix: fix the real type, or use <code>unknown</code> + guard.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Casting <code>unknown</code> to a specific type</div>
+<p><code>data as User</code> — this is <code>any</code> in disguise. It tells the compiler "trust me" without checking. Fix: narrow with a real check (<code>typeof</code>, guard).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Returning <code>any</code> from a function</div>
+<p><code>function f(): any</code> — every caller is now <code>any</code>. Fix: return <code>unknown</code> or a concrete type. Let callers narrow.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Typing API responses as <code>any</code></div>
+<p><code>fetch(...).then(r => r.json() as any)</code> — trusts the server's shape. Fix: <code>as unknown</code>, then a guard. Validate at the boundary.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using <code>unknown</code> but accessing without narrowing</div>
+<p><code>(data: unknown) => data.name</code> — compile error. Fix: narrow first (<code>typeof</code>, <code>in</code>, guard), then use.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Trusting a type guard that lies</div>
+<p><code>function isUser(x): x is User { return true; }</code> compiles but narrows incorrectly. Fix: the guard body must actually validate.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using <code>any</code> in public APIs</div>
+<p><code>export function f(x: any)</code> — every consumer loses type safety. Fix: <code>unknown</code> + guard, or a real type. Public APIs set the tone.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Assuming <code>unknown</code> is unusable</div>
+<p>"I can't do anything with unknown" — you can. You narrow it, then use the narrowed type. Same as any other union. Fix: learn the narrowing patterns from Lesson 4.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between unknown and any in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Both can hold any value, but they behave differently at the check site. any disables type checking entirely — you can call any method, access any property, and the compiler won't complain. unknown forces you to narrow before use — you can't call methods or access properties until you've proven the type.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use unknown?</summary>
+<p class="mt-2 text-sm text-slate-300">Use unknown for any value that arrives from outside your type system: JSON.parse results, fetch response bodies, user input, third-party callbacks, dynamic imports. The pattern: accept unknown, narrow with typeof, in, Array.isArray, or a custom type guard, then use the narrowed type.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Is any ever acceptable in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes — in three specific cases. (1) Interop with an untyped library that ships no .d.ts and no @types package. (2) Gradual migration. (3) Escape hatch inside a well-tested function where the boundary is genuinely unknowable — annotated with a comment explaining why. Everywhere else, use unknown.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I narrow unknown?</summary>
+<p class="mt-2 text-sm text-slate-300">Same techniques as narrowing unions: typeof x === 'string', Array.isArray(x), x instanceof Date, 'field' in x, or a custom type guard. The difference: with unknown, you must narrow before every use — you can't just access .foo or call .bar().</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/narrowing.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 4: Unions & narrowing</div>
+<div class="text-xs text-slate-400 mt-1">Narrowing techniques for any type</div>
+</a>
+<a href="/courses/typescript/problems/narrow-union.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to narrow a union type</div>
+<div class="text-xs text-slate-400 mt-1">Every narrowing technique on one page</div>
+</a>
+<a href="/courses/typescript/problems/type-guard-array.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Type guard for array of objects</div>
+<div class="text-xs text-slate-400 mt-1">Validating API responses with guards</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
