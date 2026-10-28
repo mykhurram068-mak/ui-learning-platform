@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Make All Properties Optional in TypeScript (Partial) — 2026</title>
+<meta name="description" content="Make all properties optional in TypeScript with Partial<T>. Learn deep partial, when optional is wrong, and the patterns every real app needs. Working code.">
+<meta name="keywords" content="typescript partial, typescript make properties optional, typescript partial type, deep partial typescript, typescript optional all properties">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Make All Properties Optional in TypeScript (Partial)">
+<meta property="og:description" content="Make all properties optional in TypeScript with Partial<T>. Deep partial, when optional is wrong, and the patterns every real app needs.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/partial.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Make All Properties Optional in TypeScript (Partial)">
+<meta name="twitter:description" content="Partial<T>, deep partial, and when optional is wrong.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/partial.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Make All Properties Optional in TypeScript (Partial)",
+"description": "Make all properties optional in TypeScript with Partial<T>. Deep partial, when optional is wrong, and the patterns every real app needs.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I make all properties optional in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Wrap your type in Partial: type PartialUser = Partial<User>. Every property becomes optional. Partial is a utility type that iterates over the keys with a mapped type: { [K in keyof T]?: T[K] }. The result has the same keys, each marked with ?, so the property can be missing or undefined. Partial is compile-time only — the output JavaScript is unchanged."}},
+{"@type":"Question","name":"What is the difference between Partial and optional properties?","acceptedAnswer":{"@type":"Answer","text":"Optional properties are declared with ? in the interface (name?: string). Partial<T> applies ? to every property automatically. Use optional for a specific field that's genuinely sometimes missing; use Partial when you have a base type and want a version where all fields are optional — typically for update payloads (PATCH requests) or form drafts. Partial is a type transformation; optional is a declaration."}},
+{"@type":"Question","name":"What is DeepPartial in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"DeepPartial makes every property optional recursively — nested objects also have their properties optional. Standard Partial is shallow: it only affects the top level. A deep version looks like: type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] }. Use it for recursive config updates; avoid it for most code because it silently allows deeply incomplete objects that will break at runtime."}},
+{"@type":"Question","name":"When should I NOT use Partial?","acceptedAnswer":{"@type":"Answer","text":"Don't use Partial as a shortcut when the type actually has required fields — you'll lose compile-time guarantees. Don't use it for API response types (responses are what they are; Partial makes them lie). Don't use it for props interfaces where every prop really is required. Partial is right for: PATCH payloads (only send changed fields), form drafts (partially filled), and updates (merge partial into existing). Outside those, use it deliberately, not by default."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · Partial</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Partial</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>How to make all properties optional.<br><span class="py-accent">One type, every field.</span></h1>
+<p class="lead">
+You have a <code>User</code> interface with five required fields. Now you need a PATCH endpoint where the client can send any subset — one field, three fields, all five. You don't want a second interface. This is exactly what <code>Partial<T></code> is for. One line, every property optional, no duplication.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Wrap your type in <code>Partial<T></code> — <code>type Patch = Partial<User></code>. Every property becomes optional. This is a mapped type: <code>{ [K in keyof T]?: T[K] }</code>. For nested objects that also need every level optional, write a recursive <code>DeepPartial<T></code>. Partial is erase-at-compile-time — the output JavaScript is unchanged.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — <code>Partial<T></code> (the built-in)</h2>
+<p class="section-sub">One type parameter, every property optional.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Partial is a built-in utility type. It takes a type and produces a new type with all the same keys, but each key marked as optional. TypeScript ships this — you don't have to define it. It's the standard way to express "a subset of fields from T."</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">partial.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── The base type ───────────────────────────</span>
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+age: <span class="fn">number</span>;
+}
+
+<span class="com">// ─── Partial — every property optional ───────</span>
+<span class="kw">type</span> UserPatch = <span class="fn">Partial</span><User>;
+<span class="com">// { id?: string; name?: string; email?: string; age?: number }</span>
+
+<span class="com">// ─── Any subset is valid ─────────────────────</span>
+<span class="kw">const</span> p1: UserPatch = {}; <span class="com">// ✅ all empty</span>
+<span class="kw">const</span> p2: UserPatch = { name: <span class="str">'Alice'</span> }; <span class="com">// ✅ one field</span>
+<span class="kw">const</span> p3: UserPatch = { email: <span class="str">'a@x.com'</span>, age: <span class="num">28</span> }; <span class="com">// ✅ two fields</span>
+<span class="kw">const</span> p4: UserPatch = { <span class="com">// ✅ all fields</span>
+id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span>, age: <span class="num">28</span>
+};
+
+<span class="com">// ─── Wrong types still rejected ──────────────</span>
+<span class="com">// const bad: UserPatch = { age: 'not a number' }; // ❌ type mismatch</span>
+
+<span class="com">// ─── The PATCH pattern ───────────────────────</span>
+<span class="kw">function</span> <span class="fn">updateUser</span>(id: <span class="fn">string</span>, patch: UserPatch): <span class="fn">void</span> {
+<span class="com">// Only apply fields the caller provided</span>
+console.<span class="fn">log</span>(<span class="str">'PATCH /users/'</span> + id, patch);
+}
+
+<span class="fn">updateUser</span>(<span class="str">'1'</span>, { name: <span class="str">'Alicia'</span> }); <span class="com">// ✅ only name</span>
+<span class="fn">updateUser</span>(<span class="str">'1'</span>, { age: <span class="num">29</span>, email: <span class="str">'a@y.com'</span> }); <span class="com">// ✅ two fields</span>
+
+<span class="com">// ─── How Partial is defined ──────────────────</span>
+<span class="com">// This is the actual source:
+//
+// type Partial<T> = { [K in keyof T]?: T[K] };
+//
+// A mapped type — iterates over keys, adds ? to each.</span>
+
+console.<span class="fn">log</span>(p2, p3, p4);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Partial erased. The interface gone.</span>
+
+<span class="kw">const</span> p1 = {};
+<span class="kw">const</span> p2 = { name: <span class="str">'Alice'</span> };
+<span class="kw">const</span> p3 = { email: <span class="str">'a@x.com'</span>, age: <span class="num">28</span> };
+<span class="kw">const</span> p4 = {
+id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span>, age: <span class="num">28</span>
+};
+
+<span class="kw">function</span> <span class="fn">updateUser</span>(id, patch) {
+console.<span class="fn">log</span>(<span class="str">'PATCH /users/'</span> + id, patch);
+}
+
+<span class="fn">updateUser</span>(<span class="str">'1'</span>, { name: <span class="str">'Alicia'</span> });
+<span class="fn">updateUser</span>(<span class="str">'1'</span>, { age: <span class="num">29</span>, email: <span class="str">'a@y.com'</span> });
+
+console.<span class="fn">log</span>(p2, p3, p4);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>All keys, all optional</h4>
+<p><code>Partial<User></code> keeps every key but adds <code>?</code>. The result accepts any subset — including empty <code>{}</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Values still typed</h4>
+<p>Optional doesn't mean untyped. <code>age?: number</code> means if it's present, it's a number. Passing a string is still an error.</p>
+</div>
+<div class="concept-card">
+<h4>The PATCH use case</h4>
+<p>Update endpoints accept "any subset of fields." That's exactly Partial. The client sends what changed; the server merges.</p>
+</div>
+<div class="concept-card">
+<h4>Compose with other utilities</h4>
+<p><code>Partial<Pick<User, 'name' | 'email'>></code> — the user can update only name and email, and only one at a time. Full composition.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Partial is the right type for PATCH payloads and form drafts.</strong> Every other use is a smell. A common mistake: using <code>Partial<User></code> for a function that <em>returns</em> a user. That's wrong — a returned user has all its fields. Partial is for partial <em>updates</em>, not partial <em>entities</em>. If your code has a function that sometimes returns a partial user, split it into two functions: <code>getUser(): User</code> and <code>findUser(): User | null</code>. Partial should appear in exactly two places: request payloads and in-progress form state.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — DeepPartial (recursive)</h2>
+<p class="section-sub">When nested objects also need to be partially updatable.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Standard Partial is shallow — it only affects the top level. <code>Partial<{ user: { name: string } }></code> makes <code>user</code> optional, but if <code>user</code> is present, it still requires <code>name</code>. For nested updates, you need a <code>DeepPartial<T></code> — a recursive mapped type that walks into every object.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">deep-partial.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── Shallow Partial — only the top level ────</span>
+<span class="kw">interface</span> Profile {
+name: <span class="fn">string</span>;
+address: {
+street: <span class="fn">string</span>;
+city: <span class="fn">string</span>;
+};
+}
+
+<span class="kw">type</span> ShallowPatch = <span class="fn">Partial</span><Profile>;
+<span class="com">// { name?: string; address?: { street: string; city: string } }</span>
+<span class="com">// ⚠️ address is optional — but if present, requires BOTH street and city</span>
+
+<span class="kw">const</span> sp1: ShallowPatch = { name: <span class="str">'Alice'</span> }; <span class="com">// ✅</span>
+<span class="kw">const</span> sp2: ShallowPatch = { address: { street: <span class="str">'Main'</span>, city: <span class="str">'X'</span> } }; <span class="com">// ✅ full address</span>
+<span class="com">// const sp3: ShallowPatch = { address: { city: 'X' } };
+// ❌ Property 'street' is missing</span>
+
+<span class="com">// ─── DeepPartial — recursive ─────────────────</span>
+<span class="kw">type</span> DeepPartial<T> = {
+[K <span class="kw">in</span> <span class="kw">keyof</span> T]?: T[K] <span class="kw">extends</span> <span class="fn">object</span> ? DeepPartial<T[K]> : T[K]
+};
+
+<span class="kw">type</span> DeepPatch = DeepPartial<Profile>;
+<span class="com">// { name?: string; address?: { street?: string; city?: string } }</span>
+
+<span class="kw">const</span> dp1: DeepPatch = { name: <span class="str">'Alice'</span> }; <span class="com">// ✅</span>
+<span class="kw">const</span> dp2: DeepPatch = { address: { city: <span class="str">'X'</span> } }; <span class="com">// ✅ street optional</span>
+<span class="kw">const</span> dp3: DeepPatch = { address: {} }; <span class="com">// ✅ empty nested</span>
+<span class="kw">const</span> dp4: DeepPatch = {}; <span class="com">// ✅</span>
+
+<span class="com">// ─── The real-world merge function ──────────</span>
+<span class="kw">function</span> <span class="fn">mergeDeep</span><T>(base: T, patch: DeepPartial<T>): T {
+<span class="kw">if</span> (<span class="kw">typeof</span> base !== <span class="str">'object'</span> || base === <span class="fn">null</span>) <span class="kw">return</span> base;
+<span class="kw">const</span> result = { ...base } <span class="kw">as</span> <span class="fn">Record</span><<span class="fn">string</span>, <span class="fn">unknown</span>>;
+<span class="kw">for</span> (<span class="kw">const</span> k <span class="kw">in</span> patch) {
+<span class="kw">const</span> v = patch[k];
+<span class="kw">if</span> (v !== <span class="fn">undefined</span>) {
+<span class="kw">if</span> (<span class="kw">typeof</span> v === <span class="str">'object'</span> && v !== <span class="fn">null</span>) {
+result[k] = <span class="fn">mergeDeep</span>(result[k], v <span class="kw">as</span> DeepPartial<<span class="fn">unknown</span>>);
+} <span class="kw">else</span> {
+result[k] = v;
+}
+}
+}
+<span class="kw">return</span> result <span class="kw">as</span> T;
+}
+
+<span class="kw">const</span> base: Profile = {
+name: <span class="str">'Alice'</span>,
+address: { street: <span class="str">'Main St'</span>, city: <span class="str">'Springfield'</span> }
+};
+<span class="kw">const</span> updated = <span class="fn">mergeDeep</span>(base, { address: { city: <span class="str">'Shelbyville'</span> } });
+console.<span class="fn">log</span>(updated);
+<span class="com">// { name: 'Alice', address: { street: 'Main St', city: 'Shelbyville' } }</span></pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">const</span> sp1 = { name: <span class="str">'Alice'</span> };
+<span class="kw">const</span> sp2 = { address: { street: <span class="str">'Main'</span>, city: <span class="str">'X'</span> } };
+
+<span class="kw">const</span> dp1 = { name: <span class="str">'Alice'</span> };
+<span class="kw">const</span> dp2 = { address: { city: <span class="str">'X'</span> } };
+<span class="kw">const</span> dp3 = { address: {} };
+<span class="kw">const</span> dp4 = {};
+
+<span class="kw">function</span> <span class="fn">mergeDeep</span>(base, patch) {
+<span class="kw">if</span> (<span class="kw">typeof</span> base !== <span class="str">'object'</span> || base === <span class="fn">null</span>) <span class="kw">return</span> base;
+<span class="kw">const</span> result = { ...base };
+<span class="kw">for</span> (<span class="kw">const</span> k <span class="kw">in</span> patch) {
+<span class="kw">const</span> v = patch[k];
+<span class="kw">if</span> (v !== <span class="fn">undefined</span>) {
+<span class="kw">if</span> (<span class="kw">typeof</span> v === <span class="str">'object'</span> && v !== <span class="fn">null</span>) {
+result[k] = <span class="fn">mergeDeep</span>(result[k], v);
+} <span class="kw">else</span> {
+result[k] = v;
+}
+}
+}
+<span class="kw">return</span> result;
+}
+
+<span class="kw">const</span> base = {
+name: <span class="str">'Alice'</span>,
+address: { street: <span class="str">'Main St'</span>, city: <span class="str">'Springfield'</span> }
+};
+<span class="kw">const</span> updated = <span class="fn">mergeDeep</span>(base, { address: { city: <span class="str">'Shelbyville'</span> } });
+console.<span class="fn">log</span>(updated);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Partial is shallow</h4>
+<p><code>Partial<T></code> only affects the top level. Nested objects still require all their fields if present. That's usually what you want.</p>
+</div>
+<div class="concept-card">
+<h4>DeepPartial recurses</h4>
+<p><code>DeepPartial<T></code> walks into every nested object. Every level becomes optional. Use only for recursive update operations.</p>
+</div>
+<div class="concept-card">
+<h4>The conditional guard</h4>
+<p><code>T[K] extends object ? DeepPartial<T[K]> : T[K]</code> — only recurse into objects. Primitives (string, number, Date) stay as-is.</p>
+</div>
+<div class="concept-card">
+<h4>Deep merge is a runtime concern</h4>
+<p>DeepPartial only types the input. The merge logic is real code — you need a <code>mergeDeep</code> function to apply it. Don't expect <code>Object.assign</code> to do this.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>DeepPartial is dangerous — use it sparingly.</strong> It silently allows deeply incomplete objects that will crash at runtime when code assumes they're complete. A <code>DeepPartial<User></code> can be <code>{ address: {} }</code> — no name, no street, no city. If your code does <code>user.address.street.toUpperCase()</code>, it fails. Fix: use DeepPartial only at update boundaries (incoming PATCH bodies), validate or merge immediately, and never use DeepPartial for data you'll pass around internally. Shallow Partial is much safer.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Compose with Pick and Omit</h2>
+<p class="section-sub">Partial is more powerful when combined with key filtering.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Sometimes you want "any subset of these specific fields." Combine <code>Partial</code> with <code>Pick</code> or <code>Omit</code> to restrict both the keys and the optionality. This is how real APIs are typed — you don't let a PATCH client update <code>id</code> or <code>createdAt</code>.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">compose.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+password: <span class="fn">string</span>;
+createdAt: <span class="fn">Date</span>;
+}
+
+<span class="com">// ─── Partial + Omit: any subset of safe fields ─</span>
+<span class="kw">type</span> UserUpdate = <span class="fn">Partial</span><<span class="fn">Omit</span><User, <span class="str">'id'</span> | <span class="str">'createdAt'</span>>>;
+<span class="com">// { name?: string; email?: string; password?: string }</span>
+<span class="com">// Client can send any subset — but not id or createdAt.</span>
+
+<span class="kw">function</span> <span class="fn">updateUser</span>(id: <span class="fn">string</span>, patch: UserUpdate): <span class="fn">void</span> {
+console.<span class="fn">log</span>(<span class="str">'PATCH'</span>, id, patch);
+}
+
+<span class="fn">updateUser</span>(<span class="str">'1'</span>, { name: <span class="str">'Alicia'</span> }); <span class="com">// ✅</span>
+<span class="fn">updateUser</span>(<span class="str">'1'</span>, { email: <span class="str">'a@y.com'</span> }); <span class="com">// ✅</span>
+<span class="com">// updateUser('1', { id: '2' }); // ❌ 'id' not in UserUpdate</span>
+<span class="com">// updateUser('1', { createdAt: new Date() }); // ❌ 'createdAt' not allowed</span>
+
+<span class="com">// ─── Partial + Pick: only specific fields ────</span>
+<span class="kw">type</span> ContactUpdate = <span class="fn">Partial</span><<span class="fn">Pick</span><User, <span class="str">'email'</span> | <span class="str">'name'</span>>>;
+<span class="com">// { email?: string; name?: string }</span>
+
+<span class="kw">function</span> <span class="fn">updateContact</span>(id: <span class="fn">string</span>, patch: ContactUpdate): <span class="fn">void</span> {
+console.<span class="fn">log</span>(<span class="str">'PATCH contact'</span>, id, patch);
+}
+
+<span class="fn">updateContact</span>(<span class="str">'1'</span>, { name: <span class="str">'Alicia'</span> }); <span class="com">// ✅</span>
+<span class="fn">updateContact</span>(<span class="str">'1'</span>, { email: <span class="str">'a@y.com'</span> }); <span class="com">// ✅</span>
+<span class="com">// updateContact('1', { password: 'hack' }); // ❌ not allowed</span>
+
+<span class="com">// ─── Required + Partial: specific fields ─────</span>
+<span class="com">// "All fields optional EXCEPT id" — useful for
+// update operations that require an identifier.</span>
+<span class="kw">type</span> PatchWithId = <span class="fn">Partial</span><User> & <span class="fn">Pick</span><User, <span class="str">'id'</span>>;
+<span class="com">// { id: string; name?: string; email?: string; password?: string; createdAt?: Date }</span>
+
+<span class="kw">const</span> wp: PatchWithId = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }; <span class="com">// ✅</span>
+<span class="com">// const bad: PatchWithId = { name: 'Alice' }; // ❌ id required</span>
+
+<span class="com">// ─── The API endpoint pattern ────────────────</span>
+<span class="com">// This is how production APIs type PATCH bodies:
+//
+// type PatchBody<T, Immutable extends keyof T> =
+// Partial<Omit<T, Immutable>>;
+//
+// type UserPatch = PatchBody<User, 'id' | 'createdAt'>;</span>
+
+console.<span class="fn">log</span>(<span class="str">'composed patches ready'</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">updateUser</span>(id, patch) {
+console.<span class="fn">log</span>(<span class="str">'PATCH'</span>, id, patch);
+}
+
+<span class="fn">updateUser</span>(<span class="str">'1'</span>, { name: <span class="str">'Alicia'</span> });
+<span class="fn">updateUser</span>(<span class="str">'1'</span>, { email: <span class="str">'a@y.com'</span> });
+
+<span class="kw">function</span> <span class="fn">updateContact</span>(id, patch) {
+console.<span class="fn">log</span>(<span class="str">'PATCH contact'</span>, id, patch);
+}
+
+<span class="fn">updateContact</span>(<span class="str">'1'</span>, { name: <span class="str">'Alicia'</span> });
+<span class="fn">updateContact</span>(<span class="str">'1'</span>, { email: <span class="str">'a@y.com'</span> });
+
+<span class="kw">const</span> wp = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> };
+
+console.<span class="fn">log</span>(<span class="str">'composed patches ready'</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>Partial<Omit<T, K>></code></h4>
+<p>"Any subset of fields except K." The standard pattern for PATCH bodies — clients can update anything except immutable fields.</p>
+</div>
+<div class="concept-card">
+<h4><code>Partial<Pick<T, K>></code></h4>
+<p>"Any subset of only these fields." Restrict what the client can touch — name and email, but not password.</p>
+</div>
+<div class="concept-card">
+<h4><code>Partial<T> & Pick<T, K></code></h4>
+<p>"Everything optional except these fields." Require an identifier while allowing partial updates.</p>
+</div>
+<div class="concept-card">
+<h4>Reusable helper</h4>
+<p><code>type PatchBody<T, K extends keyof T> = Partial<Omit<T, K>></code> — one type parameterised over the immutable keys, reused across every entity.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The Partial bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using Partial for return types</div>
+<p>A function that "sometimes returns a partial user" is a design smell. Fix: return <code>User | null</code> or split into two functions. Partial is for <em>input</em>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using Partial to skip field validation</div>
+<p>Making every field optional because you don't want to enforce them. Fix: only optional when genuinely optional. Otherwise require it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Assuming Partial is deep</div>
+<p><code>Partial<{ address: { street: string } }></code> still requires <code>street</code> if <code>address</code> is present. Fix: <code>DeepPartial</code> for recursive updates.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using DeepPartial everywhere</div>
+<p>DeepPartial silently allows impossible objects. Fix: shallow Partial for 90% of cases; DeepPartial only at update boundaries.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting <code>undefined</code> vs missing</div>
+<p><code>patch.name = undefined</code> and omitting <code>name</code> are both valid, but they behave differently in merges. Fix: filter undefined in merge logic.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Not omitting immutable fields</div>
+<p>If <code>id</code> and <code>createdAt</code> are in the Partial, the client can "update" them. Fix: <code>Partial<Omit<User, 'id' | 'createdAt'>></code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using Partial to represent "empty"</div>
+<p>An "empty user" isn't a user — it's a form state. Fix: model form state as <code>{ values: Partial<User>; errors: ... }</code>, not a Partial directly.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Confusing Partial with nullable</div>
+<p><code>Partial<T></code> makes fields optional; it doesn't make them nullable. <code>name?: string</code> is not <code>name: string | null</code>. Fix: combine with <code>| null</code> only when null is a valid value.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I make all properties optional in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Wrap your type in Partial: type PartialUser = Partial<User>. Every property becomes optional. Partial is a utility type that iterates over the keys with a mapped type: { [K in keyof T]?: T[K] }. The result has the same keys, each marked with ?, so the property can be missing or undefined.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between Partial and optional properties?</summary>
+<p class="mt-2 text-sm text-slate-300">Optional properties are declared with ? in the interface (name?: string). Partial<T> applies ? to every property automatically. Use optional for a specific field that's genuinely sometimes missing; use Partial when you have a base type and want a version where all fields are optional.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is DeepPartial in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">DeepPartial makes every property optional recursively — nested objects also have their properties optional. Standard Partial is shallow: it only affects the top level. Use it for recursive config updates; avoid it for most code because it silently allows deeply incomplete objects.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I NOT use Partial?</summary>
+<p class="mt-2 text-sm text-slate-300">Don't use Partial as a shortcut when the type actually has required fields — you'll lose compile-time guarantees. Don't use it for API response types. Don't use it for props interfaces where every prop really is required. Partial is right for: PATCH payloads, form drafts, and updates.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/utility-types.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 6: Utility types</div>
+<div class="text-xs text-slate-400 mt-1">Partial, Required, Pick, Omit, Record</div>
+</a>
+<a href="/courses/typescript/problems/interface-vs-type.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 interface vs type</div>
+<div class="text-xs text-slate-400 mt-1">The merging difference and the decision rule</div>
+</a>
+<a href="/courses/typescript/problems/dynamic-keys.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to type dynamic keys</div>
+<div class="text-xs text-slate-400 mt-1">Record, index signatures, Maps</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
