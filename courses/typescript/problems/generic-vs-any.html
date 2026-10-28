@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Generic vs any in TypeScript — Why <T> Wins (2026)</title>
+<meta name="description" content="Generic vs any in TypeScript: why <T> preserves type information that any throws away. Learn the difference with identity, map, and React component examples.">
+<meta name="keywords" content="typescript generic vs any, typescript generics, typescript any, typescript generic function, typescript generic component">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Generic vs any in TypeScript — Why <T> Wins">
+<meta property="og:description" content="Why <T> preserves type information that any throws away. Identity, map, and React component examples.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/generic-vs-any.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Generic vs any in TypeScript — Why <T> Wins">
+<meta name="twitter:description" content="Why <T> preserves what any throws away.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/generic-vs-any.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Generic vs any in TypeScript — Why <T> Wins",
+"description": "Generic vs any in TypeScript: why <T> preserves type information that any throws away.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between a generic and any in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"any erases type information — a function returning any loses the input type at the call site. Generics preserve it: identity<T>(x: T): T returns the same type as the input. any means 'I don't know, don't check.' Generics mean 'I don't know yet, but I'll track it.' For reusable code, generics are always preferred — they keep the safety that any throws away."}},
+{"@type":"Question","name":"When should I use a generic instead of any?","acceptedAnswer":{"@type":"Answer","text":"Use a generic when the input type and output type are related — identity, first, last, map, pluck, groupBy. Also when you need to call a method on the input — getLength<T extends { length: number }>(x: T). Use any only for interop with untyped libraries or as a documented temporary escape hatch. If you find yourself writing any in new code, ask: 'is this value's type related to another value's type?' If yes, generic."}},
+{"@type":"Question","name":"Are generics slower than any?","acceptedAnswer":{"@type":"Answer","text":"No. Both are erased at compile time — the output JavaScript is identical. Generics add compile-time checking but zero runtime cost. The only 'cost' is that the compiler has more work to do, but this is negligible in modern TypeScript. There is no performance reason to prefer any over generics."}},
+{"@type":"Question","name":"Why does my generic function return T instead of the actual type?","acceptedAnswer":{"@type":"Answer","text":"Because T is inferred from the argument. When you call identity('hello'), TypeScript infers T = 'hello' (or string, depending on context) and returns that specific type. If the return shows as T in the definition, that's just the generic signature — at the call site, T is filled in. Hover over the call site in your editor to see the resolved type."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · generic vs any</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Generic vs any</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>Generic vs any.<br><span class="py-accent">Why <T> preserves what any throws away.</span></h1>
+<p class="lead">
+Both <code>any</code> and <code><T></code> let a function accept values of any type. The difference is what happens at the call site. With <code>any</code>, the return type is also <code>any</code> — you've lost information. With <code><T></code>, the return type reflects what you passed in. This page shows why generics are strictly better for reusable code, and when <code>any</code> is legitimately the right tool.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>any</code> says "I don't know, don't check." <code><T></code> says "I don't know yet, but I'll track it." Use generics whenever the input and output types are related — <code>identity</code>, <code>first</code>, <code>map</code>, <code>pluck</code>, <code>groupBy</code>. The caller's specific type flows through the function and comes out the other side. <code>any</code> throws that type away. For reusable code, generics are always the right choice.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — The identity function</h2>
+<p class="section-sub">The simplest case: input type = output type.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The identity function is where the difference is clearest. It takes a value and returns it unchanged. With <code>any</code>, the function works but the type information is destroyed at every call site. With <code><T></code>, the type flows through — pass a <code>string</code>, get back a <code>string</code>.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">identity.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── Version 1: with any ────────────────────</span>
+<span class="kw">function</span> <span class="fn">identityAny</span>(x: <span class="fn">any</span>): <span class="fn">any</span> {
+<span class="kw">return</span> x;
+}
+
+<span class="kw">const</span> a = <span class="fn">identityAny</span>(<span class="str">'hello'</span>); <span class="com">// a: any — type lost</span>
+<span class="kw">const</span> b = <span class="fn">identityAny</span>(<span class="num">42</span>); <span class="com">// b: any</span>
+<span class="kw">const</span> c = <span class="fn">identityAny</span>({ name: <span class="str">'x'</span> }); <span class="com">// c: any</span>
+
+<span class="com">// No autocomplete, no type checking:
+a.<span class="fn">toUpperCase</span>(); <span class="com">// ✅ compiles ❌ would crash if a were a number</span>
+b.<span class="fn">toUpperCase</span>(); <span class="com">// ✅ compiles ❌ crashes at runtime</span>
+
+<span class="com">// ─── Version 2: with <T> ─────────────────────</span>
+<span class="kw">function</span> <span class="fn">identity</span><T>(x: T): T {
+<span class="kw">return</span> x;
+}
+
+<span class="kw">const</span> s = <span class="fn">identity</span>(<span class="str">'hello'</span>); <span class="com">// s: string</span>
+<span class="kw">const</span> n = <span class="fn">identity</span>(<span class="num">42</span>); <span class="com">// n: number</span>
+<span class="kw">const</span> u = <span class="fn">identity</span>({ name: <span class="str">'x'</span> }); <span class="com">// u: { name: string }</span>
+
+<span class="com">// Autocomplete and checking work:</span>
+s.<span class="fn">toUpperCase</span>(); <span class="com">// ✅ string method available</span>
+<span class="com">// n.toUpperCase(); // ❌ Property 'toUpperCase' does not exist on 'number'</span>
+<span class="com">// u.toUpperCase(); // ❌ Property 'toUpperCase' does not exist on '{ name: string }'</span>
+
+<span class="com">// ─── Explicit type argument ──────────────────</span>
+<span class="kw">const</span> explicit = <span class="fn">identity</span><<span class="fn">string</span>>(<span class="str">'x'</span>); <span class="com">// same as inferred</span>
+
+<span class="com">// ─── Why this matters ────────────────────────
+//
+// With any:
+// identity('hello') → any → every downstream
+// operation is unchecked. Bugs compile.
+//
+// With <T>:
+// identity('hello') → string → methods are
+// type-checked. Wrong methods are compile errors.
+//
+// One line of code. Full type preservation.</span>
+
+console.<span class="fn">log</span>(a, b, c, s, n, u, explicit);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">identityAny</span>(x) {
+<span class="kw">return</span> x;
+}
+
+<span class="kw">const</span> a = <span class="fn">identityAny</span>(<span class="str">'hello'</span>);
+<span class="kw">const</span> b = <span class="fn">identityAny</span>(<span class="num">42</span>);
+<span class="kw">const</span> c = <span class="fn">identityAny</span>({ name: <span class="str">'x'</span> });
+
+<span class="kw">function</span> <span class="fn">identity</span>(x) {
+<span class="kw">return</span> x;
+}
+
+<span class="kw">const</span> s = <span class="fn">identity</span>(<span class="str">'hello'</span>);
+<span class="kw">const</span> n = <span class="fn">identity</span>(<span class="num">42</span>);
+<span class="kw">const</span> u = <span class="fn">identity</span>({ name: <span class="str">'x'</span> });
+
+<span class="kw">const</span> explicit = <span class="fn">identity</span>(<span class="str">'x'</span>);
+
+console.<span class="fn">log</span>(a, b, c, s, n, u, explicit);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>any throws away</h4>
+<p>The return type is <code>any</code> regardless of input. No autocomplete, no checking, no relationship between input and output.</p>
+</div>
+<div class="concept-card">
+<h4><T> tracks</h4>
+<p>The return type is the same <code>T</code>. Pass <code>string</code>, get <code>string</code>. Pass <code>User</code>, get <code>User</code>. The relationship is preserved.</p>
+</div>
+<div class="concept-card">
+<h4>Inference fills T</h4>
+<p>You rarely write <code>identity<string>('x')</code>. TypeScript infers T from the argument. Only specify explicitly when needed.</p>
+</div>
+<div class="concept-card">
+<h4>Same runtime, different safety</h4>
+<p>Both compile to identical JavaScript. The difference is entirely at compile time — the types <em>any</em> throws away vs <em><T></em> preserves.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Real functions: first, map, pluck</h2>
+<p class="section-sub">Where generics genuinely matter — data transformations.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The difference is starker with real functions. A <code>first</code> function that returns <code>any</code> loses the element type. A <code>map</code> that returns <code>any[]</code> loses the transformation result. With generics, the caller's specific types flow through — pass <code>User[]</code>, get <code>User</code>; pass a callback that returns <code>number</code>, get <code>number[]</code>.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">data-transforms.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── first: any vs <T> ──────────────────────</span>
+<span class="kw">function</span> <span class="fn">firstAny</span>(arr: <span class="fn">any</span>[]): <span class="fn">any</span> {
+<span class="kw">return</span> arr[<span class="num">0</span>];
+}
+
+<span class="kw">function</span> <span class="fn">first</span><T>(arr: T[]): T | <span class="fn">undefined</span> {
+<span class="kw">return</span> arr[<span class="num">0</span>];
+}
+
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+<span class="kw">const</span> users: User[] = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }];
+
+<span class="kw">const</span> uAny = <span class="fn">firstAny</span>(users); <span class="com">// any</span>
+<span class="const">const</span> u = <span class="fn">first</span>(users); <span class="com">// User | undefined</span>
+
+<span class="com">// uAny.name — any, no checking
+// u?.name — ✅ User | undefined, narrowed access</span>
+
+<span class="com">// ─── map: preserve input → output relation ───</span>
+<span class="kw">function</span> <span class="fn">mapAny</span>(arr: <span class="fn">any</span>[], fn: (x: <span class="fn">any</span>) => <span class="fn">any</span>): <span class="fn">any</span>[] {
+<span class="kw">return</span> arr.<span class="fn">map</span>(fn);
+}
+
+<span class="kw">function</span> <span class="fn">mapArr</span><T, U>(arr: T[], fn: (x: T) => U): U[] {
+<span class="kw">return</span> arr.<span class="fn">map</span>(fn);
+}
+
+<span class="kw">const</span> lengthsAny = <span class="fn">mapAny</span>(users, u => u.name.<span class="fn">length</span>); <span class="com">// any[]</span>
+<span class="kw">const</span> lengths = <span class="fn">mapArr</span>(users, u => u.name.<span class="fn">length</span>); <span class="com">// number[]</span>
+
+<span class="com">// ─── pluck: keyof preservation ───────────────</span>
+<span class="kw">function</span> <span class="fn">pluckAny</span>(arr: <span class="fn">any</span>[], key: <span class="fn">string</span>): <span class="fn">any</span>[] {
+<span class="kw">return</span> arr.<span class="fn">map</span>(x => x[key]);
+}
+
+<span class="kw">function</span> <span class="fn">pluck</span><T, K <span class="kw">extends</span> <span class="kw">keyof</span> T>(arr: T[], key: K): T[K][] {
+<span class="kw">return</span> arr.<span class="fn">map</span>(x => x[key]);
+}
+
+<span class="kw">const</span> namesAny = <span class="fn">pluckAny</span>(users, <span class="str">'name'</span>); <span class="com">// any[]</span>
+<span class="kw">const</span> names = <span class="fn">pluck</span>(users, <span class="str">'name'</span>); <span class="com">// string[]</span>
+<span class="kw">const</span> ids = <span class="fn">pluck</span>(users, <span class="str">'id'</span>); <span class="com">// string[]</span>
+<span class="com">// pluck(users, 'foo'); // ❌ 'foo' not a key</span>
+
+<span class="com">// ─── Generic composition ─────────────────────</span>
+<span class="com">// Generics chain — first + pluck compose:</span>
+<span class="kw">const</span> firstNameChar = <span class="fn">first</span>(<span class="fn">pluck</span>(users, <span class="str">'name'</span>)); <span class="com">// string | undefined</span>
+
+<span class="com">// With any, you'd have to cast at every step.
+// With generics, types flow automatically.</span>
+
+console.<span class="fn">log</span>(uAny, u, lengthsAny, lengths, namesAny, names, ids, firstNameChar);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">firstAny</span>(arr) {
+<span class="kw">return</span> arr[<span class="num">0</span>];
+}
+
+<span class="kw">function</span> <span class="fn">first</span>(arr) {
+<span class="kw">return</span> arr[<span class="num">0</span>];
+}
+
+<span class="kw">const</span> users = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }];
+
+<span class="kw">const</span> uAny = <span class="fn">firstAny</span>(users);
+<span class="kw">const</span> u = <span class="fn">first</span>(users);
+
+<span class="kw">function</span> <span class="fn">mapAny</span>(arr, fn) {
+<span class="kw">return</span> arr.<span class="fn">map</span>(fn);
+}
+
+<span class="kw">function</span> <span class="fn">mapArr</span>(arr, fn) {
+<span class="kw">return</span> arr.<span class="fn">map</span>(fn);
+}
+
+<span class="kw">const</span> lengthsAny = <span class="fn">mapAny</span>(users, u => u.name.<span class="fn">length</span>);
+<span class="kw">const</span> lengths = <span class="fn">mapArr</span>(users, u => u.name.<span class="fn">length</span>);
+
+<span class="kw">function</span> <span class="fn">pluckAny</span>(arr, key) {
+<span class="kw">return</span> arr.<span class="fn">map</span>(x => x[key]);
+}
+
+<span class="kw">function</span> <span class="fn">pluck</span>(arr, key) {
+<span class="kw">return</span> arr.<span class="fn">map</span>(x => x[key]);
+}
+
+<span class="kw">const</span> namesAny = <span class="fn">pluckAny</span>(users, <span class="str">'name'</span>);
+<span class="kw">const</span> names = <span class="fn">pluck</span>(users, <span class="str">'name'</span>);
+<span class="kw">const</span> ids = <span class="fn">pluck</span>(users, <span class="str">'id'</span>);
+
+<span class="kw">const</span> firstNameChar = <span class="fn">first</span>(<span class="fn">pluck</span>(users, <span class="str">'name'</span>));
+
+console.<span class="fn">log</span>(uAny, u, lengthsAny, lengths, namesAny, names, ids, firstNameChar);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Type flows through</h4>
+<p>With <code><T></code>, the element type (User) flows through to the return. With <code>any</code>, it's lost — the caller has to cast.</p>
+</div>
+<div class="concept-card">
+<h4>Key-aware pluck</h4>
+<p><code><T, K extends keyof T></code> — the return type depends on which key. <code>pluck(users, 'name')</code> = <code>string[]</code>. With any, it's <code>any[]</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Generic composition</h4>
+<p>Generic functions chain: <code>first(pluck(users, 'name'))</code> stays typed. With any, you'd cast between every call.</p>
+</div>
+<div class="concept-card">
+<h4>Caller's burden</h4>
+<p>With any, every caller must know the actual type and cast. With generics, the type is inferred — zero cast, full safety.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The pattern: "input type = output type, or related."</strong> Whenever you write a function and think "this could work with any type," reach for <code><T></code> instead of <code>any</code>. The question to ask: "is the return type related to the parameter type?" If yes (identity, first, last, map, filter, pluck) — generic. If the return type is independent of the parameter type (e.g. <code>log(x): void</code>, <code>parse(x: string): number</code>) — just use the actual parameter type. <code>any</code> fits in neither case.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Generic React components</h2>
+<p class="section-sub">The pattern behind every typed data table and select.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Generics shine in React components that render data of any type. A <code>List<T></code> that renders <code>User[]</code>, <code>Post[]</code>, <code>Product[]</code> — preserving type information in the render callback — is impossible with <code>any</code>. This is the pattern TanStack Table, react-select, and every typed data component uses.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">generic-component.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── With any — loses item type ──────────────</span>
+<span class="kw">function</span> <span class="fn">BadList</span>({ items, render }: {
+items: <span class="fn">any</span>[];
+render: (item: <span class="fn">any</span>) => <span class="fn">any</span>;
+}) {
+<span class="kw">return</span> <ul>{items.<span class="fn">map</span>((item, i) => <li key={i}>{<span class="fn">render</span>(item)}</li>)}</ul>;
+}
+<span class="com">// Caller: no autocomplete on item
+// <BadList items={users} render={(u) => u.name} />
+// ↑ any — u.nmae also compiles</span>
+
+<span class="com">// ─── With <T> — preserves item type ──────────</span>
+<span class="kw">interface</span> ListProps<T> {
+items: T[];
+render: (item: T, index: <span class="fn">number</span>) => React.ReactNode;
+keyExtractor?: (item: T) => <span class="fn">string</span> | <span class="fn">number</span>;
+}
+
+<span class="kw">function</span> <span class="fn">List</span><T>({ items, render, keyExtractor }: ListProps<T>) {
+<span class="kw">return</span> (
+<ul>
+{items.<span class="fn">map</span>((item, i) => (
+<li key={keyExtractor ? <span class="fn">keyExtractor</span>(item) : i}>
+{<span class="fn">render</span>(item, i)}
+</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// ─── Usage with full type safety ─────────────</span>
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span>; email: <span class="fn">string</span> }
+<span class="kw">interface</span> Product { sku: <span class="fn">string</span>; title: <span class="fn">string</span>; price: <span class="fn">number</span> }
+
+<span class="kw">function</span> <span class="fn">App</span>() {
+<span class="kw">const</span> users: User[] = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> }];
+<span class="kw">const</span> products: Product[] = [{ sku: <span class="str">'X'</span>, title: <span class="str">'Book'</span>, price: <span class="num">10</span> }];
+
+<span class="kw">return</span> (
+<div>
+<span class="com">{/* T = User — item is User */}</span>
+<List
+items={users}
+keyExtractor={(u) => u.id}
+render={(u) => <span>{u.name} ({u.email})</span>}
+/>
+
+<span class="com">{/* T = Product — item is Product */}</span>
+<List
+items={products}
+keyExtractor={(p) => p.sku}
+render={(p) => <span>{p.title} — $`{p.price}</span>}
+/>
+
+<span class="com">{/* ❌ Typos caught at compile time: /}
+{/ render={(u) => u.nmae} — 'nmae' does not exist on User /}
+{/ render={(u) => u.price} — 'price' does not exist on User */}</span>
+</div>
+);
+}
+
+<span class="com">// ─── The pattern behind libraries ────────────
+//
+// TanStack Table: useReactTable<TData>()
+// React Hook Form: useForm<TFieldValues>()
+// react-select: <Select<Option, true> />
+// Ant Design: <Table<T> columns={...} />
+//
+// Every typed data component uses <T>.
+// Any component that would use any[] for its
+// items can be improved with a generic.</span>
+
+<span class="kw">export default</span> App;</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">BadList</span>({ items, render }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+items.<span class="fn">map</span>((item, i) => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, <span class="fn">render</span>(item)))
+);
+}
+
+<span class="kw">function</span> <span class="fn">List</span>({ items, render, keyExtractor }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+items.<span class="fn">map</span>((item, i) =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, {
+key: keyExtractor ? <span class="fn">keyExtractor</span>(item) : i
+}, <span class="fn">render</span>(item, i))
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">App</span>() {
+<span class="kw">const</span> users = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> }];
+<span class="kw">const</span> products = [{ sku: <span class="str">'X'</span>, title: <span class="str">'Book'</span>, price: <span class="num">10</span> }];
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(List, {
+items: users,
+keyExtractor: (u) => u.id,
+render: (u) => React.<span class="fn">createElement</span>(<span class="str">'span'</span>, <span class="kw">null</span>, u.name, <span class="str">' ('</span>, u.email, <span class="str">')'</span>)
+}),
+React.<span class="fn">createElement</span>(List, {
+items: products,
+keyExtractor: (p) => p.sku,
+render: (p) => React.<span class="fn">createElement</span>(<span class="str">'span'</span>, <span class="kw">null</span>, p.title, <span class="str">' — `$'</span>, p.price)
+})
+);
+}
+
+<span class="kw">export default</span> App;</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Generic props interface</h4>
+<p><code>ListProps<T></code> — items are <code>T[]</code>, render receives <code>T</code>. Each caller fills in T based on what they pass.</p>
+</div>
+<div class="concept-card">
+<h4>Inference from props</h4>
+<p>Passing <code>items={users}</code> infers <code>T = User</code>. The <code>render</code> callback then knows item is <code>User</code> — full autocomplete.</p>
+</div>
+<div class="concept-card">
+<h4>The ecosystem pattern</h4>
+<p>TanStack Table, React Hook Form, react-select, Ant Design — every typed data component uses this. It's the standard.</p>
+</div>
+<div class="concept-card">
+<h4>Prefer function declarations</h4>
+<p><code>function List<T>(...)</code> parses cleanly in <code>.tsx</code>. Arrow functions need <code><T,></code> with trailing comma to disambiguate from JSX.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The generic-vs-any traps that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using any for reusable functions</div>
+<p><code>function first(arr: any[]): any</code> works but loses all type info. Fix: <code>function first<T>(arr: T[]): T</code> — same length, full safety.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using generics when a specific type works</div>
+<p><code>function double<T>(x: T)</code> — but <code>x * 2</code> fails on non-numbers. Fix: <code>function double(x: number)</code>. Generics are for when the type genuinely varies.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Constraining too tightly</div>
+<p><code><T extends User></code> when you only need <code>id</code>. Fix: <code><T extends { id: string }></code> — minimal constraint, maximum reuse.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Forgetting that T is a type, not a value</div>
+<p><code>if (T === 'x')</code> — T doesn't exist at runtime. Fix: use type guards on values, not on T.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Not using <code>keyof</code> for key-based functions</div>
+<p><code>function pluck<T>(arr: T[], key: string): any[]</code> — key isn't checked. Fix: <code><T, K extends keyof T></code> — key must be a real key of T.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Casting generic return values</div>
+<p><code>return x as T</code> when T isn't actually narrowed. Fix: structure the function so T's constraints guarantee the return type.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using any in generic constraints</div>
+<p><code><T extends any></code> — same as unconstrained. Fix: omit the constraint if you don't have one, or use a real shape.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Over-complicating with generics</div>
+<p>If the function has 4 type parameters and 12 constraints, no one will read it. Fix: simpler signatures. Sometimes <code>any</code> is fine inside a well-tested boundary.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between a generic and any in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">any erases type information — a function returning any loses the input type at the call site. Generics preserve it: identity<T>(x: T): T returns the same type as the input. any means 'I don't know, don't check.' Generics mean 'I don't know yet, but I'll track it.'</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use a generic instead of any?</summary>
+<p class="mt-2 text-sm text-slate-300">Use a generic when the input type and output type are related — identity, first, last, map, pluck, groupBy. Also when you need to call a method on the input. Use any only for interop with untyped libraries or as a documented temporary escape hatch.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Are generics slower than any?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Both are erased at compile time — the output JavaScript is identical. Generics add compile-time checking but zero runtime cost.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does my generic function return T instead of the actual type?</summary>
+<p class="mt-2 text-sm text-slate-300">Because T is inferred from the argument. When you call identity('hello'), TypeScript infers T = 'hello' (or string, depending on context) and returns that specific type. If the return shows as T in the definition, that's just the generic signature — at the call site, T is filled in. Hover over the call site in your editor to see the resolved type.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/generics.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 3: Functions & generics</div>
+<div class="text-xs text-slate-400 mt-1">Full generic syntax and constraints</div>
+</a>
+<a href="/courses/typescript/problems/constrain-generic.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to constrain a generic type</div>
+<div class="text-xs text-slate-400 mt-1">extends, keyof, and unions as constraints</div>
+</a>
+<a href="/courses/typescript/problems/unknown-vs-any.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 unknown vs any</div>
+<div class="text-xs text-slate-400 mt-1">When you don't know the type, use unknown</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
