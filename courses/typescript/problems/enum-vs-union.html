@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Enum vs Union Type in TypeScript — Which to Use (2026)</title>
+<meta name="description" content="Enum vs string literal union in TypeScript. Why modern code prefers unions, when enums still win, and the const enum trade-off. Working code examples.">
+<meta name="keywords" content="typescript enum vs union, typescript enum, typescript string union, const enum typescript, typescript enum alternative">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Enum vs Union Type in TypeScript — Which to Use">
+<meta property="og:description" content="Why modern code prefers unions, when enums still win, and the const enum trade-off.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/enum-vs-union.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Enum vs Union Type in TypeScript — Which to Use">
+<meta name="twitter:description" content="Why modern code prefers unions, and when enums still win.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/enum-vs-union.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Enum vs Union Type in TypeScript — Which to Use",
+"description": "Enum vs string literal union in TypeScript. Why modern code prefers unions, when enums still win, and the const enum trade-off.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Should I use enum or union in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"For string values, prefer union types: type Status = 'idle' | 'loading' | 'success' | 'error'. Unions have zero runtime output, work with plain strings across API boundaries, don't require imports, and don't have enum's quirks. Use enum when you need reverse mapping (value → name) or when the enum is genuinely a fixed numeric set used across many modules. In 2026, most teams prefer unions for new code — enums survive mainly in legacy codebases and for numeric flag enumerations."}},
+{"@type":"Question","name":"What is the difference between enum and union?","acceptedAnswer":{"@type":"Answer","text":"An enum is a runtime object — it compiles to a JS object with forward and reverse mappings. A union type is erased at compile time — it produces no JS. Use enum when you need the runtime value (e.g. iterating members, reverse lookup). Use union when you only need type checking — the strings themselves are the values, so no runtime object is needed. Unions are more flexible: they work with plain strings, JSON, and APIs without conversion."}},
+{"@type":"Question","name":"What is a const enum?","acceptedAnswer":{"@type":"Answer","text":"A const enum is a compile-time-only enum — references are inlined to their literal values at the use site. const enum Status { Idle = 'idle' } — Status.Idle compiles to 'idle'. No runtime object is created. The trade-off: const enums are incompatible with isolatedModules (required by esbuild, Vite, Babel) — the compiler can't inline across module boundaries without seeing the enum definition. In practice, if you're using Vite or esbuild, const enums are risky."}},
+{"@type":"Question","name":"What is the enum reverse mapping quirk?","acceptedAnswer":{"@type":"Answer","text":"Numeric enums produce a reverse mapping: enum Status { Idle, Loading } produces { Idle: 0, Loading: 1, 0: 'Idle', 1: 'Loading' }. The bidirectional mapping lets you do Status[0] === 'Idle' at runtime. String enums don't have this — they only have the forward mapping. This asymmetry is a source of confusion: some enums are bidirectional, some aren't, and it depends on whether the values are numeric or string."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · enum vs union</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">enum vs union</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>Enum vs union.<br><span class="py-accent">The modern default, and when to break it.</span></h1>
+<p class="lead">
+Every TypeScript tutorial shows enums. Most modern code doesn't use them. What changed? Understanding the enum quirks — reverse mapping, runtime output, const enum pitfalls — makes the choice clear. This page explains both, shows the trade-offs, and gives you the decision rule for 2026.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> For string values, use union types — <code>type Status = 'idle' | 'loading' | 'success' | 'error'</code>. Zero runtime output, works with plain strings, no imports. Use <code>enum</code> only when you need <strong>reverse mapping</strong> (value → name) or the enum is genuinely a fixed numeric set used across many modules. In 2026, unions are the default. Enums are a legacy choice that still wins in specific cases.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Union types (the modern default)</h2>
+<p class="section-sub">String unions do everything enums do, with zero runtime cost.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A string literal union says "one of these exact strings." It's checked at compile time, erased at build time, and the values are just strings — so they work directly with JSON, APIs, and any external system without conversion. This is why modern code prefers them.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">union.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── The union ───────────────────────────────</span>
+<span class="kw">type</span> Status = <span class="str">'idle'</span> | <span class="str">'loading'</span> | <span class="str">'success'</span> | <span class="str">'error'</span>;
+
+<span class="kw">const</span> s: Status = <span class="str">'loading'</span>; <span class="com">// ✅</span>
+<span class="com">// const bad: Status = 'done'; // ❌ 'done' not in the union</span>
+
+<span class="com">// ─── Using it in a function ──────────────────</span>
+<span class="kw">function</span> <span class="fn">label</span>(s: Status): <span class="fn">string</span> {
+<span class="kw">switch</span> (s) {
+<span class="kw">case</span> <span class="str">'idle'</span>: <span class="kw">return</span> <span class="str">'Ready'</span>;
+<span class="kw">case</span> <span class="str">'loading'</span>: <span class="kw">return</span> <span class="str">'Loading…'</span>;
+<span class="kw">case</span> <span class="str">'success'</span>: <span class="kw">return</span> <span class="str">'Done'</span>;
+<span class="kw">case</span> <span class="str">'error'</span>: <span class="kw">return</span> <span class="str">'Failed'</span>;
+}
+}
+
+<span class="com">// ─── Wire-compatible with any API ────────────</span>
+<span class="com">// The value is literally 'loading' — the string.
+// No conversion needed:
+// fetch('/api/status', { body: JSON.stringify({ status: s }) });</span>
+
+<span class="com">// ─── Union + const object for labels ─────────</span>
+<span class="com">// If you need a runtime lookup, use satisfies:</span>
+<span class="kw">const</span> STATUS_LABELS = {
+idle: <span class="str">'Ready'</span>,
+loading: <span class="str">'Loading…'</span>,
+success: <span class="str">'Done'</span>,
+error: <span class="str">'Failed'</span>
+} <span class="fn">satisfies</span> <span class="fn">Record</span><Status, <span class="fn">string</span>>;
+
+<span class="kw">function</span> <span class="fn">label2</span>(s: Status): <span class="fn">string</span> {
+<span class="kw">return</span> STATUS_LABELS[s];
+}
+
+<span class="com">// ─── Iterating the values ────────────────────</span>
+<span class="com">// Without an enum, iterate a const array:</span>
+<span class="kw">const</span> STATUSES = [<span class="str">'idle'</span>, <span class="str">'loading'</span>, <span class="str">'success'</span>, <span class="str">'error'</span>] <span class="kw">as const</span>;
+
+<span class="com">// Zero runtime output for the type itself.
+// The array above is the only runtime artifact,
+// and only if you actually iterate.</span>
+
+console.<span class="fn">log</span>(<span class="fn">label</span>(s), <span class="fn">label2</span>(<span class="str">'success'</span>), STATUSES);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Union type erased. Zero runtime output for the type.</span>
+
+<span class="kw">const</span> s = <span class="str">'loading'</span>;
+
+<span class="kw">function</span> <span class="fn">label</span>(s) {
+<span class="kw">switch</span> (s) {
+<span class="kw">case</span> <span class="str">'idle'</span>: <span class="kw">return</span> <span class="str">'Ready'</span>;
+<span class="kw">case</span> <span class="str">'loading'</span>: <span class="kw">return</span> <span class="str">'Loading…'</span>;
+<span class="kw">case</span> <span class="str">'success'</span>: <span class="kw">return</span> <span class="str">'Done'</span>;
+<span class="kw">case</span> <span class="str">'error'</span>: <span class="kw">return</span> <span class="str">'Failed'</span>;
+}
+}
+
+<span class="kw">const</span> STATUS_LABELS = {
+idle: <span class="str">'Ready'</span>,
+loading: <span class="str">'Loading…'</span>,
+success: <span class="str">'Done'</span>,
+error: <span class="str">'Failed'</span>
+};
+
+<span class="kw">function</span> <span class="fn">label2</span>(s) {
+<span class="kw">return</span> STATUS_LABELS[s];
+}
+
+<span class="kw">const</span> STATUSES = [<span class="str">'idle'</span>, <span class="str">'loading'</span>, <span class="str">'success'</span>, <span class="str">'error'</span>];
+
+console.<span class="fn">log</span>(<span class="fn">label</span>(s), <span class="fn">label2</span>(<span class="str">'success'</span>), STATUSES);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Zero runtime output</h4>
+<p><code>type Status = 'idle' | ...</code> compiles to nothing. No object, no code — just type checking. Enums produce a runtime object.</p>
+</div>
+<div class="concept-card">
+<h4>Wire-compatible</h4>
+<p>The value IS the string <code>'loading'</code>. Pass it through JSON, APIs, URLs — no conversion, no <code>enum.valueOf()</code>.</p>
+</div>
+<div class="concept-card">
+<h4>No import needed</h4>
+<p>Union types can be imported with <code>import type</code> — zero runtime import. Enums require a runtime import of the enum object.</p>
+</div>
+<div class="concept-card">
+<h4>Iterate with an array</h4>
+<p>Need to loop? A <code>const arr = [...] as const</code> gives you the values. Enums use <code>Object.values(Enum)</code> which includes reverse mappings for numeric enums.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Unions compose with utility types in ways enums can't.</strong> <code>keyof typeof SomeObject</code>, <code>Pick<Status, ...></code>, template literal types, and generic constraints all work on unions. Enums work too, but they're runtime values — using them in type positions requires <code>typeof</code>, <code>keyof typeof</code>, or extracting the value union. Unions are first-class citizens in the type system. That's the deeper reason modern code prefers them.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Enums (when they're actually right)</h2>
+<p class="section-sub">Runtime objects with reverse mapping. Useful — but rarer than you'd think.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">An enum compiles to a runtime object with both forward (<code>Status.Idle</code> → <code>0</code>) and reverse (<code>Status[0]</code> → <code>'Idle'</code>) mappings for numeric enums. String enums have only forward. These runtime capabilities are what enums give you that unions don't — and they're why enums still survive in certain codebases.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">enum.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── Numeric enum (has reverse mapping) ──────</span>
+<span class="kw">enum</span> <span class="fn">Direction</span> {
+Up, <span class="com">// 0</span>
+Down, <span class="com">// 1</span>
+Left, <span class="com">// 2</span>
+Right <span class="com">// 3</span>
+}
+
+<span class="kw">const</span> d = <span class="fn">Direction</span>.Up; <span class="com">// 0</span>
+<span class="kw">const</span> name = <span class="fn">Direction</span>[<span class="num">0</span>]; <span class="com">// 'Up' — reverse mapping</span>
+
+<span class="com">// The compiled output is:
+// {
+// '0': 'Up', '1': 'Down', '2': 'Left', '3': 'Right',
+// Up: 0, Down: 1, Left: 2, Right: 3
+// }
+// Both directions. This is the numeric enum's unique feature.</span>
+
+<span class="com">// ─── String enum (no reverse mapping) ────────</span>
+<span class="kw">enum</span> <span class="fn">Status</span> {
+Idle = <span class="str">'idle'</span>,
+Loading = <span class="str">'loading'</span>,
+Success = <span class="str">'success'</span>,
+Error = <span class="str">'error'</span>
+}
+
+<span class="kw">const</span> s = <span class="fn">Status</span>.Loading; <span class="com">// 'loading'</span>
+<span class="com">// Status['loading'] // ❌ no reverse mapping for string enums</span>
+
+<span class="com">// ─── Union of enum values ────────────────────</span>
+<span class="com">// To get a union you have to extract it:</span>
+<span class="kw">type</span> StatusValue = <span class="fn">Status</span>; <span class="com">// 'idle' | 'loading' | 'success' | 'error'</span>
+<span class="com">// enum name used as a type gives the union of its values</span>
+
+<span class="com">// ─── Iterating enum values ───────────────────</span>
+<span class="com">// Numeric enums include reverse mappings in Object.values:</span>
+<span class="kw">const</span> allDirections = <span class="fn">Object</span>.<span class="fn">values</span>(<span class="fn">Direction</span>);
+<span class="com">// ['Up', 'Down', 'Left', 'Right', '0', '1', '2', '3']
+// — includes both the names and the numbers ⚠️</span>
+
+<span class="com">// String enums are cleaner:</span>
+<span class="kw">const</span> allStatuses = <span class="fn">Object</span>.<span class="fn">values</span>(<span class="fn">Status</span>);
+<span class="com">// ['idle', 'loading', 'success', 'error'] — only values ✅</span>
+
+<span class="com">// ─── When enums are actually the right choice
+//
+// 1. Numeric flags used across many modules
+// enum Permission { None=0, Read=1, Write=2, Admin=4 }
+// const p = Permission.Read | Permission.Write // bitwise
+//
+// 2. Reverse mapping genuinely needed
+// You want Direction[0] → 'Up' at runtime.
+// (Rare, but real for protocol codes.)
+//
+// 3. Legacy codebase that already uses enums
+// Don't migrate for the sake of it.
+//
+// 4. Library public API compatibility
+// You're extending an existing enum-based library.</span>
+
+console.<span class="fn">log</span>(d, name, s, allStatuses);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Enums DO produce runtime code (unlike union types).
+// Numeric enum → bidirectional object:
+// { '0': 'Up', '1': 'Down', ..., Up: 0, Down: 1, ... }</span>
+
+<span class="kw">var</span> <span class="fn">Direction</span>;
+(<span class="kw">function</span> (<span class="fn">Direction</span>) {
+<span class="fn">Direction</span>[<span class="fn">Direction</span>[<span class="str">'Up'</span>] = <span class="num">0</span>] = <span class="str">'Up'</span>;
+<span class="fn">Direction</span>[<span class="fn">Direction</span>[<span class="str">'Down'</span>] = <span class="num">1</span>] = <span class="str">'Down'</span>;
+<span class="fn">Direction</span>[<span class="fn">Direction</span>[<span class="str">'Left'</span>] = <span class="num">2</span>] = <span class="str">'Left'</span>;
+<span class="fn">Direction</span>[<span class="fn">Direction</span>[<span class="str">'Right'</span>] = <span class="num">3</span>] = <span class="str">'Right'</span>;
+})(<span class="fn">Direction</span> || (<span class="fn">Direction</span> = {}));
+
+<span class="kw">const</span> d = <span class="fn">Direction</span>.Up;
+<span class="kw">const</span> name = <span class="fn">Direction</span>[<span class="num">0</span>];
+
+<span class="com">// String enum → forward-only object:</span>
+<span class="kw">var</span> <span class="fn">Status</span>;
+(<span class="kw">function</span> (<span class="fn">Status</span>) {
+<span class="fn">Status</span>[<span class="str">'Idle'</span>] = <span class="str">'idle'</span>;
+<span class="fn">Status</span>[<span class="str">'Loading'</span>] = <span class="str">'loading'</span>;
+<span class="fn">Status</span>[<span class="str">'Success'</span>] = <span class="str">'success'</span>;
+<span class="fn">Status</span>[<span class="str">'Error'</span>] = <span class="str">'error'</span>;
+})(<span class="fn">Status</span> || (<span class="fn">Status</span> = {}));
+
+<span class="kw">const</span> s = <span class="fn">Status</span>.Loading;
+
+<span class="kw">const</span> allDirections = <span class="fn">Object</span>.<span class="fn">values</span>(<span class="fn">Direction</span>);
+<span class="kw">const</span> allStatuses = <span class="fn">Object</span>.<span class="fn">values</span>(<span class="fn">Status</span>);
+
+console.<span class="fn">log</span>(d, name, s, allStatuses);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Runtime object</h4>
+<p>Enums compile to JS objects. Numeric enums get reverse mapping; string enums don't. The object adds bytes to your bundle.</p>
+</div>
+<div class="concept-card">
+<h4>Reverse mapping (numeric only)</h4>
+<p><code>Direction[0]</code> returns <code>'Up'</code> — the name from the value. Only for numeric enums. String enums can't do this.</p>
+</div>
+<div class="concept-card">
+<h4>Iteration is inconsistent</h4>
+<p>Numeric enums include reverse mappings in <code>Object.values</code> — a common source of bugs. String enums iterate cleanly.</p>
+</div>
+<div class="concept-card">
+<h4>Bitwise flags</h4>
+<p>Numeric enums shine for flags: <code>Permission.Read | Permission.Write</code>. Unions can't express bitwise combinations as cleanly.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — <code>const enum</code> and the modern reality</h2>
+<p class="section-sub">Why const enum is risky in 2026 — and what to use instead.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3"><code>const enum</code> was designed to eliminate the runtime object — references are inlined to their literal values at every use site. Great in theory. But it breaks with modern bundlers and <code>isolatedModules</code>, which Vite, esbuild, Babel, and Next.js all require. This is why almost no new codebase uses <code>const enum</code>.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">const-enum.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── const enum inlines values ───────────────</span>
+<span class="kw">const enum</span> <span class="fn">Status</span> {
+Idle = <span class="str">'idle'</span>,
+Loading = <span class="str">'loading'</span>,
+Success = <span class="str">'success'</span>
+}
+
+<span class="kw">const</span> s = <span class="fn">Status</span>.Loading; <span class="com">// compiles to: const s = 'loading'</span>
+<span class="com">// No runtime object is created.
+// The reference is inlined to the literal.</span>
+
+<span class="com">// ─── Why const enum is risky ─────────────────
+//
+// 1. Requires the compiler to see both the enum
+// definition AND every usage site at once.
+// Modern bundlers compile file-by-file (esbuild,
+// Vite) — they can't inline across files.
+//
+// 2. Incompatible with isolatedModules: true,
+// which is required by esbuild, Babel, and Vite.
+//
+// 3. tsconfig has preserveConstEnums to work
+// around this, but then it's not really an
+// optimization anymore.
+//
+// 4. ambient const enum (in .d.ts) is explicitly
+// unsupported in some configurations.</span>
+
+<span class="com">// ─── Modern alternative: union + const object ─</span>
+<span class="kw">type</span> StatusValue = <span class="str">'idle'</span> | <span class="str">'loading'</span> | <span class="str">'success'</span>;
+
+<span class="kw">const</span> Status = {
+Idle: <span class="str">'idle'</span>,
+Loading: <span class="str">'loading'</span>,
+Success: <span class="str">'success'</span>
+} <span class="kw">as const</span> <span class="fn">satisfies</span> <span class="fn">Record</span><<span class="fn">string</span>, StatusValue>;
+
+<span class="com">// Usage:
+// Status.Loading → 'loading' (literal type)
+// StatusValue → 'idle' | 'loading' | 'success'
+// Works in Vite, esbuild, Babel — no special config.
+// Works with isolatedModules.
+// Zero runtime gotchas.</span>
+
+<span class="com">// ─── The decision rule ───────────────────────
+//
+// Use union types → 90% of cases
+// Use const object + satisfies → 9% of cases
+// (need named "enum" access without enum quirks)
+// Use enum → 1% of cases
+// (numeric flags, reverse mapping, legacy)
+// Use const enum → ~0%
+// (breaks with modern bundlers)</span>
+
+console.<span class="fn">log</span>(s, <span class="fn">Status</span>.Loading);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// const enum: NO object emitted.</span>
+<span class="com">// Usage sites are inlined to literal values.</span>
+
+<span class="kw">const</span> s = <span class="str">'loading'</span>; <span class="com">// ← Status.Loading was inlined</span>
+
+<span class="com">// The modern alternative (const object) DOES produce a runtime object —</span>
+<span class="com">// but it's small, standard, and works everywhere:</span>
+
+<span class="kw">const</span> Status = {
+Idle: <span class="str">'idle'</span>,
+Loading: <span class="str">'loading'</span>,
+Success: <span class="str">'success'</span>
+};
+
+console.<span class="fn">log</span>(s, <span class="fn">Status</span>.Loading);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>const enum</code> inlines</h4>
+<p>References become literal values. No runtime object — the smallest possible output. In theory, the ideal enum.</p>
+</div>
+<div class="concept-card">
+<h4>Breaks with bundlers</h4>
+<p>Requires <code>isolatedModules: false</code>, which esbuild, Vite, Babel, and Next.js require to be true. Incompatible in practice.</p>
+</div>
+<div class="concept-card">
+<h4>Modern alternative</h4>
+<p><code>type StatusValue = 'a' | 'b' | 'c'</code> + <code>const Status = {...} as const satisfies ...</code>. Works everywhere, no compiler config.</p>
+</div>
+<div class="concept-card">
+<h4>The rule</h4>
+<p>Unions for 90%. Const object for 9%. Regular enum for 1%. <code>const enum</code> for ~0%. Not a coincidence.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>const enum</code> in any new code.</strong> The performance argument ("no runtime object") is offset by the incompatibility with every modern bundler. If you need named constants without the enum runtime object, use a <code>const</code> object with <code>as const satisfies</code>. If you need reverse mapping, use a regular numeric enum. If you need neither, use a union type. There is no good case for <code>const enum</code> in 2026 codebases — the ecosystem decided against it.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The enum/union traps that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using enum for everything</div>
+<p>Old habit from other languages. Fix: use union types for string values — 90% of cases. Enums only when you need runtime mapping.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using const enum with Vite</div>
+<p>Breaks with <code>isolatedModules</code>. Fix: use a const object + <code>satisfies</code> instead. Same API, no build issues.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Assuming enums are zero-cost</div>
+<p>Enums produce runtime objects. For numeric enums, they're bidirectional. Fix: union types for zero-cost, or <code>const enum</code> (with caveats) if you need inlining.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using <code>Object.values(Enum)</code> with numeric enums</div>
+<p>You get <code>['Up', 'Down', '0', '1']</code> — names AND numbers. Fix: filter by type, or use string enums, or use a const array.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Iterating enum with <code>for...in</code></div>
+<p><code>for (const k in NumericEnum)</code> iterates both directions. Fix: <code>Object.values</code> + filter, or use a string enum, or use a const array.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Type mismatch between enum and its values</div>
+<p><code>enum Status { A = 'a' }</code> — <code>Status</code> is an enum type, not <code>string</code>. Assigning <code>'a'</code> to <code>Status</code> fails. Fix: use the enum, or use a union for string compat.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Mixing enum values and string literals</div>
+<p><code>Status.Loading</code> is an enum value; <code>'loading'</code> is a string. They're not interchangeable without casts. Fix: pick one — union for strings, enum for enum-only.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not knowing when to migrate</div>
+<p>Enums in working code don't need migrating. Fix: migrate only when refactoring that area anyway. New code = new conventions.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use enum or union in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">For string values, prefer union types. Unions have zero runtime output, work with plain strings across API boundaries, don't require imports, and don't have enum's quirks. Use enum when you need reverse mapping or when the enum is genuinely a fixed numeric set used across many modules.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between enum and union?</summary>
+<p class="mt-2 text-sm text-slate-300">An enum is a runtime object — it compiles to a JS object with forward and reverse mappings. A union type is erased at compile time. Use enum when you need the runtime value. Use union when you only need type checking.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a const enum?</summary>
+<p class="mt-2 text-sm text-slate-300">A const enum is a compile-time-only enum — references are inlined to their literal values at the use site. The trade-off: const enums are incompatible with isolatedModules (required by esbuild, Vite, Babel). In practice, if you're using Vite or esbuild, const enums are risky.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the enum reverse mapping quirk?</summary>
+<p class="mt-2 text-sm text-slate-300">Numeric enums produce a reverse mapping: enum Status { Idle, Loading } produces { Idle: 0, Loading: 1, 0: 'Idle', 1: 'Loading' }. The bidirectional mapping lets you do Status[0] === 'Idle' at runtime. String enums don't have this — they only have the forward mapping.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/utility-types.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 6: Utility types</div>
+<div class="text-xs text-slate-400 mt-1">Record, as const, satisfies context</div>
+</a>
+<a href="/courses/typescript/problems/satisfies-operator.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 When to use satisfies</div>
+<div class="text-xs text-slate-400 mt-1">The modern enum alternative</div>
+</a>
+<a href="/courses/typescript/problems/narrow-union.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to narrow a union type</div>
+<div class="text-xs text-slate-400 mt-1">Narrowing works the same on both</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
