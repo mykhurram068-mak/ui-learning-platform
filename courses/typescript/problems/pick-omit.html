@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Pick vs Omit in TypeScript — Which to Use (2026)</title>
+<meta name="description" content="Pick vs Omit in TypeScript: whitelist vs blacklist. Learn the difference, when to use each, and the pattern that scales when your type grows. Working code.">
+<meta name="keywords" content="typescript pick vs omit, typescript pick, typescript omit, typescript utility types, typescript pick omit difference">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Pick vs Omit in TypeScript — Which to Use">
+<meta property="og:description" content="Whitelist vs blacklist — when to use each, and the pattern that scales.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/pick-omit.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Pick vs Omit in TypeScript">
+<meta name="twitter:description" content="Whitelist vs blacklist, and the pattern that scales.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/pick-omit.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Pick vs Omit in TypeScript — Which to Use",
+"description": "Pick vs Omit in TypeScript: whitelist vs blacklist. Learn the difference, when to use each, and the pattern that scales.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between Pick and Omit in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Pick<T, K> creates a new type containing ONLY the specified keys — a whitelist. Omit<T, K> creates a new type containing everything EXCEPT the specified keys — a blacklist. Pick<User, 'id' | 'name'> gives you just those two fields. Omit<User, 'password'> gives you a user without the password. Both produce new types at compile time with zero runtime cost."}},
+{"@type":"Question","name":"When should I use Pick vs Omit?","acceptedAnswer":{"@type":"Answer","text":"Use Omit when you're excluding specific sensitive or immutable fields from an otherwise complete type — Omitting password, id, createdAt from a User is more robust than Picking every other field (because new fields are automatically included). Use Pick when the resulting type is genuinely a small subset — a preview, a list item, a search result with only 2-3 fields. The rule of thumb: Omit for 'most of the shape, minus a few'; Pick for 'only a few specific fields'."}},
+{"@type":"Question","name":"Can I use both Pick and Omit together?","acceptedAnswer":{"@type":"Answer","text":"Yes, they compose. Pick<Omit<User, 'password'>, 'id' | 'name'> first removes password, then picks only id and name. The order matters if the operations affect the same keys — but usually you don't need both at once. The cleaner pattern: use Omit to exclude sensitive fields, then Pick to select the subset you want to expose. Composition reads clearly: 'User without password, then only id and name'."}},
+{"@type":"Question","name":"Does Pick/Omit affect the original type?","acceptedAnswer":{"@type":"Answer","text":"No. Pick and Omit are pure type transformations — they produce a new type and leave the original untouched. User is unchanged; only the new type (e.g. UserPreview) is narrowed. At runtime, the original object is the same object — Pick/Omit have zero runtime effect. They're compile-time views, not runtime filters. If you need to strip fields at runtime, use destructuring or a helper function."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · Pick vs Omit</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Pick vs Omit</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>Pick vs Omit.<br><span class="py-accent">Whitelist vs blacklist.</span></h1>
+<p class="lead">
+Both take a type and produce a smaller one. <code>Pick</code> keeps only the keys you list. <code>Omit</code> removes the keys you list. They sound similar but they scale differently — and choosing the right one determines whether your type stays robust or silently breaks when the base type grows. Here's the difference and the decision rule.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>Pick<T, K></code> is a whitelist — keeps only keys <code>K</code>. <code>Omit<T, K></code> is a blacklist — removes keys <code>K</code>. Use <strong>Omit</strong> when you're excluding specific fields (passwords, IDs, timestamps) from an otherwise complete type. Use <strong>Pick</strong> when the result is genuinely a small subset (2-3 fields for a preview or list item). The pattern that scales: Omit for "most of the shape, minus a few"; Pick for "only a few specific fields."
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — <code>Omit</code> (the safe default)</h2>
+<p class="section-sub">Excludes specific fields — new fields are automatically included.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When you have a complete type and want a version without specific fields, <code>Omit</code> is right. The key advantage over <code>Pick</code>: if you add new fields to the base type later, the Omit version automatically includes them. No silent gaps. This is why Omit is the safer default for exposing types.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">omit.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── The base type ───────────────────────────</span>
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+password: <span class="fn">string</span>;
+createdAt: <span class="fn">Date</span>;
+role: <span class="str">'admin'</span> | <span class="str">'user'</span>;
+}
+
+<span class="com">// ─── Omit: remove sensitive fields ───────────</span>
+<span class="kw">type</span> PublicUser = <span class="fn">Omit</span><User, <span class="str">'password'</span>>;
+<span class="com">// { id, name, email, createdAt, role } — no password</span>
+
+<span class="kw">type</span> SafeUser = <span class="fn">Omit</span><User, <span class="str">'password'</span> | <span class="str">'createdAt'</span>>;
+<span class="com">// { id, name, email, role }</span>
+
+<span class="com">// ─── Omit scales as the base grows ───────────</span>
+<span class="com">// Add a new field to User:
+// User { ..., avatar?: string }
+//
+// PublicUser automatically includes it — no code change.
+// A Pick-based version would silently miss it.</span>
+
+<span class="kw">interface</span> User2 {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+password: <span class="fn">string</span>;
+avatar?: <span class="fn">string</span>; <span class="com">// ← new field</span>
+}
+
+<span class="kw">type</span> PublicUser2 = <span class="fn">Omit</span><User2, <span class="str">'password'</span>>;
+<span class="com">// { id, name, email, avatar? } — avatar is included automatically ✅</span>
+
+<span class="com">// ─── Omit for API payloads ───────────────────</span>
+<span class="kw">type</span> CreateUserInput = <span class="fn">Omit</span><User, <span class="str">'id'</span> | <span class="str">'createdAt'</span>>;
+<span class="com">// Server generates id and createdAt — client sends the rest</span>
+
+<span class="kw">function</span> <span class="fn">createUser</span>(input: CreateUserInput): User {
+<span class="kw">return</span> {
+...input,
+id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(),
+createdAt: <span class="kw">new</span> <span class="fn">Date</span>()
+};
+}
+
+<span class="com">// ─── Omit for PATCH bodies ───────────────────</span>
+<span class="kw">type</span> UpdateUserInput = <span class="fn">Partial</span><<span class="fn">Omit</span><User, <span class="str">'id'</span> | <span class="str">'createdAt'</span>>>;
+<span class="com">// { name?, email?, password?, role? } — any subset</span>
+
+<span class="kw">function</span> <span class="fn">updateUser</span>(id: <span class="fn">string</span>, patch: UpdateUserInput): <span class="fn">void</span> {
+console.<span class="fn">log</span>(<span class="str">'PATCH'</span>, id, patch);
+}
+
+<span class="com">// ─── The rule ────────────────────────────────
+// Omit is safer because:
+// - New fields are included automatically
+// - You only think about what's excluded
+// - The base type is the source of truth
+//
+// Pick requires maintenance:
+// - Every new field must be added manually
+// - Easy to forget when the base type grows</span>
+
+console.<span class="fn">log</span>(<span class="fn">createUser</span>({
+name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span>, password: <span class="str">'x'</span>, role: <span class="str">'user'</span>
+}));
+<span class="fn">updateUser</span>(<span class="str">'1'</span>, { name: <span class="str">'Alicia'</span> });</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">createUser</span>(input) {
+<span class="kw">return</span> {
+...input,
+id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(),
+createdAt: <span class="kw">new</span> <span class="fn">Date</span>()
+};
+}
+
+<span class="kw">function</span> <span class="fn">updateUser</span>(id, patch) {
+console.<span class="fn">log</span>(<span class="str">'PATCH'</span>, id, patch);
+}
+
+console.<span class="fn">log</span>(<span class="fn">createUser</span>({
+name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span>, password: <span class="str">'x'</span>, role: <span class="str">'user'</span>
+}));
+<span class="fn">updateUser</span>(<span class="str">'1'</span>, { name: <span class="str">'Alicia'</span> });</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Blacklist semantics</h4>
+<p><code>Omit<T, K></code> — remove these keys. Everything else is preserved. The base type is the source of truth.</p>
+</div>
+<div class="concept-card">
+<h4>Scales with the base</h4>
+<p>Add a field to <code>User</code>, and every <code>Omit<User, ...></code> picks it up automatically. New fields aren't forgotten.</p>
+</div>
+<div class="concept-card">
+<h4>Safe default</h4>
+<p>For exposing types (public user, API response), Omit is safer — you can only accidentally include something by not thinking about it.</p>
+</div>
+<div class="concept-card">
+<h4>Composes with Partial</h4>
+<p><code>Partial<Omit<User, 'id' | 'createdAt'>></code> — any subset of non-immutable fields. The standard PATCH body type.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — <code>Pick</code> (when the subset is small)</h2>
+<p class="section-sub">Explicit whitelist — good for previews and minimal shapes.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3"><code>Pick</code> is the opposite: list exactly which keys you want. It's not always the wrong choice — for a genuine preview, a list item, or a minimal API shape with 2-3 fields, Pick is clearer than Omit. The rule: if the resulting type has significantly fewer fields than the base, Pick. If the resulting type has most of the base fields, Omit.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">pick.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+password: <span class="fn">string</span>;
+avatar: <span class="fn">string</span>;
+role: <span class="str">'admin'</span> | <span class="str">'user'</span>;
+createdAt: <span class="fn">Date</span>;
+}
+
+<span class="com">// ─── Pick: only 2 fields ─────────────────────</span>
+<span class="kw">type</span> UserPreview = <span class="fn">Pick</span><User, <span class="str">'id'</span> | <span class="str">'name'</span>>;
+<span class="com">// { id: string; name: string }
+// Clearer than Omit<User, 'email' | 'password' | 'avatar' | 'role' | 'createdAt'></span>
+
+<span class="kw">const</span> preview: UserPreview = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> };
+
+<span class="com">// ─── Pick: list item ─────────────────────────</span>
+<span class="kw">type</span> UserListItem = <span class="fn">Pick</span><User, <span class="str">'id'</span> | <span class="str">'name'</span> | <span class="str">'avatar'</span>>;
+<span class="com">// { id, name, avatar } — the minimum for a list row</span>
+
+<span class="com">// ─── Pick: search result ─────────────────────</span>
+<span class="kw">type</span> UserSearchResult = <span class="fn">Pick</span><User, <span class="str">'id'</span> | <span class="str">'name'</span> | <span class="str">'email'</span>>;
+
+<span class="com">// ─── Pick: form fields subset ────────────────</span>
+<span class="kw">type</span> ProfileFormFields = <span class="fn">Pick</span><User, <span class="str">'name'</span> | <span class="str">'avatar'</span>>;
+
+<span class="kw">function</span> <span class="fn">updateProfile</span>(fields: ProfileFormFields): <span class="fn">void</span> {
+console.<span class="fn">log</span>(<span class="str">'update profile'</span>, fields);
+}
+
+<span class="fn">updateProfile</span>({ name: <span class="str">'Alice'</span>, avatar: <span class="str">'x.jpg'</span> });
+
+<span class="com">// ─── The trade-off ───────────────────────────
+//
+// Pick is fine when:
+// ✅ The subset is genuinely small (2-4 fields)
+// ✅ The set is stable and unlikely to grow
+// ✅ Clarity of "these exact fields" is valuable
+//
+// Pick becomes a maintenance burden when:
+// ❌ The subset is most of the base type
+// ❌ New fields on the base should be included
+// ❌ You're playing whack-a-mole adding keys</span>
+
+<span class="com">// ─── The pattern that scales ─────────────────
+//
+// For "most of the shape" → Omit (base minus a few)
+// For "just a few fields" → Pick (explicit subset)
+//
+// Mixing both is possible but rarely needed:
+// Pick<Omit<User, 'password'>, 'id' | 'name'></span>
+
+console.<span class="fn">log</span>(preview);
+<span class="fn">updateProfile</span>({ name: <span class="str">'Bob'</span>, avatar: <span class="str">'b.jpg'</span> });</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">const</span> preview = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> };
+
+<span class="kw">function</span> <span class="fn">updateProfile</span>(fields) {
+console.<span class="fn">log</span>(<span class="str">'update profile'</span>, fields);
+}
+
+<span class="fn">updateProfile</span>({ name: <span class="str">'Alice'</span>, avatar: <span class="str">'x.jpg'</span> });
+
+console.<span class="fn">log</span>(preview);
+<span class="fn">updateProfile</span>({ name: <span class="str">'Bob'</span>, avatar: <span class="str">'b.jpg'</span> });</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Whitelist semantics</h4>
+<p><code>Pick<T, K></code> — keep only these keys. Everything else is discarded. Explicit and clear.</p>
+</div>
+<div class="concept-card">
+<h4>Great for tiny subsets</h4>
+<p>2-4 fields — Pick reads better than Omit. <code>Pick<User, 'id' | 'name'></code> is clearer than listing 5 omitted fields.</p>
+</div>
+<div class="concept-card">
+<h4>Requires maintenance</h4>
+<p>New fields on the base type are silently NOT included. If you meant "User minus password," and it becomes "User minus password plus avatar," Pick silently loses <code>avatar</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Good for stability</h4>
+<p>If the subset should never change even if the base grows, Pick is the right tool — the explicit whitelist is a feature.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Default to Omit. Switch to Pick when the subset is small and stable.</strong> The decision isn't about which is "better" — both are correct for their cases. It's about intent. Do you want "the base type minus a few things" (Omit) or "just these fields, forever" (Pick)? Omit scales automatically with the base; Pick documents a fixed subset. For most API-exposure cases — PublicUser, SafeUser, UserResponse — you want Omit. For previews and minimal list items — the shape that <em>shouldn't</em> grow with the base — you want Pick.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Composition patterns</h2>
+<p class="section-sub">Combining Pick, Omit, Partial, and Record for real APIs.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Real API types combine utility types. The pattern is a sequence: strip what clients shouldn't see, add what they should send, then make the right things optional. Every endpoint type in a well-typed backend is built this way.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">composition.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+password: <span class="fn">string</span>;
+role: <span class="str">'admin'</span> | <span class="str">'user'</span>;
+createdAt: <span class="fn">Date</span>;
+updatedAt: <span class="fn">Date</span>;
+}
+
+<span class="com">// ─── Pattern 1: User without sensitive/immutable</span>
+<span class="kw">type</span> SafeUser = <span class="fn">Omit</span><User, <span class="str">'password'</span> | <span class="str">'createdAt'</span> | <span class="str">'updatedAt'</span>>;
+<span class="com">// { id, name, email, role }</span>
+
+<span class="com">// ─── Pattern 2: Create input (server sets id/timestamps)</span>
+<span class="kw">type</span> CreateUserInput = <span class="fn">Omit</span><User, <span class="str">'id'</span> | <span class="str">'createdAt'</span> | <span class="str">'updatedAt'</span>>;
+<span class="com">// { name, email, password, role }</span>
+
+<span class="com">// ─── Pattern 3: Update input (all fields optional, no id/timestamps)</span>
+<span class="kw">type</span> UpdateUserInput = <span class="fn">Partial</span><<span class="fn">Omit</span><User, <span class="str">'id'</span> | <span class="str">'createdAt'</span> | <span class="str">'updatedAt'</span>>>;
+<span class="com">// { name?, email?, password?, role? }</span>
+
+<span class="com">// ─── Pattern 4: Preview (list item) ──────────</span>
+<span class="kw">type</span> UserPreview = <span class="fn">Pick</span><User, <span class="str">'id'</span> | <span class="str">'name'</span>>;
+<span class="com">// { id, name }</span>
+
+<span class="com">// ─── Pattern 5: Pick + Omit for layered access</span>
+<span class="com">// Public view — no password, no timestamps, then only basic fields</span>
+<span class="kw">type</span> UserPublicView = <span class="fn">Pick</span><
+<span class="fn">Omit</span><User, <span class="str">'password'</span> | <span class="str">'createdAt'</span> | <span class="str">'updatedAt'</span>>,
+<span class="str">'id'</span> | <span class="str">'name'</span> | <span class="str">'email'</span>
+>;
+<span class="com">// { id, name, email }</span>
+
+<span class="com">// ─── Pattern 6: Record of Omitted types ──────</span>
+<span class="kw">type</span> UserByRole = <span class="fn">Record</span><<span class="str">'admin'</span> | <span class="str">'user'</span>, SafeUser[]>;
+<span class="com">// { admin: SafeUser[]; user: SafeUser[] }</span>
+
+<span class="com">// ─── Pattern 7: Request body generic ─────────</span>
+<span class="kw">type</span> RequestBody<T, Immutable <span class="kw">extends</span> <span class="kw">keyof</span> T = <span class="fn">never</span>> =
+<span class="fn">Partial</span><<span class="fn">Omit</span><T, Immutable>>;
+
+<span class="kw">type</span> UserPatch = RequestBody<User, <span class="str">'id'</span> | <span class="str">'createdAt'</span> | <span class="str">'updatedAt'</span>>;
+<span class="com">// Reusable pattern for any resource:
+// type PostPatch = RequestBody<Post, 'id' | 'createdAt'>;
+// type ProductPatch = RequestBody<Product, 'id' | 'sku'>;</span>
+
+<span class="com">// ─── Runtime vs type ─────────────────────────
+//
+// Pick and Omit are COMPILE-TIME only.
+// They don't strip fields from a runtime object.</span>
+
+<span class="kw">const</span> fullUser: User = {
+id: <span class="str">'1'</span>,
+name: <span class="str">'Alice'</span>,
+email: <span class="str">'a@x.com'</span>,
+password: <span class="str">'secret'</span>,
+role: <span class="str">'user'</span>,
+createdAt: <span class="kw">new</span> <span class="fn">Date</span>(),
+updatedAt: <span class="kw">new</span> <span class="fn">Date</span>()
+};
+
+<span class="com">// Type view (no password at type level):</span>
+<span class="kw">const</span> safeUser: SafeUser = fullUser;
+<span class="com">// ⚠️ At runtime, safeUser STILL has password!
+// Use destructuring to actually strip it:</span>
+
+<span class="kw">const</span> { password: _, createdAt: __, updatedAt: ___, ...actualSafeUser } = fullUser;
+<span class="com">// actualSafeUser is SafeUser at both type AND runtime level</span>
+
+<span class="kw">function</span> <span class="fn">toSafeUser</span>(u: User): SafeUser {
+<span class="kw">const</span> { password, createdAt, updatedAt, ...safe } = u;
+<span class="kw">return</span> safe;
+}
+
+console.<span class="fn">log</span>(<span class="fn">toSafeUser</span>(fullUser));
+console.<span class="fn">log</span>(actualSafeUser);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">const</span> fullUser = {
+id: <span class="str">'1'</span>,
+name: <span class="str">'Alice'</span>,
+email: <span class="str">'a@x.com'</span>,
+password: <span class="str">'secret'</span>,
+role: <span class="str">'user'</span>,
+createdAt: <span class="kw">new</span> <span class="fn">Date</span>(),
+updatedAt: <span class="kw">new</span> <span class="fn">Date</span>()
+};
+
+<span class="kw">const</span> safeUser = fullUser;
+
+<span class="kw">const</span> { password: _, createdAt: __, updatedAt: ___, ...actualSafeUser } = fullUser;
+
+<span class="kw">function</span> <span class="fn">toSafeUser</span>(u) {
+<span class="kw">const</span> { password, createdAt, updatedAt, ...safe } = u;
+<span class="kw">return</span> safe;
+}
+
+console.<span class="fn">log</span>(<span class="fn">toSafeUser</span>(fullUser));
+console.<span class="fn">log</span>(actualSafeUser);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Layer the operations</h4>
+<p>Strip sensitive → pick subset → make optional. Each step is one utility type. Compose as needed.</p>
+</div>
+<div class="concept-card">
+<h4>The PATCH pattern</h4>
+<p><code>Partial<Omit<T, Immutable>></code> — the standard body for any PUT/PATCH endpoint. Reusable across resources.</p>
+</div>
+<div class="concept-card">
+<h4>Compose with Record</h4>
+<p><code>Record<Key, Pick<T, ...>></code> — typed maps of subsets. Common for grouped responses.</p>
+</div>
+<div class="concept-card">
+<h4>Compile-time only</h4>
+<p>Pick/Omit don't strip fields at runtime. To actually remove fields, destructure with the rest operator.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Pick and Omit are compile-time only — the runtime object still has all fields.</strong> If you type a variable as <code>SafeUser = Omit<User, 'password'></code> and assign a full <code>User</code> to it, the runtime object still has <code>password</code>. You just can't <em>access</em> it via the type (without casting). For real runtime stripping — e.g. before sending over the network — use destructuring: <code>const { password, ...safe } = user</code>. Types describe; destructuring executes. Use both when security matters.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The Pick/Omit bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using Pick when Omit is safer</div>
+<p>Picking every field except password — fragile. Fix: <code>Omit<User, 'password'></code>. New fields included automatically.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using Omit for tiny subsets</div>
+<p><code>Omit<User, 'email' | 'password' | 'avatar' | 'role' | 'createdAt'></code> when you only want id and name. Fix: <code>Pick<User, 'id' | 'name'></code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using Pick/Omit at runtime</div>
+<p>Expecting the object to lose fields. Fix: destructure to actually strip. <code>const { password, ...safe } = user</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Forgetting Partial for PATCH</div>
+<p><code>Omit<User, 'id'></code> requires all other fields. Fix: <code>Partial<Omit<User, 'id'>></code> for optional updates.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Not knowing Pick/Omit exist</div>
+<p>Writing <code>{ id: string; name: string }</code> by hand instead of <code>Pick<User, 'id' | 'name'></code>. Fix: reuse the base type.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Pick with non-existent keys</div>
+<p><code>Pick<User, 'nonexistent'></code> — compile error. Good! But confusing if you don't read the message. Fix: check the key names.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Omit with non-existent keys</div>
+<p><code>Omit<User, 'typo'></code> — silently does nothing (no error for keys not in T in some versions). Fix: verify the key names match.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using Pick for everything</div>
+<p>"I'll just Pick the fields I need" — requires maintenance every time the base grows. Fix: use Omit for "most of the shape."</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between Pick and Omit in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Pick<T, K> creates a new type containing ONLY the specified keys — a whitelist. Omit<T, K> creates a new type containing everything EXCEPT the specified keys — a blacklist. Both produce new types at compile time with zero runtime cost.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use Pick vs Omit?</summary>
+<p class="mt-2 text-sm text-slate-300">Use Omit when you're excluding specific sensitive or immutable fields from an otherwise complete type. Use Pick when the resulting type is genuinely a small subset — a preview, a list item, a search result with only 2-3 fields.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I use both Pick and Omit together?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, they compose. Pick<Omit<User, 'password'>, 'id' | 'name'> first removes password, then picks only id and name. The order matters if the operations affect the same keys — but usually you don't need both at once.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does Pick/Omit affect the original type?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Pick and Omit are pure type transformations — they produce a new type and leave the original untouched. At runtime, the original object is the same object — Pick/Omit have zero runtime effect. If you need to strip fields at runtime, use destructuring.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/utility-types.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 6: Utility types</div>
+<div class="text-xs text-slate-400 mt-1">Pick, Omit, Partial, Record in depth</div>
+</a>
+<a href="/courses/typescript/problems/partial.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to make all properties optional</div>
+<div class="text-xs text-slate-400 mt-1">Combine with Pick/Omit for PATCH</div>
+</a>
+<a href="/courses/typescript/problems/record-type.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to use Record</div>
+<div class="text-xs text-slate-400 mt-1">Typed dictionaries in depth</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
