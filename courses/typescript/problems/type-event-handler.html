@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Type Event Handlers in React + TypeScript (2026)</title>
+<meta name="description" content="Type React event handlers in TypeScript. ChangeEvent, MouseEvent, FormEvent, KeyboardEvent, and FocusEvent — with target vs currentTarget and common patterns.">
+<meta name="keywords" content="typescript react event handler, react typescript onchange, react typescript onclick, react event types, react change event typescript, react form submit typescript">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Type Event Handlers in React + TypeScript">
+<meta property="og:description" content="ChangeEvent, MouseEvent, FormEvent, KeyboardEvent — every React event type explained.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/type-event-handler.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Type Event Handlers in React + TypeScript">
+<meta name="twitter:description" content="Every React event type explained, with target vs currentTarget.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/type-event-handler.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Type Event Handlers in React + TypeScript",
+"description": "Type React event handlers in TypeScript. ChangeEvent, MouseEvent, FormEvent, KeyboardEvent, and FocusEvent — with target vs currentTarget.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19, TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I type an onChange event in React + TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Use React.ChangeEvent<HTMLInputElement>: function handleChange(e: React.ChangeEvent<HTMLInputElement>) { setText(e.target.value); }. The HTMLInputElement is the element the event fires on. For textarea use HTMLTextAreaElement, for select use HTMLSelectElement. e.target.value is typed as string automatically."}},
+{"@type":"Question","name":"What is the difference between e.target and e.currentTarget?","acceptedAnswer":{"@type":"Answer","text":"e.target is the element that dispatched the event — could be a child element inside the handler's scope. e.currentTarget is the element the handler is attached to. For form handlers and delegated events, use e.currentTarget to get the element you attached the listener to. React types both as the element type you specify, but only currentTarget is guaranteed to match the element the event is attached to."}},
+{"@type":"Question","name":"How do I type a form submit handler?","acceptedAnswer":{"@type":"Answer","text":"Use React.FormEvent<HTMLFormElement>: function handleSubmit(e: React.FormEvent<HTMLFormElement>) { e.preventDefault(); const formData = new FormData(e.currentTarget); }. The HTMLFormElement generic gives access to form-specific methods. Use e.currentTarget, not e.target — the submit event can bubble from child inputs."}},
+{"@type":"Question","name":"Why does my event handler need a type annotation?","acceptedAnswer":{"@type":"Answer","text":"Inline handlers in JSX get their types inferred from the element's props: onClick={(e) => ...} — e is inferred. But when you extract a handler to a named function and pass it as onClick={handleClick}, TypeScript can't infer the parameter type from the JSX attribute. You must annotate it manually: function handleClick(e: React.MouseEvent<HTMLButtonElement>) { ... }. This is why extracted handlers need explicit types."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React + TS · event handlers</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Event handlers</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>How to type event handlers.<br><span class="py-accent">Every event, one cheat sheet.</span></h1>
+<p class="lead">
+React ships types for every DOM event — <code>ChangeEvent</code>, <code>MouseEvent</code>, <code>FormEvent</code>, <code>KeyboardEvent</code>, <code>FocusEvent</code>, and more. Each is a generic over the element type. Get the type right and <code>e.target</code> is properly typed with <code>.value</code>, <code>.checked</code>, <code>.files</code>, etc. Get it wrong and everything becomes <code>any</code>. This page is the complete reference.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>React.ChangeEvent<HTMLInputElement></code> for input changes, <code>React.FormEvent<HTMLFormElement></code> for submits, <code>React.MouseEvent<HTMLButtonElement></code> for clicks, <code>React.KeyboardEvent<HTMLInputElement></code> for key presses, <code>React.FocusEvent<HTMLElement></code> for focus/blur. The element type is the element the handler attaches to. <strong>Inline handlers infer automatically</strong> — only named functions need annotations. Always prefer <code>e.currentTarget</code> over <code>e.target</code> for form/container events.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — The event type cheat sheet</h2>
+<p class="section-sub">Every common event, mapped to its TypeScript type.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">These are the types you'll reach for daily. Save this list — after a week, you'll recognize the pattern: <code>React.[EventName]Event<[HTMLElement]></code>. The element generic is the type of the element you're attaching to.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">cheatsheet.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">AllEvents</span>() {
+<span class="kw">const</span> [text, setText] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> [checked, setChecked] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">const</span> [selected, setSelected] = <span class="fn">useState</span>(<span class="str">'a'</span>);
+
+<span class="com">// ─── Change — text input ─────────────────────</span>
+<span class="kw">function</span> <span class="fn">onTextChange</span>(e: React.ChangeEvent<HTMLInputElement>) {
+<span class="fn">setText</span>(e.target.value); <span class="com">// string</span>
+}
+
+<span class="com">// ─── Change — textarea ───────────────────────</span>
+<span class="kw">function</span> <span class="fn">onTextareaChange</span>(e: React.ChangeEvent<HTMLTextAreaElement>) {
+<span class="fn">setText</span>(e.target.value);
+}
+
+<span class="com">// ─── Change — select ────────────────��────────</span>
+<span class="kw">function</span> <span class="fn">onSelectChange</span>(e: React.ChangeEvent<HTMLSelectElement>) {
+<span class="fn">setSelected</span>(e.target.value);
+}
+
+<span class="com">// ─── Change — checkbox ───────────────────────</span>
+<span class="kw">function</span> <span class="fn">onCheckChange</span>(e: React.ChangeEvent<HTMLInputElement>) {
+<span class="fn">setChecked</span>(e.target.checked); <span class="com">// boolean</span>
+}
+
+<span class="com">// ─── Change — file input ─────────────────────</span>
+<span class="kw">function</span> <span class="fn">onFileChange</span>(e: React.ChangeEvent<HTMLInputElement>) {
+<span class="kw">const</span> files = e.target.files; <span class="com">// FileList | null</span>
+<span class="kw">if</span> (files && files.length > <span class="num">0</span>) {
+console.<span class="fn">log</span>(files[<span class="num">0</span>].name);
+}
+}
+
+<span class="com">// ─── Submit — form ───────────────────────────</span>
+<span class="kw">function</span> <span class="fn">onSubmit</span>(e: React.FormEvent<HTMLFormElement>) {
+e.<span class="fn">preventDefault</span>();
+<span class="kw">const</span> form = e.currentTarget;
+console.<span class="fn">log</span>(<span class="kw">new</span> <span class="fn">FormData</span>(form));
+}
+
+<span class="com">// ─── Click — button ──────────────────────────</span>
+<span class="kw">function</span> <span class="fn">onClick</span>(e: React.MouseEvent<HTMLButtonElement>) {
+console.<span class="fn">log</span>(<span class="str">'clicked at'</span>, e.clientX, e.clientY);
+console.<span class="fn">log</span>(<span class="str">'button disabled?'</span>, e.currentTarget.disabled);
+}
+
+<span class="com">// ─── Keyboard — input ────────────────────────</span>
+<span class="kw">function</span> <span class="fn">onKeyDown</span>(e: React.KeyboardEvent<HTMLInputElement>) {
+<span class="kw">if</span> (e.key === <span class="str">'Enter'</span>) console.<span class="fn">log</span>(<span class="str">'submitted'</span>);
+<span class="kw">if</span> (e.ctrlKey && e.key === <span class="str">'s'</span>) {
+e.<span class="fn">preventDefault</span>();
+console.<span class="fn">log</span>(<span class="str">'saved'</span>);
+}
+}
+
+<span class="com">// ─── Focus / Blur ────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">onFocus</span>(e: React.FocusEvent<HTMLInputElement>) {
+e.target.<span class="fn">select</span>();
+}
+
+<span class="com">// ─── The complete cheat sheet ────────────────
+//
+// onChange → React.ChangeEvent<HTMLInputElement>
+// (or HTMLTextAreaElement, HTMLSelectElement)
+// onSubmit → React.FormEvent<HTMLFormElement>
+// onClick → React.MouseEvent<HTMLButtonElement>
+// (or HTMLDivElement, HTMLAnchorElement)
+// onKeyDown → React.KeyboardEvent<HTMLInputElement>
+// onKeyUp → React.KeyboardEvent<HTMLInputElement>
+// onKeyPress → React.KeyboardEvent<HTMLInputElement>
+// onFocus → React.FocusEvent<HTMLInputElement>
+// onBlur → React.FocusEvent<HTMLInputElement>
+// onScroll → React.UIEvent<HTMLDivElement>
+// onMouseEnter → React.MouseEvent<HTMLDivElement>
+// onMouseLeave → React.MouseEvent<HTMLDivElement>
+// onDrag → React.DragEvent<HTMLDivElement>
+// onDrop → React.DragEvent<HTMLDivElement>
+// onWheel → React.WheelEvent<HTMLDivElement>
+// onPointer → React.PointerEvent<HTMLDivElement>
+// onTouch → React.TouchEvent<HTMLDivElement>
+// onAnimation → React.AnimationEvent<HTMLDivElement>
+// onTransition → React.TransitionEvent<HTMLDivElement></span>
+
+<span class="kw">return</span> (
+<form onSubmit={onSubmit}>
+<input value={text} onChange={onTextChange} onKeyDown={onKeyDown} onFocus={onFocus} />
+<textarea value={text} onChange={onTextareaChange} />
+<select value={selected} onChange={onSelectChange}>
+<option value=<span class="str">"a"</span>>A</option>
+<option value=<span class="str">"b"</span>>B</option>
+</select>
+<input type=<span class="str">"checkbox"</span> checked={checked} onChange={onCheckChange} />
+<input type=<span class="str">"file"</span> onChange={onFileChange} />
+<button type=<span class="str">"submit"</span> onClick={onClick}>Submit</button>
+</form>
+);
+}
+
+<span class="kw">export default</span> AllEvents;</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">AllEvents</span>() {
+<span class="kw">const</span> [text, setText] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> [checked, setChecked] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">const</span> [selected, setSelected] = <span class="fn">useState</span>(<span class="str">'a'</span>);
+
+<span class="kw">function</span> <span class="fn">onTextChange</span>(e) { <span class="fn">setText</span>(e.target.value); }
+<span class="kw">function</span> <span class="fn">onTextareaChange</span>(e) { <span class="fn">setText</span>(e.target.value); }
+<span class="kw">function</span> <span class="fn">onSelectChange</span>(e) { <span class="fn">setSelected</span>(e.target.value); }
+<span class="kw">function</span> <span class="fn">onCheckChange</span>(e) { <span class="fn">setChecked</span>(e.target.checked); }
+<span class="kw">function</span> <span class="fn">onFileChange</span>(e) {
+<span class="kw">const</span> files = e.target.files;
+<span class="kw">if</span> (files && files.length > <span class="num">0</span>) {
+console.<span class="fn">log</span>(files[<span class="num">0</span>].name);
+}
+}
+<span class="kw">function</span> <span class="fn">onSubmit</span>(e) {
+e.<span class="fn">preventDefault</span>();
+<span class="kw">const</span> form = e.currentTarget;
+console.<span class="fn">log</span>(<span class="kw">new</span> <span class="fn">FormData</span>(form));
+}
+<span class="kw">function</span> <span class="fn">onClick</span>(e) {
+console.<span class="fn">log</span>(<span class="str">'clicked at'</span>, e.clientX, e.clientY);
+console.<span class="fn">log</span>(<span class="str">'button disabled?'</span>, e.currentTarget.disabled);
+}
+<span class="kw">function</span> <span class="fn">onKeyDown</span>(e) {
+<span class="kw">if</span> (e.key === <span class="str">'Enter'</span>) console.<span class="fn">log</span>(<span class="str">'submitted'</span>);
+<span class="kw">if</span> (e.ctrlKey && e.key === <span class="str">'s'</span>) {
+e.<span class="fn">preventDefault</span>();
+console.<span class="fn">log</span>(<span class="str">'saved'</span>);
+}
+}
+<span class="kw">function</span> <span class="fn">onFocus</span>(e) { e.target.<span class="fn">select</span>(); }
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, { onSubmit },
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: text, onChange: onTextChange, onKeyDown, onFocus }),
+React.<span class="fn">createElement</span>(<span class="str">'textarea'</span>, { value: text, onChange: onTextareaChange }),
+React.<span class="fn">createElement</span>(<span class="str">'select'</span>, { value: selected, onChange: onSelectChange },
+React.<span class="fn">createElement</span>(<span class="str">'option'</span>, { value: <span class="str">'a'</span> }, <span class="str">'A'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'option'</span>, { value: <span class="str">'b'</span> }, <span class="str">'B'</span>)
+),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { type: <span class="str">'checkbox'</span>, checked, onChange: onCheckChange }),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { type: <span class="str">'file'</span>, onChange: onFileChange }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { type: <span class="str">'submit'</span>, onClick }, <span class="str">'Submit'</span>)
+);
+}
+
+<span class="kw">export default</span> AllEvents;</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>The pattern</h4>
+<p><code>React.[Event]<ElementType></code> — every event follows this. The element type matches what you attach the handler to.</p>
+</div>
+<div class="concept-card">
+<h4>Element matters for target</h4>
+<p><code>HTMLInputElement</code> gives <code>e.target.value</code>, <code>.checked</code>, <code>.files</code>. <code>HTMLSelectElement</code> gives <code>.selectedOptions</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Inline handlers infer</h4>
+<p><code>onClick={(e) => ...}</code> — <code>e</code> is inferred. Only named functions need annotations.</p>
+</div>
+<div class="concept-card">
+<h4>Event type hierarchy</h4>
+<p>All events extend <code>React.SyntheticEvent</code>. Specific events (<code>ChangeEvent</code>, <code>MouseEvent</code>) add their properties. Use the specific type.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Match the element generic to the element, not to the value type.</strong> A checkbox's <code>onChange</code> is <code>ChangeEvent<HTMLInputElement></code> — not <code>ChangeEvent<HTMLCheckboxElement></code> (which doesn't exist). A <code><textarea></code> is <code>HTMLTextAreaElement</code>, not <code>HTMLInputElement</code>. When in doubt, hover over the JSX attribute in VS Code — the inferred type shows the exact event type React expects. Copy it, then annotate your named function with the same type.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — <code>target</code> vs <code>currentTarget</code></h2>
+<p class="section-sub">The subtle bug that half of React devs hit.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Both are typed as the element generic, but they mean different things. <code>e.target</code> is the element that dispatched the event — could be a child if the event bubbled. <code>e.currentTarget</code> is the element the handler is attached to. For container events (forms, modals, delegated handlers), <code>currentTarget</code> is what you want.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">target-vs-current.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">FormExample</span>() {
+<span class="kw">const</span> [values, setValues] = <span class="fn">useState</span>({ name: <span class="str">''</span>, email: <span class="str">''</span> });
+
+<span class="com">// ─── Form submit — use currentTarget ─────────</span>
+<span class="kw">function</span> <span class="fn">onSubmit</span>(e: React.FormEvent<HTMLFormElement>) {
+e.<span class="fn">preventDefault</span>();
+
+<span class="com">// ✅ currentTarget — the form itself</span>
+<span class="kw">const</span> form = e.currentTarget;
+<span class="kw">const</span> data = <span class="kw">new</span> <span class="fn">FormData</span>(form);
+console.<span class="fn">log</span>(<span class="fn">Object</span>.<span class="fn">fromEntries</span>(data));
+
+<span class="com">// ⚠️ target — could be the submit button or an input
+// that triggered a change event bubbling up.
+// new FormData(e.target as HTMLFormElement) — sometimes
+// works, sometimes throws depending on what bubbled.</span>
+}
+
+<span class="com">// ─── Change handler — target is fine ─────────</span>
+<span class="kw">function</span> <span class="fn">onNameChange</span>(e: React.ChangeEvent<HTMLInputElement>) {
+<span class="com">// ✅ target here IS the input (change events
+// don't bubble from children of the input)</span>
+<span class="fn">setValues</span>(v => ({ ...v, name: e.target.value }));
+}
+
+<span class="com">// ─── Container click delegation ──────────────</span>
+<span class="kw">function</span> <span class="fn">onContainerClick</span>(e: React.MouseEvent<HTMLDivElement>) {
+<span class="com">// ✅ currentTarget — the div
+// ⚠️ target — whatever was clicked (could be a child)</span>
+console.<span class="fn">log</span>(<span class="str">'container clicked'</span>);
+console.<span class="fn">log</span>(<span class="str">'container:', e.currentTarget.className);
+console.<span class="fn">log</span>(<span class="str">'clicked child:', (e.target as HTMLElement).className);
+
+<span class="com">// Common pattern: close a modal/dropdown
+// when the backdrop is clicked but not the content.</span>
+<span class="kw">if</span> (e.target === e.currentTarget) {
+console.<span class="fn">log</span>(<span class="str">'clicked backdrop, not content'</span>);
+}
+}
+
+<span class="com">// ─── The rule ────────────────────────────────
+//
+// Use e.currentTarget when:
+// - Form submit (need the whole form)
+// - Container click (need to distinguish backdrop)
+// - Any event that bubbles from children
+// - Any time you need "the element with the handler"
+//
+// Use e.target when:
+// - Change events on inputs (target is always the input)
+// - You genuinely want "the element that fired the event"
+// - You're handling event delegation intentionally</span>
+
+<span class="kw">return</span> (
+<form onSubmit={onSubmit}>
+<input name=<span class="str">"name"</span> value={values.name} onChange={onNameChange} />
+<input name=<span class="str">"email"</span> value={values.email} onChange={e => <span class="fn">setValues</span>(v => ({ ...v, email: e.target.value }))} />
+<button type=<span class="str">"submit"</span>>Submit</button>
+</form>
+);
+}
+
+<span class="kw">export default</span> FormExample;</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">FormExample</span>() {
+<span class="kw">const</span> [values, setValues] = <span class="fn">useState</span>({ name: <span class="str">''</span>, email: <span class="str">''</span> });
+
+<span class="kw">function</span> <span class="fn">onSubmit</span>(e) {
+e.<span class="fn">preventDefault</span>();
+<span class="kw">const</span> form = e.currentTarget;
+<span class="kw">const</span> data = <span class="kw">new</span> <span class="fn">FormData</span>(form);
+console.<span class="fn">log</span>(<span class="fn">Object</span>.<span class="fn">fromEntries</span>(data));
+}
+
+<span class="kw">function</span> <span class="fn">onNameChange</span>(e) {
+<span class="fn">setValues</span>(v => ({ ...v, name: e.target.value }));
+}
+
+<span class="kw">function</span> <span class="fn">onContainerClick</span>(e) {
+console.<span class="fn">log</span>(<span class="str">'container clicked'</span>);
+console.<span class="fn">log</span>(<span class="str">'container:'</span>, e.currentTarget.className);
+console.<span class="fn">log</span>(<span class="str">'clicked child:'</span>, e.target.className);
+<span class="kw">if</span> (e.target === e.currentTarget) {
+console.<span class="fn">log</span>(<span class="str">'clicked backdrop, not content'</span>);
+}
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, { onSubmit },
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { name: <span class="str">'name'</span>, value: values.name, onChange: onNameChange }),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { name: <span class="str">'email'</span>, value: values.email, onChange: e => <span class="fn">setValues</span>(v => ({ ...v, email: e.target.value })) }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { type: <span class="str">'submit'</span> }, <span class="str">'Submit'</span>)
+);
+}
+
+<span class="kw">export default</span> FormExample;</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>target</code> = event source</h4>
+<p>The element that dispatched the event. For change events on inputs, this is the input. For container events, it might be a child.</p>
+</div>
+<div class="concept-card">
+<h4><code>currentTarget</code> = handler owner</h4>
+<p>The element the handler is attached to. For form submit, this is always the form. For container click, this is the container.</p>
+</div>
+<div class="concept-card">
+<h4>The backdrop click pattern</h4>
+<p><code>if (e.target === e.currentTarget)</code> — true only when the outer element itself was clicked, not a child. Classic for closing modals.</p>
+</div>
+<div class="concept-card">
+<h4>Change events are safe</h4>
+<p>Change events on inputs don't bubble from children — <code>target</code> and <code>currentTarget</code> are both the input. Either works.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Never cast <code>e.target as HTMLFormElement</code> to silence the compiler.</strong> If the event is a submit and you need the form, use <code>e.currentTarget</code> — it's guaranteed to be the form. Casting <code>target</code> works until a child triggers the event (a submit button, an enter key inside an input), at which point <code>target</code> is the button/input, not the form, and the cast lies. The type system is telling you something real — listen to it.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Type-safe handler types</h2>
+<p class="section-sub">Extract the event type when you don't want to hardcode it.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Sometimes you don't want to hardcode <code>React.ChangeEvent<HTMLInputElement></code>. React ships utility types to extract the handler type from the element's props — <code>React.ComponentProps</code>, or the built-in aliases like <code>ChangeHandler</code>. These are useful for library code and wrapper components.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">handler-types.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── Extract the handler type from props ─────</span>
+<span class="kw">type</span> InputChangeHandler = React.ComponentProps<<span class="str">'input'</span>>[<span class="str">'onChange'</span>];
+<span class="com">// (event: React.ChangeEvent<HTMLInputElement>) => void</span>
+
+<span class="kw">const</span> <span class="fn">handleInput</span>: InputChangeHandler = (e) => {
+console.<span class="fn">log</span>(e.target.value);
+};
+
+<span class="com">// ─── Or use the built-in aliases ─────────────</span>
+<span class="kw">type</span> ChangeHandler = React.ChangeEventHandler<HTMLInputElement>;
+<span class="kw">type</span> ClickHandler = React.MouseEventHandler<HTMLButtonElement>;
+<span class="kw">type</span> SubmitHandler = React.FormEventHandler<HTMLFormElement>;
+<span class="kw">type</span> KeyHandler = React.KeyboardEventHandler<HTMLInputElement>;
+
+<span class="kw">const</span> <span class="fn">onChange</span>: ChangeHandler = (e) => console.<span class="fn">log</span>(e.target.value);
+<span class="kw">const</span> <span class="fn">onClick</span>: ClickHandler = (e) => console.<span class="fn">log</span>(e.clientX);
+<span class="kw">const</span> <span class="fn">onSubmit</span>: SubmitHandler = (e) => e.<span class="fn">preventDefault</span>();
+<span class="kw">const</span> <span class="fn">onKeyDown</span>: KeyHandler = (e) => console.<span class="fn">log</span>(e.key);
+
+<span class="com">// ─── Reusable handler factory ────────────────</span>
+<span class="kw">function</span> <span class="fn">makeInputHandler</span>(
+onValue: (value: <span class="fn">string</span>) => <span class="fn">void</span>
+): React.ChangeEventHandler<HTMLInputElement> {
+<span class="kw">return</span> (e) => <span class="fn">onValue</span>(e.target.value);
+}
+
+<span class="kw">const</span> <span class="fn">handleName</span> = <span class="fn">makeInputHandler</span>(v => console.<span class="fn">log</span>(<span class="str">'name:'</span>, v));
+<span class="kw">const</span> <span class="fn">handleEmail</span> = <span class="fn">makeInputHandler</span>(v => console.<span class="fn">log</span>(<span class="str">'email:'</span>, v));
+
+<span class="com">// ─── Wrapper component typing ─────────────────</span>
+<span class="kw">interface</span> ButtonProps {
+onClick?: React.MouseEventHandler<HTMLButtonElement>;
+children: React.ReactNode;
+}
+
+<span class="kw">function</span> <span class="fn">Button</span>({ onClick, children }: ButtonProps) {
+<span class="kw">return</span> (
+<button onClick={onClick} className=<span class="str">"btn"</span>>
+{children}
+</button>
+);
+}
+
+<span class="com">// ─── Generic event handler ───────────────────</span>
+<span class="kw">function</span> <span class="fn">logEvent</span><E <span class="kw">extends</span> React.SyntheticEvent>(e: E, label: <span class="fn">string</span>) {
+e.<span class="fn">preventDefault</span>();
+console.<span class="fn">log</span>(label, e.type, e.target);
+}
+
+<span class="com">// Works for any event:</span>
+<span class="com">// logEvent(clickEvent, 'click');
+// logEvent(submitEvent, 'submit');
+// logEvent(changeEvent, 'change');</span>
+
+<span class="com">// ─── The types you'll use most often ─────────
+//
+// React.ChangeEventHandler<T> = (e: ChangeEvent<T>) => void
+// React.MouseEventHandler<T> = (e: MouseEvent<T>) => void
+// React.FormEventHandler<T> = (e: FormEvent<T>) => void
+// React.KeyboardEventHandler<T> = (e: KeyboardEvent<T>) => void
+// React.FocusEventHandler<T> = (e: FocusEvent<T>) => void
+//
+// These are the "handler versions" — use them for
+// prop types and named function annotations. Use the
+// "Event" versions (ChangeEvent, MouseEvent) when
+// you're writing the handler inline or extracting types.</span>
+
+console.<span class="fn">log</span>(handleInput, onChange, onClick, onSubmit, onKeyDown, handleName, handleEmail);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">const</span> <span class="fn">handleInput</span> = (e) => {
+console.<span class="fn">log</span>(e.target.value);
+};
+
+<span class="kw">const</span> <span class="fn">onChange</span> = (e) => console.<span class="fn">log</span>(e.target.value);
+<span class="kw">const</span> <span class="fn">onClick</span> = (e) => console.<span class="fn">log</span>(e.clientX);
+<span class="kw">const</span> <span class="fn">onSubmit</span> = (e) => e.<span class="fn">preventDefault</span>();
+<span class="kw">const</span> <span class="fn">onKeyDown</span> = (e) => console.<span class="fn">log</span>(e.key);
+
+<span class="kw">function</span> <span class="fn">makeInputHandler</span>(onValue) {
+<span class="kw">return</span> (e) => <span class="fn">onValue</span>(e.target.value);
+}
+
+<span class="kw">const</span> <span class="fn">handleName</span> = <span class="fn">makeInputHandler</span>(v => console.<span class="fn">log</span>(<span class="str">'name:'</span>, v));
+<span class="kw">const</span> <span class="fn">handleEmail</span> = <span class="fn">makeInputHandler</span>(v => console.<span class="fn">log</span>(<span class="str">'email:'</span>, v));
+
+<span class="kw">function</span> <span class="fn">Button</span>({ onClick, children }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick, className: <span class="str">'btn'</span> }, children);
+}
+
+<span class="kw">function</span> <span class="fn">logEvent</span>(e, label) {
+e.<span class="fn">preventDefault</span>();
+console.<span class="fn">log</span>(label, e.type, e.target);
+}
+
+console.<span class="fn">log</span>(handleInput, onChange, onClick, onSubmit, onKeyDown, handleName, handleEmail);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>ComponentProps</code></h4>
+<p>Extract the handler type from any element's props: <code>React.ComponentProps<'input'>['onChange']</code>. No hardcoding needed.</p>
+</div>
+<div class="concept-card">
+<h4>Built-in aliases</h4>
+<p><code>React.ChangeEventHandler<T></code> = <code>(e: ChangeEvent<T>) => void</code>. Use these in prop types — they're shorter and clearer.</p>
+</div>
+<div class="concept-card">
+<h4>Handler factories</h4>
+<p><code>makeInputHandler(fn)</code> returns a typed <code>ChangeEventHandler</code>. Reusable for any number of inputs.</p>
+</div>
+<div class="concept-card">
+<h4>Generic events</h4>
+<p><code><E extends React.SyntheticEvent></code> — a handler that works for any event. Use when the same logic applies across event types.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The event handler type bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using <code>any</code> for events</div>
+<p><code>(e: any) => e.target.value</code> — no type checking. Fix: <code>(e: React.ChangeEvent<HTMLInputElement>)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using the wrong element generic</div>
+<p><code>ChangeEvent<HTMLInputElement></code> for a textarea — wrong. Fix: <code>ChangeEvent<HTMLTextAreaElement></code>. Match the actual element.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using <code>e.target</code> for form submit</div>
+<p><code>e.target as HTMLFormElement</code> — cast is a lie if the button was clicked. Fix: <code>e.currentTarget</code>, already the form.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Forgetting <code>preventDefault</code></div>
+<p>Form submits reload the page. Fix: <code>e.preventDefault()</code> at the top of the submit handler. TypeScript can't remind you.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Annotating inline handlers unnecessarily</div>
+<p><code>onClick={(e: React.MouseEvent) => ...}</code> — inference already handles it. Fix: only annotate named/extracted functions.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Using <code>Event</code> instead of <code>React.SyntheticEvent</code></div>
+<p><code>(e: Event)</code> — DOM Event, missing React properties. Fix: <code>(e: React.SyntheticEvent)</code> or the specific event type.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Accessing <code>e.key</code> on the wrong event</div>
+<p><code>e.key</code> exists on <code>KeyboardEvent</code>, not <code>ChangeEvent</code>. Fix: use <code>onKeyDown</code> with <code>React.KeyboardEvent</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not narrowing <code>e.target.files</code></div>
+<p><code>e.target.files[0]</code> — files might be null. Fix: <code>if (e.target.files) e.target.files[0]</code>, or <code>e.target.files?.[0]</code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I type an onChange event in React + TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Use React.ChangeEvent<HTMLInputElement>: function handleChange(e: React.ChangeEvent<HTMLInputElement>) { setText(e.target.value); }. The HTMLInputElement is the element the event fires on. For textarea use HTMLTextAreaElement, for select use HTMLSelectElement.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between e.target and e.currentTarget?</summary>;
+<p class="mt-2 text-sm text-slate-300">e.target is the element that dispatched the event — could be a child element inside the handler's scope. e.currentTarget is the element the handler is attached to. For form handlers and delegated events, use e.currentTarget.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I type a form submit handler?</summary>
+<p class="mt-2 text-sm text-slate-300">Use React.FormEvent<HTMLFormElement>: function handleSubmit(e: React.FormEvent<HTMLFormElement>) { e.preventDefault(); const formData = new FormData(e.currentTarget); }. The HTMLFormElement generic gives access to form-specific methods.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does my event handler need a type annotation?</summary>
+<p class="mt-2 text-sm text-slate-300">Inline handlers in JSX get their types inferred from the element's props. But when you extract a handler to a named function and pass it as onClick={handleClick}, TypeScript can't infer the parameter type from the JSX attribute. You must annotate it manually.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/react-ts.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 8: TS with React</div>
+<div class="text-xs text-slate-400 mt-1">Props, state, events, refs</div>
+</a>
+<a href="/courses/typescript/problems/usestate-object.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to type useState with an object</div>
+<div class="text-xs text-slate-400 mt-1">Combine with event handlers for forms</div>
+</a>
+<a href="/courses/typescript/problems/type-guard-array.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Type guard for array of objects</div>
+<div class="text-xs text-slate-400 mt-1">Validate form/API data</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React + TS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
