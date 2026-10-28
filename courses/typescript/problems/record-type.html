@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Use Record in TypeScript — Typed Dictionaries (2026)</title>
+<meta name="description" content="Learn TypeScript Record type: typed dictionaries, key constraints, Record vs index signature, and real-world patterns. Working code examples.">
+<meta name="keywords" content="typescript record, typescript record type, record vs index signature, typescript dictionary, typescript record example">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Use Record in TypeScript — Typed Dictionaries">
+<meta property="og:description" content="Typed dictionaries, key constraints, Record vs index signature.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/record-type.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Use Record in TypeScript">
+<meta name="twitter:description" content="Typed dictionaries, key constraints, and Record vs index signature.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/record-type.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Use Record in TypeScript — Typed Dictionaries",
+"description": "Learn TypeScript Record type: typed dictionaries, key constraints, Record vs index signature, and real-world patterns.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the Record type in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Record<K, V> builds an object type where every key is of type K and every value is of type V. For example, Record<'admin' | 'user' | 'guest', boolean> produces { admin: boolean; user: boolean; guest: boolean }. It's the cleanest way to build typed dictionaries and lookup tables. The K can be a union of literals, a single string, or any other key type."}},
+{"@type":"Question","name":"What is the difference between Record and an index signature?","acceptedAnswer":{"@type":"Answer","text":"Both describe dictionaries. The index signature { [key: string]: T } allows any string key — no autocomplete, no typo protection. Record<'a' | 'b', T> restricts keys to the exact union — autocomplete works, and using an unknown key is a compile error. Record also enforces that all keys in the union are present. Use Record whenever you know the set of keys; use index signatures only when keys are truly unknown at compile time."}},
+{"@type":"Question","name":"Can Record keys be numbers or symbols?","acceptedAnswer":{"@type":"Answer","text":"Yes. Record<number, string> allows any number key. Record<symbol, string> allows symbol keys. The K parameter can be string, number, symbol, or any union of these. However, JavaScript object keys are always coerced to strings at runtime — Record<number, string> is really Record<'1' | '2' | '3', string> under the hood. For true numeric keys, use Map<number, string>."}},
+{"@type":"Question","name":"Why is my Record missing properties?","acceptedAnswer":{"@type":"Answer","text":"If K is a union of literals like 'a' | 'b' | 'c', Record enforces that ALL keys are present. A partial object fails. To allow missing keys, use Partial<Record<K, V>>. To allow extra keys, use Record<string, V>. Record is strict by design — that's what makes it safer than an index signature."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · Record</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Record</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>How to use <code>Record</code>.<br><span class="py-accent">Typed dictionaries, done right.</span></h1>
+<p class="lead">
+<code>Record<K, V></code> is one of TypeScript's most-used utility types. It builds a typed dictionary: keys of type <code>K</code>, values of type <code>V</code>. It's how you type config maps, lookup tables, and any object where every key has the same value type. This page covers the syntax, the patterns, and the critical difference from index signatures.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>Record<K, V></code> creates an object type with keys <code>K</code> and values <code>V</code>. Use <code>Record<'admin' | 'user' | 'guest', boolean></code> for known keys — you get autocomplete, typo protection, and enforcement of all keys. Use <code>Record<string, V></code> for open-ended dictionaries. Prefer <code>Record</code> over <code>{ [key: string]: V }</code> whenever the keys are known at compile time — it's strictly safer. For numeric keys at runtime, use <code>Map<number, V></code>.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — <code>Record</code> with known keys (the ideal)</h2>
+<p class="section-sub">Union of literals — the strongest form of dictionary typing.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When you know exactly which keys exist — roles, statuses, locales, event names — <code>Record<Union, Value></code> is the correct type. It enforces that every key is present, every value has the right type, and every property access is autocomplete-friendly. This is the pattern behind every config map, i18n dictionary, and lookup table in production code.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">record-known.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── Role permissions ────────────────────────</span>
+<span class="kw">type</span> Role = <span class="str">'admin'</span> | <span class="str">'user'</span> | <span class="str">'guest'</span>;
+<span class="kw">type</span> Permissions = <span class="fn">Record</span><Role, <span class="fn">string</span>[]>;
+
+<span class="kw">const</span> perms: Permissions = {
+admin: [<span class="str">'read'</span>, <span class="str">'write'</span>, <span class="str">'delete'</span>],
+user: [<span class="str">'read'</span>, <span class="str">'write'</span>],
+guest: [<span class="str">'read'</span>]
+<span class="com">// ❌ Missing 'guest' → compile error (Record enforces all keys)</span>
+};
+
+<span class="com">// ─── Autocomplete + typo protection ─────────</span>
+perms.admin; <span class="com">// ✅ string[] — autocomplete</span>
+perms.admim; <span class="com">// ❌ Property 'admim' does not exist</span>
+
+<span class="com">// ─── i18n message dictionary ─────────────────</span>
+<span class="kw">type</span> Locale = <span class="str">'en'</span> | <span class="str">'fr'</span> | <span class="str">'es'</span>;
+<span class="kw">type</span> MessageKey = <span class="str">'greeting'</span> | <span class="str">'farewell'</span>;
+<span class="kw">type</span> Translations = <span class="fn">Record</span><Locale, <span class="fn">Record</span><MessageKey, <span class="fn">string</span>>>;
+
+<span class="kw">const</span> messages: Translations = {
+en: { greeting: <span class="str">'Hello'</span>, farewell: <span class="str">'Goodbye'</span> },
+fr: { greeting: <span class="str">'Bonjour'</span>, farewell: <span class="str">'Au revoir'</span> },
+es: { greeting: <span class="str">'Hola'</span>, farewell: <span class="str">'Adiós'</span> }
+};
+
+<span class="kw">function</span> <span class="fn">t</span>(locale: Locale, key: MessageKey): <span class="fn">string</span> {
+<span class="kw">return</span> messages[locale][key]; <span class="com">// both indexed by literal unions</span>
+}
+
+<span class="com">// ─── Status → label map ──────────────────────</span>
+<span class="kw">type</span> Status = <span class="str">'idle'</span> | <span class="str">'loading'</span> | <span class="str">'success'</span> | <span class="str">'error'</span>;
+
+<span class="kw">const</span> statusLabels: <span class="fn">Record</span><Status, <span class="fn">string</span>> = {
+idle: <span class="str">'Ready'</span>,
+loading: <span class="str">'Loading…'</span>,
+success: <span class="str">'Done'</span>,
+error: <span class="str">'Failed'</span>
+};
+
+<span class="com">// Type-safe access:</span>
+<span class="kw">function</span> <span class="fn">label</span>(s: Status): <span class="fn">string</span> {
+<span class="kw">return</span> statusLabels[s];
+}
+
+<span class="com">// ─── Record with generic type ────────────────</span>
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+
+<span class="kw">function</span> <span class="fn">indexById</span>(users: User[]): <span class="fn">Record</span><<span class="fn">string</span>, User> {
+<span class="kw">const</span> index: <span class="fn">Record</span><<span class="fn">string</span>, User> = {};
+<span class="kw">for</span> (<span class="kw">const</span> u <span class="kw">of</span> users) {
+index[u.id] = u;
+}
+<span class="kw">return</span> index;
+}
+
+<span class="kw">const</span> users = indexById([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> }
+]);
+
+<span class="com">// ─── Why Record beats an index signature here
+//
+// Index sig: { [key: string]: User }
+// ❌ No autocomplete — any key allowed
+// ❌ No typo protection
+// ❌ No "must have all keys" enforcement
+//
+// Record<Union, User>:
+// ✅ Autocomplete on keys
+// ✅ Typos are compile errors
+// ✅ Missing keys are compile errors
+// ✅ Exact key list is enforced</span>
+
+console.<span class="fn">log</span>(perms.admin, <span class="fn">t</span>(<span class="str">'fr'</span>, <span class="str">'greeting'</span>));
+console.<span class="fn">log</span>(<span class="fn">label</span>(<span class="str">'success'</span>), users[<span class="str">'1'</span>]);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// Record erased. Runtime objects remain.</span>
+
+<span class="kw">const</span> perms = {
+admin: [<span class="str">'read'</span>, <span class="str">'write'</span>, <span class="str">'delete'</span>],
+user: [<span class="str">'read'</span>, <span class="str">'write'</span>],
+guest: [<span class="str">'read'</span>]
+};
+
+<span class="kw">const</span> messages = {
+en: { greeting: <span class="str">'Hello'</span>, farewell: <span class="str">'Goodbye'</span> },
+fr: { greeting: <span class="str">'Bonjour'</span>, farewell: <span class="str">'Au revoir'</span> },
+es: { greeting: <span class="str">'Hola'</span>, farewell: <span class="str">'Adiós'</span> }
+};
+
+<span class="kw">function</span> <span class="fn">t</span>(locale, key) {
+<span class="kw">return</span> messages[locale][key];
+}
+
+<span class="kw">const</span> statusLabels = {
+idle: <span class="str">'Ready'</span>,
+loading: <span class="str">'Loading…'</span>,
+success: <span class="str">'Done'</span>,
+error: <span class="str">'Failed'</span>
+};
+
+<span class="kw">function</span> <span class="fn">label</span>(s) {
+<span class="kw">return</span> statusLabels[s];
+}
+
+<span class="kw">function</span> <span class="fn">indexById</span>(users) {
+<span class="kw">const</span> index = {};
+<span class="kw">for</span> (<span class="kw">const</span> u <span class="kw">of</span> users) {
+index[u.id] = u;
+}
+<span class="kw">return</span> index;
+}
+
+<span class="kw">const</span> users = <span class="fn">indexById</span>([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> }
+]);
+
+console.<span class="fn">log</span>(perms.admin, <span class="fn">t</span>(<span class="str">'fr'</span>, <span class="str">'greeting'</span>));
+console.<span class="fn">log</span>(<span class="fn">label</span>(<span class="str">'success'</span>), users[<span class="str">'1'</span>]);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Two type parameters</h4>
+<p><code>Record<K, V></code> — K is the key type (usually a literal union), V is the value type. Both are required.</p>
+</div>
+<div class="concept-card">
+<h4>Enforces all keys</h4>
+<p>If K is <code>'a' | 'b' | 'c'</code>, the object must have all three. Missing keys are a compile error — not silent runtime undefined.</p>
+</div>
+<div class="concept-card">
+<h4>Autocomplete works</h4>
+<p>TypeScript knows the exact set of keys. Hovering over the object shows all valid keys. Typos fail to compile.</p>
+</div>
+<div class="concept-card">
+<h4>Nested Records</h4>
+<p><code>Record<Locale, Record<Key, string>></code> — one Record per level. Both dimensions are typed. Common for i18n.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Record is the single most-used utility type in production code.</strong> Look at any codebase's config, i18n, role maps, or feature flags — they're all <code>Record<SomeUnion, SomeType></code>. The pattern is universal: define your keys as a union type, then build a Record from it. When you see <code>{ [key: string]: T }</code> in code, ask "could these keys be a union?" If yes, replace with Record — you gain compile-time key checking, autocomplete, and automatic exhaustiveness.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — <code>Record<string, V></code> vs index signatures</h2>
+<p class="section-sub">When keys are truly open-ended — and how it differs from an index signature.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Sometimes you don't know the keys — parsed JSON, dynamic feature flags, unvalidated API data. For those cases, you need an open-ended dictionary. <code>Record<string, V></code> and <code>{ [key: string]: V }</code> are functionally equivalent, but <code>Record</code> reads more clearly and composes better with other utility types.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">record-string.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── Record<string, V> vs index signature ────</span>
+<span class="com">// These two are equivalent:</span>
+<span class="kw">type</span> A = <span class="fn">Record</span><<span class="fn">string</span>, <span class="fn">number</span>>;
+<span class="kw">interface</span> B {
+[key: <span class="fn">string</span>]: <span class="fn">number</span>;
+}
+
+<span class="com">// Prefer Record — it reads as "a dictionary",
+// it composes with utility types, and it's the
+// modern idiom. Index signatures are legacy syntax.</span>
+
+<span class="com">// ─── When keys are truly open ────────────────</span>
+<span class="kw">function</span> <span class="fn">parseCounts</span>(json: <span class="fn">string</span>): <span class="fn">Record</span><<span class="fn">string</span>, <span class="fn">number</span>> {
+<span class="kw">const</span> raw: <span class="fn">unknown</span> = <span class="fn">JSON</span>.<span class="fn">parse</span>(json);
+
+<span class="com">// Validate before casting</span>
+<span class="kw">if</span> (<span class="kw">typeof</span> raw !== <span class="str">'object'</span> || raw === <span class="fn">null</span>) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Expected an object'</span>);
+}
+
+<span class="kw">const</span> result: <span class="fn">Record</span><<span class="fn">string</span>, <span class="fn">number</span>> = {};
+<span class="kw">for</span> (<span class="kw">const</span> [k, v] <span class="kw">of</span> <span class="fn">Object</span>.<span class="fn">entries</span>(raw)) {
+<span class="kw">if</span> (<span class="kw">typeof</span> v !== <span class="str">'number'</span>) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">Non-number value for ${k}`</span>);
+result[k] = v;
+}
+<span class="kw">return</span> result;
+}
+
+<span class="com">// ─── Record with any key type ────────────────</span>
+<span class="kw">type</span> NumberDict = <span class="fn">Record</span><<span class="fn">number</span>, <span class="fn">string</span>>;
+
+<span class="kw">const</span> scoreByName: NumberDict = {
+[<span class="num">1</span>]: <span class="str">'Alice'</span>,
+[<span class="num">2</span>]: <span class="str">'Bob'</span>
+};
+<span class="com">// Note: JS coerces number keys to strings at runtime.
+// For true numeric keys, use Map<number, string>.</span>
+
+<span class="com">// ─── Combining Record with Partial ───────────</span>
+<span class="com">// Allow some keys to be missing (partial dictionary):</span>
+<span class="kw">type</span> PartialConfig = <span class="fn">Partial</span><<span class="fn">Record</span><<span class="str">'host'</span> | <span class="str">'port'</span> | <span class="str">'debug'</span>, <span class="fn">string</span>>>;
+
+<span class="kw">const</span> cfg: PartialConfig = { host: <span class="str">'localhost'</span> }; <span class="com">// ✅ only host</span>
+<span class="com">// const bad: Record<'host'|'port', string> = { host: 'x' };
+// ❌ missing 'port' — Record is strict by default</span>
+
+<span class="com">// ─── Combining Record with Pick/Omit ─────────</span>
+<span class="kw">interface</span> Settings {
+theme: <span class="str">'light'</span> | <span class="str">'dark'</span>;
+fontSize: <span class="fn">number</span>;
+language: <span class="fn">string</span>;
+}
+
+<span class="com">// A Record of specific settings:</span>
+<span class="kw">type</span> ThemeSettings = <span class="fn">Pick</span><Settings, <span class="str">'theme'</span> | <span class="str">'fontSize'</span>>;
+
+<span class="com">// Or a Record of user IDs to their settings:</span>
+<span class="kw">type</span> UserSettings = <span class="fn">Record</span><<span class="fn">string</span>, Settings>;
+
+console.<span class="fn">log</span>(<span class="fn">parseCounts</span>(<span class="str">'{"a":1,"b":2}'</span>));
+console.<span class="fn">log</span>(scoreByName, cfg);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">parseCounts</span>(json) {
+<span class="kw">const</span> raw = <span class="fn">JSON</span>.<span class="fn">parse</span>(json);
+
+<span class="kw">if</span> (<span class="kw">typeof</span> raw !== <span class="str">'object'</span> || raw === <span class="fn">null</span>) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Expected an object'</span>);
+}
+
+<span class="kw">const</span> result = {};
+<span class="kw">for</span> (<span class="kw">const</span> [k, v] <span class="kw">of</span> <span class="fn">Object</span>.<span class="fn">entries</span>(raw)) {
+<span class="kw">if</span> (<span class="kw">typeof</span> v !== <span class="str">'number'</span>) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">Non-number value for${k}`</span>);
+result[k] = v;
+}
+<span class="kw">return</span> result;
+}
+
+<span class="kw">const</span> scoreByName = {
+[<span class="num">1</span>]: <span class="str">'Alice'</span>,
+[<span class="num">2</span>]: <span class="str">'Bob'</span>
+};
+
+<span class="kw">const</span> cfg = { host: <span class="str">'localhost'</span> };
+
+console.<span class="fn">log</span>(<span class="fn">parseCounts</span>(<span class="str">'{"a":1,"b":2}'</span>));
+console.<span class="fn">log</span>(scoreByName, cfg);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>Record<string, V></code> = open dict</h4>
+<p>Equivalent to <code>{ [key: string]: V }</code>. No key enumeration. Use for parsed JSON, dynamic keys, feature flags.</p>
+</div>
+<div class="concept-card">
+<h4>Prefer Record over index sig</h4>
+<p>Same semantics, cleaner syntax, composes with utility types. <code>Partial<Record<...>></code> works; <code>Partial<{[k:string]: V}></code> is awkward.</p>
+</div>
+<div class="concept-card">
+<h4>Number keys coerce</h4>
+<p><code>Record<number, V></code> — the keys become strings at runtime. For true numeric keys, use <code>Map<number, V></code>.</p>
+</div>
+<div class="concept-card">
+<h4>Combine with Partial</h4>
+<p><code>Partial<Record<'a'|'b', V>></code> — all keys optional. Useful for incremental config or form state.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Real-world patterns</h2>
+<p class="section-sub">The Record patterns you'll see (and write) every day.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">These patterns cover 90% of Record usage in production. Each one is a standard idiom — learn them once and you'll recognize them in every codebase you work on.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">real-world.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── Pattern 1: Index an array by ID ─────────</span>
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+
+<span class="kw">function</span> <span class="fn">indexById</span><T <span class="kw">extends</span> { id: <span class="fn">string</span> }>(items: T[]): <span class="fn">Record</span><<span class="fn">string</span>, T> {
+<span class="kw">return</span> <span class="fn">Object</span>.<span class="fn">fromEntries</span>(items.<span class="fn">map</span>(i => [i.id, i]));
+}
+
+<span class="kw">const</span> byId = <span class="fn">indexById</span>([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> }
+] as User[]);
+
+<span class="com">// ─── Pattern 2: Group by a key ───────────────</span>
+<span class="kw">function</span> <span class="fn">groupBy</span><T, K <span class="kw">extends</span> <span class="fn">string</span>>(items: T[], keyFn: (item: T) => K): <span class="fn">Record</span><K, T[]> {
+<span class="kw">const</span> out: <span class="fn">Record</span><K, T[]> = {} <span class="kw">as</span> <span class="fn">Record</span><K, T[]>;
+<span class="kw">for</span> (<span class="kw">const</span> item <span class="kw">of</span> items) {
+<span class="kw">const</span> k = <span class="fn">keyFn</span>(item);
+(out[k] ??= []).<span class="fn">push</span>(item);
+}
+<span class="kw">return</span> out;
+}
+
+<span class="kw">interface</span> Task { id: <span class="fn">string</span>; status: <span class="str">'todo'</span> | <span class="str">'done'</span> }
+
+<span class="kw">const</span> tasks: Task[] = [
+{ id: <span class="str">'1'</span>, status: <span class="str">'todo'</span> },
+{ id: <span class="str">'2'</span>, status: <span class="str">'done'</span> },
+{ id: <span class="str">'3'</span>, status: <span class="str">'todo'</span> }
+];
+
+<span class="kw">const</span> byStatus = <span class="fn">groupBy</span>(tasks, t => t.status);
+<span class="com">// { todo: Task[], done: Task[] }</span>
+
+<span class="com">// ─── Pattern 3: Config map ────────────────────</span>
+<span class="kw">type</span> Env = <span class="str">'development'</span> | <span class="str">'staging'</span> | <span class="str">'production'</span>;
+<span class="kw">type</span> EnvConfig = { apiUrl: <span class="fn">string</span>; debug: <span class="fn">boolean</span> };
+
+<span class="kw">const</span> config: <span class="fn">Record</span><Env, EnvConfig> = {
+development: { apiUrl: <span class="str">'http://localhost:3000'</span>, debug: <span class="kw">true</span> },
+staging: { apiUrl: <span class="str">'https://staging.api.com'</span>, debug: <span class="kw">true</span> },
+production: { apiUrl: <span class="str">'https://api.example.com'</span>, debug: <span class="kw">false</span> }
+};
+
+<span class="kw">function</span> <span class="fn">getConfig</span>(env: Env): EnvConfig {
+<span class="kw">return</span> config[env]; <span class="com">// typed by Env</span>
+}
+
+<span class="com">// ─── Pattern 4: Handler dispatch table ────────</span>
+<span class="kw">type</span> EventName = <span class="str">'click'</span> | <span class="str">'focus'</span> | <span class="str">'blur'</span>;
+<span class="kw">type</span> Handler = (e: <span class="fn">Event</span>) => <span class="fn">void</span>;
+
+<span class="kw">const</span> handlers: <span class="fn">Record</span><EventName, Handler> = {
+click: (e) => console.<span class="fn">log</span>(<span class="str">'click'</span>, e),
+focus: (e) => console.<span class="fn">log</span>(<span class="str">'focus'</span>, e),
+blur: (e) => console.<span class="fn">log</span>(<span class="str">'blur'</span>, e)
+};
+
+<span class="kw">function</span> <span class="fn">handle</span>(name: EventName, event: <span class="fn">Event</span>): <span class="fn">void</span> {
+handlersname; <span class="com">// dispatch — no lookup errors</span>
+}
+
+<span class="com">// ─── Pattern 5: Assertion maps ────────────────</span>
+<span class="kw">type</span> Format = <span class="str">'json'</span> | <span class="str">'xml'</span> | <span class="str">'csv'</span>;
+
+<span class="kw">const</span> contentTypes: <span class="fn">Record</span><Format, <span class="fn">string</span>> = {
+json: <span class="str">'application/json'</span>,
+xml: <span class="str">'application/xml'</span>,
+csv: <span class="str">'text/csv'</span>
+};
+
+<span class="com">// ─── Pattern 6: Exhaustiveness helper ────────</span>
+<span class="kw">function</span> <span class="fn">describe</span>(status: <span class="str">'idle'</span> | <span class="str">'loading'</span> | <span class="str">'done'</span>): <span class="fn">string</span> {
+<span class="kw">const</span> descriptions: <span class="fn">Record</span><<span class="kw">typeof</span> status, <span class="fn">string</span>> = {
+idle: <span class="str">'Ready'</span>,
+loading: <span class="str">'Loading…'</span>,
+done: <span class="str">'Complete'</span>
+};
+<span class="kw">return</span> descriptions[status];
+}
+
+console.<span class="fn">log</span>(byId, byStatus);
+console.<span class="fn">log</span>(<span class="fn">getConfig</span>(<span class="str">'production'</span>));
+console.<span class="fn">log</span>(contentTypes.json, <span class="fn">describe</span>(<span class="str">'done'</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">indexById</span>(items) {
+<span class="kw">return</span> <span class="fn">Object</span>.<span class="fn">fromEntries</span>(items.<span class="fn">map</span>(i => [i.id, i]));
+}
+
+<span class="kw">const</span> byId = <span class="fn">indexById</span>([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> }
+]);
+
+<span class="kw">function</span> <span class="fn">groupBy</span>(items, keyFn) {
+<span class="kw">const</span> out = {};
+<span class="kw">for</span> (<span class="kw">const</span> item <span class="kw">of</span> items) {
+<span class="kw">const</span> k = <span class="fn">keyFn</span>(item);
+(out[k] ??= []).<span class="fn">push</span>(item);
+}
+<span class="kw">return</span> out;
+}
+
+<span class="kw">const</span> tasks = [
+{ id: <span class="str">'1'</span>, status: <span class="str">'todo'</span> },
+{ id: <span class="str">'2'</span>, status: <span class="str">'done'</span> },
+{ id: <span class="str">'3'</span>, status: <span class="str">'todo'</span> }
+];
+
+<span class="kw">const</span> byStatus = <span class="fn">groupBy</span>(tasks, t => t.status);
+
+<span class="kw">const</span> config = {
+development: { apiUrl: <span class="str">'http://localhost:3000'</span>, debug: <span class="kw">true</span> },
+staging: { apiUrl: <span class="str">'https://staging.api.com'</span>, debug: <span class="kw">true</span> },
+production: { apiUrl: <span class="str">'https://api.example.com'</span>, debug: <span class="kw">false</span> }
+};
+
+<span class="kw">function</span> <span class="fn">getConfig</span>(env) {
+<span class="kw">return</span> config[env];
+}
+
+<span class="kw">const</span> handlers = {
+click: (e) => console.<span class="fn">log</span>(<span class="str">'click'</span>, e),
+focus: (e) => console.<span class="fn">log</span>(<span class="str">'focus'</span>, e),
+blur: (e) => console.<span class="fn">log</span>(<span class="str">'blur'</span>, e)
+};
+
+<span class="kw">function</span> <span class="fn">handle</span>(name, event) {
+handlersname;
+}
+
+<span class="kw">const</span> contentTypes = {
+json: <span class="str">'application/json'</span>,
+xml: <span class="str">'application/xml'</span>,
+csv: <span class="str">'text/csv'</span>
+};
+
+<span class="kw">function</span> <span class="fn">describe</span>(status) {
+<span class="kw">const</span> descriptions = {
+idle: <span class="str">'Ready'</span>,
+loading: <span class="str">'Loading…'</span>,
+done: <span class="str">'Complete'</span>
+};
+<span class="kw">return</span> descriptions[status];
+}
+
+console.<span class="fn">log</span>(byId, byStatus);
+console.<span class="fn">log</span>(<span class="fn">getConfig</span>(<span class="str">'production'</span>));
+console.<span class="fn">log</span>(contentTypes.json, <span class="fn">describe</span>(<span class="str">'done'</span>));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Index by ID</h4>
+<p><code>Record<string, T></code> from an array. O(1) lookup. <code>Object.fromEntries(items.map(...))</code> is the one-liner.</p>
+</div>
+<div class="concept-card">
+<h4>Group by key</h4>
+<p><code>Record<K, T[]></code> — bucket items by a property. The generic signature preserves the exact key type.</p>
+</div>
+<div class="concept-card">
+<h4>Config maps</h4>
+<p><code>Record<Env, EnvConfig></code> — one config per environment, all validated. No missing configs at runtime.</p>
+</div>
+<div class="concept-card">
+<h4>Dispatch tables</h4>
+<p><code>Record<EventName, Handler></code> — map events to handlers. No switch, no lookup errors. The pattern behind reducers and event buses.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The Record bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using Record<string, T> when keys are known</div>
+<p><code>Record<string, number></code> allows any string key. Fix: <code>Record<'a'|'b'|'c', number></code> — constrain the keys.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Forgetting Partial when keys are optional</div>
+<p><code>Record<'a'|'b', T></code> requires both keys. Fix: <code>Partial<Record<'a'|'b', T>></code> for a partial dictionary.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using Record<number, V> for true numeric keys</div>
+<p>JS coerces numeric keys to strings. <code>Record<number, V></code> works but behaves like <code>Record<string, V></code>. Fix: <code>Map<number, V></code> for real numeric keys.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Not using Record for config maps</div>
+<p>Writing <code>{ [env: string]: Config }</code> for a fixed Env union. Fix: <code>Record<Env, Config></code> — enforced exhaustiveness.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Casting partial object to Record</div>
+<p><code>{ a: 1 } as Record<'a'|'b', number></code> — hides missing <code>b</code>. Fix: use <code>Partial<Record<...>></code> if keys are optional.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Trying to iterate a Record with for...of</div>
+<p><code>for (const k of obj)</code> fails — objects aren't iterable. Fix: <code>Object.entries(obj)</code>, or use <code>Map</code> if iteration is central.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Assuming Record preserves insertion order</div>
+<p>Record is a type — the runtime object preserves key order per JS rules (numeric keys sorted, strings in insertion order). Fix: use <code>Map</code> for guaranteed iteration order.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using Record instead of Map for mutable collections</div>
+<p>Record is best for immutable config. For collections that grow, shrink, or need <code>.size</code>, <code>.get</code>, <code>.delete</code>, use <code>Map<K, V></code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the Record type in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Record<K, V> builds an object type where every key is of type K and every value is of type V. For example, Record<'admin' | 'user' | 'guest', boolean> produces { admin: boolean; user: boolean; guest: boolean }. It's the cleanest way to build typed dictionaries and lookup tables.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between Record and an index signature?</summary>
+<p class="mt-2 text-sm text-slate-300">Both describe dictionaries. The index signature { [key: string]: T } allows any string key — no autocomplete, no typo protection. Record<'a' | 'b', T> restricts keys to the exact union — autocomplete works, and using an unknown key is a compile error. Record also enforces that all keys in the union are present.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can Record keys be numbers or symbols?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. Record<number, string> allows any number key. Record<symbol, string> allows symbol keys. However, JavaScript object keys are always coerced to strings at runtime — Record<number, string> is really Record<'1' | '2' | '3', string> under the hood. For true numeric keys, use Map<number, string>.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is my Record missing properties?</summary>
+<p class="mt-2 text-sm text-slate-300">If K is a union of literals like 'a' | 'b' | 'c', Record enforces that ALL keys are present. A partial object fails. To allow missing keys, use Partial<Record<K, V>>. To allow extra keys, use Record<string, V>. Record is strict by design — that's what makes it safer than an index signature.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/utility-types.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 6: Utility types</div>
+<div class="text-xs text-slate-400 mt-1">Record, Partial, Pick, Omit</div>
+</a>
+<a href="/courses/typescript/problems/dynamic-keys.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to type dynamic keys</div>
+<div class="text-xs text-slate-400 mt-1">Record vs index sig vs Map</div>
+</a>
+<a href="/courses/typescript/problems/partial.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to make all properties optional</div>
+<div class="text-xs text-slate-400 mt-1">Partial + Record composition</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
