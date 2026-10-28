@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Type Guard for Array of Objects in TypeScript (2026)</title>
+<meta name="description" content="Build a type guard for an array of objects in TypeScript. Validate API responses safely with a generic isArrayOf helper. Working code with real-world patterns.">
+<meta name="keywords" content="typescript type guard array, typescript array of objects guard, typescript isArrayOf, validate array typescript, typescript api response validation">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Type Guard for Array of Objects in TypeScript">
+<meta property="og:description" content="Build a type guard for an array of objects. Validate API responses safely with a generic isArrayOf helper.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/type-guard-array.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Type Guard for Array of Objects in TypeScript">
+<meta name="twitter:description" content="Validate API responses safely with isArrayOf.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/type-guard-array.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Type Guard for Array of Objects in TypeScript",
+"description": "Build a type guard for an array of objects in TypeScript. Validate API responses safely with a generic isArrayOf helper.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I type guard an array of objects in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Use Array.isArray combined with an item-level type guard: function isUserArray(x: unknown): x is User[] { return Array.isArray(x) && x.every(isUser); }. The Array.isArray narrows x to any[], then every() applies isUser to each element. The return type x is User[] tells TypeScript the whole array is narrowed. This is the standard pattern for validating API responses at the boundary."}},
+{"@type":"Question","name":"What is a generic isArrayOf helper?","acceptedAnswer":{"@type":"Answer","text":"A reusable array guard that takes an item guard: function isArrayOf<T>(arr: unknown, guard: (item: unknown) => item is T): arr is T[] { return Array.isArray(arr) && arr.every(guard); }. Then isArrayOf(data, isUser) narrows to User[], isArrayOf(data, isPost) narrows to Post[]. One helper, any type. This is how typed validation libraries work internally."}},
+{"@type":"Question","name":"Why can't I just use as User[]?","acceptedAnswer":{"@type":"Answer","text":"as is a cast — it disables checking and tells TypeScript 'trust me.' It doesn't verify at runtime. If the API returns an array of objects missing the name field, as User[] compiles fine but crashes at runtime when you access .name. A type guard actually validates the shape at runtime, catching the bug before it becomes a crash. Use guards for external data; use casts only for values you constructed yourself."}},
+{"@type":"Question","name":"Should I use Zod or Valibot instead of manual type guards?","acceptedAnswer":{"@type":"Answer","text":"For simple shapes, manual guards are fine and have zero dependencies. For complex nested validation, error messages, and coercions, use Zod, Valibot, or ArkType — they generate the guard AND the type from one schema. Manual guards still matter for: library internals, minimal dependency projects, and cases where the runtime check is trivial. Both approaches compile to runtime checks; the schema libraries add better error reporting."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · array type guard</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Type guard array</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>Type guard for array of objects.<br><span class="py-accent">Validate API data, safely.</span></h1>
+<p class="lead">
+A fetch returns JSON. You assume it's <code>User[]</code>. It might not be — missing fields, wrong types, <code>null</code> instead of an array. The types say <code>User[]</code>; the runtime says otherwise. A type guard validates the actual shape at the boundary, so the rest of your code can trust its types. This is the pattern every production API layer uses.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Combine <code>Array.isArray</code> with an item guard: <code>function isUserArray(x: unknown): x is User[] { return Array.isArray(x) && x.every(isUser); }</code>. For reuse, build <code>isArrayOf<T>(arr, guard)</code> — one helper for any item type. Use this at every API boundary. Never <code>as User[]</code> — a cast is a lie that compiles but crashes at runtime.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — The array type guard</h2>
+<p class="section-sub">One guard for one type. The fundamental pattern.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The pattern: define a guard for the item type, then a guard for the array that combines <code>Array.isArray</code> with <code>.every</code>. The array guard's return type <code>x is User[]</code> tells TypeScript that if the function returns true, <code>x</code> is a <code>User[]</code> — safe to use everywhere inside the block.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">array-guard.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── Item type ───────────────────────────────</span>
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── Step 1: guard for the item ──────────────</span>
+<span class="kw">function</span> <span class="fn">isUser</span>(x: <span class="fn">unknown</span>): x <span class="kw">is</span> User {
+<span class="kw">return</span> (
+<span class="kw">typeof</span> x === <span class="str">'object'</span> &&
+x !== <span class="fn">null</span> &&
+<span class="str">'id'</span> <span class="kw">in</span> x &&
+<span class="str">'name'</span> <span class="kw">in</span> x &&
+<span class="str">'email'</span> <span class="kw">in</span> x &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).id === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).name === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).email === <span class="str">'string'</span>
+);
+}
+
+<span class="com">// ─── Step 2: guard for the array ────────────</span>
+<span class="kw">function</span> <span class="fn">isUserArray</span>(x: <span class="fn">unknown</span>): x <span class="kw">is</span> User[] {
+<span class="kw">return</span> <span class="fn">Array</span>.<span class="fn">isArray</span>(x) && x.<span class="fn">every</span>(isUser);
+}
+
+<span class="com">// ─── Usage ───────────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">processData</span>(data: <span class="fn">unknown</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (!<span class="fn">isUserArray</span>(data)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid data: expected User[]'</span>);
+}
+<span class="com">// data is User[] from here on</span>
+<span class="kw">return</span> data.<span class="fn">map</span>(u => u.name).<span class="fn">join</span>(<span class="str">', '</span>);
+}
+
+<span class="com">// ─── Real API integration ────────────────────</span>
+<span class="kw">async function</span> <span class="fn">fetchUsers</span>(): <span class="fn">Promise</span><User[]> {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/users'</span>);
+<span class="kw">const</span> data: <span class="fn">unknown</span> = <span class="kw">await</span> res.<span class="fn">json</span>(); <span class="com">// unknown, not any</span>
+<span class="kw">if</span> (!<span class="fn">isUserArray</span>(data)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'API returned unexpected shape'</span>);
+}
+<span class="kw">return</span> data;
+}
+
+<span class="com">// ─── What happens with bad data ──────────────</span>
+<span class="kw">const</span> tests: <span class="fn">unknown</span>[] = [
+[{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> }], <span class="com">// ✅</span>
+[{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }], <span class="com">// ❌ missing email</span>
+[{ id: <span class="num">1</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> }], <span class="com">// ❌ id is number</span>
+<span class="str">'not an array'</span>, <span class="com">// ❌ not array</span>
+<span class="fn">null</span>, <span class="com">// ❌ null</span>
+[], <span class="com">// ✅ empty array is valid</span>
+];
+
+<span class="kw">for</span> (<span class="kw">const</span> t <span class="kw">of</span> tests) {
+console.<span class="fn">log</span>(<span class="fn">isUserArray</span>(t) ? <span class="str">'valid'</span> : <span class="str">'invalid'</span>);
+}
+
+console.<span class="fn">log</span>(<span class="fn">processData</span>(tests[<span class="num">0</span>]));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">isUser</span>(x) {
+<span class="kw">return</span> (
+<span class="kw">typeof</span> x === <span class="str">'object'</span> &&
+x !== <span class="fn">null</span> &&
+<span class="str">'id'</span> <span class="kw">in</span> x &&
+<span class="str">'name'</span> <span class="kw">in</span> x &&
+<span class="str">'email'</span> <span class="kw">in</span> x &&
+<span class="kw">typeof</span> x.id === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> x.name === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> x.email === <span class="str">'string'</span>
+);
+}
+
+<span class="kw">function</span> <span class="fn">isUserArray</span>(x) {
+<span class="kw">return</span> <span class="fn">Array</span>.<span class="fn">isArray</span>(x) && x.<span class="fn">every</span>(isUser);
+}
+
+<span class="kw">function</span> <span class="fn">processData</span>(data) {
+<span class="kw">if</span> (!<span class="fn">isUserArray</span>(data)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid data: expected User[]'</span>);
+}
+<span class="kw">return</span> data.<span class="fn">map</span>(u => u.name).<span class="fn">join</span>(<span class="str">', '</span>);
+}
+
+<span class="kw">async function</span> <span class="fn">fetchUsers</span>() {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/users'</span>);
+<span class="kw">const</span> data = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="kw">if</span> (!<span class="fn">isUserArray</span>(data)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'API returned unexpected shape'</span>);
+}
+<span class="kw">return</span> data;
+}
+
+<span class="kw">const</span> tests = [
+[{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> }],
+[{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }],
+[{ id: <span class="num">1</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> }],
+<span class="str">'not an array'</span>,
+<span class="fn">null</span>,
+[],
+];
+
+<span class="kw">for</span> (<span class="kw">const</span> t <span class="kw">of</span> tests) {
+console.<span class="fn">log</span>(<span class="fn">isUserArray</span>(t) ? <span class="str">'valid'</span> : <span class="str">'invalid'</span>);
+}
+
+console.<span class="fn">log</span>(<span class="fn">processData</span>(tests[<span class="num">0</span>]));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Two-level guard</h4>
+<p><code>isUser</code> validates one item. <code>isUserArray</code> combines <code>Array.isArray</code> + <code>.every(isUser)</code>. Each concern in its own function.</p>
+</div>
+<div class="concept-card">
+<h4><code>x is User[]</code> narrows</h4>
+<p>The return type is the whole point. Inside the <code>if</code>, <code>data</code> becomes <code>User[]</code> — full autocomplete, full safety.</p>
+</div>
+<div class="concept-card">
+<h4>Empty arrays pass</h4>
+<p><code>[].every(fn) === true</code> — an empty array is a valid <code>User[]</code>. Usually what you want. If you need non-empty, add <code>x.length > 0</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Validate at the boundary</h4>
+<p>API responses are <code>unknown</code>. The guard converts <code>unknown</code> → <code>User[]</code> at one place. Everything downstream is typed and safe.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Every API fetch needs a type guard — this is not optional in production.</strong> Types describe what you expect; a type guard verifies what you got. Without one, your app trusts the server's response shape. That works until the server changes a field name, or returns an error object instead of an array, or sends <code>null</code> where you expected data — and then your app crashes in production on a Friday. The guard is 5 lines. The bugs it prevents cost hours. If you take one pattern from this problem-solvers hub and apply it everywhere, make it this one.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — The generic <code>isArrayOf</code> helper</h2>
+<p class="section-sub">One helper, any item type. Write it once, use it forever.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The single-type guard is fine for one type. But if you have <code>User[]</code>, <code>Post[]</code>, <code>Product[]</code>, <code>Comment[]</code> — you don't want to write <code>isUserArray</code>, <code>isPostArray</code>, <code>isProductArray</code>, <code>isCommentArray</code>. Write a generic helper once: <code>isArrayOf(data, itemGuard)</code> narrows to the correct array type for any item guard.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">is-array-of.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── The generic array guard ─────────────────</span>
+<span class="kw">function</span> <span class="fn">isArrayOf</span><T>(
+arr: <span class="fn">unknown</span>,
+itemGuard: (item: <span class="fn">unknown</span>) => item <span class="kw">is</span> T
+): arr <span class="kw">is</span> T[] {
+<span class="kw">return</span> <span class="fn">Array</span>.<span class="fn">isArray</span>(arr) && arr.<span class="fn">every</span>(itemGuard);
+}
+
+<span class="com">// ─── Item guards ─────────────────────────────</span>
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+<span class="kw">interface</span> Post { id: <span class="fn">string</span>; title: <span class="fn">string</span> }
+<span class="kw">interface</span> Product { sku: <span class="fn">string</span>; price: <span class="fn">number</span> }
+
+<span class="kw">function</span> <span class="fn">isUser</span>(x: <span class="fn">unknown</span>): x <span class="kw">is</span> User {
+<span class="kw">return</span> <span class="kw">typeof</span> x === <span class="str">'object'</span> && x !== <span class="fn">null</span>
+&& <span class="str">'id'</span> <span class="kw">in</span> x && <span class="str">'name'</span> <span class="kw">in</span> x
+&& <span class="kw">typeof</span> (x <span class="kw">as</span> User).id === <span class="str">'string'</span>
+&& <span class="kw">typeof</span> (x <span class="kw">as</span> User).name === <span class="str">'string'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">isPost</span>(x: <span class="fn">unknown</span>): x <span class="kw">is</span> Post {
+<span class="kw">return</span> <span class="kw">typeof</span> x === <span class="str">'object'</span> && x !== <span class="fn">null</span>
+&& <span class="str">'id'</span> <span class="kw">in</span> x && <span class="str">'title'</span> <span class="kw">in</span> x
+&& <span class="kw">typeof</span> (x <span class="kw">as</span> Post).id === <span class="str">'string'</span>
+&& <span class="kw">typeof</span> (x <span class="kw">as</span> Post).title === <span class="str">'string'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">isProduct</span>(x: <span class="fn">unknown</span>): x <span class="kw">is</span> Product {
+<span class="kw">return</span> <span class="kw">typeof</span> x === <span class="str">'object'</span> && x !== <span class="fn">null</span>
+&& <span class="str">'sku'</span> <span class="kw">in</span> x && <span class="str">'price'</span> <span class="kw">in</span> x
+&& <span class="kw">typeof</span> (x <span class="kw">as</span> Product).sku === <span class="str">'string'</span>
+&& <span class="kw">typeof</span> (x <span class="kw">as</span> Product).price === <span class="str">'number'</span>;
+}
+
+<span class="com">// ─── One helper, any type ────────────────────</span>
+<span class="kw">function</span> <span class="fn">processData</span>(data: <span class="fn">unknown</span>) {
+<span class="kw">if</span> (<span class="fn">isArrayOf</span>(data, isUser)) {
+<span class="com">// data is User[]</span>
+<span class="kw">return</span> data.<span class="fn">map</span>(u => u.name);
+}
+<span class="kw">if</span> (<span class="fn">isArrayOf</span>(data, isPost)) {
+<span class="com">// data is Post[]</span>
+<span class="kw">return</span> data.<span class="fn">map</span>(p => p.title);
+}
+<span class="kw">if</span> (<span class="fn">isArrayOf</span>(data, isProduct)) {
+<span class="com">// data is Product[]</span>
+<span class="kw">return</span> data.<span class="fn">map</span>(p => p.sku);
+}
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Unknown data shape'</span>);
+}
+
+<span class="com">// ─── In API layer ────────────────────────────</span>
+<span class="kw">async function</span> <span class="fn">fetchUsers</span>(): <span class="fn">Promise</span><User[]> {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/users'</span>);
+<span class="kw">const</span> data: <span class="fn">unknown</span> = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="kw">if</span> (!<span class="fn">isArrayOf</span>(data, isUser)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid users response'</span>);
+}
+<span class="kw">return</span> data; <span class="com">// User[] — full safety from here</span>
+}
+
+<span class="com">// ─── Compatible with primitive item guards ───</span>
+<span class="kw">const</span> isString = (x: <span class="fn">unknown</span>): x <span class="kw">is</span> <span class="fn">string</span> => <span class="kw">typeof</span> x === <span class="str">'string'</span>;
+<span class="kw">const</span> isNumber = (x: <span class="fn">unknown</span>): x <span class="kw">is</span> <span class="fn">number</span> => <span class="kw">typeof</span> x === <span class="str">'number'</span>;
+
+<span class="kw">const</span> maybeStrings: <span class="fn">unknown</span> = [<span class="str">'a'</span>, <span class="str">'b'</span>];
+<span class="kw">if</span> (<span class="fn">isArrayOf</span>(maybeStrings, isString)) {
+console.<span class="fn">log</span>(maybeStrings.<span class="fn">map</span>(s => s.<span class="fn">toUpperCase</span>()));
+}
+
+console.<span class="fn">log</span>(<span class="fn">processData</span>([{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }]));
+console.<span class="fn">log</span>(<span class="fn">processData</span>([{ id: <span class="str">'1'</span>, title: <span class="str">'Hello'</span> }]));
+console.<span class="fn">log</span>(<span class="fn">processData</span>([{ sku: <span class="str">'X'</span>, price: <span class="num">10</span> }]));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">isArrayOf</span>(arr, itemGuard) {
+<span class="kw">return</span> <span class="fn">Array</span>.<span class="fn">isArray</span>(arr) && arr.<span class="fn">every</span>(itemGuard);
+}
+
+<span class="kw">function</span> <span class="fn">isUser</span>(x) {
+<span class="kw">return</span> <span class="kw">typeof</span> x === <span class="str">'object'</span> && x !== <span class="fn">null</span>
+&& <span class="str">'id'</span> <span class="kw">in</span> x && <span class="str">'name'</span> <span class="kw">in</span> x
+&& <span class="kw">typeof</span> x.id === <span class="str">'string'</span>
+&& <span class="kw">typeof</span> x.name === <span class="str">'string'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">isPost</span>(x) {
+<span class="kw">return</span> <span class="kw">typeof</span> x === <span class="str">'object'</span> && x !== <span class="fn">null</span>
+&& <span class="str">'id'</span> <span class="kw">in</span> x && <span class="str">'title'</span> <span class="kw">in</span> x
+&& <span class="kw">typeof</span> x.id === <span class="str">'string'</span>
+&& <span class="kw">typeof</span> x.title === <span class="str">'string'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">isProduct</span>(x) {
+<span class="kw">return</span> <span class="kw">typeof</span> x === <span class="str">'object'</span> && x !== <span class="fn">null</span>
+&& <span class="str">'sku'</span> <span class="kw">in</span> x && <span class="str">'price'</span> <span class="kw">in</span> x
+&& <span class="kw">typeof</span> x.sku === <span class="str">'string'</span>
+&& <span class="kw">typeof</span> x.price === <span class="str">'number'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">processData</span>(data) {
+<span class="kw">if</span> (<span class="fn">isArrayOf</span>(data, isUser)) {
+<span class="kw">return</span> data.<span class="fn">map</span>(u => u.name);
+}
+<span class="kw">if</span> (<span class="fn">isArrayOf</span>(data, isPost)) {
+<span class="kw">return</span> data.<span class="fn">map</span>(p => p.title);
+}
+<span class="kw">if</span> (<span class="fn">isArrayOf</span>(data, isProduct)) {
+<span class="kw">return</span> data.<span class="fn">map</span>(p => p.sku);
+}
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Unknown data shape'</span>);
+}
+
+<span class="kw">async function</span> <span class="fn">fetchUsers</span>() {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/users'</span>);
+<span class="kw">const</span> data = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="kw">if</span> (!<span class="fn">isArrayOf</span>(data, isUser)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid users response'</span>);
+}
+<span class="kw">return</span> data;
+}
+
+<span class="kw">const</span> isString = (x) => <span class="kw">typeof</span> x === <span class="str">'string'</span>;
+<span class="kw">const</span> isNumber = (x) => <span class="kw">typeof</span> x === <span class="str">'number'</span>;
+
+<span class="kw">const</span> maybeStrings = [<span class="str">'a'</span>, <span class="str">'b'</span>];
+<span class="kw">if</span> (<span class="fn">isArrayOf</span>(maybeStrings, isString)) {
+console.<span class="fn">log</span>(maybeStrings.<span class="fn">map</span>(s => s.<span class="fn">toUpperCase</span>()));
+}
+
+console.<span class="fn">log</span>(<span class="fn">processData</span>([{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }]));
+console.<span class="fn">log</span>(<span class="fn">processData</span>([{ id: <span class="str">'1'</span>, title: <span class="str">'Hello'</span> }]));
+console.<span class="fn">log</span>(<span class="fn">processData</span>([{ sku: <span class="str">'X'</span>, price: <span class="num">10</span> }]));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Generic + predicate</h4>
+<p><code>itemGuard: (item: unknown) => item is T</code> — the parameter type is a guard for T. The return type <code>arr is T[]</code> narrows the whole array.</p>
+</div>
+<div class="concept-card">
+<h4>One helper, many types</h4>
+<p><code>isArrayOf(data, isUser)</code> → <code>User[]</code>. <code>isArrayOf(data, isPost)</code> → <code>Post[]</code>. No duplication per type.</p>
+</div>
+<div class="concept-card">
+<h4>Primitives work too</h4>
+<p><code>isArrayOf(data, isString)</code> → <code>string[]</code>. The generic doesn't care whether T is an object or primitive.</p>
+</div>
+<div class="concept-card">
+<h4>Same pattern, more reuse</h4>
+<p>The typed guard library (Zod, Valibot) does exactly this under the hood. Once you have <code>isArrayOf</code>, most API validation is a two-line guard.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Where to place guards in a real app</h2>
+<p class="section-sub">The API layer pattern — one guard, everywhere is safe.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The right place for the guard is at the API boundary — where data enters your app. Not in every component. Not in every reducer. One place: the fetch wrapper. After that, everything downstream is typed and validated. This is the pattern every production codebase uses.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">api-layer.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── The core helpers ────────────────────────</span>
+<span class="kw">function</span> <span class="fn">isArrayOf</span><T>(
+arr: <span class="fn">unknown</span>,
+itemGuard: (item: <span class="fn">unknown</span>) => item <span class="kw">is</span> T
+): arr <span class="kw">is</span> T[] {
+<span class="kw">return</span> <span class="fn">Array</span>.<span class="fn">isArray</span>(arr) && arr.<span class="fn">every</span>(itemGuard);
+}
+
+<span class="kw">function</span> <span class="fn">isObjectWith</span><T <span class="kw">extends</span> <span class="fn">Record</span><<span class="fn">string</span>, <span class="fn">unknown</span>>>(
+x: <span class="fn">unknown</span>,
+shape: { [K <span class="kw">in</span> <span class="kw">keyof</span> T]: (v: <span class="fn">unknown</span>) => v <span class="kw">is</span> T[K] }
+): x <span class="kw">is</span> T {
+<span class="kw">if</span> (<span class="kw">typeof</span> x !== <span class="str">'object'</span> || x === <span class="fn">null</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="kw">for</span> (<span class="kw">const</span> k <span class="kw">of</span> <span class="fn">Object</span>.<span class="fn">keys</span>(shape) <span class="kw">as</span> (<span class="kw">keyof</span> T)[]) {
+<span class="kw">if</span> (!<span class="fn">shape</span>[k]((x <span class="kw">as</span> <span class="fn">Record</span><<span class="fn">string</span>, <span class="fn">unknown</span>>)[k <span class="kw">as</span> <span class="fn">string</span>])) <span class="kw">return</span> <span class="kw">false</span>;
+}
+<span class="kw">return</span> <span class="kw">true</span>;
+}
+
+<span class="com">// ─── Type definitions ────────────────────────</span>
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── Guards built from the helpers ───────────</span>
+<span class="kw">const</span> isString = (x: <span class="fn">unknown</span>): x <span class="kw">is</span> <span class="fn">string</span> => <span class="kw">typeof</span> x === <span class="str">'string'</span>;
+
+<span class="kw">const</span> isUser = (x: <span class="fn">unknown</span>): x <span class="kw">is</span> User =>
+<span class="fn">isObjectWith</span>(x, {
+id: isString,
+name: isString,
+email: isString
+});
+
+<span class="com">// ─── The API client ──────────────────────────</span>
+<span class="kw">class</span> <span class="fn">ApiClient</span> {
+<span class="kw">async</span> <span class="fn">fetchUsers</span>(): <span class="fn">Promise</span><User[]> {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/users'</span>);
+<span class="kw">if</span> (!res.ok) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">HTTP ${res.status}`</span>);
+
+<span class="kw">const</span> data: <span class="fn">unknown</span> = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="kw">if</span> (!<span class="fn">isArrayOf</span>(data, isUser)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid /api/users response'</span>);
+}
+<span class="kw">return</span> data;
+}
+
+<span class="kw">async</span> <span class="fn">fetchUser</span>(id: <span class="fn">string</span>): <span class="fn">Promise</span><User> {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">/api/users/${id}</span&gt;); &lt;span class="kw"&gt;if&lt;/span&gt; (!res.ok) &lt;span class="kw"&gt;throw new&lt;/span&gt; &lt;span class="fn"&gt;Error&lt;/span&gt;(&lt;span class="str">HTTP ${res.status}</span>);
+
+<span class="kw">const</span> data: <span class="fn">unknown</span> = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="kw">if</span> (!<span class="fn">isUser</span>(data)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">Invalid /api/users/${id} response`</span>);
+}
+<span class="kw">return</span> data;
+}
+}
+
+<span class="com">// ─── Everywhere else is typed and safe ───────
+//
+// function UserList() {
+// const [users, setUsers] = useState<User[]>([]);
+// useEffect(() => {
+// api.fetchUsers().then(setUsers); // User[] guaranteed
+// }, []);
+// return <ul>{users.map(u => <li key={u.id}>{u.name}</li>)}</ul>;
+// }
+//
+// No guards here. No casts. Just typed data.
+// The validation happened at the boundary.</span>
+
+<span class="kw">const</span> api = <span class="kw">new</span> <span class="fn">ApiClient</span>();
+
+<span class="com">// ─── The rules ───────────────────────────────
+//
+// 1. API responses are unknown, not any.
+// 2. Guard at the fetch wrapper, not in components.
+// 3. Validate both single objects and arrays.
+// 4. Throw on invalid — don't silently return [].
+// 5. Inside the app, trust the types — that's
+// what the guard at the boundary is for.</span>
+
+console.<span class="fn">log</span>(<span class="fn">isArrayOf</span>([{ id: <span class="str">'1'</span>, name: <span class="str">'A'</span>, email: <span class="str">'a@x.com'</span> }], isUser));
+console.<span class="fn">log</span>(<span class="fn">isUser</span>({ id: <span class="str">'1'</span>, name: <span class="str">'A'</span>, email: <span class="str">'a@x.com'</span> }));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">isArrayOf</span>(arr, itemGuard) {
+<span class="kw">return</span> <span class="fn">Array</span>.<span class="fn">isArray</span>(arr) && arr.<span class="fn">every</span>(itemGuard);
+}
+
+<span class="kw">function</span> <span class="fn">isObjectWith</span>(x, shape) {
+<span class="kw">if</span> (<span class="kw">typeof</span> x !== <span class="str">'object'</span> || x === <span class="fn">null</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="kw">for</span> (<span class="kw">const</span> k <span class="kw">of</span> <span class="fn">Object</span>.<span class="fn">keys</span>(shape)) {
+<span class="kw">if</span> (!<span class="fn">shape</span>k) <span class="kw">return</span> <span class="kw">false</span>;
+}
+<span class="kw">return</span> <span class="kw">true</span>;
+}
+
+<span class="kw">const</span> isString = (x) => <span class="kw">typeof</span> x === <span class="str">'string'</span>;
+
+<span class="kw">const</span> isUser = (x) =>
+<span class="fn">isObjectWith</span>(x, {
+id: isString,
+name: isString,
+email: isString
+});
+
+<span class="kw">class</span> <span class="fn">ApiClient</span> {
+<span class="kw">async</span> <span class="fn">fetchUsers</span>() {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/users'</span>);
+<span class="kw">if</span> (!res.ok) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">HTTP ${res.status}</span&gt;); &lt;span class="kw"&gt;const&lt;/span&gt; data = &lt;span class="kw"&gt;await&lt;/span&gt; res.&lt;span class="fn"&gt;json&lt;/span&gt;(); &lt;span class="kw"&gt;if&lt;/span&gt; (!&lt;span class="fn"&gt;isArrayOf&lt;/span&gt;(data, isUser)) { &lt;span class="kw"&gt;throw new&lt;/span&gt; &lt;span class="fn"&gt;Error&lt;/span&gt;(&lt;span class="str"&gt;'Invalid /api/users response'&lt;/span&gt;); } &lt;span class="kw"&gt;return&lt;/span&gt; data; } &lt;span class="kw"&gt;async&lt;/span&gt; &lt;span class="fn"&gt;fetchUser&lt;/span&gt;(id) { &lt;span class="kw"&gt;const&lt;/span&gt; res = &lt;span class="kw"&gt;await&lt;/span&gt; &lt;span class="fn"&gt;fetch&lt;/span&gt;(&lt;span class="str">/api/users/${id}</span>);
+<span class="kw">if</span> (!res.ok) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">HTTP ${res.status}</span&gt;); &lt;span class="kw"&gt;const&lt;/span&gt; data = &lt;span class="kw"&gt;await&lt;/span&gt; res.&lt;span class="fn"&gt;json&lt;/span&gt;(); &lt;span class="kw"&gt;if&lt;/span&gt; (!&lt;span class="fn"&gt;isUser&lt;/span&gt;(data)) { &lt;span class="kw"&gt;throw new&lt;/span&gt; &lt;span class="fn"&gt;Error&lt;/span&gt;(&lt;span class="str">Invalid /api/users/${id} response</span>);
+}
+<span class="kw">return</span> data;
+}
+}
+
+<span class="kw">const</span> api = <span class="kw">new</span> <span class="fn">ApiClient</span>();
+
+console.<span class="fn">log</span>(<span class="fn">isArrayOf</span>([{ id: <span class="str">'1'</span>, name: <span class="str">'A'</span>, email: <span class="str">'a@x.com'</span> }], isUser));
+console.<span class="fn">log</span>(<span class="fn">isUser</span>({ id: <span class="str">'1'</span>, name: <span class="str">'A'</span>, email: <span class="str">'a@x.com'</span> }));</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Guard at the boundary</h4>
+<p>Validate at the fetch wrapper. Everything downstream trusts the type. One guard, not one per component.</p>
+</div>
+<div class="concept-card">
+<h4>Throw, don't default</h4>
+<p>Invalid data should throw. Returning <code>[]</code> hides the bug. Fix the backend or fix the guard — don't paper over it.</p>
+</div>
+<div class="concept-card">
+<h4><code>isObjectWith</code> helper</h4>
+<p>A shape-based guard: pass property guards, get an object guard. Composition without a library. <code>{ id: isString, name: isString }</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Layered safety</h4>
+<p>HTTP status → guard → typed return. Each layer catches a different class of error. Together, the app trusts its types.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't guard inside every component.</strong> Guarding <code>User[]</code> in 15 different components is repetition, slow, and drifts. Guard once at the boundary — the fetch wrapper — and trust the type everywhere else. If the shape is wrong, the app fails fast, at one place, with a clear error. If the shape is right, every component gets a well-typed <code>User[]</code> and never needs to check again. This is the single most important architectural decision for a typed app.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The array guard bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using <code>as User[]</code> instead of a guard</div>
+<p>A cast compiles but doesn't check at runtime. If the API shape is wrong, the app crashes. Fix: use a type guard, or use <code>as unknown</code> + guard.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Guarding the wrong level</div>
+<p><code>isArrayOf(data, isUser)</code> — good. <code>data.every(isUser)</code> alone — crashes if <code>data</code> isn't an array. Fix: include <code>Array.isArray</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Forgetting <code>null</code> check on objects</div>
+<p><code>typeof null === 'object'</code> — <code>isUser(null)</code> might pass without <code>x !== null</code>. Fix: always check <code>x !== null</code> first.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Guarding in every component</div>
+<p>Repetition, drift, and confusing error handling. Fix: guard at the API layer only. Downstream is typed.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using <code>every()</code> on an empty array</div>
+<p><code>[].every(fn) === true</code> — sometimes not what you want. Fix: add <code>x.length > 0</code> if you need non-empty.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Guessing the shape with <code>in</code> alone</div>
+<p><code>'name' in x</code> doesn't check the type. Fix: also check <code>typeof x.name === 'string'</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Writing guards per type instead of generic</div>
+<p><code>isUserArray</code>, <code>isPostArray</code>, <code>isProductArray</code> — repetition. Fix: one <code>isArrayOf(item, guard)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not throwing on invalid data</div>
+<p>Returning <code>[]</code> or <code>undefined</code> hides the bug. Fix: throw. If the shape is wrong, the caller needs to know.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I type guard an array of objects in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Use Array.isArray combined with an item-level type guard: function isUserArray(x: unknown): x is User[] { return Array.isArray(x) && x.every(isUser); }. The Array.isArray narrows x to any[], then every() applies isUser to each element.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a generic isArrayOf helper?</summary>
+<p class="mt-2 text-sm text-slate-300">A reusable array guard that takes an item guard: function isArrayOf<T>(arr: unknown, guard: (item: unknown) => item is T): arr is T[] { return Array.isArray(arr) && arr.every(guard); }. Then isArrayOf(data, isUser) narrows to User[], isArrayOf(data, isPost) narrows to Post[].</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why can't I just use as User[]?</summary>
+<p class="mt-2 text-sm text-slate-300">as is a cast — it disables checking and tells TypeScript 'trust me.' It doesn't verify at runtime. If the API returns an array of objects missing the name field, as User[] compiles fine but crashes at runtime when you access .name. A type guard actually validates the shape at runtime.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use Zod or Valibot instead of manual type guards?</summary>
+<p class="mt-2 text-sm text-slate-300">For simple shapes, manual guards are fine and have zero dependencies. For complex nested validation, error messages, and coercions, use Zod, Valibot, or ArkType — they generate the guard AND the type from one schema. Manual guards still matter for: library internals, minimal dependency projects, and cases where the runtime check is trivial.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/narrowing.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 4: Unions & narrowing</div>
+<div class="text-xs text-slate-400 mt-1">Custom guards explained from scratch</div>
+</a>
+<a href="/courses/typescript/problems/narrow-union.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to narrow a union type</div>
+<div class="text-xs text-slate-400 mt-1">Every narrowing technique</div>
+</a>
+<a href="/courses/typescript/problems/unknown-vs-any.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 unknown vs any</div>
+<div class="text-xs text-slate-400 mt-1">Why API responses should be unknown</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
