@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TypeScript Unions & Narrowing — typeof, in, Discriminated (2026)</title>
+<meta name="description" content="Learn TypeScript unions and narrowing. Model 'one of these' with union types, then refine them with typeof, instanceof, in, and discriminated unions. Every example compiled side-by-side.">
+<meta name="keywords" content="typescript unions, typescript narrowing, type guards, discriminated unions, typeof narrowing, custom type guard">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="TypeScript Unions & Narrowing — typeof, in, Discriminated">
+<meta property="og:description" content="Learn TypeScript unions and narrowing. Model 'one of these' with union types, then refine them with typeof, instanceof, in, and discriminated unions.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/lessons/narrowing.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TypeScript Unions & Narrowing — typeof, in, Discriminated">
+<meta name="twitter:description" content="Learn TypeScript unions and narrowing. Model 'one of these' with union types, then refine them with typeof, instanceof, in, and discriminated unions.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/lessons/narrowing.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "TypeScript Unions & Narrowing — typeof, in, Discriminated",
+"description": "Learn TypeScript unions and narrowing. Model 'one of these' with union types, then refine them with typeof, instanceof, in, and discriminated unions.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is a union type in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"A union type says a value can be one of several types. type ID = string | number means ID is either a string or a number. The pipe | is the union operator. Unions are how TypeScript models 'this OR that' — API responses that can succeed or fail, values that can be present or null, states that can be one of a fixed set. Use a union whenever a value could legitimately take more than one form."}},
+{"@type":"Question","name":"What is type narrowing?","acceptedAnswer":{"@type":"Answer","text":"Narrowing is how TypeScript refines a broad union type into a specific one based on runtime checks. If a value is string | number, checking typeof value === 'string' inside an if narrows it to string inside the block. TypeScript understands typeof, instanceof, in, Array.isArray, truthiness, equality with literals, discriminated unions, and custom type guards. Narrowing is what makes unions actually usable."}},
+{"@type":"Question","name":"What is typeof narrowing?","acceptedAnswer":{"@type":"Answer","text":"The typeof operator returns a string ('string', 'number', 'boolean', 'object', 'function', 'undefined', 'symbol', 'bigint'). TypeScript uses this at compile time to narrow unions. if (typeof value === 'string') narrows value to string inside the block. It's the most common narrowing technique for primitive unions."}},
+{"@type":"Question","name":"What is a discriminated union?","acceptedAnswer":{"@type":"Answer","text":"A discriminated union is a union where each member has a shared literal property (the discriminant) that uniquely identifies it. type Result = { status: 'ok'; data: User } | { status: 'error'; message: string }. The 'status' field is the discriminant — checking result.status === 'ok' narrows the type to the ok member, giving access to result.data. This is the pattern that models state machines, API responses, and Redux actions cleanly."}},
+{"@type":"Question","name":"What is a custom type guard?","acceptedAnswer":{"@type":"Answer","text":"A type guard is a function that returns a type predicate — value is SomeType. function isUser(x: unknown): x is User { return typeof x === 'object' && x !== null && 'name' in x; }. When you call isUser(value) in an if, TypeScript narrows value to User inside the block. Custom guards are how you narrow types that typeof and instanceof can't — like validating API responses at runtime."}},
+{"@type":"Question","name":"What does the in operator narrow?","acceptedAnswer":{"@type":"Answer","text":"The in operator checks if a property exists on an object. TypeScript uses it to discriminate between union members that have different property sets. if ('name' in value) narrows value to whichever union members have a 'name' property. This is useful when the union members are distinguished by a property's presence rather than a literal value."}},
+{"@type":"Question","name":"What is exhaustive checking?","acceptedAnswer":{"@type":"Answer","text":"Exhaustive checking ensures every member of a union is handled. Inside a switch or if-else chain that covers all cases, the default branch gets the never type — and you can assign value to never to prove it's unreachable. If you add a new union member later, the compiler catches the missing case. The pattern: default: const _exhaustive: never = value; return _exhaustive;. This prevents bugs where new states are silently ignored."}},
+{"@type":"Question","name":"What is the difference between a union and an intersection?","acceptedAnswer":{"@type":"Answer","text":"A union (A | B) means 'A or B' — a value satisfies the type if it's either. An intersection (A & B) means 'A and B' — a value must have all properties of both. Use union when the value could be one of several shapes (a result that's either success or error). Use intersection when combining shapes (a user who also has timestamps). They're opposites: union widens the set of allowed values, intersection narrows it."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Lesson 4</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Unions & narrowing</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lesson 4</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Lesson 4 · 20 minutes</div>
+<h1>Unions & narrowing.<br><span class="py-accent">Model "one of these" safely.</span></h1>
+<p class="lead">
+Real data isn't always one type. An API response is either a success with data or an error with a message. A user's age is either a number or not yet set. A form field is either filled or empty. Union types model this — and narrowing makes them usable. This lesson covers the union operator, all six narrowing techniques, the discriminated union pattern that powers every real state machine, custom type guards, and exhaustive checking that catches missing cases at compile time. This is the lesson that changes how you design types.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~20 minutes</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> TypeScript 5 · unions</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/typescript/index.html">TypeScript path</a>
+<a href="#unions">Union types</a>
+<a href="#typeof">typeof & instanceof</a>
+<a href="#in">in & truthiness</a>
+<a href="#discriminated">Discriminated unions</a>
+<a href="#guards">Custom guards</a>
+<a href="#exhaustive">Exhaustive checking</a>
+<a href="#challenge">Challenge</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+A <strong>union</strong> (<code>A | B</code>) says "this value is A or B." <strong>Narrowing</strong> refines a union to a specific member based on runtime checks: <code>typeof</code>, <code>instanceof</code>, <code>in</code>, truthiness, equality, or a custom type guard. The <strong>discriminated union</strong> — a union where each member has a shared literal <code>status</code>/<code>kind</code> field — is the pattern that models state machines, API responses, and app state cleanly. <strong>Exhaustive checking</strong> with <code>never</code> catches missing cases at compile time. This trio — union + narrowing + exhaustiveness — is why TypeScript can model real data safely.
+</p>
+<p class="text-sm" style="color:#b8c7dd !important;">
+<strong style="color:#3178C6 !important;">Before this lesson:</strong> complete <a href="/courses/typescript/lessons/generics.html" style="color:#5B9BD5; text-decoration:underline;">Lesson 3</a> — generics and type parameters appear throughout.
+</p>
+</div>
+
+<section id="unions">
+<h2 class="section-title">🔀 Union types — the "or" of TypeScript</h2>
+<p class="section-sub">The pipe operator. One of the most-used types in real code.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A union type says a value can be one of several types. The syntax is the pipe <code>|</code>. <code>string | number</code> means "a string or a number." Any value assigned to that type must be one of them — not both, not something else.</p>
+
+<div class="code-block" id="demo-unions">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">unions.ts</span>
+<button class="copy-btn" onclick="copyCode('code-unions', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-unions', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-unions', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-unions', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-unions"><span class="com">// ─── Basic unions ────────────────────────────</span>
+<span class="kw">type</span> ID = <span class="fn">string</span> | <span class="fn">number</span>;
+
+<span class="kw">const</span> a: ID = <span class="str">'u_123'</span>; <span class="com">// ✅ string is allowed</span>
+<span class="kw">const</span> b: ID = <span class="num">456</span>; <span class="com">// ✅ number is allowed</span>
+<span class="com">// const c: ID = true; // ❌ boolean is not in the union</span>
+
+<span class="com">// ─── Literal unions — a fixed set of values ──</span>
+<span class="kw">type</span> Status = <span class="str">'idle'</span> | <span class="str">'loading'</span> | <span class="str">'success'</span> | <span class="str">'error'</span>;
+
+<span class="kw">let</span> s: Status = <span class="str">'loading'</span>; <span class="com">// ✅</span>
+<span class="com">// s = 'done'; // ❌ 'done' not in the union</span>
+<span class="com">// s = 'Loading'; // ❌ case matters — 'Loading' ≠ 'loading'</span>
+
+<span class="com">// ─── Union with null/undefined ───────────────</span>
+<span class="kw">type</span> MaybeUser = User | <span class="fn">null</span> | <span class="fn">undefined</span>;
+<span class="kw">interface</span> User { name: <span class="fn">string</span> }
+
+<span class="kw">function</span> <span class="fn">getName</span>(u: MaybeUser): <span class="fn">string</span> {
+<span class="com">// return u.name; // ❌ u might be null/undefined</span>
+<span class="kw">if</span> (!u) <span class="kw">return</span> <span class="str">'(no user)'</span>; <span class="com">// ✅ narrowed</span>
+<span class="kw">return</span> u.name;
+}
+
+<span class="com">// ─── Union of object shapes ──────────────────</span>
+<span class="kw">type</span> Shape =
+| { kind: <span class="str">'circle'</span>; radius: <span class="fn">number</span> }
+| { kind: <span class="str">'square'</span>; side: <span class="fn">number</span> };
+
+<span class="kw">function</span> <span class="fn">area</span>(s: Shape): <span class="fn">number</span> {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>: <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>: <span class="kw">return</span> s.side ** <span class="num">2</span>;
+}
+}
+
+console.<span class="fn">log</span>(<span class="fn">getName</span>({ name: <span class="str">'Alice'</span> }));
+console.<span class="fn">log</span>(<span class="fn">getName</span>(<span class="fn">null</span>));
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'circle'</span>, radius: <span class="num">2</span> }));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// All type syntax erased. Runtime is plain JavaScript.</span>
+
+<span class="kw">const</span> a = <span class="str">'u_123'</span>;
+<span class="kw">const</span> b = <span class="num">456</span>;
+
+<span class="kw">let</span> s = <span class="str">'loading'</span>;
+
+<span class="kw">function</span> <span class="fn">getName</span>(u) {
+<span class="kw">if</span> (!u) <span class="kw">return</span> <span class="str">'(no user)'</span>;
+<span class="kw">return</span> u.name;
+}
+
+<span class="kw">function</span> <span class="fn">area</span>(s) {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>: <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>: <span class="kw">return</span> s.side ** <span class="num">2</span>;
+}
+}
+
+console.<span class="fn">log</span>(<span class="fn">getName</span>({ name: <span class="str">'Alice'</span> }));
+console.<span class="fn">log</span>(<span class="fn">getName</span>(<span class="fn">null</span>));
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'circle'</span>, radius: <span class="num">2</span> }));</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">Alice
+(no user)
+12.566370614359172</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>|</code> means "or"</h4>
+<p><code>string | number</code> = string OR number. A value satisfies it if it's one of them. This is the opposite of <code>&</code> (and), which requires both.</p>
+</div>
+<div class="concept-card">
+<h4>Literal unions</h4>
+<p><code>'idle' | 'loading' | 'success' | 'error'</code> restricts to exactly those strings. Typos fail to compile. This replaces enums in modern code.</p>
+</div>
+<div class="concept-card">
+<h4>Union with null</h4>
+<p><code>User | null</code> means "a user or nothing." TypeScript forces you to handle <code>null</code> before accessing properties — no more "Cannot read property of null."</p>
+</div>
+<div class="concept-card">
+<h4>Union of shapes</h4>
+<p><code>{ kind: 'circle', radius } | { kind: 'square', side }</code> — the members differ, and the shared <code>kind</code> field is what lets you distinguish them. This is the discriminated union.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Unions are the type-level "or" — use them aggressively.</strong> The most common TypeScript mistake is under-modeling — using <code>string</code> when you mean <code>'idle' | 'loading' | 'success' | 'error'</code>. The union is more precise, it catches typos at compile time, and it enables exhaustive checking. If a value can only be one of five things, its type should be a five-member union. Precision is the whole point.</p>
+</div>
+</section>
+
+<section id="typeof">
+<h2 class="section-title">🔍 typeof and instanceof — the primitive narrowers</h2>
+<p class="section-sub">Runtime checks that TypeScript turns into compile-time knowledge.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A union by itself is hard to use — TypeScript won't let you call string methods on <code>string | number</code>, because it might be a number. Narrowing refines the type inside a block. <code>typeof</code> handles primitives; <code>instanceof</code> handles class instances.</p>
+
+<div class="code-block" id="demo-typeof">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">typeof-narrowing.ts</span>
+<button class="copy-btn" onclick="copyCode('code-typeof', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-typeof', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-typeof', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-typeof', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-typeof"><span class="com">// ─── typeof narrows primitives ───────────────</span>
+<span class="kw">function</span> <span class="fn">format</span>(value: <span class="fn">string</span> | <span class="fn">number</span> | <span class="fn">boolean</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (<span class="kw">typeof</span> value === <span class="str">'string'</span>) {
+<span class="kw">return</span> value.<span class="fn">toUpperCase</span>(); <span class="com">// ✅ string methods available</span>
+}
+<span class="kw">if</span> (<span class="kw">typeof</span> value === <span class="str">'number'</span>) {
+<span class="kw">return</span> value.<span class="fn">toFixed</span>(<span class="num">2</span>); <span class="com">// ✅ number methods available</span>
+}
+<span class="com">// value is boolean here — the only remaining case</span>
+<span class="kw">return</span> value ? <span class="str">'yes'</span> : <span class="str">'no'</span>;
+}
+
+<span class="com">// ─── typeof for null (gotcha) ─────────────────</span>
+<span class="kw">function</span> <span class="fn">describe</span>(x: <span class="fn">string</span> | <span class="fn">null</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (x === <span class="fn">null</span>) <span class="kw">return</span> <span class="str">'nothing'</span>; <span class="com">// ✅ must check null explicitly</span>
+<span class="kw">if</span> (<span class="kw">typeof</span> x === <span class="str">'string'</span>) <span class="kw">return</span> <span class="str">"${x}"`</span>;
+<span class="kw">return</span> <span class="str">''</span>;
+}
+
+<span class="com">// ─── instanceof narrows class instances ──────</span>
+<span class="kw">class</span> <span class="fn">Cat</span> { <span class="fn">meow</span>() { <span class="kw">return</span> <span class="str">'meow'</span>; } }
+<span class="kw">class</span> <span class="fn">Dog</span> { <span class="fn">bark</span>() { <span class="kw">return</span> <span class="str">'woof'</span>; } }
+
+<span class="kw">function</span> <span class="fn">speak</span>(pet: Cat | Dog): <span class="fn">string</span> {
+<span class="kw">if</span> (pet <span class="kw">instanceof</span> Cat) {
+<span class="kw">return</span> pet.<span class="fn">meow</span>(); <span class="com">// ✅ narrowed to Cat</span>
+}
+<span class="kw">return</span> pet.<span class="fn">bark</span>(); <span class="com">// ✅ narrowed to Dog</span>
+}
+
+<span class="com">// ─── Array.isArray ───────────────────────────</span>
+<span class="kw">function</span> <span class="fn">join</span>(x: <span class="fn">string</span> | <span class="fn">string</span>[]): <span class="fn">string</span> {
+<span class="kw">if</span> (<span class="fn">Array</span>.<span class="fn">isArray</span>(x)) {
+<span class="kw">return</span> x.<span class="fn">join</span>(<span class="str">', '</span>); <span class="com">// ✅ narrowed to string[]</span>
+}
+<span class="kw">return</span> x; <span class="com">// ✅ narrowed to string</span>
+}
+
+console.<span class="fn">log</span>(<span class="fn">format</span>(<span class="str">'hi'</span>), <span class="fn">format</span>(<span class="num">3.14</span>), <span class="fn">format</span>(<span class="kw">true</span>));
+console.<span class="fn">log</span>(<span class="fn">speak</span>(<span class="kw">new</span> <span class="fn">Cat</span>()), <span class="fn">speak</span>(<span class="kw">new</span> <span class="fn">Dog</span>()));
+console.<span class="fn">log</span>(<span class="fn">join</span>([<span class="str">'a'</span>, <span class="str">'b'</span>]));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">format</span>(value) {
+<span class="kw">if</span> (<span class="kw">typeof</span> value === <span class="str">'string'</span>) {
+<span class="kw">return</span> value.<span class="fn">toUpperCase</span>();
+}
+<span class="kw">if</span> (<span class="kw">typeof</span> value === <span class="str">'number'</span>) {
+<span class="kw">return</span> value.<span class="fn">toFixed</span>(<span class="num">2</span>);
+}
+<span class="kw">return</span> value ? <span class="str">'yes'</span> : <span class="str">'no'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">describe</span>(x) {
+<span class="kw">if</span> (x === <span class="fn">null</span>) <span class="kw">return</span> <span class="str">'nothing'</span>;
+<span class="kw">if</span> (<span class="kw">typeof</span> x === <span class="str">'string'</span>) <span class="kw">return</span> <span class="str">"${x}"`</span>;
+<span class="kw">return</span> <span class="str">''</span>;
+}
+
+<span class="kw">class</span> <span class="fn">Cat</span> { <span class="fn">meow</span>() { <span class="kw">return</span> <span class="str">'meow'</span>; } }
+<span class="kw">class</span> <span class="fn">Dog</span> { <span class="fn">bark</span>() { <span class="kw">return</span> <span class="str">'woof'</span>; } }
+
+<span class="kw">function</span> <span class="fn">speak</span>(pet) {
+<span class="kw">if</span> (pet <span class="kw">instanceof</span> Cat) {
+<span class="kw">return</span> pet.<span class="fn">meow</span>();
+}
+<span class="kw">return</span> pet.<span class="fn">bark</span>();
+}
+
+<span class="kw">function</span> <span class="fn">join</span>(x) {
+<span class="kw">if</span> (<span class="fn">Array</span>.<span class="fn">isArray</span>(x)) {
+<span class="kw">return</span> x.<span class="fn">join</span>(<span class="str">', '</span>);
+}
+<span class="kw">return</span> x;
+}
+
+console.<span class="fn">log</span>(<span class="fn">format</span>(<span class="str">'hi'</span>), <span class="fn">format</span>(<span class="num">3.14</span>), <span class="fn">format</span>(<span class="kw">true</span>));
+console.<span class="fn">log</span>(<span class="fn">speak</span>(<span class="kw">new</span> <span class="fn">Cat</span>()), <span class="fn">speak</span>(<span class="kw">new</span> <span class="fn">Dog</span>()));
+console.<span class="fn">log</span>(<span class="fn">join</span>([<span class="str">'a'</span>, <span class="str">'b'</span>]));</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">HI 3.14 no
+meow woof
+a, b</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>typeof</code> returns a string</h4>
+<p><code>typeof x</code> returns <code>'string'</code>, <code>'number'</code>, <code>'boolean'</code>, <code>'object'</code>, <code>'function'</code>, <code>'undefined'</code>, <code>'symbol'</code>, or <code>'bigint'</code>. TypeScript uses the check to narrow.</p>
+</div>
+<div class="concept-card">
+<h4><code>typeof null === 'object'</code></h4>
+<p>A JavaScript historical quirk — <code>typeof null</code> is <code>'object'</code>. To narrow null specifically, use <code>x === null</code> — not <code>typeof</code>.</p>
+</div>
+<div class="concept-card">
+<h4><code>instanceof</code> for classes</h4>
+<p><code>pet instanceof Cat</code> narrows to <code>Cat</code>. Works with custom classes and built-ins (<code>Date</code>, <code>Map</code>, <code>Error</code>). Doesn't work with interfaces — they have no runtime value.</p>
+</div>
+<div class="concept-card">
+<h4><code>Array.isArray</code></h4>
+<p><code>typeof [] === 'object'</code> — so <code>typeof</code> can't distinguish arrays. Use <code>Array.isArray</code>, which TypeScript understands as a narrowing check for <code>T[]</code>.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong><code>typeof</code> cannot distinguish two object shapes.</strong> <code>typeof { a: 1 } === 'object'</code> and <code>typeof { b: 2 } === 'object'</code> — the same result. If your union is two interfaces, <code>typeof</code> won't narrow it. You need the discriminated union pattern (next section) or the <code>in</code> operator. This is the #1 reason beginners get stuck with union narrowing.</p>
+</div>
+</section>
+
+<section id="in">
+<h2 class="section-title">🔑 <code>in</code> and truthiness — narrowing object shapes</h2>
+<p class="section-sub">When <code>typeof</code> can't help, check the shape.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The <code>in</code> operator checks if a property exists on an object. TypeScript uses it to discriminate between union members that have different property sets. Truthiness narrowing handles <code>null</code> and <code>undefined</code> in one line.</p>
+
+<div class="code-block" id="demo-in">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">in-narrowing.ts</span>
+<button class="copy-btn" onclick="copyCode('code-in', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-in', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-in', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-in', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-in"><span class="com">// ─── The in operator narrows by shape ──────</span>
+<span class="kw">interface</span> Bird { fly(): <span class="fn">void</span>; layEggs(): <span class="fn">void</span> }
+<span class="kw">interface</span> Fish { swim(): <span class="fn">void</span>; layEggs(): <span class="fn">void</span> }
+
+<span class="kw">function</span> <span class="fn">move</span>(animal: Bird | Fish): <span class="fn">string</span> {
+<span class="kw">if</span> (<span class="str">'fly'</span> <span class="kw">in</span> animal) {
+animal.<span class="fn">fly</span>(); <span class="com">// ✅ narrowed to Bird</span>
+<span class="kw">return</span> <span class="str">'flew'</span>;
+}
+animal.<span class="fn">swim</span>(); <span class="com">// ✅ narrowed to Fish</span>
+<span class="kw">return</span> <span class="str">'swam'</span>;
+}
+
+<span class="com">// ─── Truthiness narrows null/undefined ────────</span>
+<span class="kw">function</span> <span class="fn">greet</span>(name?: <span class="fn">string</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (!name) {
+<span class="kw">return</span> <span class="str">'Hello, anonymous'</span>;
+}
+<span class="com">// name is string here — null and undefined filtered out</span>
+<span class="kw">return</span> <span class="str">Hello, ${name}`</span>;
+}
+
+<span class="com">// ─── Careful: truthiness also filters "" and 0 ─</span>
+<span class="kw">function</span> <span class="fn">badGreet</span>(name?: <span class="fn">string</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (!name) <span class="kw">return</span> <span class="str">'anonymous'</span>;
+<span class="com">// ⚠️ Empty string '' also returns 'anonymous' — probably not intended</span>
+<span class="kw">return</span> <span class="str">Hello,${name}`</span>;
+}
+
+<span class="com">// ─── Equality with literals narrows too ───────</span>
+<span class="kw">type</span> HttpMethod = <span class="str">'GET'</span> | <span class="str">'POST'</span> | <span class="str">'PUT'</span> | <span class="str">'DELETE'</span>;
+
+<span class="kw">function</span> <span class="fn">isSafe</span>(m: HttpMethod): <span class="fn">boolean</span> {
+<span class="kw">if</span> (m === <span class="str">'GET'</span>) <span class="kw">return</span> <span class="kw">true</span>; <span class="com">// narrowed to 'GET'</span>
+<span class="kw">if</span> (m === <span class="str">'POST'</span> || m === <span class="str">'PUT'</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="com">// m is 'DELETE' here — the only remaining case</span>
+<span class="kw">return</span> <span class="kw">false</span>;
+}
+
+<span class="com">// ─── Early-return pattern (very common) ───────</span>
+<span class="kw">function</span> <span class="fn">process</span>(user: User | <span class="fn">null</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (!user) <span class="kw">return</span> <span class="str">'(guest)'</span>; <span class="com">// early return narrows for the rest</span>
+<span class="kw">return</span> user.name.<span class="fn">toUpperCase</span>();
+}
+
+console.<span class="fn">log</span>(<span class="fn">move</span>({ fly() {}, layEggs() {} }));
+console.<span class="fn">log</span>(<span class="fn">greet</span>(<span class="str">'Alice'</span>), <span class="fn">greet</span>());
+console.<span class="fn">log</span>(<span class="fn">isSafe</span>(<span class="str">'GET'</span>), <span class="fn">isSafe</span>(<span class="str">'DELETE'</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">move</span>(animal) {
+<span class="kw">if</span> (<span class="str">'fly'</span> <span class="kw">in</span> animal) {
+animal.<span class="fn">fly</span>();
+<span class="kw">return</span> <span class="str">'flew'</span>;
+}
+animal.<span class="fn">swim</span>();
+<span class="kw">return</span> <span class="str">'swam'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">greet</span>(name) {
+<span class="kw">if</span> (!name) {
+<span class="kw">return</span> <span class="str">'Hello, anonymous'</span>;
+}
+<span class="kw">return</span> <span class="str">Hello, ${name}`</span>;
+}
+
+<span class="kw">function</span> <span class="fn">badGreet</span>(name) {
+<span class="kw">if</span> (!name) <span class="kw">return</span> <span class="str">'anonymous'</span>;
+<span class="kw">return</span> <span class="str">Hello,${name}`</span>;
+}
+
+<span class="kw">function</span> <span class="fn">isSafe</span>(m) {
+<span class="kw">if</span> (m === <span class="str">'GET'</span>) <span class="kw">return</span> <span class="kw">true</span>;
+<span class="kw">if</span> (m === <span class="str">'POST'</span> || m === <span class="str">'PUT'</span>) <span class="kw">return</span> <span class="kw">false</span>;
+<span class="kw">return</span> <span class="kw">false</span>;
+}
+
+<span class="kw">function</span> <span class="fn">process</span>(user) {
+<span class="kw">if</span> (!user) <span class="kw">return</span> <span class="str">'(guest)'</span>;
+<span class="kw">return</span> user.name.<span class="fn">toUpperCase</span>();
+}
+
+console.<span class="fn">log</span>(<span class="fn">move</span>({ fly() {}, layEggs() {} }));
+console.<span class="fn">log</span>(<span class="fn">greet</span>(<span class="str">'Alice'</span>), <span class="fn">greet</span>());
+console.<span class="fn">log</span>(<span class="fn">isSafe</span>(<span class="str">'GET'</span>), <span class="fn">isSafe</span>(<span class="str">'DELETE'</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">flew
+Hello, Alice Hello, anonymous
+true false</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>in</code> checks property presence</h4>
+<p><code>'fly' in animal</code> is a runtime check that narrows to the union member with a <code>fly</code> property. Works when union members have distinct property names.</p>
+</div>
+<div class="concept-card">
+<h4>Truthiness filters null/undefined</h4>
+<p><code>if (name)</code> narrows <code>string | undefined</code> to <code>string</code>. Fast and idiomatic — but be careful, it also filters <code>''</code>, <code>0</code>, and <code>false</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Equality with literals</h4>
+<p><code>m === 'GET'</code> narrows a literal union to that one value. This is what makes <code>switch</code> on a discriminant work — each case refines the type.</p>
+</div>
+<div class="concept-card">
+<h4>Early returns</h4>
+<p>An early <code>if (!x) return</code> narrows <code>x</code> for the rest of the function. This is the most common narrowing idiom in real code — flatter than nested ifs.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The early-return pattern is the professional default.</strong> Instead of nesting checks (<code>if (user) { if (user.name) { ... } }</code>), guard and return early: <code>if (!user) return; if (!user.name) return;</code>. The rest of the function then works with fully-narrowed types — no nesting, no <code>!</code> assertions, no noise. Every TypeScript style guide recommends it. Once you adopt it, your functions get shorter and your narrowing gets automatic.</p>
+</div>
+</section>
+
+<section id="discriminated">
+<h2 class="section-title">🎯 Discriminated unions — the pattern that scales</h2>
+<p class="section-sub">A shared literal field. Total narrowing. Zero ambiguity.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">This is the single most important pattern in TypeScript. A discriminated union is a union where each member has a shared property — the <em>discriminant</em> — with a unique literal value. Checking that field narrows to the exact member, unlocking its specific fields. Every state machine, API response, Redux action, and form state in real code uses this pattern.</p>
+
+<div class="code-block" id="demo-discriminated">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">result.ts</span>
+<button class="copy-btn" onclick="copyCode('code-discriminated', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-discriminated', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-discriminated', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-discriminated', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-discriminated"><span class="com">// ─── The discriminated union ──────────────────</span>
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+
+<span class="kw">type</span> Result =
+| { status: <span class="str">'loading'</span> }
+| { status: <span class="str">'success'</span>; data: User }
+| { status: <span class="str">'error'</span>; message: <span class="fn">string</span> };
+
+<span class="kw">function</span> <span class="fn">render</span>(r: Result): <span class="fn">string</span> {
+<span class="kw">switch</span> (r.status) {
+<span class="kw">case</span> <span class="str">'loading'</span>:
+<span class="kw">return</span> <span class="str">'Loading...'</span>;
+<span class="kw">case</span> <span class="str">'success'</span>:
+<span class="kw">return</span> <span class="str">Hello, ${r.data.name}</span&gt;; &lt;span class="com"&gt;// ✅ r.data available&lt;/span&gt; &lt;span class="kw"&gt;case&lt;/span&gt; &lt;span class="str"&gt;'error'&lt;/span&gt;: &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">Error: ${r.message}</span>; <span class="com">// ✅ r.message available</span>
+}
+}
+
+<span class="com">// ─── The compiler enforces it ─────────────────</span>
+<span class="kw">function</span> <span class="fn">check</span>(r: Result): <span class="fn">string</span> {
+<span class="kw">if</span> (r.status === <span class="str">'success'</span>) {
+<span class="kw">return</span> r.data.name; <span class="com">// ✅ narrowed to success</span>
+<span class="com">// return r.message; // ❌ 'message' doesn't exist on success</span>
+}
+<span class="kw">if</span> (r.status === <span class="str">'error'</span>) {
+<span class="kw">return</span> r.message; <span class="com">// ✅ narrowed to error</span>
+}
+<span class="kw">return</span> <span class="str">'loading'</span>; <span class="com">// ✅ narrowed to loading</span>
+}
+
+<span class="com">// ─── The pattern models state machines ───────</span>
+<span class="kw">type</span> FormState =
+| { status: <span class="str">'idle'</span> }
+| { status: <span class="str">'submitting'</span>; startedAt: <span class="fn">Date</span> }
+| { status: <span class="str">'success'</span>; id: <span class="fn">string</span> }
+| { status: <span class="str">'error'</span>; error: <span class="fn">Error</span> };
+
+<span class="kw">function</span> <span class="fn">describeForm</span>(f: FormState): <span class="fn">string</span> {
+<span class="kw">switch</span> (f.status) {
+<span class="kw">case</span> <span class="str">'idle'</span>: <span class="kw">return</span> <span class="str">'Ready'</span>;
+<span class="kw">case</span> <span class="str">'submitting'</span>: <span class="kw">return</span> <span class="str">Submitting since ${f.startedAt.toISOString()}</span&gt;; &lt;span class="kw"&gt;case&lt;/span&gt; &lt;span class="str"&gt;'success'&lt;/span&gt;: &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">Saved as ${f.id}</span>;
+<span class="kw">case</span> <span class="str">'error'</span>: <span class="kw">return</span> <span class="str">Failed: ${f.error.message}`</span>;
+}
+}
+
+console.<span class="fn">log</span>(<span class="fn">render</span>({ status: <span class="str">'success'</span>, data: { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> } }));
+console.<span class="fn">log</span>(<span class="fn">render</span>({ status: <span class="str">'error'</span>, message: <span class="str">'Not found'</span> }));
+console.<span class="fn">log</span>(<span class="fn">render</span>({ status: <span class="str">'loading'</span> }));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">render</span>(r) {
+<span class="kw">switch</span> (r.status) {
+<span class="kw">case</span> <span class="str">'loading'</span>:
+<span class="kw">return</span> <span class="str">'Loading...'</span>;
+<span class="kw">case</span> <span class="str">'success'</span>:
+<span class="kw">return</span> <span class="str">Hello,${r.data.name}</span&gt;; &lt;span class="kw"&gt;case&lt;/span&gt; &lt;span class="str"&gt;'error'&lt;/span&gt;: &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">Error: ${r.message}</span>;
+}
+}
+
+<span class="kw">function</span> <span class="fn">check</span>(r) {
+<span class="kw">if</span> (r.status === <span class="str">'success'</span>) {
+<span class="kw">return</span> r.data.name;
+}
+<span class="kw">if</span> (r.status === <span class="str">'error'</span>) {
+<span class="kw">return</span> r.message;
+}
+<span class="kw">return</span> <span class="str">'loading'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">describeForm</span>(f) {
+<span class="kw">switch</span> (f.status) {
+<span class="kw">case</span> <span class="str">'idle'</span>: <span class="kw">return</span> <span class="str">'Ready'</span>;
+<span class="kw">case</span> <span class="str">'submitting'</span>: <span class="kw">return</span> <span class="str">Submitting since${f.startedAt.toISOString()}</span&gt;; &lt;span class="kw"&gt;case&lt;/span&gt; &lt;span class="str"&gt;'success'&lt;/span&gt;: &lt;span class="kw"&gt;return&lt;/span&gt; &lt;span class="str">Saved as {f.error.message}`</span>;
+}
+}
+
+console.<span class="fn">log</span>(<span class="fn">render</span>({ status: <span class="str">'success'</span>, data: { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> } }));
+console.<span class="fn">log</span>(<span class="fn">render</span>({ status: <span class="str">'error'</span>, message: <span class="str">'Not found'</span> }));
+console.<span class="fn">log</span>(<span class="fn">render</span>({ status: <span class="str">'loading'</span> }));</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">Hello, Alice
+Error: Not found
+Loading...</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>The discriminant field</h4>
+<p>Every member has <code>status</code> (or <code>kind</code>, <code>type</code>) with a unique literal value. That's the shared field the compiler uses to narrow. The name can be anything — <code>status</code> is just convention.</p>
+</div>
+<div class="concept-card">
+<h4>Per-member fields</h4>
+<p><code>data</code> only exists on <code>success</code>. <code>message</code> only exists on <code>error</code>. Accessing the wrong field is a compile error — the type system prevents mixing state up.</p>
+</div>
+<div class="concept-card">
+<h4>Impossible states</h4>
+<p><code>{ status: 'loading', data: {...} }</code> is impossible — <code>loading</code> has no <code>data</code> field. The union makes impossible states unrepresentable. This is the whole value of the pattern.</p>
+</div>
+<div class="concept-card">
+<h4>Switch = automatic narrowing</h4>
+<p><code>switch (r.status)</code> with a case per literal narrows r inside each case. No manual checks, no assertions — the compiler tracks which branch you're in.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Model your app state as a discriminated union from day one.</strong> The most common React bug is a state that <em>should</em> be mutually exclusive but isn't: <code>{ loading: true, data: user, error: null }</code> allows impossible combinations. A discriminated union makes it impossible: <code>{ status: 'loading' } | { status: 'success', data: User } | { status: 'error', error: Error }</code>. If you adopt one pattern from this lesson, make it this one — it will eliminate entire classes of bugs in your codebase.</p>
+</div>
+</section>
+
+<section id="guards">
+<h2 class="section-title">🛡️ Custom type guards — narrow what typeof can't</h2>
+<p class="section-sub">A function that returns <code>x is Type</code>. Your own narrowing operator.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When you can't narrow with typeof, instanceof, or in — usually because the type comes from an API and you're validating it at runtime — you write a type guard. It's a function that returns <code>value is T</code>, telling TypeScript "if this returns true, value is T."</p>
+
+<div class="code-block" id="demo-guards">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">guards.ts</span>
+<button class="copy-btn" onclick="copyCode('code-guards', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-guards', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-guards', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-guards', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-guards"><span class="com">// ─── A type guard: value is User ─────────────</span>
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+
+<span class="kw">function</span> <span class="fn">isUser</span>(x: <span class="fn">unknown</span>): x <span class="kw">is</span> User {
+<span class="kw">return</span> (
+<span class="kw">typeof</span> x === <span class="str">'object'</span> &&
+x !== <span class="fn">null</span> &&
+<span class="str">'id'</span> <span class="kw">in</span> x &&
+<span class="str">'name'</span> <span class="kw">in</span> x &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).id === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).name === <span class="str">'string'</span>
+);
+}
+
+<span class="com">// ─── Used in an if, it narrows ───────────────</span>
+<span class="kw">function</span> <span class="fn">greet</span>(x: <span class="fn">unknown</span>): <span class="fn">string</span> {
+<span class="kw">if</span> (<span class="fn">isUser</span>(x)) {
+<span class="kw">return</span> <span class="str">Hello, ${x.name}`</span>; <span class="com">// ✅ x is User here</span>
+}
+<span class="kw">return</span> <span class="str">'Hello, stranger'</span>;
+}
+
+<span class="com">// ─── Generic guard for arrays ────────────────</span>
+<span class="kw">function</span> <span class="fn">isArrayOf</span><T>(
+arr: <span class="fn">unknown</span>,
+guard: (item: <span class="fn">unknown</span>) => item <span class="kw">is</span> T
+): arr <span class="kw">is</span> T[] {
+<span class="kw">return</span> <span class="fn">Array</span>.<span class="fn">isArray</span>(arr) && arr.<span class="fn">every</span>(guard);
+}
+
+<span class="kw">const</span> data: <span class="fn">unknown</span> = [
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> }
+];
+
+<span class="kw">if</span> (<span class="fn">isArrayOf</span>(data, isUser)) {
+<span class="com">// data is User[] here</span>
+data.<span class="fn">forEach</span>(u => console.<span class="fn">log</span>(u.name));
+}
+
+<span class="com">// ─── Validating API responses ────────────────</span>
+<span class="kw">async function</span> <span class="fn">fetchUser</span>(id: <span class="fn">string</span>): <span class="fn">Promise</span><User> {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">/api/users/${id}`</span>);
+<span class="kw">const</span> json: <span class="fn">unknown</span> = <span class="kw">await</span> res.<span class="fn">json</span>(); <span class="com">// unknown, not any</span>
+<span class="kw">if</span> (!<span class="fn">isUser</span>(json)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid user response'</span>);
+}
+<span class="kw">return</span> json; <span class="com">// ✅ validated and narrowed</span>
+}
+
+console.<span class="fn">log</span>(<span class="fn">greet</span>({ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }));
+console.<span class="fn">log</span>(<span class="fn">greet</span>(<span class="str">'not a user'</span>));
+console.<span class="fn">log</span>(<span class="fn">greet</span>(<span class="fn">null</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">isUser</span>(x) {
+<span class="kw">return</span> (
+<span class="kw">typeof</span> x === <span class="str">'object'</span> &&
+x !== <span class="fn">null</span> &&
+<span class="str">'id'</span> <span class="kw">in</span> x &&
+<span class="str">'name'</span> <span class="kw">in</span> x &&
+<span class="kw">typeof</span> x.id === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> x.name === <span class="str">'string'</span>
+);
+}
+
+<span class="kw">function</span> <span class="fn">greet</span>(x) {
+<span class="kw">if</span> (<span class="fn">isUser</span>(x)) {
+<span class="kw">return</span> <span class="str">Hello, ${x.name}`</span>;
+}
+<span class="kw">return</span> <span class="str">'Hello, stranger'</span>;
+}
+
+<span class="kw">function</span> <span class="fn">isArrayOf</span>(arr, guard) {
+<span class="kw">return</span> <span class="fn">Array</span>.<span class="fn">isArray</span>(arr) && arr.<span class="fn">every</span>(guard);
+}
+
+<span class="kw">const</span> data = [
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> }
+];
+
+<span class="kw">if</span> (<span class="fn">isArrayOf</span>(data, isUser)) {
+data.<span class="fn">forEach</span>(u => console.<span class="fn">log</span>(u.name));
+}
+
+<span class="kw">async function</span> <span class="fn">fetchUser</span>(id) {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">/api/users/${id}`</span>);
+<span class="kw">const</span> json = <span class="kw">await</span> res.<span class="fn">json</span>();
+<span class="kw">if</span> (!<span class="fn">isUser</span>(json)) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">'Invalid user response'</span>);
+}
+<span class="kw">return</span> json;
+}
+
+console.<span class="fn">log</span>(<span class="fn">greet</span>({ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }));
+console.<span class="fn">log</span>(<span class="fn">greet</span>(<span class="str">'not a user'</span>));
+console.<span class="fn">log</span>(<span class="fn">greet</span>(<span class="fn">null</span>));</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">Hello, Alice
+Hello, stranger
+Hello, stranger</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>x is T</code> predicate</h4>
+<p>The return type <code>x is User</code> is a type predicate. It tells TypeScript "if this function returns true, x is User." The function body can return any boolean.</p>
+</div>
+<div class="concept-card">
+<h4>Parameter is <code>unknown</code></h4>
+<p>Guards should take <code>unknown</code>, not <code>any</code> — <code>unknown</code> forces you to check before accessing. Guards validate <code>unknown</code> into a specific type.</p>
+</div>
+<div class="concept-card">
+<h4>Validate before accessing</h4>
+<p>Inside the guard, TypeScript doesn't know <code>x</code>'s shape yet, so you use <code>(x as User)</code> or property checks. That's the one place <code>as</code> is legitimate.</p>
+</div>
+<div class="concept-card">
+<h4>Generic guards compose</h4>
+<p><code>isArrayOf(arr, isUser)</code> combines a generic container guard with a specific item guard. This is how you validate arrays from APIs without writing one guard per array type.</p>
+</div>
+<div class="concept-card">
+<h4>The API boundary pattern</h4>
+<p>API responses are <code>unknown</code> (not <code>any</code>). Guard them before use. This is the standard practice — you're not trusting the server's types, you're verifying the shape.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>A type guard that lies is worse than no guard.</strong> <code>function isUser(x: unknown): x is User { return true; }</code> compiles — but every call narrows incorrectly. A guard returning <code>true</code> when the value isn't a User causes silent runtime bugs, exactly the bugs types are supposed to prevent. Every guard body must actually validate the shape. Test them: pass bad data, confirm they return false.</p>
+</div>
+</section>
+
+<section id="exhaustive">
+<h2 class="section-title">✅ Exhaustive checking — catch missing cases at compile time</h2>
+<p class="section-sub">When you add a new union member, the compiler finds every place that didn't handle it.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Exhaustive checking ensures every member of a union is handled. Inside a switch or if-else chain that covers all cases, the default branch gets the <code>never</code> type — meaning "this shouldn't happen." If you add a new union member later and forget a case, the compiler errors. This is how real codebases stay safe as state machines grow.</p>
+
+<div class="code-block" id="demo-exhaustive">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">exhaustive.ts</span>
+<button class="copy-btn" onclick="copyCode('code-exhaustive', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('demo-exhaustive', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('demo-exhaustive', 'js', this)">JavaScript</button>
+<button onclick="switchCodeOutput('demo-exhaustive', 'out', this)">Run output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-exhaustive"><span class="com">// ─── The pattern ─────────────────────────────</span>
+<span class="kw">type</span> Shape =
+| { kind: <span class="str">'circle'</span>; radius: <span class="fn">number</span> }
+| { kind: <span class="str">'square'</span>; side: <span class="fn">number</span> }
+| { kind: <span class="str">'triangle'</span>; base: <span class="fn">number</span>; height: <span class="fn">number</span> };
+
+<span class="kw">function</span> <span class="fn">area</span>(s: Shape): <span class="fn">number</span> {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>:
+<span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>:
+<span class="kw">return</span> s.side ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'triangle'</span>:
+<span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>;
+<span class="kw">default</span>:
+<span class="com">// s is never here — every case was handled</span>
+<span class="kw">const</span> _exhaustive: <span class="fn">never</span> = s;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="com">// ─── If you add a new case... ─────────────────</span>
+<span class="kw">type</span> Shape2 =
+| { kind: <span class="str">'circle'</span>; radius: <span class="fn">number</span> }
+| { kind: <span class="str">'square'</span>; side: <span class="fn">number</span> }
+| { kind: <span class="str">'triangle'</span>; base: <span class="fn">number</span>; height: <span class="fn">number</span> }
+| { kind: <span class="str">'rectangle'</span>; w: <span class="fn">number</span>; h: <span class="fn">number</span> }; <span class="com">// new!</span>
+
+<span class="kw">function</span> <span class="fn">area2</span>(s: Shape2): <span class="fn">number</span> {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>: <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>: <span class="kw">return</span> s.side ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'triangle'</span>: <span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>;
+<span class="com">// case 'rectangle': return s.w * s.h; // ← forgot this one!</span>
+<span class="kw">default</span>:
+<span class="com">// ❌ Type 'Shape2' is not assignable to type 'never'.
+// Type '{ kind: "rectangle"; ... }' is not assignable</span>
+<span class="kw">const</span> _exhaustive: <span class="fn">never</span> = s;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="com">// ─── A reusable helper ────────────────────────</span>
+<span class="kw">function</span> <span class="fn">assertNever</span>(x: <span class="fn">never</span>): <span class="fn">never</span> {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">Unexpected value: ${x}`</span>);
+}
+
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'circle'</span>, radius: <span class="num">1</span> }));
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'square'</span>, side: <span class="num">3</span> }));</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">area</span>(s) {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>:
+<span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>:
+<span class="kw">return</span> s.side ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'triangle'</span>:
+<span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>;
+<span class="kw">default</span>:
+<span class="kw">const</span> _exhaustive = s;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="kw">function</span> <span class="fn">area2</span>(s) {
+<span class="kw">switch</span> (s.kind) {
+<span class="kw">case</span> <span class="str">'circle'</span>: <span class="kw">return</span> Math.PI * s.radius ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'square'</span>: <span class="kw">return</span> s.side ** <span class="num">2</span>;
+<span class="kw">case</span> <span class="str">'triangle'</span>: <span class="kw">return</span> (s.base * s.height) / <span class="num">2</span>;
+<span class="kw">default</span>:
+<span class="kw">const</span> _exhaustive = s;
+<span class="kw">return</span> _exhaustive;
+}
+}
+
+<span class="kw">function</span> <span class="fn">assertNever</span>(x) {
+<span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">Unexpected value:${x}`</span>);
+}
+
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'circle'</span>, radius: <span class="num">1</span> }));
+console.<span class="fn">log</span>(<span class="fn">area</span>({ kind: <span class="str">'square'</span>, side: <span class="num">3</span> }));</pre>
+</div>
+<div class="code-output-pane" data-pane="out">
+<pre><span class="out">3.141592653589793
+9</span></pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>never</code> means "no value"</h4>
+<p>When all union members are handled, the remaining type is <code>never</code> — the empty set. Assigning <code>s</code> to <code>never</code> proves the branch is unreachable.</p>
+</div>
+<div class="concept-card">
+<h4>Adding a case breaks the build</h4>
+<p>Add a new union member, forget a <code>case</code>, and the <code>default</code> branch fails to compile. That's the point — the compiler forces you to handle it.</p>
+</div>
+<div class="concept-card">
+<h4><code>assertNever</code> helper</h4>
+<p>A reusable function that throws at runtime if reached. Useful when a switch should be exhaustive but you want a runtime safety net — production code throws, TypeScript users see the compile error first.</p>
+</div>
+<div class="concept-card">
+<h4>The most valuable pattern in TS</h4>
+<p>Exhaustive checking is what makes discriminated unions safe to evolve. Add a state, fix the compile errors, ship. Without it, you'd need to grep for every switch. This is why unions scale.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Combine discriminated unions with exhaustive checking — the pair is unbeatable.</strong> The discriminated union makes impossible states unrepresentable. The exhaustive check makes forgotten cases impossible to ship. Together they model every state machine in your app: form states, request states, order states, authentication states. Every Redux reducer, every React state, every API handler in real code should be structured as a discriminated union with a <code>switch</code> that exhausts all cases. This is the pattern that separates teams that ship confidently from teams that ship and pray.</p>
+</div>
+</section>
+
+<section id="challenge">
+<h2 class="section-title">🏆 Challenge</h2>
+<p class="section-sub">Three tasks. Each exercises a different narrowing pattern.</p>
+
+<div class="challenge">
+<h4><i class="fa-solid fa-trophy"></i> Task 1 — Model an API response</h4>
+<p>Design a discriminated union for an API fetch that reflects every real state:</p>
+<p>1. <code>idle</code> — no request started yet (no extra fields)<br>
+2. <code>loading</code> — request in flight, has <code>startedAt: Date</code><br>
+3. <code>success</code> — has <code>data: T</code> (generic over the data type)<br>
+4. <code>error</code> — has <code>error: Error</code> and <code>retryable: boolean</code></p>
+<p>Write a <code>render</code> function that takes this union and returns a string describing the state. Use a <code>switch</code> with exhaustive checking — add a <code>default</code> that assigns to <code>never</code>. Then add a fifth state (<code>refreshing</code>) and verify the compiler catches the missing case in every function that handles the union.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 2 — Write a type guard for API validation</h4>
+<p>Build a guard for an API response:</p>
+<p>1. <code>interface User { id: string; name: string; email: string }</code><br>
+2. <code>function isUser(x: unknown): x is User</code> — checks all three fields are strings<br>
+3. <code>function isUserArray(x: unknown): x is User[]</code> — reuses <code>isUser</code> via <code>Array.isArray</code> + <code>every</code><br>
+4. A function <code>processApiData(x: unknown): string</code> that takes <code>unknown</code>, narrows with the guard, returns a formatted string, and returns <code>'invalid'</code> if it fails</p>
+<p>Test with: a valid user, an object missing <code>email</code>, a string, <code>null</code>, an array of valid users, and an array with one bad user. Each should hit the right branch — this is the pattern every real app needs at its API boundary.</p>
+</div>
+
+<div class="challenge" style="margin-top:1rem;">
+<h4><i class="fa-solid fa-trophy"></i> Task 3 — Reducer with exhaustive checking</h4>
+<p>Build a mini Redux-style reducer:</p>
+<p>1. State: <code>{ count: number; history: number[] }</code><br>
+2. Actions: <code>{ type: 'increment' } | { type: 'decrement' } | { type: 'add', by: number } | { type: 'reset' } | { type: 'undo' }</code><br>
+3. <code>function reducer(state: State, action: Action): State</code><br>
+4. Every branch returns a new state — no mutation<br>
+5. The default branch uses <code>assertNever</code> or <code>const _: never = action</code></p>
+<p>Then dispatch a sequence of actions, log the final state. Then add a new action (<code>{ type: 'multiply', by: number }</code>) and verify the compiler finds the missing case. This is exactly how production Redux reducers are structured — if you can write this, you can write any state machine.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The narrowing bugs that catch every beginner.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using <code>typeof</code> on object shapes</div>
+<p><code>typeof {a:1} === typeof {b:2}</code> — both are <code>'object'</code>. Fix: use a discriminated union with a <code>kind</code> field, or the <code>in</code> operator. This is the #1 stuck point for narrowing.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Forgetting to check null before typeof</div>
+<p><code>typeof null === 'object'</code>. If you check <code>typeof x === 'object'</code> without guarding <code>null</code>, you'll crash. Fix: <code>if (x !== null && typeof x === 'object')</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Truthiness filtering empty strings</div>
+<p><code>if (name)</code> filters <code>null</code>, <code>undefined</code>, <em>and</em> <code>''</code>. If empty string is valid, you need <code>name !== null && name !== undefined</code>. Fix: be explicit when empty is meaningful.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Not using discriminated unions</div>
+<p>Using <code>{ loading: boolean; data?: T; error?: Error }</code> allows impossible states (<code>loading: true, data: user</code>). Fix: discriminated union — each state is its own shape with a <code>status</code> field.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Trusting a type guard that lies</div>
+<p><code>function isUser(x): x is User { return true; }</code> compiles and narrows incorrectly. Fix: guard bodies must actually validate the shape. Test each guard with bad data.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Skipping <code>never</code> in switch default</div>
+<p>Without <code>const _: never = x</code> in the default, adding a union member doesn't break existing switches. Fix: always include the exhaustiveness check — it's the whole point.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using <code>unknown</code> as <code>any</code></div>
+<p>Writing <code>(x as User).name</code> to silence the compiler is the same mistake as <code>any</code>. Fix: narrow properly with a guard, then use. Don't cast <code>unknown</code> — validate it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Typing API responses as <code>any</code></div>
+<p><code>fetch(...).then(r => r.json() as User)</code> skips validation — the type is a lie. Fix: <code>as unknown</code>, then a type guard. Only narrowed values are safe to use.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a union type in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">A union type says a value can be one of several types. type ID = string | number means ID is either a string or a number. The pipe | is the union operator. Unions are how TypeScript models 'this OR that' — API responses that can succeed or fail, values that can be present or null, states that can be one of a fixed set.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is type narrowing?</summary>
+<p class="mt-2 text-sm text-slate-300">Narrowing is how TypeScript refines a broad union type into a specific one based on runtime checks. If a value is string | number, checking typeof value === 'string' inside an if narrows it to string inside the block. TypeScript understands typeof, instanceof, in, Array.isArray, truthiness, equality with literals, discriminated unions, and custom type guards.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is typeof narrowing?</summary>
+<p class="mt-2 text-sm text-slate-300">The typeof operator returns a string ('string', 'number', 'boolean', 'object', 'function', 'undefined', 'symbol', 'bigint'). TypeScript uses this at compile time to narrow unions. if (typeof value === 'string') narrows value to string inside the block. It's the most common narrowing technique for primitive unions.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a discriminated union?</summary>
+<p class="mt-2 text-sm text-slate-300">A discriminated union is a union where each member has a shared literal property (the discriminant) that uniquely identifies it. type Result = { status: 'ok'; data: User } | { status: 'error'; message: string }. The 'status' field is the discriminant — checking result.status === 'ok' narrows the type to the ok member, giving access to result.data.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a custom type guard?</summary>
+<p class="mt-2 text-sm text-slate-300">A type guard is a function that returns a type predicate — value is SomeType. function isUser(x: unknown): x is User { return typeof x === 'object' && x !== null && 'name' in x; }. When you call isUser(value) in an if, TypeScript narrows value to User inside the block. Custom guards are how you narrow types that typeof and instanceof can't.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does the in operator narrow?</summary>
+<p class="mt-2 text-sm text-slate-300">The in operator checks if a property exists on an object. TypeScript uses it to discriminate between union members that have different property sets. if ('name' in value) narrows value to whichever union members have a 'name' property. This is useful when the union members are distinguished by a property's presence rather than a literal value.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is exhaustive checking?</summary>
+<p class="mt-2 text-sm text-slate-300">Exhaustive checking ensures every member of a union is handled. Inside a switch or if-else chain that covers all cases, the default branch gets the never type — and you can assign value to never to prove it's unreachable. If you add a new union member later, the compiler catches the missing case.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between a union and an intersection?</summary>
+<p class="mt-2 text-sm text-slate-300">A union (A | B) means 'A or B' — a value satisfies the type if it's either. An intersection (A & B) means 'A and B' — a value must have all properties of both. Use union when the value could be one of several shapes. Use intersection when combining shapes. They're opposites: union widens the set of allowed values, intersection narrows it.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue your TypeScript path</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/classes.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 5: Classes & OOP</div>
+<div class="text-xs text-slate-400 mt-1">Access modifiers, implements, abstract</div>
+</a>
+<a href="/courses/typescript/lessons/generics.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 3: Functions & generics</div>
+<div class="text-xs text-slate-400 mt-1">The prior lesson — reusable typed code</div>
+</a>
+<a href="/courses/typescript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🗺️ TypeScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full 6-week roadmap</div>
+</a>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🟨 JavaScript track</div>
+<div class="text-xs text-slate-400 mt-1">The prerequisite for everything TypeScript</div>
+</a>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+<ul class="text-sm space-y-2 text-slate-400">
+<li>→ <a href="https://www.typescriptlang.org/docs/handbook/2/narrowing.html" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Handbook — Narrowing</a></li>
+<li>→ <a href="https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#union-types" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">Handbook — Union Types</a></li>
+<li>→ <a href="https://www.typescriptlang.org/play" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">TypeScript Playground — try every snippet</a></li>
+</ul>
+</section>
+
+<a href="/courses/typescript/index.html" class="back-link">← Back to TypeScript track</a>
+
+<div class="lang-signature">
+<span class="dot"></span> You're in the TypeScript track · Lesson 4 <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
