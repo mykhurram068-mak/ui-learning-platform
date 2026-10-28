@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Use keyof in TypeScript — Key Unions & Indexed Access (2026)</title>
+<meta name="description" content="Learn keyof in TypeScript: key unions, indexed access with T[K], the typed get pattern, and how keyof powers every typed property accessor.">
+<meta name="keywords" content="typescript keyof, keyof operator typescript, typescript indexed access, typescript key union, typescript keyof typeof">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Use keyof in TypeScript — Key Unions & Indexed Access">
+<meta property="og:description" content="Learn keyof in TypeScript: key unions, indexed access with T[K], the typed get pattern.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/typescript/problems/type-keyof.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Use keyof in TypeScript">
+<meta name="twitter:description" content="Key unions, indexed access, and the typed get pattern.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/typescript/problems/type-keyof.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Use keyof in TypeScript — Key Unions & Indexed Access",
+"description": "Learn keyof in TypeScript: key unions, indexed access with T[K], the typed get pattern.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What does keyof do in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"keyof T produces a union of T's property names. If User = { id: string; name: string; email: string }, then keyof User = 'id' | 'name' | 'email'. It's the type-level equivalent of Object.keys(), but it works on types, not values, and produces a compile-time union rather than a runtime array. keyof is the foundation of type-safe property access."}},
+{"@type":"Question","name":"What is indexed access type (T[K])?","acceptedAnswer":{"@type":"Answer","text":"T[K] is a type operator that extracts the type of the value at key K. If User = { name: string; age: number }, then User['name'] = string and User['age'] = number. Combined with keyof as a constraint, T[K] gives the exact return type for a typed getter: function get<T, K extends keyof T>(obj: T, key: K): T[K]. The return type depends on which key was passed."}},
+{"@type":"Question","name":"What is the difference between keyof and Object.keys?","acceptedAnswer":{"@type":"Answer","text":"keyof is a type operator, exists only at compile time, and produces a union type ('a' | 'b'). Object.keys() is a runtime function, returns string[], and loses key information. Use keyof for type constraints and generic signatures. Use Object.keys() when iterating runtime object properties. keyof doesn't exist at runtime; Object.keys does."}},
+{"@type":"Question","name":"What is keyof typeof?","acceptedAnswer":{"@type":"Answer","text":"keyof typeof X combines both operators. typeof X extracts the type of a runtime value X, then keyof extracts the keys of that type. For a config object const config = { host: 'x', port: 3000 }, keyof typeof config = 'host' | 'port'. This is the standard way to extract keys from a runtime object — common in config schemas, route definitions, and lookup tables."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-typescript.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3178C6 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">TypeScript · keyof</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#5B9BD5;">Home</a> ›
+<a href="/courses/index.html" style="color:#5B9BD5;">Courses</a> ›
+<a href="/courses/typescript/index.html" style="color:#5B9BD5;">TypeScript</a> ›
+<a href="/courses/typescript/problems/index.html" style="color:#5B9BD5;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">keyof</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🔷 Problem · 5 min read</div>
+<h1>How to use keyof.<br><span class="py-accent">Key unions and indexed access.</span></h1>
+<p class="lead">
+<code>keyof</code> is one of TypeScript's three type operators (along with <code>typeof</code> and indexed access <code>T[K]</code>). It turns an object type into a union of its keys. Combined with <code>T[K]</code> as a return type, it's the pattern behind every typed getter, pluck function, and property setter in the ecosystem. Learn it once, recognize it everywhere.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>keyof T</code> gives a union of T's keys: <code>keyof User = 'id' | 'name' | 'email'</code>. <code>T[K]</code> gives the value type at key K: <code>User['age'] = number</code>. Together: <code>function get<T, K extends keyof T>(obj: T, key: K): T[K]</code> — the typed getter that returns the exact type of the value at the given key. This is the pattern behind lodash's <code>get</code>, every typed accessor library, and React Hook Form's internals.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — <code>keyof</code> produces a key union</h2>
+<p class="section-sub">The type-level equivalent of Object.keys.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When you write <code>keyof User</code>, TypeScript produces a union of every key of <code>User</code>. It's the compile-time version of <code>Object.keys(user)</code> — but it produces a union type, not a runtime array, and it lives in the type system. This union is the constraint that makes typed property access possible.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">keyof.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="com">// ─── keyof gives a union of keys ─────────────</span>
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+age: <span class="fn">number</span>;
+}
+
+<span class="kw">type</span> UserKey = <span class="kw">keyof</span> User;
+<span class="com">// 'id' | 'name' | 'email' | 'age'</span>
+
+<span class="kw">const</span> k1: UserKey = <span class="str">'name'</span>; <span class="com">// ✅</span>
+<span class="kw">const</span> k2: UserKey = <span class="str">'age'</span>; <span class="com">// ✅</span>
+<span class="com">// const k3: UserKey = 'foo'; // ❌ 'foo' not a key of User</span>
+
+<span class="com">// ─── keyof typeof — keys from a value ────────</span>
+<span class="kw">const</span> config = {
+host: <span class="str">'localhost'</span>,
+port: <span class="num">3000</span>,
+debug: <span class="kw">true</span>
+};
+
+<span class="kw">type</span> ConfigKey = <span class="kw">keyof</span> <span class="kw">typeof</span> config;
+<span class="com">// 'host' | 'port' | 'debug'</span>
+
+<span class="kw">const</span> ck: ConfigKey = <span class="str">'port'</span>; <span class="com">// ✅</span>
+<span class="com">// const bad: ConfigKey = 'url'; // ❌</span>
+
+<span class="com">// ─── keyof with generics ─────────────────────</span>
+<span class="kw">function</span> <span class="fn">pluckKeys</span><T>(obj: T): (<span class="kw">keyof</span> T)[] {
+<span class="kw">return</span> <span class="fn">Object</span>.<span class="fn">keys</span>(obj) <span class="kw">as</span> (<span class="kw">keyof</span> T)[];
+}
+
+<span class="kw">const</span> keys = <span class="fn">pluckKeys</span>({ a: <span class="num">1</span>, b: <span class="num">2</span> }); <span class="com">// ('a' | 'b')[]</span>
+
+<span class="com">// ─── keyof on unions ─────────────────────────</span>
+<span class="kw">type</span> A = { a: <span class="fn">string</span>; b: <span class="fn">number</span> };
+<span class="kw">type</span> B = { b: <span class="fn">number</span>; c: <span class="fn">boolean</span> };
+<span class="kw">type</span> AB = <span class="kw">keyof</span> (A | B);
+<span class="com">// 'b' — only keys present in BOTH A and B
+// (you can't safely access a key that's on only one member)</span>
+
+<span class="com">// ─── keyof on interfaces with index signatures</span>
+<span class="kw">interface</span> Dict {
+[key: <span class="fn">string</span>]: <span class="fn">number</span>;
+}
+<span class="kw">type</span> DictKey = <span class="kw">keyof</span> Dict;
+<span class="com">// string | number (the index signature's key type)</span>
+
+console.<span class="fn">log</span>(k1, k2, ck, keys);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="com">// keyof is erased. Only the runtime values remain.</span>
+
+<span class="kw">const</span> k1 = <span class="str">'name'</span>;
+<span class="kw">const</span> k2 = <span class="str">'age'</span>;
+
+<span class="kw">const</span> config = {
+host: <span class="str">'localhost'</span>,
+port: <span class="num">3000</span>,
+debug: <span class="kw">true</span>
+};
+
+<span class="kw">const</span> ck = <span class="str">'port'</span>;
+
+<span class="kw">function</span> <span class="fn">pluckKeys</span>(obj) {
+<span class="kw">return</span> <span class="fn">Object</span>.<span class="fn">keys</span>(obj);
+}
+
+<span class="kw">const</span> keys = <span class="fn">pluckKeys</span>({ a: <span class="num">1</span>, b: <span class="num">2</span> });
+
+console.<span class="fn">log</span>(k1, k2, ck, keys);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>keyof T</code> → key union</h4>
+<p>Produces a union of T's property names. <code>keyof User</code> = <code>'id' | 'name' | 'email' | 'age'</code>. Compile-time only.</p>
+</div>
+<div class="concept-card">
+<h4><code>keyof typeof</code></h4>
+<p>Extract keys from a runtime value. <code>typeof config</code> is the type; <code>keyof</code> gives its keys. Standard pattern for config objects.</p>
+</div>
+<div class="concept-card">
+<h4>Works with generics</h4>
+<p><code>keyof T</code> inside a generic function is the union of T's keys. This is what enables <code><T, K extends keyof T></code> patterns.</p>
+</div>
+<div class="concept-card">
+<h4>On unions: intersection</h4>
+<p><code>keyof (A | B)</code> is only the keys present in both. You can't safely access a key that exists on only one member.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — <code>T[K]</code> indexed access</h2>
+<p class="section-sub">Get the type of the value at a key.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Indexed access <code>T[K]</code> is the type-level equivalent of <code>obj[key]</code>. It gives the exact type of the value at key K. Combined with <code>keyof</code> as a constraint, it produces typed getters that return different types based on which key was passed — the pattern that powers every typed property accessor.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">indexed-access.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+age: <span class="fn">number</span>;
+active: <span class="fn">boolean</span>;
+}
+
+<span class="com">// ─── Indexed access — the type of a value ────</span>
+<span class="kw">type</span> IdType = User[<span class="str">'id'</span>]; <span class="com">// string</span>
+<span class="kw">type</span> AgeType = User[<span class="str">'age'</span>]; <span class="com">// number</span>
+<span class="kw">type</span> ActiveType = User[<span class="str">'active'</span>]; <span class="com">// boolean</span>
+
+<span class="com">// ─── Union indexed access ────────────────────</span>
+<span class="kw">type</span> AllValues = User[<span class="kw">keyof</span> User];
+<span class="com">// string | number | boolean
+// — the union of every value type in User.</span>
+
+<span class="com">// ─── The typed getter ────────────────────────</span>
+<span class="kw">function</span> <span class="fn">get</span><T, K <span class="kw">extends</span> <span class="kw">keyof</span> T>(obj: T, key: K): T[K] {
+<span class="kw">return</span> obj[key];
+}
+
+<span class="kw">const</span> user: User = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, age: <span class="num">28</span>, active: <span class="kw">true</span> };
+
+<span class="kw">const</span> n = <span class="fn">get</span>(user, <span class="str">'name'</span>); <span class="com">// string</span>
+<span class="kw">const</span> a = <span class="fn">get</span>(user, <span class="str">'age'</span>); <span class="com">// number</span>
+<span class="kw">const</span> b = <span class="fn">get</span>(user, <span class="str">'active'</span>); <span class="com">// boolean</span>
+
+<span class="com">// ─── The typed setter ────────────────────────</span>
+<span class="kw">function</span> <span class="fn">set</span><T, K <span class="kw">extends</span> <span class="kw">keyof</span> T>(obj: T, key: K, value: T[K]): T {
+<span class="kw">return</span> { ...obj, [key]: value };
+}
+
+<span class="kw">const</span> updated = <span class="fn">set</span>(user, <span class="str">'name'</span>, <span class="str">'Alicia'</span>); <span class="com">// ✅ value: string</span>
+<span class="com">// set(user, 'age', 'x'); // ❌ value must be number</span>
+<span class="com">// set(user, 'name', 42); // ❌ value must be string</span>
+
+<span class="com">// ─── Multiple keys — union access ────────────</span>
+<span class="kw">function</span> <span class="fn">pluck</span><T, K <span class="kw">extends</span> <span class="kw">keyof</span> T>(items: T[], key: K): T[K][] {
+<span class="kw">return</span> items.<span class="fn">map</span>(item => item[key]);
+}
+
+<span class="kw">const</span> users: User[] = [user, { id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span>, age: <span class="num">34</span>, active: <span class="kw">false</span> }];
+
+<span class="kw">const</span> names = <span class="fn">pluck</span>(users, <span class="str">'name'</span>); <span class="com">// string[]</span>
+<span class="kw">const</span> ages = <span class="fn">pluck</span>(users, <span class="str">'age'</span>); <span class="com">// number[]</span>
+
+<span class="com">// ─── Nested key access ───────────────────────</span>
+<span class="kw">interface</span> Order {
+customer: { name: <span class="fn">string</span>; email: <span class="fn">string</span> };
+total: <span class="fn">number</span>;
+}
+
+<span class="kw">type</span> CustomerType = Order[<span class="str">'customer'</span>]; <span class="com">// { name, email }</span>
+<span class="kw">type</span> CustomerName = Order[<span class="str">'customer'</span>][<span class="str">'name'</span>]; <span class="com">// string</span>
+
+console.<span class="fn">log</span>(n, a, b, updated, names, ages);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">get</span>(obj, key) {
+<span class="kw">return</span> obj[key];
+}
+
+<span class="kw">const</span> user = { id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span>, age: <span class="num">28</span>, active: <span class="kw">true</span> };
+
+<span class="kw">const</span> n = <span class="fn">get</span>(user, <span class="str">'name'</span>);
+<span class="kw">const</span> a = <span class="fn">get</span>(user, <span class="str">'age'</span>);
+<span class="kw">const</span> b = <span class="fn">get</span>(user, <span class="str">'active'</span>);
+
+<span class="kw">function</span> <span class="fn">set</span>(obj, key, value) {
+<span class="kw">return</span> { ...obj, [key]: value };
+}
+
+<span class="kw">const</span> updated = <span class="fn">set</span>(user, <span class="str">'name'</span>, <span class="str">'Alicia'</span>);
+
+<span class="kw">function</span> <span class="fn">pluck</span>(items, key) {
+<span class="kw">return</span> items.<span class="fn">map</span>(item => item[key]);
+}
+
+<span class="kw">const</span> users = [user, { id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span>, age: <span class="num">34</span>, active: <span class="kw">false</span> }];
+
+<span class="kw">const</span> names = <span class="fn">pluck</span>(users, <span class="str">'name'</span>);
+<span class="kw">const</span> ages = <span class="fn">pluck</span>(users, <span class="str">'age'</span>);
+
+console.<span class="fn">log</span>(n, a, b, updated, names, ages);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>T[K]</code> gets the value type</h4>
+<p><code>User['age']</code> = <code>number</code>. It's the type of the value at key <code>'age'</code>. Combine with <code>keyof</code> for the union of all values.</p>
+</div>
+<div class="concept-card">
+<h4>The typed getter</h4>
+<p><code>get<T, K extends keyof T>(obj, key): T[K]</code> returns the exact value type per key. <code>get(user, 'age')</code> is <code>number</code>, not the union.</p>
+</div>
+<div class="concept-card">
+<h4>Value must match key</h4>
+<p>The setter's <code>value: T[K]</code> enforces that <code>'name'</code> requires a <code>string</code> and <code>'age'</code> requires a <code>number</code>. Catches mismatches at compile time.</p>
+</div>
+<div class="concept-card">
+<h4>Nested access</h4>
+<p><code>Order['customer']['name']</code> works — indexed access composes. Drill into nested types without losing precision.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong><code>get<T, K extends keyof T>(obj, key): T[K]</code> is the most-used generic signature in TypeScript.</strong> Open any typed library: lodash's <code>get</code>, Immer's <code>produce</code>, React Hook Form's <code>register</code>, TanStack Table's accessors — every one uses this pattern or a variation. Master this one signature and you can read the source of every typed utility. It's also the correct signature for any custom getter you write — don't reinvent it, use it.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — <code>keyof typeof</code> and real-world patterns</h2>
+<p class="section-sub">Extract keys from runtime objects, discriminate unions, and constrain APIs.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The most common real-world use: extracting keys from a runtime constant — a config object, a routes table, a feature flags list. <code>keyof typeof value</code> combines both operators: first extract the type with <code>typeof</code>, then extract its keys with <code>keyof</code>. It's the idiom for any keyed lookup table.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">keyof-typeof.ts</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">JavaScript</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="com">// ─── Config objects ──────────────────────────</span>
+<span class="kw">const</span> config = {
+apiUrl: <span class="str">'https://api.example.com'</span>,
+timeout: <span class="num">3000</span>,
+retries: <span class="num">5</span>
+} <span class="kw">as const</span>;
+
+<span class="kw">type</span> ConfigKey = <span class="kw">keyof</span> <span class="kw">typeof</span> config;
+<span class="com">// 'apiUrl' | 'timeout' | 'retries'</span>
+
+<span class="kw">function</span> <span class="fn">getConfig</span><K <span class="kw">extends</span> ConfigKey>(key: K): <span class="kw">typeof</span> config[K] {
+<span class="kw">return</span> config[key];
+}
+
+<span class="kw">const</span> url = <span class="fn">getConfig</span>(<span class="str">'apiUrl'</span>); <span class="com">// 'https://api.example.com'</span>
+<span class="kw">const</span> t = <span class="fn">getConfig</span>(<span class="str">'timeout'</span>); <span class="com">// 3000</span>
+<span class="com">// getConfig('port'); // ❌ 'port' not in config</span>
+
+<span class="com">// ─── Route definitions ───────────────────────</span>
+<span class="kw">const</span> routes = {
+home: <span class="str">'/'</span>,
+about: <span class="str">'/about'</span>,
+blog: <span class="str">'/blog'</span>,
+post: <span class="str">'/blog/:slug'</span>
+} <span class="kw">as const</span>;
+
+<span class="kw">type</span> RouteName = <span class="kw">keyof</span> <span class="kw">typeof</span> routes;
+<span class="com">// 'home' | 'about' | 'blog' | 'post'</span>
+
+<span class="kw">function</span> <span class="fn">navigate</span>(name: RouteName): <span class="fn">void</span> {
+console.<span class="fn">log</span>(<span class="str">'Navigate to:'</span>, routes[name]);
+}
+
+<span class="fn">navigate</span>(<span class="str">'home'</span>); <span class="com">// ✅</span>
+<span class="fn">navigate</span>(<span class="str">'blog'</span>); <span class="com">// ✅</span>
+<span class="com">// navigate('posts'); // ❌</span>
+
+<span class="com">// ─── Discriminated unions on objects ─────────</span>
+<span class="kw">type</span> EventMap = {
+click: { x: <span class="fn">number</span>; y: <span class="fn">number</span> };
+focus: { target: <span class="fn">string</span> };
+blur: { target: <span class="fn">string</span> };
+};
+
+<span class="kw">type</span> EventName = <span class="kw">keyof</span> EventMap; <span class="com">// 'click' | 'focus' | 'blur'</span>
+
+<span class="kw">function</span> <span class="fn">emit</span><E <span class="kw">extends</span> EventName>(event: E, payload: EventMap[E]): <span class="fn">void</span> {
+console.<span class="fn">log</span>(event, payload);
+}
+
+<span class="fn">emit</span>(<span class="str">'click'</span>, { x: <span class="num">10</span>, y: <span class="num">20</span> }); <span class="com">// ✅ payload must have x, y</span>
+<span class="fn">emit</span>(<span class="str">'focus'</span>, { target: <span class="str">'input'</span> }); <span class="com">// ✅ payload must have target</span>
+<span class="com">// emit('click', { target: 'x' }); // ❌ payload needs x, y</span>
+<span class="com">// emit('unknown', {}); // ❌ 'unknown' not an event</span>
+
+<span class="com">// ─── The pattern ─────────────────────────────</span>
+<span class="com">// The combination of:
+// - EventMap (object type)
+// - keyof EventMap (event names)
+// - EventMap[E] (payload type per event)
+//
+// gives you a fully-typed event emitter with
+// zero runtime overhead. This is how Zustand,
+// Mitt, and every event bus types itself.</span>
+
+<span class="com">// ─── keyof + mapped types ────────────────────</span>
+<span class="kw">type</span> DeepReadonly<T> = {
+<span class="kw">readonly</span> [K <span class="kw">in</span> <span class="kw">keyof</span> T]: T[K]
+};
+
+<span class="kw">type</span> FrozenConfig = DeepReadonly<<span class="kw">typeof</span> config>;
+<span class="com">// All config fields become readonly
+// This is how utility types are built — keyof as the iteration</span>
+
+console.<span class="fn">log</span>(url, t);
+<span class="fn">navigate</span>(<span class="str">'home'</span>);
+<span class="fn">emit</span>(<span class="str">'click'</span>, { x: <span class="num">1</span>, y: <span class="num">2</span> });</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">const</span> config = {
+apiUrl: <span class="str">'https://api.example.com'</span>,
+timeout: <span class="num">3000</span>,
+retries: <span class="num">5</span>
+};
+
+<span class="kw">function</span> <span class="fn">getConfig</span>(key) {
+<span class="kw">return</span> config[key];
+}
+
+<span class="kw">const</span> url = <span class="fn">getConfig</span>(<span class="str">'apiUrl'</span>);
+<span class="kw">const</span> t = <span class="fn">getConfig</span>(<span class="str">'timeout'</span>);
+
+<span class="kw">const</span> routes = {
+home: <span class="str">'/'</span>,
+about: <span class="str">'/about'</span>,
+blog: <span class="str">'/blog'</span>,
+post: <span class="str">'/blog/:slug'</span>
+};
+
+<span class="kw">function</span> <span class="fn">navigate</span>(name) {
+console.<span class="fn">log</span>(<span class="str">'Navigate to:'</span>, routes[name]);
+}
+
+<span class="fn">navigate</span>(<span class="str">'home'</span>);
+<span class="fn">navigate</span>(<span class="str">'blog'</span>);
+
+<span class="kw">function</span> <span class="fn">emit</span>(event, payload) {
+console.<span class="fn">log</span>(event, payload);
+}
+
+<span class="fn">emit</span>(<span class="str">'click'</span>, { x: <span class="num">10</span>, y: <span class="num">20</span> });
+<span class="fn">emit</span>(<span class="str">'focus'</span>, { target: <span class="str">'input'</span> });
+
+console.<span class="fn">log</span>(url, t);
+<span class="fn">navigate</span>(<span class="str">'home'</span>);
+<span class="fn">emit</span>(<span class="str">'click'</span>, { x: <span class="num">1</span>, y: <span class="num">2</span> });</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Config schemas</h4>
+<p><code>keyof typeof config</code> gives the config's keys. The typed getter returns exact value types — no casting, no <code>any</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Routes and navigation</h4>
+<p><code>keyof typeof routes</code> constrains navigation names. <code>navigate('home')</code> works; <code>navigate('posts')</code> is a compile error.</p>
+</div>
+<div class="concept-card">
+<h4>Typed event emitters</h4>
+<p>The <code>EventMap</code> + <code>keyof</code> + <code>T[K]</code> pattern gives an emitter where <code>emit('click', {x, y})</code> is fully typed.</p>
+</div>
+<div class="concept-card">
+<h4>Foundation of mapped types</h4>
+<p>Every utility type (<code>Partial</code>, <code>Readonly</code>, <code>Pick</code>) uses <code>keyof</code> to iterate over keys. Mapped types are <code>[K in keyof T]</code>.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The keyof bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Confusing keyof with Object.keys</div>
+<p><code>keyof</code> is type-only, produces a union. <code>Object.keys</code> is runtime, produces <code>string[]</code>. Fix: use <code>keyof</code> for types, <code>Object.keys</code> for iteration.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Forgetting <code>extends keyof T</code> in the signature</div>
+<p><code>function get<T, K>(obj: T, key: K)</code> — K is unconstrained. <code>get(user, 'foo')</code> compiles. Fix: <code>K extends keyof T</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using <code>K</code> instead of <code>T[K]</code> as return type</div>
+<p><code>function get<T, K extends keyof T>(obj: T, key: K): K</code> returns the key, not the value. Fix: <code>: T[K]</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Assuming <code>keyof (A | B)</code> includes all keys</div>
+<p>On a union of objects, <code>keyof</code> gives only keys present in <em>both</em>. Fix: for a union's union, use <code>keyof A | keyof B</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using <code>keyof</code> on a value without <code>typeof</code></div>
+<p><code>keyof config</code> fails — config is a value, not a type. Fix: <code>keyof typeof config</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Expecting runtime key iteration</div>
+<p><code>keyof</code> doesn't produce a runtime array. You can't <code>for...of</code> on <code>keyof T</code>. Fix: use <code>Object.keys</code> at runtime, cast to <code>(keyof T)[]</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Losing keys with <code>as const</code></div>
+<p>Without <code>as const</code>, a literal object's values widen to their primitive types. Fix: <code>as const</code> preserves the exact literal types.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using <code>keyof</code> with index signatures</div>
+<p><code>keyof { [k: string]: number }</code> = <code>string | number</code> — not literal keys. Fix: use a specific interface, not an index signature, when you need literal keys.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does keyof do in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">keyof T produces a union of T's property names. If User = { id: string; name: string; email: string }, then keyof User = 'id' | 'name' | 'email'. It's the type-level equivalent of Object.keys(), but it works on types, not values, and produces a compile-time union rather than a runtime array.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is indexed access type (T[K])?</summary>
+<p class="mt-2 text-sm text-slate-300">T[K] is a type operator that extracts the type of the value at key K. If User = { name: string; age: number }, then User['name'] = string and User['age'] = number. Combined with keyof as a constraint, T[K] gives the exact return type for a typed getter.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between keyof and Object.keys?</summary>;
+<p class="mt-2 text-sm text-slate-300">keyof is a type operator, exists only at compile time, and produces a union type ('a' | 'b'). Object.keys() is a runtime function, returns string[], and loses key information. Use keyof for type constraints and generic signatures. Use Object.keys() when iterating runtime object properties.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is keyof typeof?</summary>
+<p class="mt-2 text-sm text-slate-300">keyof typeof X combines both operators. typeof X extracts the type of a runtime value X, then keyof extracts the keys of that type. For a config object const config = { host: 'x', port: 3000 }, keyof typeof config = 'host' | 'port'. This is the standard way to extract keys from a runtime object.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/typescript/lessons/generics.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Lesson 3: Functions & generics</div>
+<div class="text-xs text-slate-400 mt-1">Generic syntax and constraints</div>
+</a>
+<a href="/courses/typescript/problems/constrain-generic.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to constrain a generic type</div>
+<div class="text-xs text-slate-400 mt-1">extends, keyof constraints, unions</div>
+</a>
+<a href="/courses/typescript/problems/dynamic-keys.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 How to type dynamic keys</div>
+<div class="text-xs text-slate-400 mt-1">Record, index signatures, Maps</div>
+</a>
+<a href="/courses/typescript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All TypeScript problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/typescript/problems/index.html" class="back-link">← All TypeScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · TypeScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
