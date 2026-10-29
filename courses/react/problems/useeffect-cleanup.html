@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Clean Up useEffect in React — Timers, Fetch, Subscriptions (2026)</title>
+<meta name="description" content="Learn useEffect cleanup in React. Cancel timers, abort fetches, unsubscribe from events. Three patterns with working code — the leaks you fix by returning a cleanup function.">
+<meta name="keywords" content="react useeffect cleanup, react useeffect return, react cleanup function, react abort fetch, react clearinterval useeffect">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Clean Up useEffect in React — Timers, Fetch, Subscriptions">
+<meta property="og:description" content="Cancel timers, abort fetches, unsubscribe. Three patterns with working code.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/useeffect-cleanup.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Clean Up useEffect in React">
+<meta name="twitter:description" content="Timers, fetch, subscriptions — three patterns.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/useeffect-cleanup.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Clean Up useEffect in React — Timers, Fetch, Subscriptions",
+"description": "Learn useEffect cleanup in React. Cancel timers, abort fetches, unsubscribe from events.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I clean up a useEffect in React?","acceptedAnswer":{"@type":"Answer","text":"Return a function from useEffect. React calls it before the next run of the effect, and on unmount. The cleanup function should reverse whatever the effect started: clearInterval/clearTimeout for timers, controller.abort() for fetch, unsubscribe() for subscriptions, removing event listeners. Effects with cleanup prevent leaks — timers firing after unmount, fetches setting state on dead components, subscriptions holding references to dead components."}},
+{"@type":"Question","name":"When does the cleanup function run?","acceptedAnswer":{"@type":"Answer","text":"Three cases: (1) when the component unmounts, (2) before the effect re-runs because a dependency changed, (3) never if the effect has an empty dependency array and the component doesn't unmount. The cleanup always sees the values from the render that created the effect — it captures the same closure. This is why you should always capture interval IDs, abort controllers, and subscription references in local variables before returning the cleanup."}},
+{"@type":"Question","name":"How do I cancel a fetch request in useEffect?","acceptedAnswer":{"@type":"Answer","text":"Create an AbortController, pass its signal to fetch, and call controller.abort() in the cleanup. Additionally, guard setState with a cancelled flag to avoid updates on unmounted components: let cancelled = false; return () => { cancelled = true; controller.abort(); }. The AbortController cancels the network request; the cancelled flag prevents React from warning about setState on an unmounted component. Both are needed for full correctness."}},
+{"@type":"Question","name":"Do I need cleanup for every useEffect?","acceptedAnswer":{"@type":"Answer","text":"No. Effects that don't start anything (logging, calling a function, computing a value) don't need cleanup. Effects that start something — timers, subscriptions, network requests, animations, event listeners — must clean up. Rule of thumb: if the effect creates a resource that outlives the effect, return a cleanup. If it just reads data or logs, no cleanup needed."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · useEffect cleanup</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">useEffect cleanup</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>How to clean up useEffect.<br><span class="py-accent">Timers, fetch, subscriptions.</span></h1>
+<p class="lead">
+Every <code>useEffect</code> that starts something must clean it up. Timers that fire after unmount, fetches that resolve on dead components, event listeners that stack up on every re-render — all of these are leaks. The fix is the cleanup function. This page covers the three patterns you'll use daily.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Return a function from <code>useEffect</code>. React calls it before the next run and on unmount. <strong>Timers:</strong> <code>clearInterval(id)</code> / <code>clearTimeout(id)</code>. <strong>Fetch:</strong> <code>controller.abort()</code> + a <code>cancelled</code> flag. <strong>Subscriptions:</strong> <code>unsubscribe()</code> from the library. <strong>Event listeners:</strong> <code>removeEventListener</code>. If the effect doesn't start anything, no cleanup needed.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Timers (<code>setInterval</code> / <code>setTimeout</code>)</h2>
+<p class="section-sub">The most common cleanup case.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If the effect starts a timer and doesn't clear it, the timer keeps firing after the component unmounts. You get "setState on unmounted component" warnings, or worse, memory leaks. Fix: capture the timer ID in a local variable inside the effect and clear it in the cleanup.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">timer-cleanup.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: timer keeps running after unmount ──</span>
+<span class="kw">function</span> <span class="fn">BadTimer</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">setInterval</span>(() => {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>); <span class="com">// ⚠️ fires after unmount</span>
+}, <span class="num">1000</span>);
+}, []);
+<span class="com">// ❌ No cleanup — interval runs forever, warning on unmount</span>
+
+<span class="kw">return</span> <p>{count}</p>;
+}
+
+<span class="com">// ─── GOOD: setInterval + clearInterval ───────</span>
+<span class="kw">function</span> <span class="fn">GoodTimer</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}, <span class="num">1000</span>);
+
+<span class="com">// Cleanup — runs on unmount AND before re-run</span>
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, []); <span class="com">// ✅ cleans up correctly</span>
+
+<span class="kw">return</span> <p>{count}</p>;
+}
+
+<span class="com">// ─── GOOD: setTimeout + clearTimeout ─────────</span>
+<span class="kw">function</span> <span class="fn">DebouncedSearch</span>({ query }: { query: <span class="fn">string</span> }) {
+<span class="kw">const</span> [results, setResults] = <span class="fn">useState</span><<span class="fn">string</span>[]>([]);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setTimeout</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/search?q=${query}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(setResults);
+}, <span class="num">300</span>);
+
+<span class="com">// If query changes within 300ms, cancel the previous timeout</span>
+<span class="kw">return</span> () => <span class="fn">clearTimeout</span>(id);
+}, [query]);
+
+<span class="kw">return</span> <ul>{results.<span class="fn">map</span>(r => <li key={r}>{r}</li>)}</ul>;
+}
+
+<span class="com">// ─── GOOD: cleanup with dependency change ────</span>
+<span class="kw">function</span> <span class="fn">Countdown</span>({ seconds }: { seconds: <span class="fn">number</span> }) {
+<span class="kw">const</span> [remaining, setRemaining] = <span class="fn">useState</span>(seconds);
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">setRemaining</span>(seconds); <span class="com">// reset when prop changes</span>
+
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => {
+<span class="fn">setRemaining</span>(r => {
+<span class="kw">if</span> (r <= <span class="num">1</span>) {
+<span class="fn">clearInterval</span>(id);
+<span class="kw">return</span> <span class="num">0</span>;
+}
+<span class="kw">return</span> r - <span class="num">1</span>;
+});
+}, <span class="num">1000</span>);
+
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, [seconds]); <span class="com">// reset timer when seconds changes</span>
+
+<span class="kw">return</span> <p>{remaining}s remaining</p>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadTimer</span>, <span class="fn">GoodTimer</span>, <span class="fn">DebouncedSearch</span>, <span class="fn">Countdown</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadTimer</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="fn">setInterval</span>(() => { <span class="fn">setCount</span>(c => c + <span class="num">1</span>); }, <span class="num">1000</span>);
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count);
+}
+
+<span class="kw">function</span> <span class="fn">GoodTimer</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => { <span class="fn">setCount</span>(c => c + <span class="num">1</span>); }, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count);
+}
+
+<span class="kw">function</span> <span class="fn">DebouncedSearch</span>({ query }) {
+<span class="kw">const</span> [results, setResults] = <span class="fn">useState</span>([]);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setTimeout</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/search?q=${query}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setResults);
+}, <span class="num">300</span>);
+<span class="kw">return</span> () => <span class="fn">clearTimeout</span>(id);
+}, [query]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, results.<span class="fn">map</span>(r => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: r }, r)));
+}
+
+<span class="kw">function</span> <span class="fn">Countdown</span>({ seconds }) {
+<span class="kw">const</span> [remaining, setRemaining] = <span class="fn">useState</span>(seconds);
+<span class="fn">useEffect</span>(() => {
+<span class="fn">setRemaining</span>(seconds);
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => {
+<span class="fn">setRemaining</span>(r => {
+<span class="kw">if</span> (r <= <span class="num">1</span>) {
+<span class="fn">clearInterval</span>(id);
+<span class="kw">return</span> <span class="num">0</span>;
+}
+<span class="kw">return</span> r - <span class="num">1</span>;
+});
+}, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, [seconds]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, remaining, <span class="str">'s remaining'</span>);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadTimer</span>, <span class="fn">GoodTimer</span>, <span class="fn">DebouncedSearch</span>, <span class="fn">Countdown</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Capture the ID locally</h4>
+<p><code>const id = setInterval(...)</code> — the ID must be in scope for the cleanup. Don't store it in a ref or state.</p>
+</div>
+<div class="concept-card">
+<h4>Cleanup runs before re-run</h4>
+<p>If deps change, the old timer is cleared <em>before</em> the new one starts. No overlapping timers.</p>
+</div>
+<div class="concept-card">
+<h4>Debounce pattern</h4>
+<p><code>setTimeout</code> + <code>clearTimeout</code> on every keystroke = only the last request fires. The classic debounce pattern.</p>
+</div>
+<div class="concept-card">
+<h4>No cleanup needed if no timer</h4>
+<p>If the effect just logs or calls a function, no cleanup. Cleanup is for resources — timers, listeners, subscriptions.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Fetch with AbortController</h2>
+<p class="section-sub">Cancel the request AND prevent stale setState.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A fetch that resolves after the component unmounts calls <code>setState</code> on a dead component. React warns (in older versions) or silently ignores (in React 18+). Fix: cancel the fetch with <code>AbortController</code> and set a <code>cancelled</code> flag to bail out early. Both are needed — the abort cancels the network request, the flag prevents the setState.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">fetch-cleanup.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+
+<span class="com">// ─── BAD: no cleanup, race condition ─────────</span>
+<span class="kw">function</span> <span class="fn">BadFetch</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(setUser);
+}, [userId]);
+<span class="com">// ❌ If userId changes fast, old fetch might resolve AFTER new one
+// → user shows the wrong data (race condition)
+// ❌ If component unmounts, setUser runs on dead component</span>
+
+<span class="kw">return</span> <p>{user?.name ?? <span class="str">'Loading...'</span>}</p>;
+}
+
+<span class="com">// ─── GOOD: AbortController + cancelled flag ──</span>
+<span class="kw">function</span> <span class="fn">GoodFetch</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span><<span class="fn">string</span> | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> controller = <span class="kw">new</span> <span class="fn">AbortController</span>();
+<span class="kw">let</span> cancelled = <span class="kw">false</span>;
+
+<span class="fn">setUser</span>(<span class="fn">null</span>);
+<span class="fn">setError</span>(<span class="fn">null</span>);
+
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>, { signal: controller.signal })
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(data => {
+<span class="kw">if</span> (!cancelled) <span class="fn">setUser</span>(data);
+})
+.<span class="fn">catch</span>(err => {
+<span class="com">// AbortError is expected — ignore it</span>
+<span class="kw">if</span> (err.name !== <span class="str">'AbortError'</span> && !cancelled) {
+<span class="fn">setError</span>(err.<span class="fn">message</span>);
+}
+});
+
+<span class="kw">return</span> () => {
+cancelled = <span class="kw">true</span>;
+controller.<span class="fn">abort</span>();
+};
+}, [userId]); <span class="com">// ✅ no race, no setState on unmounted</span>
+
+<span class="kw">if</span> (error) <span class="kw">return</span> <p>Error: {error}</p>;
+<span class="kw">return</span> <p>{user?.name ?? <span class="str">'Loading...'</span>}</p>;
+}
+
+<span class="com">// ─── Pattern: reusable useFetch hook ─────────</span>
+<span class="kw">function</span> <span class="fn">useFetch</span><T>(url: <span class="fn">string</span>) {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span><T | <span class="fn">null</span>>(<span class="fn">null</span>);
+<span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="kw">true</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span><<span class="fn">string</span> | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> controller = <span class="kw">new</span> <span class="fn">AbortController</span>();
+<span class="kw">let</span> cancelled = <span class="kw">false</span>;
+
+<span class="fn">setLoading</span>(<span class="kw">true</span>);
+<span class="fn">setError</span>(<span class="fn">null</span>);
+
+<span class="fn">fetch</span>(url, { signal: controller.signal })
+.<span class="fn">then</span>(r => {
+<span class="kw">if</span> (!r.ok) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">HTTP ${r.status}`</span>);
+<span class="kw">return</span> r.<span class="fn">json</span>();
+})
+.<span class="fn">then</span>(d => {
+<span class="kw">if</span> (!cancelled) {
+<span class="fn">setData</span>(d);
+<span class="fn">setLoading</span>(<span class="kw">false</span>);
+}
+})
+.<span class="fn">catch</span>(err => {
+<span class="kw">if</span> (err.name !== <span class="str">'AbortError'</span> && !cancelled) {
+<span class="fn">setError</span>(err.<span class="fn">message</span>);
+<span class="fn">setLoading</span>(<span class="kw">false</span>);
+}
+});
+
+<span class="kw">return</span> () => {
+cancelled = <span class="kw">true</span>;
+controller.<span class="fn">abort</span>();
+};
+}, [url]);
+
+<span class="kw">return</span> { data, loading, error };
+}
+
+<span class="com">// ─── Usage ───────────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">UserProfile</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> { data, loading, error } = <span class="fn">useFetch</span><User>(<span class="str">/api/users/${userId}`</span>);
+
+<span class="kw">if</span> (loading) <span class="kw">return</span> <p>Loading...</p>;
+<span class="kw">if</span> (error) <span class="kw">return</span> <p>Error: {error}</p>;
+<span class="kw">return</span> <p>{data?.name}</p>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadFetch</span>, <span class="fn">GoodFetch</span>, <span class="fn">useFetch</span>, <span class="fn">UserProfile</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadFetch</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setUser);
+}, [userId]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user?.name ?? <span class="str">'Loading...'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">GoodFetch</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> controller = <span class="kw">new</span> <span class="fn">AbortController</span>();
+<span class="kw">let</span> cancelled = <span class="kw">false</span>;
+<span class="fn">setUser</span>(<span class="fn">null</span>);
+<span class="fn">setError</span>(<span class="fn">null</span>);
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>, { signal: controller.signal })
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(data => { <span class="kw">if</span> (!cancelled) <span class="fn">setUser</span>(data); })
+.<span class="fn">catch</span>(err => {
+<span class="kw">if</span> (err.name !== <span class="str">'AbortError'</span> && !cancelled) <span class="fn">setError</span>(err.<span class="fn">message</span>);
+});
+<span class="kw">return</span> () => { cancelled = <span class="kw">true</span>; controller.<span class="fn">abort</span>(); };
+}, [userId]);
+<span class="kw">if</span> (error) <span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Error: '</span>, error);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user?.name ?? <span class="str">'Loading...'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">useFetch</span>(url) {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="kw">true</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> controller = <span class="kw">new</span> <span class="fn">AbortController</span>();
+<span class="kw">let</span> cancelled = <span class="kw">false</span>;
+<span class="fn">setLoading</span>(<span class="kw">true</span>);
+<span class="fn">setError</span>(<span class="fn">null</span>);
+<span class="fn">fetch</span>(url, { signal: controller.signal })
+.<span class="fn">then</span>(r => {
+<span class="kw">if</span> (!r.ok) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">HTTP ${r.status}`</span>);
+<span class="kw">return</span> r.<span class="fn">json</span>();
+})
+.<span class="fn">then</span>(d => {
+<span class="kw">if</span> (!cancelled) { <span class="fn">setData</span>(d); <span class="fn">setLoading</span>(<span class="kw">false</span>); }
+})
+.<span class="fn">catch</span>(err => {
+<span class="kw">if</span> (err.name !== <span class="str">'AbortError'</span> && !cancelled) { <span class="fn">setError</span>(err.<span class="fn">message</span>); <span class="fn">setLoading</span>(<span class="kw">false</span>); }
+});
+<span class="kw">return</span> () => { cancelled = <span class="kw">true</span>; controller.<span class="fn">abort</span>(); };
+}, [url]);
+<span class="kw">return</span> { data, loading, error };
+}
+
+<span class="kw">function</span> <span class="fn">UserProfile</span>({ userId }) {
+<span class="kw">const</span> { data, loading, error } = <span class="fn">useFetch</span>(<span class="str">/api/users/${userId}`</span>);
+<span class="kw">if</span> (loading) <span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Loading...'</span>);
+<span class="kw">if</span> (error) <span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Error: '</span>, error);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, data?.name);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadFetch</span>, <span class="fn">GoodFetch</span>, <span class="fn">useFetch</span>, <span class="fn">UserProfile</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>AbortController</code></h4>
+<p><code>fetch(url, { signal: controller.signal })</code> — the controller can cancel the request. Call <code>controller.abort()</code> in cleanup.</p>
+</div>
+<div class="concept-card">
+<h4><code>cancelled</code> flag</h4>
+<p>The abort rejects the promise. The flag prevents <code>setState</code> from firing even if the promise resolves. Both work together.</p>
+</div>
+<div class="concept-card">
+<h4>Ignore AbortError</h4>
+<p>The abort throws an <code>AbortError</code>. Don't show it as a real error. Check <code>err.name !== 'AbortError'</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Race conditions</h4>
+<p>User clicks fast — old fetch might resolve after new one. Abort prevents this: the old request is cancelled before the new one starts.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Subscriptions and event listeners</h2>
+<p class="section-sub">Third-party libraries, WebSockets, global events.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Subscriptions to external systems — WebSocket connections, event buses, global window events, third-party APIs — must be cleaned up. Otherwise the subscription accumulates on every re-render, and the callback fires after unmount. Fix: capture the unsubscribe function or listener reference, and call it in cleanup.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">subscription-cleanup.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── Event listener ──────────────────────────</span>
+<span class="kw">function</span> <span class="fn">WindowSize</span>() {
+<span class="kw">const</span> [size, setSize] = <span class="fn">useState</span>({
+width: <span class="fn">window</span>.innerWidth,
+height: <span class="fn">window</span>.innerHeight
+});
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">function</span> <span class="fn">handleResize</span>() {
+<span class="fn">setSize</span>({
+width: <span class="fn">window</span>.innerWidth,
+height: <span class="fn">window</span>.innerHeight
+});
+}
+
+<span class="fn">window</span>.<span class="fn">addEventListener</span>(<span class="str">'resize'</span>, handleResize);
+
+<span class="com">// ✅ Remove the SAME function reference</span>
+<span class="kw">return</span> () => <span class="fn">window</span>.<span class="fn">removeEventListener</span>(<span class="str">'resize'</span>, handleResize);
+}, []);
+
+<span class="kw">return</span> <p>{size.width} × {size.height}</p>;
+}
+
+<span class="com">// ─── WebSocket ───────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">LiveTicker</span>() {
+<span class="kw">const</span> [price, setPrice] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> ws = <span class="kw">new</span> <span class="fn">WebSocket</span>(<span class="str">'wss://api.example.com/ticks'</span>;);
+
+ws.<span class="fn">onmessage</span> = (e) => {
+<span class="kw">const</span> data = <span class="fn">JSON</span>.<span class="fn">parse</span>(e.data);
+<span class="fn">setPrice</span>(data.price);
+};
+
+<span class="com">// ✅ Close the connection</span>
+<span class="kw">return</span> () => ws.<span class="fn">close</span>();
+}, []);
+
+<span class="kw">return</span> <p>$`{price}</p>;
+}
+
+<span class="com">// ─── Custom event bus ────────────────────────</span>
+<span class="kw">type</span> Listener = (data: <span class="fn">unknown</span>) => <span class="fn">void</span>;
+
+<span class="kw">class</span> <span class="fn">EventBus</span> {
+<span class="kw">private</span> listeners = <span class="kw">new</span> <span class="fn">Set</span><Listener>();
+
+<span class="fn">subscribe</span>(fn: Listener): () => <span class="fn">void</span> {
+<span class="kw">this</span>.listeners.<span class="fn">add</span>(fn);
+<span class="kw">return</span> () => <span class="kw">this</span>.listeners.<span class="fn">delete</span>(fn);
+}
+
+<span class="fn">emit</span>(data: <span class="fn">unknown</span>) {
+<span class="kw">this</span>.listeners.<span class="fn">forEach</span>(fn => <span class="fn">fn</span>(data));
+}
+}
+
+<span class="kw">const</span> bus = <span class="kw">new</span> <span class="fn">EventBus</span>();
+
+<span class="kw">function</span> <span class="fn">BusListener</span>() {
+<span class="kw">const</span> [last, setLast] = <span class="fn">useState</span><<span class="fn">unknown</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="com">// ✅ subscribe returns unsubscribe</span>
+<span class="kw">const</span> unsubscribe = bus.<span class="fn">subscribe</span>(setLast);
+<span class="kw">return</span> unsubscribe;
+}, []);
+
+<span class="kw">return</span> <p>Last event: {<span class="fn">JSON</span>.<span class="fn">stringify</span>(last)}</p>;
+}
+
+<span class="com">// ─── Interval with dependency ────────────────</span>
+<span class="kw">function</span> <span class="fn">Clock</span>({ timezone }: { timezone: <span class="fn">string</span> }) {
+<span class="kw">const</span> [time, setTime] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">function</span> <span class="fn">tick</span>() {
+<span class="fn">setTime</span>(<span class="kw">new</span> <span class="fn">Date</span>().<span class="fn">toLocaleTimeString</span>(<span class="str">'en-US'</span>, { timeZone: timezone }));
+}
+<span class="fn">tick</span>(); <span class="com">// immediate first render</span>
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(tick, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, [timezone]);
+
+<span class="kw">return</span> <p>{time}</p>;
+}
+
+<span class="com">// ─── Intersection Observer ───────────────────</span>
+<span class="kw">function</span> <span class="fn">LazySection</span>() {
+<span class="kw">const</span> [visible, setVisible] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">const</span> ref = <span class="fn">useRef</span><HTMLDivElement>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">if</span> (!ref.current) <span class="kw">return</span>;
+
+<span class="kw">const</span> observer = <span class="kw">new</span> <span class="fn">IntersectionObserver</span>(
+([entry]) => <span class="fn">setVisible</span>(entry.isIntersecting),
+{ threshold: <span class="num">0.1</span> }
+);
+
+observer.<span class="fn">observe</span>(ref.current);
+
+<span class="com">// ✅ Disconnect the observer</span>
+<span class="kw">return</span> () => observer.<span class="fn">disconnect</span>();
+}, []);
+
+<span class="kw">return</span> <div ref={ref}>{visible ? <span class="str">'Visible'</span> : <span class="str">'Hidden'</span>}</div>;
+}
+
+<span class="kw">import</span> { useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+console.<span class="fn">log</span>(<span class="fn">WindowSize</span>, <span class="fn">LiveTicker</span>, <span class="fn">BusListener</span>, <span class="fn">Clock</span>, <span class="fn">LazySection</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect, useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">WindowSize</span>() {
+<span class="kw">const</span> [size, setSize] = <span class="fn">useState</span>({
+width: <span class="fn">window</span>.innerWidth,
+height: <span class="fn">window</span>.innerHeight
+});
+<span class="fn">useEffect</span>(() => {
+<span class="kw">function</span> <span class="fn">handleResize</span>() {
+<span class="fn">setSize</span>({ width: <span class="fn">window</span>.innerWidth, height: <span class="fn">window</span>.innerHeight });
+}
+<span class="fn">window</span>.<span class="fn">addEventListener</span>(<span class="str">'resize'</span>, handleResize);
+<span class="kw">return</span> () => <span class="fn">window</span>.<span class="fn">removeEventListener</span>(<span class="str">'resize'</span>, handleResize);
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, size.width, <span class="str">' × '</span>, size.height);
+}
+
+<span class="kw">function</span> <span class="fn">LiveTicker</span>() {
+<span class="kw">const</span> [price, setPrice] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> ws = <span class="kw">new</span> <span class="fn">WebSocket</span>(<span class="str">'wss://api.example.com/ticks'</span>;);
+ws.<span class="fn">onmessage</span> = (e) => {
+<span class="kw">const</span> data = <span class="fn">JSON</span>.<span class="fn">parse</span>(e.data);
+<span class="fn">setPrice</span>(data.price);
+};
+<span class="kw">return</span> () => ws.<span class="fn">close</span>();
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'`$'</span>, price);
+}
+
+<span class="kw">class</span> <span class="fn">EventBus</span> {
+<span class="fn">constructor</span>() { <span class="kw">this</span>.listeners = <span class="kw">new</span> <span class="fn">Set</span>(); }
+<span class="fn">subscribe</span>(fn) { <span class="kw">this</span>.listeners.<span class="fn">add</span>(fn); <span class="kw">return</span> () => <span class="kw">this</span>.listeners.<span class="fn">delete</span>(fn); }
+<span class="fn">emit</span>(data) { <span class="kw">this</span>.listeners.<span class="fn">forEach</span>(fn => <span class="fn">fn</span>(data)); }
+}
+
+<span class="kw">const</span> bus = <span class="kw">new</span> <span class="fn">EventBus</span>();
+
+<span class="kw">function</span> <span class="fn">BusListener</span>() {
+<span class="kw">const</span> [last, setLast] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> unsubscribe = bus.<span class="fn">subscribe</span>(setLast);
+<span class="kw">return</span> unsubscribe;
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Last event: '</span>, <span class="fn">JSON</span>.<span class="fn">stringify</span>(last));
+}
+
+<span class="kw">function</span> <span class="fn">Clock</span>({ timezone }) {
+<span class="kw">const</span> [time, setTime] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">function</span> <span class="fn">tick</span>() {
+<span class="fn">setTime</span>(<span class="kw">new</span> <span class="fn">Date</span>().<span class="fn">toLocaleTimeString</span>(<span class="str">'en-US'</span>, { timeZone: timezone }));
+}
+<span class="fn">tick</span>();
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(tick, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, [timezone]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, time);
+}
+
+<span class="kw">function</span> <span class="fn">LazySection</span>() {
+<span class="kw">const</span> [visible, setVisible] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">const</span> ref = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">if</span> (!ref.current) <span class="kw">return</span>;
+<span class="kw">const</span> observer = <span class="kw">new</span> <span class="fn">IntersectionObserver</span>(
+([entry]) => <span class="fn">setVisible</span>(entry.isIntersecting),
+{ threshold: <span class="num">0.1</span> }
+);
+observer.<span class="fn">observe</span>(ref.current);
+<span class="kw">return</span> () => observer.<span class="fn">disconnect</span>();
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, { ref }, visible ? <span class="str">'Visible'</span> : <span class="str">'Hidden'</span>);
+}
+
+console.<span class="fn">log</span>(<span class="fn">WindowSize</span>, <span class="fn">LiveTicker</span>, <span class="fn">BusListener</span>, <span class="fn">Clock</span>, <span class="fn">LazySection</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Event listener: same reference</h4>
+<p><code>addEventListener('resize', handler)</code> → cleanup must call <code>removeEventListener('resize', handler)</code> with the <em>same</em> function. Define it inside the effect.</p>
+</div>
+<div class="concept-card">
+<h4>WebSocket: close</h4>
+<p><code>ws.close()</code> in cleanup. Otherwise the connection stays open and calls <code>onmessage</code> on unmounted components.</p>
+</div>
+<div class="concept-card">
+<h4>Subscribe: return the unsubscribe</h4>
+<p>Most libraries return an unsubscribe from <code>subscribe()</code>. Return it directly — <code>return unsubscribe</code> is the cleanup.</p>
+</div>
+<div class="concept-card">
+<h4>Observer: disconnect</h4>
+<p>IntersectionObserver, MutationObserver, ResizeObserver — all need <code>.disconnect()</code> in cleanup.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Cleanup functions capture the values from their render.</strong> The <code>handler</code> you passed to <code>addEventListener</code> must be the same reference you pass to <code>removeEventListener</code>. If you inline it, or recreate it in cleanup, the remove call silently does nothing — and the listener leaks. Always define the handler inside the effect and reference it in both add and remove. This is the #1 source of "why does my handler fire twice" bugs.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The cleanup mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Forgetting to return a cleanup</div>
+<p>Timers, fetches, subscriptions all leak. Fix: always return a cleanup function that reverses the setup.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Removing an inline handler</div>
+<p><code>addEventListener('click', () => ...)</code> then <code>removeEventListener('click', () => ...)</code> — different references. Fix: define the handler once inside the effect.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Not cancelling fetch</div>
+<p><code>fetch().then(setData)</code> — updates state on unmounted components. Fix: AbortController + cancelled flag.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Cleaning up the wrong thing</div>
+<p>Timer created with <code>setInterval</code> cleared with <code>clearTimeout</code>. Fix: match <code>setInterval</code>/<code>clearInterval</code>, <code>setTimeout</code>/<code>clearTimeout</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Storing timer ID in a ref unnecessarily</div>
+<p><code>const idRef = useRef()</code> inside the effect — unnecessary if cleanup captures the local. Fix: use a local <code>const id</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Cleanup that throws</div>
+<p>If cleanup throws, React can't unmount properly. Fix: wrap in try/catch, or ensure cleanup is safe.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Missing cleanup on conditional effects</div>
+<p><code>if (enabled) { subscribe() }</code> — cleanup must also be conditional. Fix: capture both setup and teardown in the same effect.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Cleaning up in StrictMode double-mount</div>
+<p>StrictMode mounts twice in dev — cleanup runs between. If setup isn't idempotent, bugs surface. Fix: ensure cleanup fully reverses setup.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I clean up a useEffect in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Return a function from useEffect. React calls it before the next run of the effect, and on unmount. The cleanup function should reverse whatever the effect started: clearInterval/clearTimeout for timers, controller.abort() for fetch, unsubscribe() for subscriptions.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When does the cleanup function run?</summary>
+<p class="mt-2 text-sm text-slate-300">Three cases: (1) when the component unmounts, (2) before the effect re-runs because a dependency changed, (3) never if the effect has an empty dependency array and the component doesn't unmount. The cleanup always sees the values from the render that created the effect.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I cancel a fetch request in useEffect?</summary>
+<p class="mt-2 text-sm text-slate-300">Create an AbortController, pass its signal to fetch, and call controller.abort() in the cleanup. Additionally, guard setState with a cancelled flag: let cancelled = false; return () => { cancelled = true; controller.abort(); }. Both are needed for full correctness.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Do I need cleanup for every useEffect?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Effects that don't start anything (logging, calling a function, computing a value) don't need cleanup. Effects that start something — timers, subscriptions, network requests, animations, event listeners — must clean up.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/useeffect.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 5: useEffect</div>
+<div class="text-xs text-slate-400 mt-1">Side effects fundamentals</div>
+</a>
+<a href="/courses/react/problems/useeffect-deps.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "useEffect has a missing dependency"</div>
+<div class="text-xs text-slate-400 mt-1">The prerequisite warning</div>
+</a>
+<a href="/courses/react/problems/infinite-loop.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Maximum update depth exceeded"</div>
+<div class="text-xs text-slate-400 mt-1">The loop from bad deps</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
