@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React "State is Not Updating" — Why and How to Fix It (2026)</title>
+<meta name="description" content="Why React state doesn't update immediately. Learn the async setState behavior, functional updates, and the three causes of "state is not updating." Working code.">
+<meta name="keywords" content="react state not updating, react setstate not working, react state async, react functional setstate, react state stale">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React "State is Not Updating" — Why and How to Fix It">
+<meta property="og:description" content="The async setState behavior, functional updates, and three causes of stale state.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/state-not-updating.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React "State is Not Updating"">
+<meta name="twitter:description" content="Why setState seems to do nothing, and how to fix it.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/state-not-updating.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React "State is Not Updating" — Why and How to Fix It",
+"description": "Why React state doesn't update immediately. Learn the async setState behavior, functional updates, and the three causes.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why is my React state not updating immediately after setState?","acceptedAnswer":{"@type":"Answer","text":"React state updates are asynchronous. Calling setState doesn't change the current render's value — it schedules a re-render with the new value. Inside the same event handler or effect, the state variable still holds the old value. If you need the new value immediately, compute it locally or use a functional update: setCount(c => c + 1). The change appears after the next render, which usually happens within a few milliseconds."}},
+{"@type":"Question","name":"Why does calling setState twice only increase the count by one?","acceptedAnswer":{"@type":"Answer","text":"Because setState doesn't return the new value — it schedules an update. Calling setCount(count + 1) twice uses the same captured count value both times, so both calls compute the same result. React batches them and applies the last one. Fix: use the functional form: setCount(c => c + 1) twice. Each call receives the latest pending value, so the increments stack correctly. This is the #1 state bug in React."}},
+{"@type":"Question","name":"When does React actually re-render after setState?","acceptedAnswer":{"@type":"Answer","text":"React 18+ batches state updates and re-renders at the end of the event handler (or the next microtask). Inside the same synchronous block, state doesn't change. In an async function with await, each await boundary flushes pending state. In React 17 and earlier, only event handlers batched — async code re-rendered immediately. React 18 made batching automatic everywhere."}},
+{"@type":"Question","name":"Why doesn't my state update when I pass an object?","acceptedAnswer":{"@type":"Answer","text":"React compares state by reference, not by value. If you mutate the object (obj.name = 'x') and then setState(obj), React sees the same reference and skips the re-render. Fix: create a new object: setState({ ...obj, name: 'x' }). Same for arrays: setState([...arr, newItem]). Every setState must return a new reference for the change to trigger a render."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · state not updating</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">State not updating</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>"State is not updating."<br><span class="py-accent">Three causes, one mental model.</span></h1>
+<p class="lead">
+You call <code>setCount(count + 1)</code> and log <code>count</code> — it's still the old value. Or you call it twice and the count only goes up by one. Or you update an object and nothing renders. React state is asynchronous, batched, and compared by reference. Once you internalize these three facts, every "state isn't updating" bug becomes obvious.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> State updates are asynchronous. Calling <code>setCount(5)</code> doesn't change <code>count</code> in the current render — it schedules a new render with 5. If you log <code>count</code> right after, you see the old value. For sequential updates: <code>setCount(c => c + 1)</code> (functional form). For objects: <code>setUser({ ...user, name: 'x' })</code> (new reference). Never mutate state in place.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — State is async (log after render, not after setState)</h2>
+<p class="section-sub">The most common confusion — the state just hasn't changed yet.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When you call <code>setState</code>, React doesn't immediately update the state. It schedules a re-render. The state variable inside the current render keeps its old value — that's just how closures work. If you need the new value, compute it locally (const newCount = count + 1) and use that. Or move the log into an effect that runs after the render.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">async-state.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: expecting immediate update ─────────</span>
+<span class="kw">function</span> <span class="fn">BadCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">function</span> <span class="fn">increment</span>() {
+<span class="fn">setCount</span>(count + <span class="num">1</span>);
+console.<span class="fn">log</span>(count); <span class="com">// ❌ logs 0, not 1</span>
+<span class="com">// setCount schedules an update, doesn't change count</span>
+}
+
+<span class="kw">return</span> <button onClick={increment}>{count}</button>;
+}
+
+<span class="com">// ─── GOOD 1: compute the new value locally ───</span>
+<span class="kw">function</span> <span class="fn">GoodCounter1</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">function</span> <span class="fn">increment</span>() {
+<span class="kw">const</span> next = count + <span class="num">1</span>;
+<span class="fn">setCount</span>(next);
+console.<span class="fn">log</span>(next); <span class="com">// ✅ logs 1</span>
+}
+
+<span class="kw">return</span> <button onClick={increment}>{count}</button>;
+}
+
+<span class="com">// ─── GOOD 2: log in an effect ────────────────</span>
+<span class="kw">function</span> <span class="fn">GoodCounter2</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="fn">useEffect</span>(() => {
+console.<span class="fn">log</span>(<span class="str">'count is now:'</span>, count); <span class="com">// ✅ runs after render</span>
+}, [count]);
+
+<span class="kw">return</span> (
+<button onClick={() => <span class="fn">setCount</span>(c => c + <span class="num">1</span>)}>
+{count}
+</button>
+);
+}
+
+<span class="com">// ─── GOOD 3: use the value at the point you need it</span>
+<span class="kw">function</span> <span class="fn">FormExample</span>() {
+<span class="kw">const</span> [name, setName] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> [saved, setSaved] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">function</span> <span class="fn">save</span>() {
+<span class="com">// Use name directly — it's the current value from this render</span>
+<span class="fn">setSaved</span>(name);
+<span class="fn">fetch</span>(<span class="str">'/api/save'</span>, { method: <span class="str">'POST'</span>, body: <span class="fn">JSON</span>.<span class="fn">stringify</span>({ name }) });
+}
+
+<span class="kw">return</span> (
+<div>
+<input value={name} onChange={e => <span class="fn">setName</span>(e.target.value)} />
+<button onClick={save}>Save</button>
+<p>Saved: {saved}</p>
+</div>
+);
+}
+
+<span class="com">// ─── The mental model ─────────────────────────
+//
+// Every render creates a snapshot:
+// Render 1: count = 0. Functions capture count = 0.
+// setCount(1) schedules render 2.
+// Render 2: count = 1. New functions capture count = 1.
+//
+// Inside one render, count is CONSTANT.
+// setCount doesn't change it — it schedules the next render.</span>
+
+console.<span class="fn">log</span>(<span class="fn">BadCounter</span>, <span class="fn">GoodCounter1</span>, <span class="fn">GoodCounter2</span>, <span class="fn">FormExample</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">function</span> <span class="fn">increment</span>() {
+<span class="fn">setCount</span>(count + <span class="num">1</span>);
+console.<span class="fn">log</span>(count);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: increment }, count);
+}
+
+<span class="kw">function</span> <span class="fn">GoodCounter1</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">function</span> <span class="fn">increment</span>() {
+<span class="kw">const</span> next = count + <span class="num">1</span>;
+<span class="fn">setCount</span>(next);
+console.<span class="fn">log</span>(next);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: increment }, count);
+}
+
+<span class="kw">function</span> <span class="fn">GoodCounter2</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="fn">useEffect</span>(() => {
+console.<span class="fn">log</span>(<span class="str">'count is now:'</span>, count);
+}, [count]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setCount</span>(c => c + <span class="num">1</span>) }, count);
+}
+
+<span class="kw">function</span> <span class="fn">FormExample</span>() {
+<span class="kw">const</span> [name, setName] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> [saved, setSaved] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">function</span> <span class="fn">save</span>() {
+<span class="fn">setSaved</span>(name);
+<span class="fn">fetch</span>(<span class="str">'/api/save'</span>, { method: <span class="str">'POST'</span>, body: <span class="fn">JSON</span>.<span class="fn">stringify</span>({ name }) });
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: name, onChange: e => <span class="fn">setName</span>(e.target.value) }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: save }, <span class="str">'Save'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Saved: '</span>, saved)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadCounter</span>, <span class="fn">GoodCounter1</span>, <span class="fn">GoodCounter2</span>, <span class="fn">FormExample</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Every render is a snapshot</h4>
+<p>The <code>count</code> variable is captured at render time. Functions inside that render see the same value forever.</p>
+</div>
+<div class="concept-card">
+<h4>setState schedules</h4>
+<p><code>setCount(5)</code> doesn't set count to 5 immediately. It schedules a render where count will be 5.</p>
+</div>
+<div class="concept-card">
+<h4>Compute new values locally</h4>
+<p>If you need to use the new value in the same handler, compute it: <code>const next = count + 1</code>. Then use <code>next</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Log in an effect</h4>
+<p>To see the new value, log it in a <code>useEffect</code> with the state as dependency. Runs after the render, sees the new value.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Sequential updates need the functional form</h2>
+<p class="section-sub">The bug that trips up every beginner — and some intermediate devs.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Calling <code>setCount(count + 1)</code> twice only increments by one. Both calls capture the same <code>count</code>, compute the same result, and React batches them — the last one wins. The fix is the functional form: <code>setCount(c => c + 1)</code>. Each call receives the latest pending value, so increments stack correctly.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">functional-update.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: two increments, only +1 total ──────</span>
+<span class="kw">function</span> <span class="fn">BadDouble</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">function</span> <span class="fn">incrementTwice</span>() {
+<span class="fn">setCount</span>(count + <span class="num">1</span>); <span class="com">// 0 + 1 = 1</span>
+<span class="fn">setCount</span>(count + <span class="num">1</span>); <span class="com">// 0 + 1 = 1 (same count!)</span>
+<span class="com">// Both compute 1. React batches → applies 1.</span>
+<span class="com">// Result: count goes from 0 to 1, not 0 to 2.</span>
+}
+
+<span class="kw">return</span> <button onClick={incrementTwice}>{count}</button>;
+}
+
+<span class="com">// ─── GOOD: functional updates stack ──────────</span>
+<span class="kw">function</span> <span class="fn">GoodDouble</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">function</span> <span class="fn">incrementTwice</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>); <span class="com">// 0 → 1 (c receives 0)</span>
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>); <span class="com">// 1 → 2 (c receives 1)</span>
+<span class="com">// Each call receives the previous pending value → stacks</span>
+}
+
+<span class="kw">return</span> <button onClick={incrementTwice}>{count}</button>;
+}
+
+<span class="com">// ─── BAD: reading state after setState ───────</span>
+<span class="kw">function</span> <span class="fn">BadConfirm</span>() {
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">function</span> <span class="fn">submit</span>() {
+<span class="fn">setValue</span>(<span class="str">'submitted'</span>);
+<span class="com">// if (value === 'submitted') — never true on this click</span>
+<span class="fn">alert</span>(value); <span class="com">// ❌ still old value</span>
+}
+
+<span class="kw">return</span> <button onClick={submit}>Submit</button>;
+}
+
+<span class="com">// ─── GOOD: use the value directly ────────────</span>
+<span class="kw">function</span> <span class="fn">GoodConfirm</span>() {
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">function</span> <span class="fn">submit</span>() {
+<span class="kw">const</span> newValue = <span class="str">'submitted'</span>;
+<span class="fn">setValue</span>(newValue);
+<span class="fn">alert</span>(newValue); <span class="com">// ✅ uses the computed value</span>
+}
+
+<span class="kw">return</span> <button onClick={submit}>Submit</button>;
+}
+
+<span class="com">// ─── Object state with functional update ─────</span>
+<span class="kw">interface</span> Form { name: <span class="fn">string</span>; email: <span class="fn">string</span> }
+
+<span class="kw">function</span> <span class="fn">FormExample</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span><Form>({ name: <span class="str">''</span>, email: <span class="str">''</span> });
+
+<span class="kw">function</span> <span class="fn">clearAll</span>() {
+<span class="com">// ✅ Functional — always uses the latest state</span>
+<span class="fn">setForm</span>(f => ({ ...f, name: <span class="str">''</span>, email: <span class="str">''</span> }));
+}
+
+<span class="kw">function</span> <span class="fn">updateName</span>(name: <span class="fn">string</span>) {
+<span class="fn">setForm</span>(f => ({ ...f, name }));
+}
+
+<span class="kw">return</span> (
+<div>
+<input value={form.name} onChange={e => <span class="fn">updateName</span>(e.target.value)} />
+<button onClick={clearAll}>Clear</button>
+</div>
+);
+}
+
+<span class="com">// ─── When to use functional setState ─────────
+//
+// ✅ Whenever the new value depends on the old value:
+// setCount(c => c + 1)
+// setItems(prev => [...prev, item])
+// setForm(f => ({ ...f, name }))
+//
+// ✅ Whenever you set state inside a callback or effect:
+// The closure might be stale — functional form always works.
+//
+// ❌ When the new value is independent:
+// setName('Alice') — fine, no need for functional
+// setLoading(true) — fine</span>
+
+console.<span class="fn">log</span>(<span class="fn">BadDouble</span>, <span class="fn">GoodDouble</span>, <span class="fn">BadConfirm</span>, <span class="fn">GoodConfirm</span>, <span class="fn">FormExample</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadDouble</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">function</span> <span class="fn">incrementTwice</span>() {
+<span class="fn">setCount</span>(count + <span class="num">1</span>);
+<span class="fn">setCount</span>(count + <span class="num">1</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: incrementTwice }, count);
+}
+
+<span class="kw">function</span> <span class="fn">GoodDouble</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">function</span> <span class="fn">incrementTwice</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: incrementTwice }, count);
+}
+
+<span class="kw">function</span> <span class="fn">BadConfirm</span>() {
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">function</span> <span class="fn">submit</span>() {
+<span class="fn">setValue</span>(<span class="str">'submitted'</span>);
+<span class="fn">alert</span>(value);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: submit }, <span class="str">'Submit'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">GoodConfirm</span>() {
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">function</span> <span class="fn">submit</span>() {
+<span class="kw">const</span> newValue = <span class="str">'submitted'</span>;
+<span class="fn">setValue</span>(newValue);
+<span class="fn">alert</span>(newValue);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: submit }, <span class="str">'Submit'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">FormExample</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span>({ name: <span class="str">''</span>, email: <span class="str">''</span> });
+<span class="kw">function</span> <span class="fn">clearAll</span>() {
+<span class="fn">setForm</span>(f => ({ ...f, name: <span class="str">''</span>, email: <span class="str">''</span> }));
+}
+<span class="kw">function</span> <span class="fn">updateName</span>(name) {
+<span class="fn">setForm</span>(f => ({ ...f, name }));
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: form.name, onChange: e => <span class="fn">updateName</span>(e.target.value) }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: clearAll }, <span class="str">'Clear'</span>)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadDouble</span>, <span class="fn">GoodDouble</span>, <span class="fn">BadConfirm</span>, <span class="fn">GoodConfirm</span>, <span class="fn">FormExample</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Same closure, same value</h4>
+<p>Two <code>setCount(count + 1)</code> calls use the same <code>count</code>. Both compute the same result.</p>
+</div>
+<div class="concept-card">
+<h4>Functional updates stack</h4>
+<p><code>setCount(c => c + 1)</code> — each call receives the latest pending value. Order is preserved.</p>
+</div>
+<div class="concept-card">
+<h4>Batching is automatic</h4>
+<p>React batches all setState calls in the same event handler. One re-render, all updates applied in order.</p>
+</div>
+<div class="concept-card">
+<h4>Default to functional</h4>
+<p>When the new value depends on the old: always functional. It's one character longer and always correct.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Adopt the functional form as a habit — never type <code>setCount(count + 1)</code> again.</strong> Even when there's only one update, the functional form is safer: it always sees the latest value, even if a previous effect, callback, or timer is also updating the state. The two-character cost (<code>c => c + 1</code> vs <code>count + 1</code>) buys you immunity from a whole class of bugs. Every production React codebase I've seen that "sometimes loses an increment" was using the direct form somewhere.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Objects and arrays need new references</h2>
+<p class="section-sub">Mutating state in place never re-renders.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">React compares state by reference. If you mutate an object (<code>user.name = 'x'</code>) and then <code>setUser(user)</code>, React sees the same reference — no change, no re-render. Fix: create a new object with the spread operator. Same for arrays. The mutation might work in some cases but it's fragile — always create new references.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">immutable-updates.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> User { name: <span class="fn">string</span>; age: <span class="fn">number</span> }
+
+<span class="com">// ─── BAD: mutation, no re-render ─────────────</span>
+<span class="kw">function</span> <span class="fn">BadMutate</span>() {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User>({ name: <span class="str">'Alice'</span>, age: <span class="num">30</span> });
+
+<span class="kw">function</span> <span class="fn">updateName</span>() {
+user.name = <span class="str">'Bob'</span>; <span class="com">// mutate</span>
+<span class="fn">setUser</span>(user); <span class="com">// same reference → no re-render</span>
+}
+
+<span class="kw">return</span> (
+<div>
+<p>{user.name}</p>
+<button onClick={updateName}>Change to Bob</button>
+</div>
+);
+}
+
+<span class="com">// ─── GOOD: create new object ─────────────────</span>
+<span class="kw">function</span> <span class="fn">GoodUpdate</span>() {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User>({ name: <span class="str">'Alice'</span>, age: <span class="num">30</span> });
+
+<span class="kw">function</span> <span class="fn">updateName</span>() {
+<span class="fn">setUser</span>({ ...user, name: <span class="str">'Bob'</span> }); <span class="com">// ✅ new object</span>
+}
+
+<span class="kw">return</span> (
+<div>
+<p>{user.name}</p>
+<button onClick={updateName}>Change to Bob</button>
+</div>
+);
+}
+
+<span class="com">// ─── Arrays: new reference, not mutation ─────</span>
+<span class="kw">function</span> <span class="fn">ArrayUpdates</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span><<span class="fn">string</span>[]>([<span class="str">'a'</span>, <span class="str">'b'</span>]);
+
+<span class="com">// ✅ Add</span>
+<span class="kw">function</span> <span class="fn">add</span>(item: <span class="fn">string</span>) {
+<span class="fn">setItems</span>(prev => [...prev, item]);
+}
+
+<span class="com">// ✅ Remove</span>
+<span class="kw">function</span> <span class="fn">remove</span>(item: <span class="fn">string</span>) {
+<span class="fn">setItems</span>(prev => prev.<span class="fn">filter</span>(i => i !== item));
+}
+
+<span class="com">// ✅ Update at index</span>
+<span class="kw">function</span> <span class="fn">update</span>(index: <span class="fn">number</span>, value: <span class="fn">string</span>) {
+<span class="fn">setItems</span>(prev => prev.<span class="fn">map</span>((item, i) => i === index ? value : item));
+}
+
+<span class="com">// ❌ Never do these:</span>
+<span class="com">// items.push('c'); // mutates, no re-render</span>
+<span class="com">// items[index] = 'x'; // mutates, no re-render</span>
+<span class="com">// items.splice(0, 1); // mutates, no re-render</span>
+
+<span class="kw">return</span> (
+<div>
+<button onClick={() => <span class="fn">add</span>(<span class="str">'new'</span>)}>Add</button>
+<ul>
+{items.<span class="fn">map</span>((item, i) => (
+<li key={item}>
+{item}
+<button onClick={() => <span class="fn">remove</span>(item)}>×</button>
+</li>
+))}
+</ul>
+</div>
+);
+}
+
+<span class="com">// ─── Nested objects: spread every level ──────</span>
+<span class="kw">interface</span> Profile {
+name: <span class="fn">string</span>;
+address: { city: <span class="fn">string</span>; zip: <span class="fn">string</span> };
+}
+
+<span class="kw">function</span> <span class="fn">NestedUpdate</span>() {
+<span class="kw">const</span> [profile, setProfile] = <span class="fn">useState</span><Profile>({
+name: <span class="str">'Alice'</span>,
+address: { city: <span class="str">'Springfield'</span>, zip: <span class="str">'12345'</span> }
+});
+
+<span class="kw">function</span> <span class="fn">updateCity</span>(city: <span class="fn">string</span>) {
+<span class="com">// ✅ Spread at both levels</span>
+<span class="fn">setProfile</span>(p => ({
+...p,
+address: { ...p.address, city }
+}));
+}
+
+<span class="kw">return</span> <p>{profile.address.city}</p>;
+}
+
+<span class="com">// ─── The rule ────────────────────────────────
+//
+// State is IMMUTABLE. Every update creates a new reference.
+// Object: { ...prev, changed: value }
+// Array: [...prev, newItem], prev.filter(...), prev.map(...)
+// Nested: { ...prev, nested: { ...prev.nested, changed: value } }
+//
+// Mutating prev.changed = value never triggers a re-render.
+// React compares old reference === new reference. Same → no update.</span>
+
+console.<span class="fn">log</span>(<span class="fn">BadMutate</span>, <span class="fn">GoodUpdate</span>, <span class="fn">ArrayUpdates</span>, <span class="fn">NestedUpdate</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadMutate</span>() {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>({ name: <span class="str">'Alice'</span>, age: <span class="num">30</span> });
+<span class="kw">function</span> <span class="fn">updateName</span>() {
+user.name = <span class="str">'Bob'</span>;
+<span class="fn">setUser</span>(user);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user.name),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: updateName }, <span class="str">'Change to Bob'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodUpdate</span>() {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>({ name: <span class="str">'Alice'</span>, age: <span class="num">30</span> });
+<span class="kw">function</span> <span class="fn">updateName</span>() {
+<span class="fn">setUser</span>({ ...user, name: <span class="str">'Bob'</span> });
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user.name),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: updateName }, <span class="str">'Change to Bob'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">ArrayUpdates</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span>([<span class="str">'a'</span>, <span class="str">'b'</span>]);
+<span class="kw">function</span> <span class="fn">add</span>(item) {
+<span class="fn">setItems</span>(prev => [...prev, item]);
+}
+<span class="kw">function</span> <span class="fn">remove</span>(item) {
+<span class="fn">setItems</span>(prev => prev.<span class="fn">filter</span>(i => i !== item));
+}
+<span class="kw">function</span> <span class="fn">update</span>(index, value) {
+<span class="fn">setItems</span>(prev => prev.<span class="fn">map</span>((item, i) => i === index ? value : item));
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">add</span>(<span class="str">'new'</span>) }, <span class="str">'Add'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+items.<span class="fn">map</span>((item, i) =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: item },
+item,
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">remove</span>(item) }, <span class="str">'×'</span>)
+)
+)
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">NestedUpdate</span>() {
+<span class="kw">const</span> [profile, setProfile] = <span class="fn">useState</span>({
+name: <span class="str">'Alice'</span>,
+address: { city: <span class="str">'Springfield'</span>, zip: <span class="str">'12345'</span> }
+});
+<span class="kw">function</span> <span class="fn">updateCity</span>(city) {
+<span class="fn">setProfile</span>(p => ({ ...p, address: { ...p.address, city } }));
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, profile.address.city);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadMutate</span>, <span class="fn">GoodUpdate</span>, <span class="fn">ArrayUpdates</span>, <span class="fn">NestedUpdate</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Reference equality</h4>
+<p>React compares <code>oldState === newState</code>. Mutating <code>oldState</code> keeps the same reference — no re-render.</p>
+</div>
+<div class="concept-card">
+<h4>Spread for objects</h4>
+<p><code>{ ...prev, changed: value }</code> — copies all fields, overrides one. New reference, re-render.</p>
+</div>
+<div class="concept-card">
+<h4>Array methods return new</h4>
+<p><code>filter</code>, <code>map</code>, <code>slice</code>, <code>concat</code> — return new arrays. <code>push</code>, <code>splice</code>, <code>sort</code> — mutate, never use on state.</p>
+</div>
+<div class="concept-card">
+<h4>Nested needs deep spread</h4>
+<p>Every level of nesting needs its own spread. <code>{ ...prev, address: { ...prev.address, city } }</code>.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Mutation sometimes appears to work — but it's broken.</strong> React might re-render anyway because a <em>parent</em> re-rendered, masking the bug. Then you ship, a user reports "the delete button doesn't update the list," and you can't reproduce it because it depends on timing. The rule is absolute: never mutate state. Create new objects and arrays. Use <code>Immer</code> if the nested spreads get too noisy — it lets you write mutable-looking code that produces immutable updates.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The state update bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Logging state right after setState</div>
+<p>Sees the old value. Fix: log in <code>useEffect</code>, or compute the new value locally first.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Calling <code>setCount(count + 1)</code> twice</div>
+<p>Only +1 total. Fix: <code>setCount(c => c + 1)</code> twice.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Mutating state objects</div>
+<p><code>user.name = 'x'; setUser(user)</code> — no re-render. Fix: <code>setUser({ ...user, name: 'x' })</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using <code>array.push</code> on state</div>
+<p>Mutates, no re-render. Fix: <code>setItems([...items, newItem])</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Expecting setState in an effect to be synchronous</div>
+<p>The effect runs after render — its setState triggers another render. That's expected.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Storing derived state</div>
+<p><code>setFull(first + ' ' + last)</code> in render — infinite loop. Fix: compute during render, no state.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using <code>await</code> after setState</div>
+<p><code>setX(1); await fetch(); console.log(x)</code> — x is still old after await unless another render happened. Fix: capture the value.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Passing stale state to a callback</div>
+<p>The callback captures old <code>count</code>. Fix: functional setter, or pass the value at call time.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is my React state not updating immediately after setState?</summary>
+<p class="mt-2 text-sm text-slate-300">React state updates are asynchronous. Calling setState doesn't change the current render's value — it schedules a re-render with the new value. Inside the same event handler or effect, the state variable still holds the old value. If you need the new value immediately, compute it locally or use a functional update.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does calling setState twice only increase the count by one?</summary>
+<p class="mt-2 text-sm text-slate-300">Because setState doesn't return the new value — it schedules an update. Calling setCount(count + 1) twice uses the same captured count value both times, so both calls compute the same result. Fix: use the functional form: setCount(c => c + 1) twice.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When does React actually re-render after setState?</summary>
+<p class="mt-2 text-sm text-slate-300">React 18+ batches state updates and re-renders at the end of the event handler (or the next microtask). Inside the same synchronous block, state doesn't change. In an async function with await, each await boundary flushes pending state.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why doesn't my state update when I pass an object?</summary>
+<p class="mt-2 text-sm text-slate-300">React compares state by reference, not by value. If you mutate the object (obj.name = 'x') and then setState(obj), React sees the same reference and skips the re-render. Fix: create a new object: setState({ ...obj, name: 'x' }).</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/state.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 3: State & useState</div>
+<div class="text-xs text-slate-400 mt-1">The full lesson</div>
+</a>
+<a href="/courses/react/problems/update-array-in-state.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to update an array in state</div>
+<div class="text-xs text-slate-400 mt-1">Add/remove/edit without mutation</div>
+</a>
+<a href="/courses/react/problems/controlled-input.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to make a controlled input</div>
+<div class="text-xs text-slate-400 mt-1">Forms with state</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
