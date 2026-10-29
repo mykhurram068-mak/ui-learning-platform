@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>useMemo vs useCallback in React — Which to Use (2026)</title>
+<meta name="description" content="useMemo vs useCallback explained. Learn when to use each, why they're not interchangeable, and when neither actually helps performance.">
+<meta name="keywords" content="usememo vs usecallback, react usememo, react usecallback, react memoization, react performance hooks">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="useMemo vs useCallback in React — Which to Use">
+<meta property="og:description" content="When to use each, why they're not interchangeable, and when neither helps.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/usememo-vs-usecallback.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="useMemo vs useCallback in React">
+<meta name="twitter:description" content="Which to use, when, and why neither always helps.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/usememo-vs-usecallback.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "useMemo vs useCallback in React — Which to Use",
+"description": "useMemo vs useCallback explained. When to use each, why they're not interchangeable, and when neither helps performance.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between useMemo and useCallback?","acceptedAnswer":{"@type":"Answer","text":"useMemo memoizes a value (the result of a function call). useCallback memoizes a function (the function itself). useMemo(() => computeValue(), [deps]) returns the computed value. useCallback(() => {...}, [deps]) returns the function. They're the same thing under the hood — useCallback(fn, deps) is equivalent to useMemo(() => fn, deps). Use useMemo when you want a stable object/array/result. Use useCallback when you want a stable function reference. Neither is 'faster' — they solve different problems."}},
+{"@type":"Question","name":"When should I use useCallback?","acceptedAnswer":{"@type":"Answer","text":"Three cases. (1) A function is passed as a prop to a component wrapped in React.memo — stable reference means the memo works. (2) A function is in the dependency array of useEffect, useMemo, or another useCallback — stable reference prevents re-runs. (3) A function is passed to a custom hook that depends on it. Outside these cases, useCallback adds overhead with no benefit. If you're wrapping every function just in case, you're adding complexity for nothing."}},
+{"@type":"Question","name":"When should I use useMemo?","acceptedAnswer":{"@type":"Answer","text":"Three cases. (1) An expensive computation runs on every render but only depends on a few values — memoizing prevents the recompute. (2) A value needs a stable identity for a useEffect dependency or a memo'd component prop. (3) A value is created inline (object, array, function) and passed to a component that would re-render on the new reference. Don't memoize trivial computations — the memoization itself has cost."}},
+{"@type":"Question","name":"Is useCallback always faster?","acceptedAnswer":{"@type":"Answer","text":"No — useCallback has cost. Every render, React runs the hook, compares dependencies, and either returns the cached function or stores a new one. For simple functions, this cost is comparable to just creating the function inline. The benefit only appears when the stable reference prevents work elsewhere — a memo'd component skipping a render, an effect not re-running. If nothing downstream cares about function identity, useCallback is slower than not using it."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · useMemo vs useCallback</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">useMemo vs useCallback</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>useMemo vs useCallback.<br><span class="py-accent">Value vs function. Pick the right one.</span></h1>
+<p class="lead">
+Both hooks memoize. One memoizes a value; the other memoizes a function. They're the same thing under the hood — <code>useCallback(fn, deps)</code> is literally <code>useMemo(() => fn, deps)</code>. But choosing between them isn't about preference; it's about what you need stable. This page shows the difference, when each matters, and when neither does.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>useMemo</code> memoizes a <strong>value</strong> (the result of computation) — use it for expensive calculations or stable object/array identities. <code>useCallback</code> memoizes a <strong>function</strong> — use it for stable callback references. Both only help when the reference is consumed by something that cares (React.memo, effect dependencies, other hooks). <strong>Don't wrap everything</strong> — memoization has cost. Use it deliberately, not by default.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — The one-line difference</h2>
+<p class="section-sub">Same mechanism, different return.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The simplest way to see the difference: <code>useMemo</code> returns the value of a function call. <code>useCallback</code> returns the function itself. If you need a memoized value, use <code>useMemo</code>. If you need a memoized function, use <code>useCallback</code>. They're interchangeable in principle — <code>useCallback(fn, deps)</code> = <code>useMemo(() => fn, deps)</code> — but the naming makes code clearer.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">the-difference.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useMemo, useCallback, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">TheDifference</span>({ items }: { items: <span class="fn">number</span>[] }) {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="com">// ─── useMemo: returns a VALUE ────────────────</span>
+<span class="kw">const</span> total = <span class="fn">useMemo</span>(() => {
+<span class="kw">return</span> items.<span class="fn">reduce</span>((sum, n) => sum + n, <span class="num">0</span>);
+}, [items]);
+<span class="com">// total: number — the computed value</span>
+
+<span class="kw">const</span> sorted = <span class="fn">useMemo</span>(() => [...items].<span class="fn">sort</span>((a, b) => a - b), [items]);
+<span class="com">// sorted: number[] — a new array, but stable until items changes</span>
+
+<span class="kw">const</span> user = <span class="fn">useMemo</span>(() => ({ name: <span class="str">'Alice'</span>, age: <span class="num">30</span> }), []);
+<span class="com">// user: { name: string; age: number } — stable object</span>
+
+<span class="com">// ─── useCallback: returns a FUNCTION ─────────</span>
+<span class="kw">const</span> handleClick = <span class="fn">useCallback</span>(() => {
+console.<span class="fn">log</span>(<span class="str">'clicked'</span>);
+}, []);
+<span class="com">// handleClick: () => void — the function itself</span>
+
+<span class="kw">const</span> handleIncrement = <span class="fn">useCallback</span>(() => {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}, []);
+<span class="com">// handleIncrement: () => void — stable function</span>
+
+<span class="com">// ─── Equivalent definitions ──────────────────</span>
+<span class="com">// These two are identical:</span>
+<span class="kw">const</span> cbA = <span class="fn">useCallback</span>(() => console.<span class="fn">log</span>(<span class="str">'a'</span>), []);
+<span class="kw">const</span> cbB = <span class="fn">useMemo</span>(() => () => console.<span class="fn">log</span>(<span class="str">'a'</span>), []);
+<span class="com">// Both return the same (() => void) function with stable identity.</span>
+
+<span class="com">// ─── The distinction in one line ─────────────
+// useMemo: value = useMemo(() => compute(), deps)
+// useCallback: fn = useCallback(() => { ... }, deps)
+//
+// Same effect. Different readability. Use the one whose
+// name matches what you're returning.</span>
+
+console.<span class="fn">log</span>(total, sorted, user, handleClick, handleIncrement, cbA, cbB, count);
+
+<span class="kw">return</span> (
+<div>
+<p>Total: {total}</p>
+<p>Sorted: {sorted.<span class="fn">join</span>(<span class="str">', '</span>)}</p>
+<p>{user.name} ({user.age})</p>
+<button onClick={handleIncrement}>Count: {count}</button>
+</div>
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">TheDifference</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useMemo, useCallback, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">TheDifference</span>({ items }) {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">const</span> total = <span class="fn">useMemo</span>(() => items.<span class="fn">reduce</span>((sum, n) => sum + n, <span class="num">0</span>), [items]);
+<span class="kw">const</span> sorted = <span class="fn">useMemo</span>(() => [...items].<span class="fn">sort</span>((a, b) => a - b), [items]);
+<span class="kw">const</span> user = <span class="fn">useMemo</span>(() => ({ name: <span class="str">'Alice'</span>, age: <span class="num">30</span> }), []);
+
+<span class="kw">const</span> handleClick = <span class="fn">useCallback</span>(() => { console.<span class="fn">log</span>(<span class="str">'clicked'</span>); }, []);
+<span class="kw">const</span> handleIncrement = <span class="fn">useCallback</span>(() => { <span class="fn">setCount</span>(c => c + <span class="num">1</span>); }, []);
+
+<span class="kw">const</span> cbA = <span class="fn">useCallback</span>(() => console.<span class="fn">log</span>(<span class="str">'a'</span>), []);
+<span class="kw">const</span> cbB = <span class="fn">useMemo</span>(() => () => console.<span class="fn">log</span>(<span class="str">'a'</span>), []);
+
+console.<span class="fn">log</span>(total, sorted, user, handleClick, handleIncrement, cbA, cbB, count);
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Total: '</span>, total),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Sorted: '</span>, sorted.<span class="fn">join</span>(<span class="str">', '</span>)),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user.name, <span class="str">' ('</span>, user.age, <span class="str">')'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: handleIncrement }, <span class="str">'Count: '</span>, count)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">TheDifference</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>useMemo → value</h4>
+<p><code>const total = useMemo(() => sum(items), [items])</code> — <code>total</code> is the number, memoized until items changes.</p>
+</div>
+<div class="concept-card">
+<h4>useCallback → function</h4>
+<p><code>const handle = useCallback(() => ..., [])</code> — <code>handle</code> is the function, memoized until deps change.</p>
+</div>
+<div class="concept-card">
+<h4>Same under the hood</h4>
+<p><code>useCallback(fn, deps)</code> ≡ <code>useMemo(() => fn, deps)</code>. Identical behavior. The name is just for clarity.</p>
+</div>
+<div class="concept-card">
+<h4>Both cache by reference</h4>
+<p>Dependencies compared by <code>Object.is</code>. New object/function identity → recompute. Same identity → return cached.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — When useCallback actually helps</h2>
+<p class="section-sub">Only when the stable reference prevents work.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3"><code>useCallback</code> isn't a free optimization. It only helps when the stable function reference causes <em>some other</em> expensive thing to be skipped: a memo'd component not re-rendering, an effect not re-running, or another hook not invalidating. If nothing downstream cares about the function's identity, <code>useCallback</code> adds overhead with no benefit.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">usecallback-when.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useCallback, useState, memo, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── Case 1: memo'd child + useCallback = win ─</span>
+<span class="kw">const</span> <span class="fn">MemoizedButton</span> = <span class="fn">memo</span>(({ onClick }: { onClick: () => <span class="fn">void</span> }) => {
+console.<span class="fn">log</span>(<span class="str">'MemoizedButton rendered'</span>);
+<span class="kw">return</span> <button onClick={onClick}>Click</button>;
+});
+
+<span class="kw">function</span> <span class="fn">GoodParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="com">// ✅ Stable reference — MemoizedButton skips re-render</span>
+<span class="kw">const</span> handleClick = <span class="fn">useCallback</span>(() => {
+console.<span class="fn">log</span>(<span class="str">'clicked'</span>);
+}, []);
+
+<span class="kw">return</span> (
+<div>
+<button onClick={() => <span class="fn">setCount</span>(c => c + <span class="num">1</span>)}>Parent: {count}</button>
+<span class="com">{/* Doesn't re-render when parent re-renders ✅ */}</span>
+<MemoizedButton onClick={handleClick} />
+</div>
+);
+}
+
+<span class="com">// ─── Case 2: effect dependency + useCallback ─</span>
+<span class="kw">function</span> <span class="fn">EffectDep</span>({ id }: { id: <span class="fn">string</span> }) {
+<span class="kw">const</span> <span class="fn">load</span> = <span class="fn">useCallback</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/${id}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>());
+}, [id]);
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">load</span>();
+}, [load]); <span class="com">// ✅ runs only when id changes</span>
+
+<span class="kw">return</span> <span class="fn">null</span>;
+}
+
+<span class="com">// ─── Case 3: custom hook dependency ──────────</span>
+<span class="kw">function</span> <span class="fn">useDebounce</span>(fn: () => <span class="fn">void</span>, delay: <span class="fn">number</span>) {
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setTimeout</span>(fn, delay);
+<span class="kw">return</span> () => <span class="fn">clearTimeout</span>(id);
+}, [fn, delay]);
+}
+
+<span class="kw">function</span> <span class="fn">Search</span>({ query }: { query: <span class="fn">string</span> }) {
+<span class="kw">const</span> handleSearch = <span class="fn">useCallback</span>(() => {
+console.<span class="fn">log</span>(<span class="str">'searching:'</span>, query);
+}, [query]);
+
+<span class="fn">useDebounce</span>(handleSearch, <span class="num">300</span>);
+
+<span class="kw">return</span> <p>Searching for: {query}</p>;
+}
+
+<span class="com">// ─── BAD: useCallback with no consumer ───────</span>
+<span class="kw">function</span> <span class="fn">PointlessCallback</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="com">// ❌ Nothing depends on the identity of handleClick
+// No memo'd child, no effect, no custom hook.
+// Cost: React runs the hook every render.</span>
+<span class="kw">const</span> handleClick = <span class="fn">useCallback</span>(() => {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}, []);
+
+<span class="com">// Just as fast, simpler:</span>
+<span class="kw">const</span> handleClick2 = () => {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+};
+
+<span class="kw">return</span> (
+<div>
+<button onClick={handleClick}>A: {count}</button>
+<button onClick={handleClick2}>B: {count}</button>
+</div>
+);
+}
+
+<span class="com">// ─── The rule ────────────────────────────────
+// Use useCallback when:
+// ✅ Passing to React.memo'd component
+// ✅ Used in another hook's dependency array
+// ✅ Passed to a custom hook that depends on identity
+//
+// Don't use useCallback when:
+// ❌ Passing to a native DOM event (onClick, onChange)
+// ❌ Passing to a non-memo'd component
+// ❌ Only used inside the component's own render logic
+//
+// The cost: React runs a hook + compares deps every render.
+// The benefit: none, if nothing downstream compares identity.</span>
+
+console.<span class="fn">log</span>(<span class="fn">MemoizedButton</span>, <span class="fn">GoodParent</span>, <span class="fn">EffectDep</span>, <span class="fn">useDebounce</span>, <span class="fn">Search</span>, <span class="fn">PointlessCallback</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useCallback, useState, memo, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">const</span> MemoizedButton = <span class="fn">memo</span>(({ onClick }) => {
+console.<span class="fn">log</span>(<span class="str">'MemoizedButton rendered'</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick }, <span class="str">'Click'</span>);
+});
+
+<span class="kw">function</span> <span class="fn">GoodParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> handleClick = <span class="fn">useCallback</span>(() => { console.<span class="fn">log</span>(<span class="str">'clicked'</span>); }, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setCount</span>(c => c + <span class="num">1</span>) }, <span class="str">'Parent: '</span>, count),
+React.<span class="fn">createElement</span>(MemoizedButton, { onClick: handleClick })
+);
+}
+
+<span class="kw">function</span> <span class="fn">EffectDep</span>({ id }) {
+<span class="kw">const</span> load = <span class="fn">useCallback</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/${id}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>());
+}, [id]);
+<span class="fn">useEffect</span>(() => { <span class="fn">load</span>(); }, [load]);
+<span class="kw">return</span> <span class="fn">null</span>;
+}
+
+<span class="kw">function</span> <span class="fn">useDebounce</span>(fn, delay) {
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setTimeout</span>(fn, delay);
+<span class="kw">return</span> () => <span class="fn">clearTimeout</span>(id);
+}, [fn, delay]);
+}
+
+<span class="kw">function</span> <span class="fn">Search</span>({ query }) {
+<span class="kw">const</span> handleSearch = <span class="fn">useCallback</span>(() => {
+console.<span class="fn">log</span>(<span class="str">'searching:'</span>, query);
+}, [query]);
+<span class="fn">useDebounce</span>(handleSearch, <span class="num">300</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Searching for: '</span>, query);
+}
+
+<span class="kw">function</span> <span class="fn">PointlessCallback</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> handleClick = <span class="fn">useCallback</span>(() => { <span class="fn">setCount</span>(c => c + <span class="num">1</span>); }, []);
+<span class="kw">const</span> handleClick2 = () => { <span class="fn">setCount</span>(c => c + <span class="num">1</span>); };
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: handleClick }, <span class="str">'A: '</span>, count),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: handleClick2 }, <span class="str">'B: '</span>, count)
+);
+}
+
+console.<span class="fn">log</span>(MemoizedButton, <span class="fn">GoodParent</span>, <span class="fn">EffectDep</span>, <span class="fn">useDebounce</span>, <span class="fn">Search</span>, <span class="fn">PointlessCallback</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>React.memo'd children</h4>
+<p>Stable function reference = <code>memo</code> skips the re-render. Without <code>useCallback</code>, the memo is defeated by a new function identity every render.</p>
+</div>
+<div class="concept-card">
+<h4>Effect dependencies</h4>
+<p>A function in <code>useEffect</code>'s deps — <code>useCallback</code> prevents re-runs from function identity changing. Without it: infinite loop.</p>
+</div>
+<div class="concept-card">
+<h4>Custom hooks</h4>
+<p>Custom hooks that depend on function identity (useDebounce, useThrottle) need stable functions. <code>useCallback</code> provides them.</p>
+</div>
+<div class="concept-card">
+<h4>When it's pointless</h4>
+<p>Native event handlers (onClick), non-memo'd children, internal helpers — the function is called, not compared. No benefit from memoization.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — When useMemo actually helps</h2>
+<p class="section-sub">Expensive computations and stable references.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3"><code>useMemo</code> has two use cases. Expensive computation: the calculation takes real time, and skipping it on re-render matters. Stable reference: the value (object, array) is used in an effect dependency or passed to a memo'd component. For trivial computations like <code>a + b</code>, useMemo is slower than just recomputing.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">usememo-when.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useMemo, useState, useEffect, memo } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> Item { id: <span class="fn">string</span>; price: <span class="fn">number</span>; name: <span class="fn">string</span> }
+
+<span class="com">// ─── Case 1: expensive computation ───────────</span>
+<span class="kw">function</span> <span class="fn">ExpensiveList</span>({ items }: { items: Item[] }) {
+<span class="kw">const</span> [filter, setFilter] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> [sortBy, setSortBy] = <span class="fn">useState</span><<span class="str">'price'</span> | <span class="str">'name'</span>>(<span class="str">'price'</span>);
+
+<span class="com">// ✅ Expensive (filter + sort) — only recomputes when</span>
+<span class="com">// items, filter, or sortBy changes. Not on every keystroke in</span>
+<span class="com">// the filter input itself (which IS a re-render, but reuses result).</span>
+<span class="kw">const</span> processed = <span class="fn">useMemo</span>(() => {
+<span class="kw">return</span> items
+.<span class="fn">filter</span>(i => i.name.<span class="fn">toLowerCase</span>().<span class="fn">includes</span>(filter.<span class="fn">toLowerCase</span>()))
+.<span class="fn">sort</span>((a, b) => sortBy === <span class="str">'price'</span> ? a.price - b.price : a.name.<span class="fn">localeCompare</span>(b.name));
+}, [items, filter, sortBy]);
+
+<span class="kw">return</span> (
+<div>
+<input value={filter} onChange={e => <span class="fn">setFilter</span>(e.target.value)} placeholder=<span class="str">"Filter..."</span> />
+<button onClick={() => <span class="fn">setSortBy</span>(b => b === <span class="str">'price'</span> ? <span class="str">'name'</span> : <span class="str">'price'</span>)}>
+Sort by: {sortBy}
+</button>
+<ul>
+{processed.<span class="fn">map</span>(i => <li key={i.id}>{i.name}: $`{i.price}</li>)}
+</ul>
+</div>
+);
+}
+
+<span class="com">// ─── Case 2: stable object for a memo'd child ─</span>
+<span class="kw">const</span> <span class="fn">MemoizedChart</span> = <span class="fn">memo</span>(({ config }: { config: { color: <span class="fn">string</span>; size: <span class="fn">number</span> } }) => {
+console.<span class="fn">log</span>(<span class="str">'Chart rendered'</span>);
+<span class="kw">return</span> <div>Chart: {config.color} / {config.size}</div>;
+});
+
+<span class="kw">function</span> <span class="fn">ChartParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="com">// ✅ Stable config — MemoizedChart skips re-render when count changes</span>
+<span class="kw">const</span> config = <span class="fn">useMemo</span>(() => ({ color: <span class="str">'blue'</span>, size: <span class="num">100</span> }), []);
+
+<span class="kw">return</span> (
+<div>
+<button onClick={() => <span class="fn">setCount</span>(c => c + <span class="num">1</span>)}>Count: {count}</button>
+<MemoizedChart config={config} />
+</div>
+);
+}
+
+<span class="com">// ─── Case 3: stable object for effect dependency</span>
+<span class="kw">function</span> <span class="fn">StableDep</span>({ a, b }: { a: <span class="fn">number</span>; b: <span class="fn">number</span> }) {
+<span class="com">// Without useMemo: options is new every render → effect loops</span>
+<span class="kw">const</span> options = <span class="fn">useMemo</span>(() => ({ a, b }), [a, b]);
+
+<span class="fn">useEffect</span>(() => {
+console.<span class="fn">log</span>(<span class="str">'options:'</span>, options);
+}, [options]); <span class="com">// ✅ runs when a or b changes</span>
+
+<span class="kw">return</span> <span class="fn">null</span>;
+}
+
+<span class="com">// ─── BAD: memoizing trivial computations ─────</span>
+<span class="kw">function</span> <span class="fn">PointlessMemo</span>({ a, b }: { a: <span class="fn">number</span>; b: <span class="fn">number</span> }) {
+<span class="com">// ❌ a + b costs nothing. useMemo has overhead.</span>
+<span class="kw">const</span> sum = <span class="fn">useMemo</span>(() => a + b, [a, b]);
+
+<span class="com">// Just as fast, simpler:</span>
+<span class="kw">const</span> sum2 = a + b;
+
+<span class="kw">return</span> <p>{sum} / {sum2}</p>;
+}
+
+<span class="com">// ─── The rule ────────────────────────────────
+// Use useMemo when:
+// ✅ Computation is expensive (sort, filter, map on large arrays)
+// ✅ Object/array passed to React.memo'd component
+// ✅ Object/array in an effect dependency
+//
+// Don't use useMemo when:
+// ❌ Computation is trivial (arithmetic, string concat)
+// ❌ Value is used only inside the component's own render logic
+// ❌ Nothing downstream compares identity
+//
+// Measure first. Most components don't need useMemo.</span>
+
+console.<span class="fn">log</span>(<span class="fn">ExpensiveList</span>, <span class="fn">MemoizedChart</span>, <span class="fn">ChartParent</span>, <span class="fn">StableDep</span>, <span class="fn">PointlessMemo</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useMemo, useState, useEffect, memo } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">ExpensiveList</span>({ items }) {
+<span class="kw">const</span> [filter, setFilter] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> [sortBy, setSortBy] = <span class="fn">useState</span>(<span class="str">'price'</span>);
+<span class="kw">const</span> processed = <span class="fn">useMemo</span>(() => {
+<span class="kw">return</span> items
+.<span class="fn">filter</span>(i => i.name.<span class="fn">toLowerCase</span>().<span class="fn">includes</span>(filter.<span class="fn">toLowerCase</span>()))
+.<span class="fn">sort</span>((a, b) => sortBy === <span class="str">'price'</span> ? a.price - b.price : a.name.<span class="fn">localeCompare</span>(b.name));
+}, [items, filter, sortBy]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: filter, onChange: e => <span class="fn">setFilter</span>(e.target.value), placeholder: <span class="str">'Filter...'</span> }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setSortBy</span>(b => b === <span class="str">'price'</span> ? <span class="str">'name'</span> : <span class="str">'price'</span>) }, <span class="str">'Sort by: '</span>, sortBy),
+React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, processed.<span class="fn">map</span>(i => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i.id }, i.name, <span class="str">': `$'</span>, i.price)))
+);
+}
+
+<span class="kw">const</span> MemoizedChart = <span class="fn">memo</span>(({ config }) => {
+console.<span class="fn">log</span>(<span class="str">'Chart rendered'</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>, <span class="str">'Chart: '</span>, config.color, <span class="str">' / '</span>, config.size);
+});
+
+<span class="kw">function</span> <span class="fn">ChartParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> config = <span class="fn">useMemo</span>(() => ({ color: <span class="str">'blue'</span>, size: <span class="num">100</span> }), []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setCount</span>(c => c + <span class="num">1</span>) }, <span class="str">'Count: '</span>, count),
+React.<span class="fn">createElement</span>(MemoizedChart, { config })
+);
+}
+
+<span class="kw">function</span> <span class="fn">StableDep</span>({ a, b }) {
+<span class="kw">const</span> options = <span class="fn">useMemo</span>(() => ({ a, b }), [a, b]);
+<span class="fn">useEffect</span>(() => { console.<span class="fn">log</span>(<span class="str">'options:'</span>, options); }, [options]);
+<span class="kw">return</span> <span class="fn">null</span>;
+}
+
+<span class="kw">function</span> <span class="fn">PointlessMemo</span>({ a, b }) {
+<span class="kw">const</span> sum = <span class="fn">useMemo</span>(() => a + b, [a, b]);
+<span class="kw">const</span> sum2 = a + b;
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, sum, <span class="str">' / '</span>, sum2);
+}
+
+console.<span class="fn">log</span>(<span class="fn">ExpensiveList</span>, MemoizedChart, <span class="fn">ChartParent</span>, <span class="fn">StableDep</span>, <span class="fn">PointlessMemo</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Expensive computations</h4>
+<p>Filter + sort on 10,000 items takes real time. <code>useMemo</code> skips it when unrelated state changes.</p>
+</div>
+<div class="concept-card">
+<h4>Stable references</h4>
+<p><code>config</code> passed to <code>memo</code>'d child — new object every render defeats the memo. <code>useMemo</code> fixes identity.</p>
+</div>
+<div class="concept-card">
+<h4>Effect dependencies</h4>
+<p>A new object in <code>useEffect</code>'s deps causes the effect to re-run every render. <code>useMemo</code> prevents it.</p>
+</div>
+<div class="concept-card">
+<h4>Trivial values don't need it</h4>
+<p><code>a + b</code>, <code>items.length</code>, <code>user.name</code> — no memo needed. The overhead of <code>useMemo</code> exceeds the computation cost.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>useMemo</code> and <code>useCallback</code> everywhere "just in case."</strong> Every hook has cost — React runs the hook, compares dependencies, and either caches or recomputes. For trivial values and functions, this cost exceeds the savings. The optimization is only real when the reference identity prevents work elsewhere: a memo'd child skipping a render, an effect not re-running, an expensive calculation not recomputing. Add <code>useMemo</code>/<code>useCallback</code> when you've measured a problem, not preemptively.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The memoization mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Wrapping every function in useCallback</div>
+<p>Adds cost without benefit. Fix: only memoize when the reference is consumed by something that cares.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using useCallback for native events</div>
+<p><code>onClick={useCallback(() => ...)}</code> — native DOM doesn't compare identities. Fix: plain inline function.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Forgetting that useCallback is a hook</div>
+<p><code>useCallback(...)</code> must be called unconditionally at the top of the component. Fix: not inside loops or conditions.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Wrong dependencies</div>
+<p><code>useCallback(() => setCount(count + 1), [])</code> — captures stale <code>count</code>. Fix: <code>setCount(c => c + 1)</code> or add <code>count</code> to deps.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Memoizing trivial values</div>
+<p><code>useMemo(() => a + b, [a, b])</code> — slower than <code>a + b</code>. Fix: only memoize when the computation actually costs.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Using useMemo for side effects</div>
+<p><code>useMemo(() => fetch(...), [])</code> — useMemo isn't for effects. Fix: <code>useEffect</code> for side effects.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Expecting useMemo to prevent all re-renders</div>
+<p><code>useMemo</code> memoizes the value, not the render. The component still re-renders; the value is reused. Fix: combine with <code>React.memo</code> to prevent child renders.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not memoizing when passing to memo'd child</div>
+<p><code><MemoChild config={{ a: 1 }} /></code> — new object every render, memo fails. Fix: <code>useMemo</code> the object or hoist it outside.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between useMemo and useCallback?</summary>
+<p class="mt-2 text-sm text-slate-300">useMemo memoizes a value (the result of a function call). useCallback memoizes a function (the function itself). useMemo(() => computeValue(), [deps]) returns the computed value. useCallback(() => {...}, [deps]) returns the function. They're the same thing under the hood — useCallback(fn, deps) is equivalent to useMemo(() => fn, deps).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use useCallback?</summary>
+<p class="mt-2 text-sm text-slate-300">Three cases. (1) A function is passed as a prop to a component wrapped in React.memo — stable reference means the memo works. (2) A function is in the dependency array of useEffect, useMemo, or another useCallback. (3) A function is passed to a custom hook that depends on it.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use useMemo?</summary>
+<p class="mt-2 text-sm text-slate-300">Three cases. (1) An expensive computation runs on every render but only depends on a few values. (2) A value needs a stable identity for a useEffect dependency or a memo'd component prop. (3) A value is created inline (object, array, function) and passed to a component that would re-render on the new reference.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Is useCallback always faster?</summary>
+<p class="mt-2 text-sm text-slate-300">No — useCallback has cost. Every render, React runs the hook, compares dependencies, and either returns the cached function or stores a new one. For simple functions, this cost is comparable to just creating the function inline. The benefit only appears when the stable reference prevents work elsewhere.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/re-render-too-often.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Why does my component re-render too often?</div>
+<div class="text-xs text-slate-400 mt-1">Debug re-renders before optimizing</div>
+</a>
+<a href="/courses/react/problems/react-memo.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to use React.memo</div>
+<div class="text-xs text-slate-400 mt-1">The companion to useMemo</div>
+</a>
+<a href="/courses/react/problems/useeffect-deps.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "useEffect has a missing dependency"</div>
+<div class="text-xs text-slate-400 mt-1">Where useCallback matters most</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
