@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Type useRef in React + TypeScript (2026)</title>
+<meta name="description" content="Type React useRef correctly in TypeScript. DOM refs, mutable refs, nullability, and the initial value that matters. Every pattern with working code.">
+<meta name="keywords" content="react useref typescript, typescript useref type, react useref generic, useref dom element, useref null typescript">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Type useRef in React + TypeScript">
+<meta property="og:description" content="DOM refs, mutable refs, nullability, and the initial value that matters.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/useref-type.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Type useRef in React + TypeScript">
+<meta name="twitter:description" content="DOM refs, mutable refs, nullability.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/useref-type.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Type useRef in React + TypeScript",
+"description": "Type React useRef correctly in TypeScript. DOM refs, mutable refs, nullability, and the initial value that matters.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19, TypeScript 5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I type useRef in React + TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Two patterns. (1) DOM refs: useRef<HTMLInputElement>(null) — the generic is the element type, and null is required as the initial value because the ref isn't attached until after render. Access via ref.current which is HTMLInputElement | null. (2) Mutable value refs: useRef<number>(0) — the generic is the value type, and you can pass any initial value. Access via ref.current which is always number. The generic is the value type, not the ref type — React wraps it in MutableRefObject<T> for you."}},
+{"@type":"Question","name":"Why do I need to pass null to useRef?","acceptedAnswer":{"@type":"Answer","text":"For DOM refs: the element doesn't exist during the first render — React attaches it after the DOM is created. So the initial value must be null (or undefined), and ref.current is typed as HTMLInputElement | null. You must narrow before using it: ref.current?.focus() or if (ref.current) ref.current.focus(). For mutable value refs (useRef(0)), the initial value is the actual value, and ref.current is always defined."}},
+{"@type":"Question","name":"What is the difference between useRef<HTMLInputElement>(null) and useRef<HTMLInputElement | null>(null)?","acceptedAnswer":{"@type":"Answer","text":"The first is the DOM ref pattern: useRef<HTMLInputElement>(null) gives ref.current type HTMLInputElement | null. The second is redundant — it's already HTMLInputElement | null. React's overloads treat these differently: useRef<T>(null) with T not including null gives RefObject<T> where .current is readonly (can't reassign). useRef<T | null>(null) gives MutableRefObject<T | null> where .current is writable. For DOM refs, use the first — you never reassign ref.current manually."}},
+{"@type":"Question","name":"How do I type a ref that points to a custom component?","acceptedAnswer":{"@type":"Answer","text":"A custom component's ref forwards to a DOM element underneath. Use forwardRef<HTMLInputElement, Props>((props, ref) => ...) in the component. Then the parent uses useRef<HTMLInputElement>(null) as the ref type. The generic is always the underlying DOM element, not the component. In React 19, you can pass ref as a regular prop instead of forwardRef, but the typing is the same: ref?: React.Ref<HTMLInputElement>."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React + TS · useRef type</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">useRef type</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>How to type useRef.<br><span class="py-accent">DOM refs vs mutable refs.</span></h1>
+<p class="lead">
+<code>useRef</code> has two completely different uses — pointing at a DOM element, and storing a mutable value that survives renders. Both use the same hook, but the types are different. Get the generic wrong and TypeScript fights you. Get it right and refs are some of the cleanest code in React.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Two patterns. <strong>DOM ref:</strong> <code>useRef<HTMLInputElement>(null)</code> — element type, <code>null</code> initial value, access via <code>ref.current?.focus()</code>;. <strong>Mutable value:</strong> <code>useRef<number>(0)</code> — value type, actual initial value, access via <code>ref.current</code>. In both cases, the generic is the type of <code>.current</code>. Never type it as <code>any</code> or <code>RefObject<any></code> — you'll lose every method on the element.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — DOM refs</h2>
+<p class="section-sub">The pattern for accessing a real element.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A DOM ref points to a real element in the browser. The generic is the element type (<code>HTMLInputElement</code>, <code>HTMLDivElement</code>, <code>HTMLButtonElement</code>), and the initial value is <code>null</code> — because the element doesn't exist until React attaches it after render.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">dom-ref.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">FocusDemo</span>() {
+<span class="com">// ─── The canonical DOM ref ───────────────────</span>
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span><HTMLInputElement>(<span class="fn">null</span>);
+<span class="com">// inputRef.current: HTMLInputElement | null</span>
+
+<span class="kw">function</span> <span class="fn">focus</span>() {
+<span class="com">// Narrow with ?. — ref might not be attached yet</span>
+inputRef.current?.<span class="fn">focus</span>();
+<span class="com">// inputRef.current.select(); // ❌ possibly null</span>
+}
+
+<span class="kw">function</span> <span class="fn">clear</span>() {
+<span class="kw">if</span> (inputRef.current) {
+inputRef.current.value = <span class="str">''</span>; <span class="com">// ✅ narrowed by if</span>
+inputRef.current.<span class="fn">focus</span>();
+}
+}
+
+<span class="kw">return</span> (
+<div>
+<input ref={inputRef} placeholder=<span class="str">"Type here..."</span> />
+<button onClick={focus}>Focus</button>
+<button onClick={clear}>Clear</button>
+</div>
+);
+}
+
+<span class="com">// ─── Other element types ─────────────────────</span>
+<span class="kw">function</span> <span class="fn">ManyRefs</span>() {
+<span class="kw">const</span> divRef = <span class="fn">useRef</span><HTMLDivElement>(<span class="fn">null</span>);
+<span class="kw">const</span> buttonRef = <span class="fn">useRef</span><HTMLButtonElement>(<span class="fn">null</span>);
+<span class="kw">const</span> videoRef = <span class="fn">useRef</span><HTMLVideoElement>(<span class="fn">null</span>);
+<span class="kw">const</span> canvasRef = <span class="fn">useRef</span><HTMLCanvasElement>(<span class="fn">null</span>);
+<span class="kw">const</span> formRef = <span class="fn">useRef</span><HTMLFormElement>(<span class="fn">null</span>);
+
+<span class="kw">return</span> (
+<form ref={formRef}>
+<div ref={divRef}>
+<button ref={buttonRef} onClick={() => videoRef.current?.<span class="fn">play</span>()}>Play</button>
+<video ref={videoRef} />
+<canvas ref={canvasRef} />
+</div>
+</form>
+);
+}
+
+<span class="com">// ─── Common DOM element types ─────────────────
+//
+// HTMLInputElement — <input>
+// HTMLTextAreaElement — <textarea>
+// HTMLSelectElement — <select>
+// HTMLButtonElement — <button>
+// HTMLDivElement — <div>
+// HTMLSpanElement — <span>
+// HTMLFormElement — <form>
+// HTMLAnchorElement — <a>
+// HTMLImageElement — <img>
+// HTMLVideoElement — <video>
+// HTMLCanvasElement — <canvas>
+// HTMLAudioElement — <audio>
+
+console.<span class="fn">log</span>(<span class="fn">FocusDemo</span>, <span class="fn">ManyRefs</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">FocusDemo</span>() {
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="kw">function</span> <span class="fn">focus</span>() {
+inputRef.current?.<span class="fn">focus</span>();
+}
+<span class="kw">function</span> <span class="fn">clear</span>() {
+<span class="kw">if</span> (inputRef.current) {
+inputRef.current.value = <span class="str">''</span>;
+inputRef.current.<span class="fn">focus</span>();
+}
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref: inputRef, placeholder: <span class="str">'Type here...'</span> }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: focus }, <span class="str">'Focus'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: clear }, <span class="str">'Clear'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">ManyRefs</span>() {
+<span class="kw">const</span> divRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="kw">const</span> buttonRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="kw">const</span> videoRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="kw">const</span> canvasRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="kw">const</span> formRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, { ref: formRef },
+React.<span class="fn">createElement</span>(<span class="str">'div'</span>, { ref: divRef },
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { ref: buttonRef, onClick: () => videoRef.current?.<span class="fn">play</span>() }, <span class="str">'Play'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'video'</span>, { ref: videoRef }),
+React.<span class="fn">createElement</span>(<span class="str">'canvas'</span>, { ref: canvasRef })
+)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">FocusDemo</span>, <span class="fn">ManyRefs</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Generic = element type</h4>
+<p><code>useRef<HTMLInputElement></code> — the generic is the actual element. <code>.current</code> has every property and method of that element.</p>
+</div>
+<div class="concept-card">
+<h4><code>null</code> is required</h4>
+<p>The element doesn't exist until React attaches it. <code>useRef<HTMLInputElement>()</code> — <code>.current</code> is <code>undefined</code>, not <code>null</code>. Always pass <code>null</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Narrow before access</h4>
+<p><code>ref.current</code> is <code>T | null</code>. Use <code>?.</code> for optional chains, or <code>if (ref.current)</code> to narrow for multiple operations.</p>
+</div>
+<div class="concept-card">
+<h4>Attach via <code>ref={...}</code></h4>
+<p>Same prop on any element. React fills <code>.current</code> with the actual DOM node after mount, sets it back to <code>null</code> on unmount.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Hover over <code>ref.current</code> in VS Code to see the exact type.</strong> It's the fastest way to learn what a ref contains. <code>useRef<HTMLInputElement>(null)</code> → <code>HTMLInputElement | null</code>. <code>useRef(0)</code> → <code>number</code>. <code>useRef<Set<string>>(new Set())</code> → <code>Set<string></code>. If the hover doesn't match what you expect, the generic or the initial value is wrong. This is the debugging technique that removes 90% of ref confusion.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Mutable value refs</h2>
+<p class="section-sub">When you need a value that survives renders without triggering them.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The other use of <code>useRef</code>: storing a value across renders that <em>doesn't</em> cause re-renders when it changes. Unlike state, mutating <code>ref.current</code> is silent — no render, no update. Perfect for timers, previous values, and any "latest" reference you need inside callbacks.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">mutable-ref.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useRef, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── Counter with a mutable ref ──────────────</span>
+<span class="kw">function</span> <span class="fn">RefCounter</span>() {
+<span class="kw">const</span> renders = <span class="fn">useRef</span>(<span class="num">0</span>);
+<span class="com">// renders.current: number (always defined, not null)</span>
+
+<span class="com">// Increment on every render — no re-render caused by the ref</span>
+renders.current += <span class="num">1</span>;
+
+<span class="kw">return</span> <p>This component has rendered {renders.current} times</p>;
+}
+
+<span class="com">// ─── Timer ref ───────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">Stopwatch</span>() {
+<span class="kw">const</span> [elapsed, setElapsed] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> intervalRef = <span class="fn">useRef</span><ReturnType<<span class="kw">typeof</span> setInterval> | <span class="fn">null</span>>(<span class="fn">null</span>);
+<span class="com">// ReturnType<typeof setInterval> — works in both browser and Node</span>
+
+<span class="kw">function</span> <span class="fn">start</span>() {
+intervalRef.current = <span class="fn">setInterval</span>(() => {
+<span class="fn">setElapsed</span>(e => e + <span class="num">1</span>);
+}, <span class="num">1000</span>);
+}
+
+<span class="kw">function</span> <span class="fn">stop</span>() {
+<span class="kw">if</span> (intervalRef.current !== <span class="fn">null</span>) {
+<span class="fn">clearInterval</span>(intervalRef.current);
+intervalRef.current = <span class="fn">null</span>;
+}
+}
+
+<span class="kw">return</span> (
+<div>
+<p>{elapsed}s</p>
+<button onClick={start}>Start</button>
+<button onClick={stop}>Stop</button>
+</div>
+);
+}
+
+<span class="com">// ─── "Previous value" ref ────────────────────</span>
+<span class="kw">function</span> <span class="fn">PreviousValue</span>({ value }: { value: <span class="fn">number</span> }) {
+<span class="kw">const</span> prevRef = <span class="fn">useRef</span>(value);
+
+<span class="com">// Compare to last render's value</span>
+<span class="kw">const</span> prev = prevRef.current;
+<span class="kw">const</span> trend = value > prev ? <span class="str">'up'</span> : value < prev ? <span class="str">'down'</span> : <span class="str">'same'</span>;
+
+<span class="com">// Update for next render — silent, no re-render</span>
+prevRef.current = value;
+
+<span class="kw">return</span> <p>{value} ({trend} from {prev})</p>;
+}
+
+<span class="com">// ─── Latest callback ref (avoid stale closures)</span>
+<span class="kw">function</span> <span class="fn">LatestCallback</span>({ onClick }: { onClick: () => <span class="fn">void</span> }) {
+<span class="kw">const</span> callbackRef = <span class="fn">useRef</span>(onClick);
+
+<span class="com">// Always keep the latest callback</span>
+callbackRef.current = onClick;
+
+<span class="com">// Use in an event — never stale</span>
+<span class="kw">const</span> <span class="fn">handleClick</span> = () => callbackRef.current();
+
+<span class="kw">return</span> <button onClick={handleClick}>Click</button>;
+}
+
+<span class="com">// ─── Map cache ───────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">CachedList</span>({ items }: { items: <span class="fn">string</span>[] }) {
+<span class="kw">const</span> cacheRef = <span class="fn">useRef</span><<span class="fn">Map</span><<span class="fn">string</span>, <span class="fn">number</span>>>(<span class="kw">new</span> <span class="fn">Map</span>());
+
+<span class="kw">function</span> <span class="fn">getLength</span>(item: <span class="fn">string</span>): <span class="fn">number</span> {
+<span class="kw">const</span> cached = cacheRef.current.<span class="fn">get</span>(item);
+<span class="kw">if</span> (cached !== <span class="fn">undefined</span>) <span class="kw">return</span> cached;
+<span class="kw">const</span> len = item.<span class="fn">length</span>;
+cacheRef.current.<span class="fn">set</span>(item, len);
+<span class="kw">return</span> len;
+}
+
+<span class="kw">return</span> <ul>{items.<span class="fn">map</span>(i => <li key={i}>{i}: {<span class="fn">getLength</span>(i)}</li>)}</ul>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">RefCounter</span>, <span class="fn">Stopwatch</span>, <span class="fn">PreviousValue</span>, <span class="fn">LatestCallback</span>, <span class="fn">CachedList</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useRef, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">RefCounter</span>() {
+<span class="kw">const</span> renders = <span class="fn">useRef</span>(<span class="num">0</span>);
+renders.current += <span class="num">1</span>;
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'This component has rendered '</span>, renders.current, <span class="str">' times'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">Stopwatch</span>() {
+<span class="kw">const</span> [elapsed, setElapsed] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> intervalRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="kw">function</span> <span class="fn">start</span>() {
+intervalRef.current = <span class="fn">setInterval</span>(() => {
+<span class="fn">setElapsed</span>(e => e + <span class="num">1</span>);
+}, <span class="num">1000</span>);
+}
+<span class="kw">function</span> <span class="fn">stop</span>() {
+<span class="kw">if</span> (intervalRef.current !== <span class="fn">null</span>) {
+<span class="fn">clearInterval</span>(intervalRef.current);
+intervalRef.current = <span class="fn">null</span>;
+}
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, elapsed, <span class="str">'s'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: start }, <span class="str">'Start'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: stop }, <span class="str">'Stop'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">PreviousValue</span>({ value }) {
+<span class="kw">const</span> prevRef = <span class="fn">useRef</span>(value);
+<span class="kw">const</span> prev = prevRef.current;
+<span class="kw">const</span> trend = value > prev ? <span class="str">'up'</span> : value < prev ? <span class="str">'down'</span> : <span class="str">'same'</span>;
+prevRef.current = value;
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, value, <span class="str">' ('</span>, trend, <span class="str">' from '</span>, prev, <span class="str">')'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">LatestCallback</span>({ onClick }) {
+<span class="kw">const</span> callbackRef = <span class="fn">useRef</span>(onClick);
+callbackRef.current = onClick;
+<span class="kw">const</span> handleClick = () => callbackRef.current();
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: handleClick }, <span class="str">'Click'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">CachedList</span>({ items }) {
+<span class="kw">const</span> cacheRef = <span class="fn">useRef</span>(<span class="kw">new</span> <span class="fn">Map</span>());
+<span class="kw">function</span> <span class="fn">getLength</span>(item) {
+<span class="kw">const</span> cached = cacheRef.current.<span class="fn">get</span>(item);
+<span class="kw">if</span> (cached !== <span class="fn">undefined</span>) <span class="kw">return</span> cached;
+<span class="kw">const</span> len = item.<span class="fn">length</span>;
+cacheRef.current.<span class="fn">set</span>(item, len);
+<span class="kw">return</span> len;
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, items.<span class="fn">map</span>(i => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, i, <span class="str">': '</span>, <span class="fn">getLength</span>(i))));
+}
+
+console.<span class="fn">log</span>(<span class="fn">RefCounter</span>, <span class="fn">Stopwatch</span>, <span class="fn">PreviousValue</span>, <span class="fn">LatestCallback</span>, <span class="fn">CachedList</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Generic = value type</h4>
+<p><code>useRef(0)</code> → <code>number</code>. <code>useRef<Set<string>>(new Set())</code> → <code>Set<string></code>. <code>.current</code> is always that type.</p>
+</div>
+<div class="concept-card">
+<h4>Mutations are silent</h4>
+<p><code>ref.current = x</code> doesn't trigger a render. That's the point — refs are for values that don't need to be displayed.</p>
+</div>
+<div class="concept-card">
+<h4>Use for timers</h4>
+<p>The <code>setInterval</code> ID must survive renders to cancel it. State would trigger re-renders on every assignment. Refs are the correct tool.</p>
+</div>
+<div class="concept-card">
+<h4>Previous values</h4>
+<p>Comparing current to previous is a classic use case. Store the previous in a ref — silent, no extra renders.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>If <code>.current</code> changes should be visible in the UI, use <code>useState</code> instead.</strong> Refs are for values that don't affect rendering — timer IDs, DOM nodes, memoized callbacks, "previous value" comparisons. If you find yourself wanting the component to re-render when <code>ref.current</code> changes, you've picked the wrong hook. The distinction: state drives the UI; refs drive behavior.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Custom component refs (forwardRef)</h2>
+<p class="section-sub">When the ref is forwarded to an inner element.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If your component wraps an input (or any element), the parent needs a ref to that inner element. Use <code>forwardRef</code> with two type parameters: the element type and the props type. The parent types its ref with the element — not the component.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">forwardref-type.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useRef, forwardRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── The forwardRef component ────────────────</span>
+<span class="kw">interface</span> FancyInputProps {
+label: <span class="fn">string</span>;
+placeholder?: <span class="fn">string</span>;
+}
+
+<span class="kw">const</span> <span class="fn">FancyInput</span> = <span class="fn">forwardRef</span><HTMLInputElement, FancyInputProps>(
+({ label, placeholder }, ref) => {
+<span class="com">// ref is ForwardedRef<HTMLInputElement></span>
+<span class="kw">return</span> (
+<label>
+{label}
+<input ref={ref} placeholder={placeholder} />
+</label>
+);
+}
+);
+
+<span class="fn">FancyInput</span>.displayName = <span class="str">'FancyInput'</span>;
+
+<span class="com">// ─── Parent uses element type ────────────────</span>
+<span class="kw">function</span> <span class="fn">Parent</span>() {
+<span class="com">// Generic is HTMLInputElement — the INNER element, not FancyInput</span>
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span><HTMLInputElement>(<span class="fn">null</span>);
+
+<span class="kw">function</span> <span class="fn">focus</span>() {
+inputRef.current?.<span class="fn">focus</span>(); <span class="com">// ✅</span>
+inputRef.current?.<span class="fn">select</span>(); <span class="com">// ✅</span>
+<span class="com">// inputRef.current.value = ''; // ✅ full HTMLInputElement API</span>
+}
+
+<span class="kw">return</span> (
+<div>
+<FancyInput ref={inputRef} label=<span class="str">"Name"</span> placeholder=<span class="str">"Enter..."</span> />
+<button onClick={focus}>Focus</button>
+</div>
+);
+}
+
+<span class="com">// ─── React 19: ref as a prop ─────────────────</span>
+<span class="com">// React 19 lets you skip forwardRef entirely.</span>
+<span class="kw">interface</span> NewInputProps {
+label: <span class="fn">string</span>;
+placeholder?: <span class="fn">string</span>;
+ref?: React.Ref<HTMLInputElement>;
+}
+
+<span class="kw">function</span> <span class="fn">NewInput</span>({ label, placeholder, ref }: NewInputProps) {
+<span class="kw">return</span> (
+<label>
+{label}
+<input ref={ref} placeholder={placeholder} />
+</label>
+);
+}
+
+<span class="com">// Parent usage is identical:
+// const ref = useRef<HTMLInputElement>(null);
+// <NewInput ref={ref} label="Name" /></span>
+
+<span class="com">// ─── Callback refs ───────────────────────────</span>
+<span class="kw">function</span> <span class="fn">CallbackRef</span>() {
+<span class="kw">const</span> heightRef = <span class="fn">useRef</span>(<span class="num">0</span>);
+
+<span class="com">// Callback runs when element mounts/unmounts</span>
+<span class="kw">function</span> <span class="fn">measure</span>(el: HTMLDivElement | <span class="fn">null</span>) {
+<span class="kw">if</span> (el) {
+heightRef.current = el.<span class="fn">getBoundingClientRect</span>().height;
+}
+}
+
+<span class="kw">return</span> <div ref={measure}>Measured on mount</div>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">FancyInput</span>, <span class="fn">Parent</span>, <span class="fn">NewInput</span>, <span class="fn">CallbackRef</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useRef, forwardRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">const</span> FancyInput = <span class="fn">forwardRef</span>(({ label, placeholder }, ref) => {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'label'</span>, <span class="kw">null</span>,
+label,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref, placeholder })
+);
+});
+FancyInput.displayName = <span class="str">'FancyInput'</span>;
+
+<span class="kw">function</span> <span class="fn">Parent</span>() {
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="kw">function</span> <span class="fn">focus</span>() {
+inputRef.current?.<span class="fn">focus</span>();
+inputRef.current?.<span class="fn">select</span>();
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(FancyInput, { ref: inputRef, label: <span class="str">'Name'</span>, placeholder: <span class="str">'Enter...'</span> }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: focus }, <span class="str">'Focus'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">NewInput</span>({ label, placeholder, ref }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'label'</span>, <span class="kw">null</span>,
+label,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref, placeholder })
+);
+}
+
+<span class="kw">function</span> <span class="fn">CallbackRef</span>() {
+<span class="kw">const</span> heightRef = <span class="fn">useRef</span>(<span class="num">0</span>);
+<span class="kw">function</span> <span class="fn">measure</span>(el) {
+<span class="kw">if</span> (el) {
+heightRef.current = el.<span class="fn">getBoundingClientRect</span>().height;
+}
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, { ref: measure }, <span class="str">'Measured on mount'</span>);
+}
+
+console.<span class="fn">log</span>(FancyInput, <span class="fn">Parent</span>, <span class="fn">NewInput</span>, <span class="fn">CallbackRef</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>forwardRef<T, P></code></h4>
+<p>Two generics: element type T and props type P. The ref is passed as the second argument to the function.</p>
+</div>
+<div class="concept-card">
+<h4>Parent uses element type</h4>
+<p>Parent's <code>useRef<HTMLInputElement>(null)</code> — the element the ref ultimately points to, not the component.</p>
+</div>
+<div class="concept-card">
+<h4>React 19 ref-as-prop</h4>
+<p>Skip <code>forwardRef</code>: add <code>ref?: React.Ref<HTMLInputElement></code> to props, use it directly. Simpler, same typing.</p>
+</div>
+<div class="concept-card">
+<h4>Callback refs</h4>
+<p><code>ref={(el) => ...}</code> — the callback runs with the element on mount, <code>null</code> on unmount. For measuring, focus, third-party integration.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The ref typing mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using <code>useRef<HTMLInputElement>()</code></div>
+<p>Missing the <code>null</code>. Fix: <code>useRef<HTMLInputElement>(null)</code>. Without it, <code>.current</code> is <code>undefined</code>, not <code>null</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Typing ref as <code>any</code></div>
+<p><code>useRef<any>(null)</code> — loses every method. Fix: use the actual element type.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Forgetting <code>?.</code> on DOM refs</div>
+<p><code>ref.current.focus()</code> — possibly null on first render. Fix: <code>ref.current?.focus()</code>.</p>;
+</div>
+<div class="mistake">
+<div class="mtitle">4. Expecting re-render on ref change</div>
+<p><code>ref.current = x</code> doesn't re-render. Fix: use <code>useState</code> if the UI needs to update.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Ref on function components</div>
+<p><code><MyComponent ref={ref} /></code> — won't work without <code>forwardRef</code> or React 19 ref-as-prop. Fix: use one of those patterns.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Using <code>ReturnType</code> incorrectly for timers</div>
+<p><code>ReturnType<typeof setTimeout></code> differs in browser vs Node. Fix: <code>ReturnType<typeof setInterval> | null</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Reading <code>ref.current</code> during render</div>
+<p>Refs are attached after render. Fix: read in effects or events, or use <code>useLayoutEffect</code> for measurement.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Missing <code>displayName</code> on forwardRef</div>
+<p>DevTools shows "ForwardRef" instead of the component name. Fix: set <code>Component.displayName = 'Component'</code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I type useRef in React + TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Two patterns. (1) DOM refs: useRef<HTMLInputElement>(null) — the generic is the element type, and null is required as the initial value. (2) Mutable value refs: useRef<number>(0) — the generic is the value type, and you can pass any initial value.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why do I need to pass null to useRef?</summary>
+<p class="mt-2 text-sm text-slate-300">For DOM refs: the element doesn't exist during the first render — React attaches it after the DOM is created. So the initial value must be null, and ref.current is typed as HTMLInputElement | null. You must narrow before using it.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between useRef<HTMLInputElement>(null) and useRef<HTMLInputElement | null>(null)?</summary>
+<p class="mt-2 text-sm text-slate-300">The first is the DOM ref pattern: ref.current type HTMLInputElement | null, and ref is readonly (can't reassign). The second gives a MutableRefObject where .current is writable. For DOM refs, use the first — you never reassign ref.current manually.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I type a ref that points to a custom component?</summary>
+<p class="mt-2 text-sm text-slate-300">A custom component's ref forwards to a DOM element underneath. Use forwardRef<HTMLInputElement, Props>((props, ref) => ...). Then the parent uses useRef<HTMLInputElement>(null) as the ref type. In React 19, you can pass ref as a regular prop instead.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/react-ts.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson: TS with React</div>
+<div class="text-xs text-slate-400 mt-1">Refs, props, state, events</div>
+</a>
+<a href="/courses/typescript/problems/generic-vs-any.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Generic vs any</div>
+<div class="text-xs text-slate-400 mt-1">Why useRef<any> is a bug</div>
+</a>
+<a href="/courses/react/problems/forwardref-typescript.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to forward refs with TS</div>
+<div class="text-xs text-slate-400 mt-1">The full forwardRef pattern</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React + TS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
