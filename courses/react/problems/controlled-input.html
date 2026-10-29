@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Make a Controlled Input in React (2026)</title>
+<meta name="description" content="Build controlled inputs in React. value + onChange pattern, why "value without onChange" warns, and the three ways to handle forms with state.">
+<meta name="keywords" content="react controlled input, react value onChange, react form input state, react controlled component, react input warning">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Make a Controlled Input in React">
+<meta property="og:description" content="value + onChange pattern, why the warning appears, and three ways to handle forms.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/controlled-input.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Make a Controlled Input in React">
+<meta name="twitter:description" content="The value + onChange pattern explained.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/controlled-input.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Make a Controlled Input in React",
+"description": "Build controlled inputs in React. value + onChange pattern, why the warning appears, and three ways to handle forms.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I make a controlled input in React?","acceptedAnswer":{"@type":"Answer","text":"Add both value and onChange props: <input value={name} onChange={e => setName(e.target.value)} />. The input's displayed value is always the state variable. Typing fires onChange, which updates state, which re-renders with the new value. React controls the input's value — no internal state in the DOM. If you omit onChange, the input becomes read-only and warns: 'You provided a value prop to a form field without an onChange handler.'"}},
+{"@type":"Question","name":"Why does React warn about "value without onChange"?","acceptedAnswer":{"@type":"Answer","text":"Because the input is read-only. Without onChange, there's no way to update the state that controls value. React detects that the value is set but nothing can change it, so typing does nothing. The warning is protecting you from a UX bug. Fix: add onChange, or use defaultValue (uncontrolled) if you don't need to control the value."}},
+{"@type":"Question","name":"Should I use controlled or uncontrolled inputs?","acceptedAnswer":{"@type":"Answer","text":"Controlled when you need to react to every keystroke: validation, live search, conditional rendering, form state as an object, or dynamic initial values. Uncontrolled when you just need the value on submit: simple forms, file inputs (files can't be controlled), or performance-critical inputs where re-rendering on each keystroke is slow. React's default recommendation is controlled — they're more predictable and easier to test."}},
+{"@type":"Question","name":"What is the difference between value and defaultValue?","acceptedAnswer":{"@type":"Answer","text":"value is the controlled value — it's always set from state, and the input's displayed value mirrors state. defaultValue is the initial value — after mount, the DOM manages the value internally, and React doesn't update it. Use value + onChange for controlled, defaultValue for uncontrolled. Using both is an error — React warns that you can't have both."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · controlled input</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Controlled input</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>How to make a controlled input.<br><span class="py-accent">value + onChange. The whole pattern.</span></h1>
+<p class="lead">
+A controlled input's value lives in React state — every keystroke updates the state, every render reflects the state. The pattern is two props: <code>value</code> and <code>onChange</code>. That's it. But there's a warning, a trade-off, and a set of gotchas. This page covers all of it.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Add both props: <code><input value={name} onChange={e => setName(e.target.value)} /></code>. The input's value is always <code>name</code>. Typing fires <code>onChange</code>, which updates state, which re-renders with the new value. <strong>Never</strong> use <code>value</code> without <code>onChange</code> — React warns because the input becomes read-only. For simple forms where you only need the value on submit, use an uncontrolled input with <code>defaultValue</code> instead.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — The canonical pattern</h2>
+<p class="section-sub">value + onChange. Every controlled input follows this.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The input's <code>value</code> prop is always the state. The <code>onChange</code> handler updates the state. React re-renders with the new value — the input displays it. The DOM never manages the value itself; React does. This is the entire mental model.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">controlled-input.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── The canonical controlled input ──────────</span>
+<span class="kw">function</span> <span class="fn">SimpleForm</span>() {
+<span class="kw">const</span> [name, setName] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">return</span> (
+<div>
+<input
+type=<span class="str">"text"</span>
+value={name} <span class="com">// controlled</span>
+onChange={e => <span class="fn">setName</span>(e.target.value)} <span class="com">// updates state</span>
+placeholder=<span class="str">"Your name"</span>
+/>
+<p>Hello, {name || <span class="str">'stranger'</span>}</p>
+</div>
+);
+}
+
+<span class="com">// ─── Multiple fields: one state, one object ──</span>
+<span class="kw">interface</span> FormData {
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="kw">function</span> <span class="fn">MultiFieldForm</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span><FormData>({ name: <span class="str">''</span>, email: <span class="str">''</span> });
+
+<span class="kw">function</span> <span class="fn">updateField</span><K <span class="kw">extends</span> <span class="kw">keyof</span> FormData>(key: K, value: FormData[K]) {
+<span class="fn">setForm</span>(prev => ({ ...prev, [key]: value }));
+}
+
+<span class="kw">return</span> (
+<div>
+<input
+value={form.name}
+onChange={e => <span class="fn">updateField</span>(<span class="str">'name'</span>, e.target.value)}
+/>
+<input
+value={form.email}
+onChange={e => <span class="fn">updateField</span>(<span class="str">'email'</span>, e.target.value)}
+/>
+</div>
+);
+}
+
+<span class="com">// ─── Different input types ───────────────────</span>
+<span class="kw">function</span> <span class="fn">AllInputTypes</span>() {
+<span class="kw">const</span> [text, setText] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> [checked, setChecked] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">const</span> [selected, setSelected] = <span class="fn">useState</span>(<span class="str">'a'</span>);
+<span class="kw">const</span> [textarea, setTextarea] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">return</span> (
+<div>
+<span class="com">{/* Text input — value is string */}</span>
+<input value={text} onChange={e => <span class="fn">setText</span>(e.target.value)} />
+
+<span class="com">{/* Checkbox — checked is boolean */}</span>
+<input
+type=<span class="str">"checkbox"</span>
+checked={checked}
+onChange={e => <span class="fn">setChecked</span>(e.target.checked)}
+/>
+
+<span class="com">{/* Select — value is string */}</span>
+<select value={selected} onChange={e => <span class="fn">setSelected</span>(e.target.value)}>
+<option value=<span class="str">"a"</span>>A</option>
+<option value=<span class="str">"b"</span>>B</option>
+</select>
+
+<span class="com">{/* Textarea — same as text */}</span>
+<textarea value={textarea} onChange={e => <span class="fn">setTextarea</span>(e.target.value)} />
+
+<span class="com">{/* Radio — checked is boolean */}</span>
+<input
+type=<span class="str">"radio"</span>
+checked={selected === <span class="str">'a'</span>}
+onChange={() => <span class="fn">setSelected</span>(<span class="str">'a'</span>)}
+/>
+
+<span class="com">{/* Number — value is number, convert */}</span>
+<input
+type=<span class="str">"number"</span>
+value={Number(text) || <span class="num">0</span>}
+onChange={e => <span class="fn">setText</span>(e.target.value)}
+/>
+</div>
+);
+}
+
+<span class="com">// ─── The pattern in one line ─────────────────
+//
+// value={state} onChange={e => setState(e.target.value)}
+//
+// Two props. Every controlled input. No exceptions.</span>
+
+console.<span class="fn">log</span>(<span class="fn">SimpleForm</span>, <span class="fn">MultiFieldForm</span>, <span class="fn">AllInputTypes</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">SimpleForm</span>() {
+<span class="kw">const</span> [name, setName] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+type: <span class="str">'text'</span>,
+value: name,
+onChange: e => <span class="fn">setName</span>(e.target.value),
+placeholder: <span class="str">'Your name'</span>
+}),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Hello, '</span>, name || <span class="str">'stranger'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">MultiFieldForm</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span>({ name: <span class="str">''</span>, email: <span class="str">''</span> });
+<span class="kw">function</span> <span class="fn">updateField</span>(key, value) {
+<span class="fn">setForm</span>(prev => ({ ...prev, [key]: value }));
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: form.name, onChange: e => <span class="fn">updateField</span>(<span class="str">'name'</span>, e.target.value) }),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: form.email, onChange: e => <span class="fn">updateField</span>(<span class="str">'email'</span>, e.target.value) })
+);
+}
+
+<span class="kw">function</span> <span class="fn">AllInputTypes</span>() {
+<span class="kw">const</span> [text, setText] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> [checked, setChecked] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">const</span> [selected, setSelected] = <span class="fn">useState</span>(<span class="str">'a'</span>);
+<span class="kw">const</span> [textarea, setTextarea] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: text, onChange: e => <span class="fn">setText</span>(e.target.value) }),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { type: <span class="str">'checkbox'</span>, checked, onChange: e => <span class="fn">setChecked</span>(e.target.checked) }),
+React.<span class="fn">createElement</span>(<span class="str">'select'</span>, { value: selected, onChange: e => <span class="fn">setSelected</span>(e.target.value) },
+React.<span class="fn">createElement</span>(<span class="str">'option'</span>, { value: <span class="str">'a'</span> }, <span class="str">'A'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'option'</span>, { value: <span class="str">'b'</span> }, <span class="str">'B'</span>)
+),
+React.<span class="fn">createElement</span>(<span class="str">'textarea'</span>, { value: textarea, onChange: e => <span class="fn">setTextarea</span>(e.target.value) }),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { type: <span class="str">'radio'</span>, checked: selected === <span class="str">'a'</span>, onChange: () => <span class="fn">setSelected</span>(<span class="str">'a'</span>) }),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { type: <span class="str">'number'</span>, value: <span class="fn">Number</span>(text) || <span class="num">0</span>, onChange: e => <span class="fn">setText</span>(e.target.value) })
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">SimpleForm</span>, <span class="fn">MultiFieldForm</span>, <span class="fn">AllInputTypes</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Two props, always</h4>
+<p><code>value</code> + <code>onChange</code> together. Missing either breaks the pattern — the input is either uncontrolled or read-only.</p>
+</div>
+<div class="concept-card">
+<h4><code>e.target.value</code></h4>
+<p>For text-like inputs (text, textarea, select). For checkbox/radio use <code>e.target.checked</code> (boolean).</p>
+</div>
+<div class="concept-card">
+<h4>Number inputs are strings</h4>
+<p><code>e.target.value</code> is always a string, even for <code>type="number"</code>. Convert with <code>Number()</code> or <code>parseFloat()</code>.</p>
+</div>
+<div class="concept-card">
+<h4>One state, one object</h4>
+<p>For many fields, use one state object. A typed updater handles all fields without duplication.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — The "value without onChange" warning</h2>
+<p class="section-sub">Why it appears, and the two correct fixes.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If you provide <code>value</code> without <code>onChange</code>, React warns: <em>"You provided a value prop to a form field without an onChange handler."</em> The input becomes read-only — the user can't type because there's no way for the value to change. The fix depends on intent: add <code>onChange</code> (if you meant to control it), or use <code>defaultValue</code> (if you meant it to be uncontrolled).</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">value-without-onchange.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: value without onChange ─────────────</span>
+<span class="kw">function</span> <span class="fn">BadReadOnly</span>() {
+<span class="kw">return</span> (
+<input value=<span class="str">"hello"</span> />
+<span class="com">{/* ⚠️ Warning: provided a value prop without onChange
+→ input is read-only. User can't type.
+→ React is warning about a UX bug. */}</span>
+);
+}
+
+<span class="com">// ─── FIX 1: add onChange if you meant to control</span>
+<span class="kw">function</span> <span class="fn">GoodControlled</span>() {
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span>(<span class="str">'hello'</span>);
+
+<span class="kw">return</span> (
+<input
+value={value}
+onChange={e => <span class="fn">setValue</span>(e.target.value)} <span class="com">// ✅ can now type</span>
+/>
+);
+}
+
+<span class="com">// ─── FIX 2: use defaultValue if you meant uncontrolled</span>
+<span class="kw">function</span> <span class="fn">GoodUncontrolled</span>() {
+<span class="kw">return</span> (
+<input defaultValue=<span class="str">"hello"</span> />
+<span class="com">{/* ✅ user can type, value starts at "hello"
+→ the DOM manages the value internally
+→ read it at submit with a ref or FormData */}</span>
+);
+}
+
+<span class="com">// ─── BAD: value and defaultValue together</span>
+<span class="kw">function</span> <span class="fn">BadBoth</span>() {
+<span class="kw">return</span> (
+<input value=<span class="str">"hello"</span> defaultValue=<span class="str">"world"</span> />
+<span class="com">{/* ⚠️ Warning: both value and defaultValue provided
+→ React can't decide who owns the value */}</span>
+);
+}
+
+<span class="com">// ─── BAD: value={undefined} ──────────────────</span>
+<span class="kw">function</span> <span class="fn">BadUndefined</span>() {
+<span class="kw">const</span> [value] = <span class="fn">useState</span><<span class="fn">string</span> | <span class="fn">undefined</span>>(<span class="fn">undefined</span>);
+
+<span class="kw">return</span> <input value={value} />;
+<span class="com">{/* ⚠️ value={undefined} → uncontrolled with a null initial
+→ React treats it as uncontrolled, but the intent is unclear.
+Fix: use value={value ?? ''} to always pass a string. */}</span>
+}
+
+<span class="com">// ─── GOOD: default empty string ──────────────</span>
+<span class="kw">function</span> <span class="fn">GoodNullable</span>() {
+<span class="kw">const</span> [value] = <span class="fn">useState</span><<span class="fn">string</span> | <span class="fn">undefined</span>>(<span class="fn">undefined</span>);
+
+<span class="kw">return</span> (
+<input
+value={value ?? <span class="str">''</span>} <span class="com">// ✅ always a string</span>
+onChange={() => {}}
+/>
+);
+}
+
+<span class="com">// ─── The rule ────────────────────────────────
+//
+// value + onChange → controlled (recommended)
+// defaultValue → uncontrolled
+// value only → read-only + warning
+// value + defaultValue → error + warning
+// value={undefined} → uncontrolled with null — usually a bug
+//
+// Choose controlled by default. Switch to uncontrolled
+// for file inputs (can't be controlled) or very large
+// forms where per-keystroke re-renders hurt performance.</span>
+
+console.<span class="fn">log</span>(<span class="fn">BadReadOnly</span>, <span class="fn">GoodControlled</span>, <span class="fn">GoodUncontrolled</span>, <span class="fn">BadBoth</span>, <span class="fn">BadUndefined</span>, <span class="fn">GoodNullable</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadReadOnly</span>() {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: <span class="str">'hello'</span> });
+}
+
+<span class="kw">function</span> <span class="fn">GoodControlled</span>() {
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span>(<span class="str">'hello'</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value, onChange: e => <span class="fn">setValue</span>(e.target.value) });
+}
+
+<span class="kw">function</span> <span class="fn">GoodUncontrolled</span>() {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { defaultValue: <span class="str">'hello'</span> });
+}
+
+<span class="kw">function</span> <span class="fn">BadBoth</span>() {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: <span class="str">'hello'</span>, defaultValue: <span class="str">'world'</span> });
+}
+
+<span class="kw">function</span> <span class="fn">BadUndefined</span>() {
+<span class="kw">const</span> [value] = <span class="fn">useState</span>(<span class="fn">undefined</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value });
+}
+
+<span class="kw">function</span> <span class="fn">GoodNullable</span>() {
+<span class="kw">const</span> [value] = <span class="fn">useState</span>(<span class="fn">undefined</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: value ?? <span class="str">''</span>, onChange: () => {} });
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadReadOnly</span>, <span class="fn">GoodControlled</span>, <span class="fn">GoodUncontrolled</span>, <span class="fn">BadBoth</span>, <span class="fn">BadUndefined</span>, <span class="fn">GoodNullable</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Warning = real UX bug</h4>
+<p>The input can't be typed in. User sees a read-only field. React is protecting you from shipping this.</p>
+</div>
+<div class="concept-card">
+<h4>Fix by intent</h4>
+<p>Add <code>onChange</code> if you want to control. Use <code>defaultValue</code> if you want the DOM to own the value.</p>
+</div>
+<div class="concept-card">
+<h4>Never both</h4>
+<p><code>value</code> + <code>defaultValue</code> — React warns because it can't decide ownership. Pick one.</p>
+</div>
+<div class="concept-card">
+<h4>Nullable state</h4>
+<p><code>value={x ?? ''}</code> for possibly-null values. Never pass <code>undefined</code> to <code>value</code> — behavior is confusing.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Controlled form with submit</h2>
+<p class="section-sub">The full pattern — inputs, submit, validation, reset.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A real form combines controlled inputs, validation, submit handling, and reset. The state is one object; the submit handler validates and sends; the reset clears. This is the pattern every production form uses.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">full-form.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> FormData {
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+message: <span class="fn">string</span>;
+}
+
+<span class="kw">interface</span> FormErrors {
+name?: <span class="fn">string</span>;
+email?: <span class="fn">string</span>;
+message?: <span class="fn">string</span>;
+}
+
+<span class="kw">function</span> <span class="fn">ContactForm</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span><FormData>({ name: <span class="str">''</span>, email: <span class="str">''</span>, message: <span class="str">''</span> });
+<span class="kw">const</span> [errors, setErrors] = <span class="fn">useState</span><FormErrors>({});
+<span class="kw">const</span> [submitted, setSubmitted] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+<span class="kw">function</span> <span class="fn">updateField</span><K <span class="kw">extends</span> <span class="kw">keyof</span> FormData>(key: K, value: FormData[K]) {
+<span class="fn">setForm</span>(prev => ({ ...prev, [key]: value }));
+<span class="com">// Clear that field's error on change</span>
+<span class="fn">setErrors</span>(prev => ({ ...prev, [key]: <span class="fn">undefined</span> }));
+}
+
+<span class="kw">function</span> <span class="fn">validate</span>(data: FormData): FormErrors {
+<span class="kw">const</span> errs: FormErrors = {};
+<span class="kw">if</span> (!data.name.<span class="fn">trim</span>()) errs.name = <span class="str">'Name is required'</span>;
+<span class="kw">if</span> (!data.email.<span class="fn">includes</span>(<span class="str">'@'</span>)) errs.email = <span class="str">'Invalid email'</span>;
+<span class="kw">if</span> (data.message.<span class="fn">length</span> < <span class="num">10</span>) errs.message = <span class="str">'Message must be 10+ characters'</span>;
+<span class="kw">return</span> errs;
+}
+
+<span class="kw">async function</span> <span class="fn">handleSubmit</span>(e: React.FormEvent<HTMLFormElement>) {
+e.<span class="fn">preventDefault</span>();
+
+<span class="kw">const</span> errs = <span class="fn">validate</span>(form);
+<span class="kw">if</span> (<span class="fn">Object</span>.<span class="fn">keys</span>(errs).<span class="fn">length</span> > <span class="num">0</span>) {
+<span class="fn">setErrors</span>(errs);
+<span class="kw">return</span>;
+}
+
+<span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/contact'</span>, {
+method: <span class="str">'POST'</span>,
+headers: { <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> },
+body: <span class="fn">JSON</span>.<span class="fn">stringify</span>(form)
+});
+
+<span class="fn">setSubmitted</span>(<span class="kw">true</span>);
+<span class="fn">setForm</span>({ name: <span class="str">''</span>, email: <span class="str">''</span>, message: <span class="str">''</span> });
+}
+
+<span class="kw">if</span> (submitted) {
+<span class="kw">return</span> <p>Thanks for contacting us!</p>;
+}
+
+<span class="kw">return</span> (
+<form onSubmit={handleSubmit}>
+<div>
+<input
+value={form.name}
+onChange={e => <span class="fn">updateField</span>(<span class="str">'name'</span>, e.target.value)}
+placeholder=<span class="str">"Name"</span>
+/>
+{errors.name && <span style={{ color: <span class="str">'red'</span> }}>{errors.name}</span>}
+</div>
+
+<div>
+<input
+type=<span class="str">"email"</span>
+value={form.email}
+onChange={e => <span class="fn">updateField</span>(<span class="str">'email'</span>, e.target.value)}
+placeholder=<span class="str">"Email"</span>
+/>
+{errors.email && <span style={{ color: <span class="str">'red'</span> }}>{errors.email}</span>}
+</div>
+
+<div>
+<textarea
+value={form.message}
+onChange={e => <span class="fn">updateField</span>(<span class="str">'message'</span>, e.target.value)}
+placeholder=<span class="str">"Message"</span>
+/>
+{errors.message && <span style={{ color: <span class="str">'red'</span> }}>{errors.message}</span>}
+</div>
+
+<button type=<span class="str">"submit"</span>>Send</button>
+</form>
+);
+}
+
+<span class="com">// ─── Alternative: FormData (uncontrolled) ────</span>
+<span class="kw">function</span> <span class="fn">UncontrolledForm</span>() {
+<span class="kw">function</span> <span class="fn">handleSubmit</span>(e: React.FormEvent<HTMLFormElement>) {
+e.<span class="fn">preventDefault</span>();
+<span class="kw">const</span> data = <span class="kw">new</span> <span class="fn">FormData</span>(e.currentTarget);
+<span class="kw">const</span> name = data.<span class="fn">get</span>(<span class="str">'name'</span>) <span class="kw">as</span> <span class="fn">string</span>;
+<span class="kw">const</span> email = data.<span class="fn">get</span>(<span class="str">'email'</span>) <span class="kw">as</span> <span class="fn">string</span>;
+console.<span class="fn">log</span>({ name, email });
+}
+
+<span class="kw">return</span> (
+<form onSubmit={handleSubmit}>
+<input name=<span class="str">"name"</span> defaultValue=<span class="str">""</span> />
+<input name=<span class="str">"email"</span> type=<span class="str">"email"</span> defaultValue=<span class="str">""</span> />
+<button type=<span class="str">"submit"</span>>Send</button>
+</form>
+);
+}
+
+<span class="com">// ─── When to use which ───────────────────────
+//
+// ✅ Controlled (value + onChange):
+// - Live validation
+// - Conditional UI based on input
+// - Dynamic initial values (from API, stored draft)
+// - Programmatic reset (setX(''))
+// - Complex forms with inter-field dependencies
+//
+// ✅ Uncontrolled (defaultValue + FormData):
+// - Simple forms (name, email, message)
+// - File inputs (files can't be controlled)
+// - Very large forms (hundreds of fields)
+// - Performance-critical (no per-keystroke renders)
+//
+// React recommends controlled by default.
+// Uncontrolled is for cases where the trade-off pays off.</span>
+
+console.<span class="fn">log</span>(<span class="fn">ContactForm</span>, <span class="fn">UncontrolledForm</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">ContactForm</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span>({ name: <span class="str">''</span>, email: <span class="str">''</span>, message: <span class="str">''</span> });
+<span class="kw">const</span> [errors, setErrors] = <span class="fn">useState</span>({});
+<span class="kw">const</span> [submitted, setSubmitted] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+<span class="kw">function</span> <span class="fn">updateField</span>(key, value) {
+<span class="fn">setForm</span>(prev => ({ ...prev, [key]: value }));
+<span class="fn">setErrors</span>(prev => ({ ...prev, [key]: <span class="fn">undefined</span> }));
+}
+
+<span class="kw">function</span> <span class="fn">validate</span>(data) {
+<span class="kw">const</span> errs = {};
+<span class="kw">if</span> (!data.name.<span class="fn">trim</span>()) errs.name = <span class="str">'Name is required'</span>;
+<span class="kw">if</span> (!data.email.<span class="fn">includes</span>(<span class="str">'@'</span>)) errs.email = <span class="str">'Invalid email'</span>;
+<span class="kw">if</span> (data.message.<span class="fn">length</span> < <span class="num">10</span>) errs.message = <span class="str">'Message must be 10+ characters'</span>;
+<span class="kw">return</span> errs;
+}
+
+<span class="kw">async function</span> <span class="fn">handleSubmit</span>(e) {
+e.<span class="fn">preventDefault</span>();
+<span class="kw">const</span> errs = <span class="fn">validate</span>(form);
+<span class="kw">if</span> (<span class="fn">Object</span>.<span class="fn">keys</span>(errs).<span class="fn">length</span> > <span class="num">0</span>) {
+<span class="fn">setErrors</span>(errs);
+<span class="kw">return</span>;
+}
+<span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api/contact'</span>, {
+method: <span class="str">'POST'</span>,
+headers: { <span class="str">'Content-Type'</span>: <span class="str">'application/json'</span> },
+body: <span class="fn">JSON</span>.<span class="fn">stringify</span>(form)
+});
+<span class="fn">setSubmitted</span>(<span class="kw">true</span>);
+<span class="fn">setForm</span>({ name: <span class="str">''</span>, email: <span class="str">''</span>, message: <span class="str">''</span> });
+}
+
+<span class="kw">if</span> (submitted) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Thanks for contacting us!'</span>);
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, { onSubmit: handleSubmit },
+React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+value: form.name,
+onChange: e => <span class="fn">updateField</span>(<span class="str">'name'</span>, e.target.value),
+placeholder: <span class="str">'Name'</span>
+}),
+errors.name && React.<span class="fn">createElement</span>(<span class="str">'span'</span>, { style: { color: <span class="str">'red'</span> } }, errors.name)
+),
+React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+type: <span class="str">'email'</span>,
+value: form.email,
+onChange: e => <span class="fn">updateField</span>(<span class="str">'email'</span>, e.target.value),
+placeholder: <span class="str">'Email'</span>
+}),
+errors.email && React.<span class="fn">createElement</span>(<span class="str">'span'</span>, { style: { color: <span class="str">'red'</span> } }, errors.email)
+),
+React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'textarea'</span>, {
+value: form.message,
+onChange: e => <span class="fn">updateField</span>(<span class="str">'message'</span>, e.target.value),
+placeholder: <span class="str">'Message'</span>
+}),
+errors.message && React.<span class="fn">createElement</span>(<span class="str">'span'</span>, { style: { color: <span class="str">'red'</span> } }, errors.message)
+),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { type: <span class="str">'submit'</span> }, <span class="str">'Send'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">UncontrolledForm</span>() {
+<span class="kw">function</span> <span class="fn">handleSubmit</span>(e) {
+e.<span class="fn">preventDefault</span>();
+<span class="kw">const</span> data = <span class="kw">new</span> <span class="fn">FormData</span>(e.currentTarget);
+<span class="kw">const</span> name = data.<span class="fn">get</span>(<span class="str">'name'</span>);
+<span class="kw">const</span> email = data.<span class="fn">get</span>(<span class="str">'email'</span>);
+console.<span class="fn">log</span>({ name, email });
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, { onSubmit: handleSubmit },
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { name: <span class="str">'name'</span>, defaultValue: <span class="str">''</span> }),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { name: <span class="str">'email'</span>, type: <span class="str">'email'</span>, defaultValue: <span class="str">''</span> }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { type: <span class="str">'submit'</span> }, <span class="str">'Send'</span>)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">ContactForm</span>, <span class="fn">UncontrolledForm</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>One state, one object</h4>
+<p>All fields in one <code>useState</code>. The typed updater handles every field without duplication.</p>
+</div>
+<div class="concept-card">
+<h4>Validate on submit</h4>
+<p>Run validation, populate errors, return early if invalid. No need to validate on every keystroke.</p>
+</div>
+<div class="concept-card">
+<h4>Clear errors on change</h4>
+<p>When a field changes, clear its error. The user sees the error disappear as they fix the input.</p>
+</div>
+<div class="concept-card">
+<h4>Reset after submit</h4>
+<p><code>setForm({ ...initial })</code> clears everything. Or show a "success" screen.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>For complex forms, use a library.</strong> React Hook Form, TanStack Form, and Formik handle validation, error display, submission state, and reset — with less code and better performance. Controlled inputs are the foundation, but once a form has 10+ fields with cross-field validation, the manual pattern becomes painful. React Hook Form is the modern default: it's uncontrolled by default (fast), and its <code>useForm</code> hook handles everything. Learn the controlled pattern first — then reach for the library when you need it.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The controlled input bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Value without onChange</div>
+<p>Warning, input is read-only. Fix: add <code>onChange</code> or use <code>defaultValue</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Forgetting to convert number input</div>
+<p><code>type="number"</code> still returns a string from <code>e.target.value</code>. Fix: <code>Number(e.target.value)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using <code>e.target.checked</code> for text inputs</div>
+<p><code>checked</code> is only for checkbox/radio. Text inputs use <code>e.target.value</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Mutating state on every keystroke</div>
+<p><code>form.name = 'x'</code> — no re-render. Fix: <code>setForm(f => ({ ...f, name }))</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using uncontrolled file inputs as controlled</div>
+<p><code>value</code> on <code>type="file"</code> doesn't work — files can't be set programmatically. Fix: uncontrolled with a ref.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Not handling empty string</div>
+<p><code>value={undefined}</code> is confusing. Fix: <code>value={value ?? ''}</code> — always a string.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Validating in onChange instead of onSubmit</div>
+<p>Errors flash while typing. Fix: validate on submit, or debounce validation.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Forgetting <code>preventDefault</code></div>
+<p>Form submit reloads the page. Fix: <code>e.preventDefault()</code> at the top of the submit handler.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I make a controlled input in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Add both value and onChange props: <input value={name} onChange={e => setName(e.target.value)} />. The input's displayed value is always the state variable. Typing fires onChange, which updates state, which re-renders with the new value.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does React warn about "value without onChange"?</summary>
+<p class="mt-2 text-sm text-slate-300">Because the input is read-only. Without onChange, there's no way to update the state that controls value. React detects that the value is set but nothing can change it, so typing does nothing.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use controlled or uncontrolled inputs?</summary>
+<p class="mt-2 text-sm text-slate-300">Controlled when you need to react to every keystroke: validation, live search, conditional rendering. Uncontrolled when you just need the value on submit: simple forms, file inputs, or performance-critical inputs. React's default recommendation is controlled.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between value and defaultValue?</summary>
+<p class="mt-2 text-sm text-slate-300">value is the controlled value — it's always set from state. defaultValue is the initial value — after mount, the DOM manages the value internally. Use value + onChange for controlled, defaultValue for uncontrolled.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/events-forms.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 4: Events & forms</div>
+<div class="text-xs text-slate-400 mt-1">The full events/forms lesson</div>
+</a>
+<a href="/courses/react/problems/state-not-updating.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "State is not updating"</div>
+<div class="text-xs text-slate-400 mt-1">The async state confusion</div>
+</a>
+<a href="/courses/react/problems/update-array-in-state.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to update an array in state</div>
+<div class="text-xs text-slate-400 mt-1">Multiple fields, dynamic rows</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
