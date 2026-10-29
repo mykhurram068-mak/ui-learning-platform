@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React "Cannot read property of undefined" — How to Fix (2026)</title>
+<meta name="description" content="Fix the React error "Cannot read property of undefined" or "Cannot read properties of null." Learn the three causes and the safest patterns for guarding data.">
+<meta name="keywords" content="react cannot read property of undefined, react cannot read properties of null, react undefined error, react null check, optional chaining react">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React "Cannot read property of undefined" — How to Fix">
+<meta property="og:description" content="Three causes and the safest patterns for guarding data.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/cannot-read-property.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React "Cannot read property of undefined"">
+<meta name="twitter:description" content="Three causes, three fixes, plus optional chaining.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/cannot-read-property.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React "Cannot read property of undefined" — How to Fix",
+"description": "Fix the React error "Cannot read property of undefined" or "Cannot read properties of null."",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I fix "Cannot read property of undefined" in React?","acceptedAnswer":{"@type":"Answer","text":"Three causes, three fixes. (1) Data not loaded yet — the initial state is null or undefined while fetching. Fix: guard with optional chaining (obj?.prop), a loading state, or conditional render. (2) Missing prop — the parent didn't pass a value. Fix: add a default in destructuring (function Component({ items = [] })) or mark as required with prop types / TypeScript. (3) Wrong shape — the API returned an error object instead of the expected shape. Fix: validate at the boundary with a type guard, then render. Never use .map() on a value that might be undefined — always guard first."}},
+{"@type":"Question","name":"What is the difference between optional chaining and a null check?","acceptedAnswer":{"@type":"Answer","text":"Optional chaining (obj?.prop) returns undefined if obj is null or undefined, without throwing. A null check (if (obj) return obj.prop) does the same thing but with control flow. Use optional chaining in JSX for short access chains: {user?.name}. Use null checks (or early returns) when you need to do more than access — like conditionally rendering a whole section: if (!user) return <Spinner />; return <Profile user={user} />. Both are safe; optional chaining is more concise for one-off accesses."}},
+{"@type":"Question","name":"Why does React say the error is at line X when the bug is elsewhere?","acceptedAnswer":{"@type":"Answer","text":"React's error stack traces go up the component tree, not just the code. The line where the error was thrown is often deep inside a component's render function. Read the entire component stack — React shows the chain of components that led to the crash. The bug is usually in a parent that failed to pass data, or in a state initialization that started null. Look at where the data first entered, not where the crash happened."}},
+{"@type":"Question","name":"Should I use a library like lodash.get or just optional chaining?","acceptedAnswer":{"@type":"Answer","text":"Optional chaining (obj?.a?.b?.c) covers 95% of cases and has zero dependency. Use it unless you need lodash's get because: (1) you want a default value (get(obj, 'a.b', 'default')), (2) the path is dynamic (get(obj, someString)), (3) you need it in older environments. For new code, optional chaining is the modern default. Combine it with nullish coalescing for defaults: obj?.a?.b ?? 'default'."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · cannot read property</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Cannot read property</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>"Cannot read property of undefined."<br><span class="py-accent">Three causes, three fixes.</span></h1>
+<p class="lead">
+The most common runtime crash in React. Somewhere, a value is <code>undefined</code> or <code>null</code>, and you're accessing a property on it. The stack trace points to the crash — but the bug is usually upstream. This page covers the three causes, the three fixes, and the pattern that prevents this class of bug entirely.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Guard before access. Use optional chaining (<code>obj?.prop</code>) for one-off access, early returns (<code>if (!obj) return <Spinner /></code>) for whole sections, and default values (<code>{'{items = []}'}</code>) in props. The three causes: (1) data isn't loaded yet, (2) parent didn't pass a required prop, (3) API returned the wrong shape. Fix each at its source — don't scatter <code>?.</code> everywhere.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Data isn't loaded yet</h2>
+<p class="section-sub">The most common cause: initial state is null while fetching.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When you fetch data, the initial state is usually <code>null</code> or <code>undefined</code>. During the first render, the data doesn't exist — but the component tries to render it anyway. The crash happens before the fetch resolves. Fix: guard the render with optional chaining or a loading state.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">data-not-loaded.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+address: { city: <span class="fn">string</span>; zip: <span class="fn">string</span> };
+}
+
+<span class="com">// ─── BAD: crash on first render ──────────────</span>
+<span class="kw">function</span> <span class="fn">BadProfile</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(setUser);
+}, [userId]);
+
+<span class="com">// ❌ Crashes on first render: user is null, user.address throws</span>
+<span class="kw">return</span> <p>{user.name} — {user.address.city}</p>;
+}
+
+<span class="com">// ─── GOOD 1: optional chaining ───────────────</span>
+<span class="kw">function</span> <span class="fn">GoodProfile1</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(setUser);
+}, [userId]);
+
+<span class="com">// ✅ Short-circuit — renders "Loading..." until data arrives</span>
+<span class="kw">return</span> (
+<p>
+{user?.name ?? <span class="str">'Loading...'</span>} — {user?.address?.city ?? <span class="str">'—'</span>}
+</p>
+);
+}
+
+<span class="com">// ─── GOOD 2: early return (recommended) ──────</span>
+<span class="kw">function</span> <span class="fn">GoodProfile2</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(setUser);
+}, [userId]);
+
+<span class="com">// ✅ Early return — no null checks in the rest of the component</span>
+<span class="kw">if</span> (!user) {
+<span class="kw">return</span> <p>Loading...</p>;
+}
+
+<span class="com">// user is User here — full access without ?</span>
+<span class="kw">return</span> (
+<div>
+<p>{user.name}</p>
+<p>{user.email}</p>
+<p>{user.address.city}, {user.address.zip}</p>
+</div>
+);
+}
+
+<span class="com">// ─── GOOD 3: three-state discriminated union ──</span>
+<span class="kw">type</span> LoadState<T> =
+| { status: <span class="str">'loading'</span> }
+| { status: <span class="str">'success'</span>; data: T }
+| { status: <span class="str">'error'</span>; error: <span class="fn">Error</span> };
+
+<span class="kw">function</span> <span class="fn">BestProfile</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [state, setState] = <span class="fn">useState</span><LoadState<User>>({ status: <span class="str">'loading'</span> });
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">setState</span>({ status: <span class="str">'loading'</span> });
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(data => <span class="fn">setState</span>({ status: <span class="str">'success'</span>, data }))
+.<span class="fn">catch</span>(error => <span class="fn">setState</span>({ status: <span class="str">'error'</span>, error }));
+}, [userId]);
+
+<span class="kw">if</span> (state.status === <span class="str">'loading'</span>) <span class="kw">return</span> <p>Loading...</p>;
+<span class="kw">if</span> (state.status === <span class="str">'error'</span>) <span class="kw">return</span> <p>Error: {state.error.message}</p>;
+
+<span class="com">// state.data is User — fully typed and non-null</span>
+<span class="kw">return</span> <p>{state.data.name} — {state.data.address.city}</p>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadProfile</span>, <span class="fn">GoodProfile1</span>, <span class="fn">GoodProfile2</span>, <span class="fn">BestProfile</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadProfile</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setUser);
+}, [userId]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user.name, <span class="str">' — '</span>, user.address.city);
+}
+
+<span class="kw">function</span> <span class="fn">GoodProfile1</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setUser);
+}, [userId]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>,
+user?.name ?? <span class="str">'Loading...'</span>, <span class="str">' — '</span>, user?.address?.city ?? <span class="str">'—'</span>
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodProfile2</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setUser);
+}, [userId]);
+<span class="kw">if</span> (!user) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Loading...'</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user.name),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user.email),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user.address.city, <span class="str">', '</span>, user.address.zip)
+);
+}
+
+<span class="kw">function</span> <span class="fn">BestProfile</span>({ userId }) {
+<span class="kw">const</span> [state, setState] = <span class="fn">useState</span>({ status: <span class="str">'loading'</span> });
+<span class="fn">useEffect</span>(() => {
+<span class="fn">setState</span>({ status: <span class="str">'loading'</span> });
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(data => <span class="fn">setState</span>({ status: <span class="str">'success'</span>, data }))
+.<span class="fn">catch</span>(error => <span class="fn">setState</span>({ status: <span class="str">'error'</span>, error }));
+}, [userId]);
+
+<span class="kw">if</span> (state.status === <span class="str">'loading'</span>) <span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Loading...'</span>);
+<span class="kw">if</span> (state.status === <span class="str">'error'</span>) <span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Error: '</span>, state.error.message);
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, state.data.name, <span class="str">' — '</span>, state.data.address.city);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadProfile</span>, <span class="fn">GoodProfile1</span>, <span class="fn">GoodProfile2</span>, <span class="fn">BestProfile</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Initial state is null</h4>
+<p><code>useState<User | null>(null)</code> — first render has <code>null</code>. Any access crashes until data arrives.</p>
+</div>
+<div class="concept-card">
+<h4>Optional chaining for one-off</h4>
+<p><code>user?.name</code> — returns <code>undefined</code> instead of throwing. Combine with <code>??</code> for defaults: <code>user?.name ?? '...'</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Early return for sections</h4>
+<p><code>if (!user) return <Spinner /></code> — narrows <code>user</code> for the rest of the component. No <code>?.</code> needed downstream.</p>
+</div>
+<div class="concept-card">
+<h4>Discriminated union</h4>
+<p><code>loading | success | error</code> — three explicit states. The compiler forces you to handle each. Impossible to access data in the wrong state.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Missing prop</h2>
+<p class="section-sub">The parent didn't pass a value the child expects.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A parent renders a child without passing a prop, or passes <code>undefined</code> explicitly. The child assumes the prop exists and crashes on access. Fix: default the prop in destructuring, or require it with TypeScript / prop types. The compiler catches this at call sites if you type it correctly.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">missing-prop.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+
+<span class="com">// ─── BAD: assumes prop exists ────────────────</span>
+<span class="kw">function</span> <span class="fn">BadUserList</span>({ users }: { users?: User[] }) {
+<span class="com">// ❌ If parent doesn't pass users, this crashes:
+// Cannot read property 'map' of undefined</span>
+<span class="kw">return</span> <ul>{users.<span class="fn">map</span>(u => <li key={u.id}>{u.name}</li>)}</ul>;
+}
+
+<span class="com">// ─── GOOD 1: default the prop ────────────────</span>
+<span class="kw">function</span> <span class="fn">GoodUserList</span>({ users = [] }: { users?: User[] }) {
+<span class="com">// ✅ Default value — users is always an array</span>
+<span class="kw">return</span> <ul>{users.<span class="fn">map</span>(u => <li key={u.id}>{u.name}</li>)}</ul>;
+}
+
+<span class="com">// ─── GOOD 2: require the prop ────────────────</span>
+<span class="kw">interface</span> RequiredProps {
+users: User[]; <span class="com">// not optional — parent must pass it</span>
+}
+
+<span class="kw">function</span> <span class="fn">RequiredUserList</span>({ users }: RequiredProps) {
+<span class="com">// ✅ The compiler ensures parent passes users</span>
+<span class="kw">return</span> <ul>{users.<span class="fn">map</span>(u => <li key={u.id}>{u.name}</li>)}</ul>;
+}
+
+<span class="com">// ─── GOOD 3: guard the render ────────────────</span>
+<span class="kw">function</span> <span class="fn">GuardedUserList</span>({ users }: { users?: User[] }) {
+<span class="kw">if</span> (!users) {
+<span class="kw">return</span> <p>No users</p>;
+}
+<span class="com">// users is User[] here</span>
+<span class="kw">return</span> <ul>{users.<span class="fn">map</span>(u => <li key={u.id}>{u.name}</li>)}</ul>;
+}
+
+<span class="com">// ─── GOOD 4: default + destructure in map ────</span>
+<span class="kw">interface</span> CardProps {
+title: <span class="fn">string</span>;
+items?: { id: <span class="fn">string</span>; text: <span class="fn">string</span> }[];
+}
+
+<span class="kw">function</span> <span class="fn">Card</span>({ title, items = [] }: CardProps) {
+<span class="kw">return</span> (
+<div>
+<h2>{title}</h2>
+{items.<span class="fn">length</span> === <span class="num">0</span> ? (
+<p>No items</p>
+) : (
+<ul>
+{items.<span class="fn">map</span>(item => <li key={item.id}>{item.text}</li>)}
+</ul>
+)}
+</div>
+);
+}
+
+<span class="com">// ─── Parent call sites ───────────────────────</span>
+<span class="kw">function</span> <span class="fn">App</span>() {
+<span class="kw">const</span> [users] = <span class="fn">useState</span><User[]>([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> }
+]);
+
+<span class="kw">return</span> (
+<div>
+<span class="com">{/* ❌ BadUserList: forgot users prop → crash */}</span>
+<BadUserList />
+
+<span class="com">{/* ✅ GoodUserList: default [] prevents crash */}</span>
+<GoodUserList />
+<GoodUserList users={users} />
+
+<span class="com">{/* ✅ RequiredUserList: TS forces the prop /}</span>
+<span class="com">{/ <RequiredUserList /> — compile error */}</span>
+<RequiredUserList users={users} />
+
+<span class="com">{/* ✅ GuardedUserList: shows "No users" */}</span>
+<GuardedUserList />
+<GuardedUserList users={users} />
+</div>
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadUserList</span>, <span class="fn">GoodUserList</span>, <span class="fn">RequiredUserList</span>, <span class="fn">GuardedUserList</span>, <span class="fn">Card</span>, <span class="fn">App</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadUserList</span>({ users }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, users.<span class="fn">map</span>(u => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: u.id }, u.name)));
+}
+
+<span class="kw">function</span> <span class="fn">GoodUserList</span>({ users = [] }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, users.<span class="fn">map</span>(u => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: u.id }, u.name)));
+}
+
+<span class="kw">function</span> <span class="fn">RequiredUserList</span>({ users }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, users.<span class="fn">map</span>(u => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: u.id }, u.name)));
+}
+
+<span class="kw">function</span> <span class="fn">GuardedUserList</span>({ users }) {
+<span class="kw">if</span> (!users) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'No users'</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, users.<span class="fn">map</span>(u => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: u.id }, u.name)));
+}
+
+<span class="kw">function</span> <span class="fn">Card</span>({ title, items = [] }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'h2'</span>, <span class="kw">null</span>, title),
+items.<span class="fn">length</span> === <span class="num">0</span>
+? React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'No items'</span>)
+: React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, items.<span class="fn">map</span>(item => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: item.id }, item.text)))
+);
+}
+
+<span class="kw">function</span> <span class="fn">App</span>() {
+<span class="kw">const</span> [users] = <span class="fn">useState</span>([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> }
+]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(BadUserList),
+React.<span class="fn">createElement</span>(GoodUserList),
+React.<span class="fn">createElement</span>(GoodUserList, { users }),
+React.<span class="fn">createElement</span>(RequiredUserList, { users }),
+React.<span class="fn">createElement</span>(GuardedUserList),
+React.<span class="fn">createElement</span>(GuardedUserList, { users })
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadUserList</span>, <span class="fn">GoodUserList</span>, <span class="fn">RequiredUserList</span>, <span class="fn">GuardedUserList</span>, <span class="fn">Card</span>, <span class="fn">App</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Default in destructuring</h4>
+<p><code>{ users = [] }</code> — if the parent doesn't pass <code>users</code>, it's an empty array. No crash, no null checks.</p>
+</div>
+<div class="concept-card">
+<h4>TypeScript enforces required</h4>
+<p><code>users: User[]</code> — not optional. The compiler errors at call sites that omit it. Catches the bug before runtime.</p>
+</div>
+<div class="concept-card">
+<h4>Early return for optional</h4>
+<p><code>users?: User[]</code> + <code>if (!users) return ...</code> — explicit "empty state" render. Better UX than a crash.</p>
+</div>
+<div class="concept-card">
+<h4>Never assume</h4>
+<p>If a prop is optional, handle the missing case. If required, make it required. Don't mix — every optional prop is a potential crash.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — API returned wrong shape</h2>
+<p class="section-sub">Server sent an error object instead of an array, or null instead of a user.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The type says <code>User</code>, but the actual response is <code>{ error: 'Not found' }</code>. TypeScript trusts you — you typed <code>as User</code>, but the runtime value doesn't match. The crash happens on first access. Fix: validate the API response with a type guard at the boundary, then trust the type.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">wrong-shape.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useEffect, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── Type guard for the API boundary ─────────</span>
+<span class="kw">function</span> <span class="fn">isUser</span>(x: <span class="fn">unknown</span>): x <span class="kw">is</span> User {
+<span class="kw">return</span> (
+<span class="kw">typeof</span> x === <span class="str">'object'</span> &&
+x !== <span class="fn">null</span> &&
+<span class="str">'id'</span> <span class="kw">in</span> x &&
+<span class="str">'name'</span> <span class="kw">in</span> x &&
+<span class="str">'email'</span> <span class="kw">in</span> x &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).id === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).name === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> (x <span class="kw">as</span> User).email === <span class="str">'string'</span>
+);
+}
+
+<span class="com">// ─── BAD: cast without validation ────────────</span>
+<span class="kw">function</span> <span class="fn">BadProfile</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>((data) => <span class="fn">setUser</span>(data <span class="kw">as</span> User)); <span class="com">// ❌ trusts the shape</span>
+}, [userId]);
+
+<span class="com">// If server returns { error: 'Not found' }:
+// user is typed User but is actually { error: ... }
+// user.name → undefined, user.email → undefined
+// No crash here (undefined is safe), but downstream code that does
+// user.address.city will crash.</span>
+
+<span class="kw">return</span> <p>{user?.name ?? <span class="str">'Loading...'</span>}</p>;
+}
+
+<span class="com">// ─── GOOD: validate at the boundary ──────────</span>
+<span class="kw">function</span> <span class="fn">GoodProfile</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span><<span class="fn">string</span> | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>((data: <span class="fn">unknown</span>) => {
+<span class="kw">if</span> (!<span class="fn">isUser</span>(data)) {
+<span class="fn">setError</span>(<span class="str">'Invalid response'</span>);
+<span class="kw">return</span>;
+}
+<span class="fn">setUser</span>(data); <span class="com">// ✅ User — validated</span>
+})
+.<span class="fn">catch</span>(e => <span class="fn">setError</span>(e.<span class="fn">message</span>));
+}, [userId]);
+
+<span class="kw">if</span> (error) <span class="kw">return</span> <p>Error: {error}</p>;
+<span class="kw">if</span> (!user) <span class="kw">return</span> <p>Loading...</p>;
+
+<span class="kw">return</span> <p>{user.name} — {user.email}</p>;
+}
+
+<span class="com">// ─── The rule ────────────────────────────────
+//
+// API data is unknown until validated.
+// as User is a lie — it compiles but doesn't check.
+// isUser(data) actually verifies the shape.
+//
+// Validate once at the boundary, then trust the type.
+// Downstream components don't need null checks —
+// they receive a proper User | null from a parent
+// that already handled the null case.</span>
+
+console.<span class="fn">log</span>(<span class="fn">BadProfile</span>, <span class="fn">GoodProfile</span>, <span class="fn">isUser</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useEffect, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">isUser</span>(x) {
+<span class="kw">return</span> (
+<span class="kw">typeof</span> x === <span class="str">'object'</span> &&
+x !== <span class="fn">null</span> &&
+<span class="str">'id'</span> <span class="kw">in</span> x &&
+<span class="str">'name'</span> <span class="kw">in</span> x &&
+<span class="str">'email'</span> <span class="kw">in</span> x &&
+<span class="kw">typeof</span> x.id === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> x.name === <span class="str">'string'</span> &&
+<span class="kw">typeof</span> x.email === <span class="str">'string'</span>
+);
+}
+
+<span class="kw">function</span> <span class="fn">BadProfile</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>((data) => <span class="fn">setUser</span>(data));
+}, [userId]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user?.name ?? <span class="str">'Loading...'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">GoodProfile</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>((data) => {
+<span class="kw">if</span> (!<span class="fn">isUser</span>(data)) {
+<span class="fn">setError</span>(<span class="str">'Invalid response'</span>);
+<span class="kw">return</span>;
+}
+<span class="fn">setUser</span>(data);
+})
+.<span class="fn">catch</span>(e => <span class="fn">setError</span>(e.<span class="fn">message</span>));
+}, [userId]);
+
+<span class="kw">if</span> (error) <span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Error: '</span>, error);
+<span class="kw">if</span> (!user) <span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Loading...'</span>);
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user.name, <span class="str">' — '</span>, user.email);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadProfile</span>, <span class="fn">GoodProfile</span>, <span class="fn">isUser</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>API data is unknown</h4>
+<p><code>await res.json()</code> returns <code>any</code> (or <code>unknown</code> if you type it). Never trust the shape without validation.</p>
+</div>
+<div class="concept-card">
+<h4><code>as User</code> is a lie</h4>
+<p>It compiles but doesn't check. If the server returns <code>{ error: '...' }</code>, the cast succeeds and the crash happens later.</p>
+</div>
+<div class="concept-card">
+<h4>Type guard at the boundary</h4>
+<p><code>isUser(data)</code> verifies the shape. If true, <code>data</code> is <code>User</code>. If false, handle the error explicitly.</p>
+</div>
+<div class="concept-card">
+<h4>Validate once</h4>
+<p>Don't validate in every component. Validate at the fetch wrapper. Everything downstream trusts the validated type.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't scatter <code>?.</code> everywhere to avoid this crash.</strong> <code>user?.name ?? '...'</code> prevents the crash but hides the bug — you're rendering <code>'...'</code> instead of "the server returned an error." The right fix is to guard once, at the boundary, and let the component render the loading, error, or success state explicitly. Scattered optional chaining is a symptom, not a fix.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The crash patterns that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Accessing properties on initial state</div>
+<p><code>useState<User | null>(null)</code> then <code>user.name</code>. Fix: optional chaining or early return.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Calling <code>.map()</code> on possibly undefined</div>
+<p><code>items.map(...)</code> when <code>items</code> might be undefined. Fix: <code>(items ?? []).map(...)</code> or default the prop.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Accessing nested properties</div>
+<p><code>user.address.city</code> — <code>address</code> might be undefined. Fix: <code>user?.address?.city</code> or guard each level.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using <code>as</code> on API data</div>
+<p><code>data as User</code> — trusts the shape. Fix: <code>isUser(data)</code> type guard.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Assuming <code>children</code> exists</div>
+<p><code>children.map(...)</code> — children might be undefined, string, etc. Fix: <code>React.Children.toArray(children)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Not distinguishing loading vs error</div>
+<p><code>user?.name ?? '...'</code> hides both states. Fix: separate <code>loading</code>, <code>error</code>, <code>success</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Forgetting <code>?.[</code> for arrays</div>
+<p><code>items?.[0]</code> — same as <code>?.prop</code> but for indexed access. Fix: <code>items?.[0]?.name</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Silencing with <code>any</code></div>
+<p><code>(user as any).name</code> — hides the crash until you access a real nested prop. Fix: fix the null check.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix "Cannot read property of undefined" in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Three causes, three fixes. (1) Data not loaded yet — guard with optional chaining (obj?.prop), a loading state, or conditional render. (2) Missing prop — add a default in destructuring (function Component({ items = [] })). (3) Wrong shape — validate at the boundary with a type guard.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between optional chaining and a null check?</summary>
+<p class="mt-2 text-sm text-slate-300">Optional chaining (obj?.prop) returns undefined if obj is null or undefined, without throwing. A null check (if (obj) return obj.prop) does the same thing but with control flow. Use optional chaining in JSX for short access chains. Use null checks (or early returns) when you need to do more than access.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does React say the error is at line X when the bug is elsewhere?</summary>
+<p class="mt-2 text-sm text-slate-300">React's error stack traces go up the component tree, not just the code. The line where the error was thrown is often deep inside a component's render function. Read the entire component stack — React shows the chain of components that led to the crash. The bug is usually in a parent that failed to pass data.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use a library like lodash.get or just optional chaining?</summary>
+<p class="mt-2 text-sm text-slate-300">Optional chaining (obj?.a?.b?.c) covers 95% of cases and has zero dependency. Use it unless you need lodash's get because: (1) you want a default value, (2) the path is dynamic (get(obj, someString)), (3) you need it in older environments.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/useeffect-deps.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "useEffect has a missing dependency"</div>
+<div class="text-xs text-slate-400 mt-1">Data fetching gotchas</div>
+</a>
+<a href="/courses/react/problems/state-not-updating.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "State is not updating"</div>
+<div class="text-xs text-slate-400 mt-1">Why setState doesn't change the current render</div>
+</a>
+<a href="/courses/typescript/problems/type-guard-array.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Type guard for array of objects</div>
+<div class="text-xs text-slate-400 mt-1">Validating API responses in TS</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
