@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React "Hooks can only be called inside the body of a function component" — Fix (2026)</title>
+<meta name="description" content="Fix the React error "Hooks can only be called inside the body of a function component." The two rules of hooks, why they exist, and how to fix every violation.">
+<meta name="keywords" content="react rules of hooks, hooks can only be called, react invalid hook call, usestate outside component, rules of hooks error">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React "Hooks can only be called inside the body of a function component"">
+<meta property="og:description" content="The two rules of hooks, why they exist, and how to fix every violation.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/rules-of-hooks.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React "Hooks can only be called inside the body of a function component"">
+<meta name="twitter:description" content="The two rules and how to fix violations.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/rules-of-hooks.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React "Hooks can only be called inside the body of a function component"",
+"description": "Fix the React error "Hooks can only be called inside the body of a function component."",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What does "Hooks can only be called inside the body of a function component" mean?","acceptedAnswer":{"@type":"Answer","text":"You called a hook (useState, useEffect, etc.) from a place that isn't a function component or another hook. React hooks rely on call order — each render, hooks are identified by the sequence they're called in. To track this, React must know exactly when a hook is running. Calling a hook from a regular function, an event handler, a class method, or outside a component breaks the tracking. Fix: move the hook call to the top level of a function component or another custom hook."}},
+{"@type":"Question","name":"What are the two rules of hooks?","acceptedAnswer":{"@type":"Answer","text":"Rule 1: Only call hooks at the top level. Never inside loops, conditions, or nested functions. This ensures hooks are called in the same order every render. Rule 2: Only call hooks from React function components or custom hooks. Never from regular JS functions, class components, or utility functions. Both rules exist because React identifies hooks by their call order — the Nth useState call in a component refers to the same state slot every render."}},
+{"@type":"Question","name":"Why can't I call hooks conditionally?","acceptedAnswer":{"@type":"Answer","text":"React tracks hooks by call order. If you call useState inside an if block, React can't know whether to allocate a new state slot or reuse the old one — the count of hooks would differ between renders. This breaks the mapping. Fix: call hooks unconditionally at the top level, then use the resulting state or value conditionally inside the render. If you need to skip work, skip the work, not the hook."}},
+{"@type":"Question","name":"Can I call a hook inside useEffect or an event handler?","acceptedAnswer":{"@type":"Answer","text":"No. useEffect callbacks and event handlers run after the component renders — they're not part of the render. Hooks must be called during render, at the top level. If you need state inside an effect, capture it via closure or a ref. If you need a state update in an event, use the setter (setCount) — that's not a hook, it's a function the hook returned. Calling useState inside a callback is always a bug."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · rules of hooks</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Rules of hooks</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>"Hooks can only be called inside a function component."<br><span class="py-accent">The rules and every violation.</span></h1>
+<p class="lead">
+React throws this error when a hook is called from a place that isn't a component or another hook. It's not a style check — React genuinely can't function otherwise. Hooks are identified by call order, and calling one from a nested function, an event handler, or outside a component breaks the bookkeeping. This page covers the rules, why they exist, and every common violation.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Two rules. (1) <strong>Only call hooks at the top level</strong> — never in loops, conditions, or nested functions. (2) <strong>Only call from React components or custom hooks</strong> — never from regular functions, class methods, or async callbacks. Both exist because React identifies hooks by call order — the 3rd <code>useState</code> must always be the 3rd. Violating the rules makes this impossible to track, so React throws.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Only call hooks at the top level</h2>
+<p class="section-sub">Never inside conditions, loops, or nested functions.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">This is the rule that catches the most bugs. If you wrap a hook in an <code>if</code>, React can't guarantee the same number of hooks runs every render. The <code>useState</code> that was the 2nd hook last render becomes the 3rd — or doesn't exist at all. Fix: move the hook call unconditionally to the top of the component, then use the value conditionally.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">top-level.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: hook inside a condition ────────────</span>
+<span class="kw">function</span> <span class="fn">BadConditional</span>({ enabled }: { enabled: <span class="fn">boolean</span> }) {
+<span class="kw">if</span> (enabled) {
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="com">// ❌ Rules of hooks violation — hook count varies per render</span>
+<span class="kw">return</span> <p>{value}</p>;
+}
+<span class="kw">return</span> <p>disabled</p>;
+}
+
+<span class="com">// ─── GOOD: hook always called, render conditionally</span>
+<span class="kw">function</span> <span class="fn">GoodConditional</span>({ enabled }: { enabled: <span class="fn">boolean</span> }) {
+<span class="com">// ✅ Always called — same hook order every render</span>
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">if</span> (!enabled) {
+<span class="kw">return</span> <p>disabled</p>;
+}
+<span class="kw">return</span> <p>{value}</p>;
+}
+
+<span class="com">// ─── BAD: hook inside a loop ─────────────────</span>
+<span class="kw">function</span> <span class="fn">BadLoop</span>({ items }: { items: <span class="fn">string</span>[] }) {
+<span class="kw">const</span> states = items.<span class="fn">map</span>(item => {
+<span class="kw">const</span> [selected, setSelected] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="com">// ❌ Called conditionally — number of calls depends on items.length</span>
+<span class="kw">return</span> { item, selected, setSelected };
+});
+<span class="kw">return</span> <ul>{states.<span class="fn">map</span>(s => <li key={s.item}>{s.item}</li>)}</ul>;
+}
+
+<span class="com">// ─── GOOD 1: single state for all items ──────</span>
+<span class="kw">function</span> <span class="fn">GoodLoop1</span>({ items }: { items: <span class="fn">string</span>[] }) {
+<span class="kw">const</span> [selected, setSelected] = <span class="fn">useState</span><<span class="fn">Set</span><<span class="fn">string</span>>>(<span class="kw">new</span> <span class="fn">Set</span>());
+
+<span class="kw">function</span> <span class="fn">toggle</span>(item: <span class="fn">string</span>) {
+<span class="fn">setSelected</span>(prev => {
+<span class="kw">const</span> next = <span class="kw">new</span> <span class="fn">Set</span>(prev);
+<span class="kw">if</span> (next.<span class="fn">has</span>(item)) next.<span class="fn">delete</span>(item);
+<span class="kw">else</span> next.<span class="fn">add</span>(item);
+<span class="kw">return</span> next;
+});
+}
+
+<span class="kw">return</span> (
+<ul>
+{items.<span class="fn">map</span>(item => (
+<li key={item}>
+<input
+type=<span class="str">"checkbox"</span>
+checked={selected.<span class="fn">has</span>(item)}
+onChange={() => <span class="fn">toggle</span>(item)}
+/>
+{item}
+</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// ─── GOOD 2: extract child component ─────────</span>
+<span class="kw">function</span> <span class="fn">GoodLoop2</span>({ items }: { items: <span class="fn">string</span>[] }) {
+<span class="kw">return</span> (
+<ul>
+{items.<span class="fn">map</span>(item => <<span class="fn">ItemRow</span> key={item} item={item} />)}
+</ul>
+);
+}
+
+<span class="kw">function</span> <span class="fn">ItemRow</span>({ item }: { item: <span class="fn">string</span> }) {
+<span class="kw">const</span> [selected, setSelected] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="com">// ✅ Each ItemRow has its own state, called once per mount</span>
+
+<span class="kw">return</span> (
+<li>
+<input
+type=<span class="str">"checkbox"</span>
+checked={selected}
+onChange={e => <span class="fn">setSelected</span>(e.target.checked)}
+/>
+{item}
+</li>
+);
+}
+
+<span class="com">// ─── The rule ────────────────────────────────
+//
+// Hooks are identified by CALL ORDER, not by name:
+// Render 1: useState → useState → useEffect
+// Render 2: useState → useState → useEffect
+// ↑ ↑ ↑
+// slot 1 slot 2 slot 3
+//
+// If you wrap a hook in a condition, the count differs:
+// Render 1: useState → useState → useState (3 calls)
+// Render 2: useState → useEffect (2 calls)
+// ↑
+// React thinks slot 2 is now useEffect
+// → state mismatch → bug
+//
+// That's why hooks must be top-level and unconditional.</span>
+
+console.<span class="fn">log</span>(<span class="fn">BadConditional</span>, <span class="fn">GoodConditional</span>, <span class="fn">BadLoop</span>, <span class="fn">GoodLoop1</span>, <span class="fn">GoodLoop2</span>, <span class="fn">ItemRow</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadConditional</span>({ enabled }) {
+<span class="kw">if</span> (enabled) {
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, value);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'disabled'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">GoodConditional</span>({ enabled }) {
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">if</span> (!enabled) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'disabled'</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, value);
+}
+
+<span class="kw">function</span> <span class="fn">BadLoop</span>({ items }) {
+<span class="kw">const</span> states = items.<span class="fn">map</span>(item => {
+<span class="kw">const</span> [selected, setSelected] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">return</span> { item, selected, setSelected };
+});
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, states.<span class="fn">map</span>(s => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: s.item }, s.item)));
+}
+
+<span class="kw">function</span> <span class="fn">GoodLoop1</span>({ items }) {
+<span class="kw">const</span> [selected, setSelected] = <span class="fn">useState</span>(<span class="kw">new</span> <span class="fn">Set</span>());
+<span class="kw">function</span> <span class="fn">toggle</span>(item) {
+<span class="fn">setSelected</span>(prev => {
+<span class="kw">const</span> next = <span class="kw">new</span> <span class="fn">Set</span>(prev);
+<span class="kw">if</span> (next.<span class="fn">has</span>(item)) next.<span class="fn">delete</span>(item);
+<span class="kw">else</span> next.<span class="fn">add</span>(item);
+<span class="kw">return</span> next;
+});
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+items.<span class="fn">map</span>(item =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: item },
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+type: <span class="str">'checkbox'</span>,
+checked: selected.<span class="fn">has</span>(item),
+onChange: () => <span class="fn">toggle</span>(item)
+}),
+item
+)
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodLoop2</span>({ items }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+items.<span class="fn">map</span>(item => React.<span class="fn">createElement</span>(ItemRow, { key: item, item }))
+);
+}
+
+<span class="kw">function</span> <span class="fn">ItemRow</span>({ item }) {
+<span class="kw">const</span> [selected, setSelected] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'li'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+type: <span class="str">'checkbox'</span>,
+checked: selected,
+onChange: e => <span class="fn">setSelected</span>(e.target.checked)
+}),
+item
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadConditional</span>, <span class="fn">GoodConditional</span>, <span class="fn">BadLoop</span>, <span class="fn">GoodLoop1</span>, <span class="fn">GoodLoop2</span>, <span class="fn">ItemRow</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Hooks are positional</h4>
+<p>The 1st <code>useState</code> is slot 1, the 2nd is slot 2. If call order changes, React maps slots wrong — the bug is silent and confusing.</p>
+</div>
+<div class="concept-card">
+<h4>Extract to child</h4>
+<p>In a loop, extract the hook-using logic into a child component. Each instance gets its own state slots.</p>
+</div>
+<div class="concept-card">
+<h4>Single state for many</h4>
+<p>Use one <code>useState<Set<string>></code> for a list of selections. One hook, all items, no rule violation.</p>
+</div>
+<div class="concept-card">
+<h4>Call unconditionally, use conditionally</h4>
+<p>Always call the hook. Then use its value in the conditional. That's the pattern that respects the rules.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Only call from components or custom hooks</h2>
+<p class="section-sub">Not from regular functions, class methods, or async callbacks.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The second rule: hooks must be called from inside a function component or a custom hook. Calling from an event handler, an async function, a utility, or a class method throws <em>"Hooks can only be called inside the body of a function component."</em> Fix: move the hook up to the component, pass the value down.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">component-only.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: hook inside event handler ──────────</span>
+<span class="kw">function</span> <span class="fn">BadHandler</span>() {
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="kw">const</span> [x, setX] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="com">// ❌ Rules of hooks — hooks can't be called from event handlers</span>
+}
+<span class="kw">return</span> <button onClick={handleClick}>Click</button>;
+}
+
+<span class="com">// ─── GOOD: hook in component, use in handler</span>
+<span class="kw">function</span> <span class="fn">GoodHandler</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>); <span class="com">// ✅ top level</span>
+
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>); <span class="com">// ✅ setter, not a hook</span>
+}
+<span class="kw">return</span> <button onClick={handleClick}>Count: {count}</button>;
+}
+
+<span class="com">// ─── BAD: hook inside a regular function ─────</span>
+<span class="kw">function</span> <span class="fn">useBadHelper</span>() {
+<span class="com">// This LOOKS like a custom hook (use prefix) but...</span>
+<span class="kw">const</span> [x] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">return</span> x;
+}
+
+<span class="kw">function</span> <span class="fn">regularUtility</span>() {
+<span class="com">// ❌ Not a hook, not a component — can't call hooks here</span>
+<span class="kw">const</span> x = <span class="fn">useBadHelper</span>();
+}
+
+<span class="com">// ─── GOOD: only call from components or hooks</span>
+<span class="kw">function</span> <span class="fn">ValidComponent</span>() {
+<span class="kw">const</span> x = <span class="fn">useBadHelper</span>(); <span class="com">// ✅ inside component</span>
+<span class="kw">return</span> <p>{x}</p>;
+}
+
+<span class="kw">function</span> <span class="fn">useValidHook</span>() {
+<span class="kw">const</span> x = <span class="fn">useBadHelper</span>(); <span class="com">// ✅ inside another hook</span>
+<span class="kw">return</span> x;
+}
+
+<span class="com">// ─── BAD: hook inside useEffect callback ─────</span>
+<span class="kw">function</span> <span class="fn">BadEffect</span>() {
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> [x, setX] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="com">// ❌ The effect callback is not a component render</span>
+}, []);
+<span class="kw">return</span> <span class="fn">null</span>;
+}
+
+<span class="com">// ─── GOOD: hook at top, effect uses it ───────</span>
+<span class="kw">function</span> <span class="fn">GoodEffect</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span><<span class="fn">unknown</span>>(<span class="fn">null</span>); <span class="com">// ✅ top level</span>
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">'/api'</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setData);
+}, []);
+<span class="kw">return</span> <pre>{<span class="fn">JSON</span>.<span class="fn">stringify</span>(data)}</pre>;
+}
+
+<span class="com">// ─── BAD: hook inside async function ─────────</span>
+<span class="kw">async function</span> <span class="fn">badAsync</span>() {
+<span class="kw">const</span> [x] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="com">// ❌ Async functions aren't components</span>
+}
+
+<span class="com">// ─── GOOD: async work in effect ──────────────</span>
+<span class="kw">function</span> <span class="fn">GoodAsync</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span><<span class="fn">unknown</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">async function</span> <span class="fn">load</span>() {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api'</span>);
+<span class="fn">setData</span>(<span class="kw">await</span> res.<span class="fn">json</span>());
+}
+<span class="fn">load</span>();
+}, []);
+
+<span class="kw">return</span> <pre>{<span class="fn">JSON</span>.<span class="fn">stringify</span>(data)}</pre>;
+}
+
+<span class="com">// ─── Where hooks CAN be called ───────────────
+//
+// ✅ Inside a function component:
+// function MyComponent() { useState(); ... }
+//
+// ✅ Inside a custom hook (name starts with 'use'):
+// function useMyHook() { useState(); ... }
+//
+// ✅ Inside another custom hook:
+// function useOuter() { useInner(); ... }
+//
+// ❌ Inside event handlers:
+// function onClick() { useState(); } // ❌
+//
+// ❌ Inside useEffect callbacks:
+// useEffect(() => { useState(); }); // ❌
+//
+// ❌ Inside regular functions:
+// function helper() { useState(); } // ❌
+//
+// ❌ Inside class components:
+// class C { render() { useState(); } } // ❌
+//
+// ❌ Inside async functions:
+// async function f() { useState(); } // ❌
+//
+// ❌ Inside conditionals or loops:
+// if (x) { useState(); } // ❌</span>
+
+console.<span class="fn">log</span>(<span class="fn">BadHandler</span>, <span class="fn">GoodHandler</span>, <span class="fn">useBadHelper</span>, <span class="fn">ValidComponent</span>, <span class="fn">useValidHook</span>, <span class="fn">BadEffect</span>, <span class="fn">GoodEffect</span>, <span class="fn">GoodAsync</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadHandler</span>() {
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="kw">const</span> [x, setX] = <span class="fn">useState</span>(<span class="num">0</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: handleClick }, <span class="str">'Click'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">GoodHandler</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: handleClick }, <span class="str">'Count: '</span>, count);
+}
+
+<span class="kw">function</span> <span class="fn">useBadHelper</span>() {
+<span class="kw">const</span> [x] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">return</span> x;
+}
+
+<span class="kw">function</span> <span class="fn">regularUtility</span>() {
+<span class="kw">const</span> x = <span class="fn">useBadHelper</span>();
+}
+
+<span class="kw">function</span> <span class="fn">ValidComponent</span>() {
+<span class="kw">const</span> x = <span class="fn">useBadHelper</span>();
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, x);
+}
+
+<span class="kw">function</span> <span class="fn">useValidHook</span>() {
+<span class="kw">const</span> x = <span class="fn">useBadHelper</span>();
+<span class="kw">return</span> x;
+}
+
+<span class="kw">function</span> <span class="fn">BadEffect</span>() {
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> [x, setX] = <span class="fn">useState</span>(<span class="num">0</span>);
+}, []);
+<span class="kw">return</span> <span class="fn">null</span>;
+}
+
+<span class="kw">function</span> <span class="fn">GoodEffect</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">'/api'</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setData);
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'pre'</span>, <span class="kw">null</span>, <span class="fn">JSON</span>.<span class="fn">stringify</span>(data));
+}
+
+<span class="kw">async function</span> <span class="fn">badAsync</span>() {
+<span class="kw">const</span> [x] = <span class="fn">useState</span>(<span class="num">0</span>);
+}
+
+<span class="kw">function</span> <span class="fn">GoodAsync</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">async function</span> <span class="fn">load</span>() {
+<span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'/api'</span>);
+<span class="fn">setData</span>(<span class="kw">await</span> res.<span class="fn">json</span>());
+}
+<span class="fn">load</span>();
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'pre'</span>, <span class="kw">null</span>, <span class="fn">JSON</span>.<span class="fn">stringify</span>(data));
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadHandler</span>, <span class="fn">GoodHandler</span>, <span class="fn">useBadHelper</span>, <span class="fn">ValidComponent</span>, <span class="fn">useValidHook</span>, <span class="fn">BadEffect</span>, <span class="fn">GoodEffect</span>, <span class="fn">GoodAsync</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Hooks during render only</h4>
+<p>Hooks must run synchronously during render. Event handlers, effects, and async functions run after — too late.</p>
+</div>
+<div class="concept-card">
+<h4>Setters aren't hooks</h4>
+<p><code>setCount</code> from <code>useState</code> is a stable function, not a hook. Calling it in an event handler is fine — calling <code>useState</code> again is not.</p>
+</div>
+<div class="concept-card">
+<h4>Extract custom hooks</h4>
+<p>If you need to share hook logic, extract it into a function named <code>useX</code>. That function can call hooks — regular functions can't.</p>
+</div>
+<div class="concept-card">
+<h4>Async work goes in effects</h4>
+<p><code>async function</code> can't be a component. Define async functions inside <code>useEffect</code>, or use a library (React Query, SWR).</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>React's rules-of-hooks ESLint plugin catches every violation before runtime.</strong> Install <code>eslint-plugin-react-hooks</code> and enable its two rules (<code>rules-of-hooks</code> and <code>exhaustive-deps</code>). The plugin analyzes your code statically and flags any violation with the exact line. Without it, you find violations at runtime, in production, in rare branches. With it, you find them in your editor. This is the single most valuable ESLint rule for React code.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — The <code>use</code> prefix for custom hooks</h2>
+<p class="section-sub">How React and ESLint know a function is a hook.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Custom hooks must start with <code>use</code>. It's not a convention — it's how React identifies hooks for linting and how ESLint knows to apply the rules-of-hooks checks. Rename your hook without the prefix and the linter goes silent — real bugs slip through.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">use-prefix.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: hook without use prefix ────────────</span>
+<span class="kw">function</span> <span class="fn">getCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="com">// ⚠️ This is still a hook (calls useState)
+// But ESLint won't know — no 'use' prefix
+// Rules-of-hooks checks won't apply</span>
+<span class="kw">return</span> { count, setCount };
+}
+
+<span class="com">// ─── GOOD: use prefix ────────────────────────</span>
+<span class="kw">function</span> <span class="fn">useCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="com">// ✅ ESLint recognizes this as a hook
+// Rules-of-hooks checks apply
+// Anything inside follows the rules</span>
+<span class="kw">return</span> { count, setCount };
+}
+
+<span class="com">// ─── Why the prefix matters ──────────────────
+//
+// ESLint rules-of-hooks plugin:
+// - Identifies hooks by name (starting with 'use')
+// - Applies rules to function bodies that are hooks
+// - Flags violations (conditional calls, wrong scope)
+//
+// Without 'use' prefix:
+// - ESLint treats the function as a regular function
+// - Doesn't check for hook rule violations
+// - The bugs surface at runtime instead of lint time</span>
+
+<span class="com">// ─── Composite hooks keep the prefix ─────────</span>
+<span class="kw">function</span> <span class="fn">useUserProfile</span>(userId: <span class="fn">string</span>) {
+<span class="com">// ✅ useCounter keeps the prefix — ESLint knows to check</span>
+<span class="kw">const</span> { count } = <span class="fn">useCounter</span>();
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><<span class="fn">unknown</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setUser);
+}, [userId]);
+
+<span class="kw">return</span> { count, user };
+}
+
+<span class="com">// ─── Naming patterns ─────────────────────────
+//
+// ✅ useCounter — noun
+// ✅ useLocalStorage — feature
+// ✅ useDebounce — verb
+// ✅ useFetch — action
+// ✅ useDebouncedFetch — composed
+// ✅ useAuth — domain
+//
+// ❌ fetchUser — sounds like a regular function
+// ❌ getLocalStorage — 'get' implies plain function
+// ❌ counter — missing prefix
+// ❌ stateCounter — confusing</span>
+
+<span class="com">// ─── When to make a custom hook ──────────────
+//
+// Make it a hook if:
+// ✅ It uses useState, useEffect, or any other hook
+// ✅ It encapsulates stateful logic
+// ✅ You'll reuse it in multiple components
+// ✅ It has a clear "one thing" it does
+//
+// Keep it a regular function if:
+// ❌ It doesn't use any hooks
+// ❌ It's a pure calculation (formatDate, slugify)
+// ❌ It doesn't need component state</span>
+
+console.<span class="fn">log</span>(<span class="fn">getCounter</span>, <span class="fn">useCounter</span>, <span class="fn">useUserProfile</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">getCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">return</span> { count, setCount };
+}
+
+<span class="kw">function</span> <span class="fn">useCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">return</span> { count, setCount };
+}
+
+<span class="kw">function</span> <span class="fn">useUserProfile</span>(userId) {
+<span class="kw">const</span> { count } = <span class="fn">useCounter</span>();
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setUser);
+}, [userId]);
+<span class="kw">return</span> { count, user };
+}
+
+console.<span class="fn">log</span>(<span class="fn">getCounter</span>, <span class="fn">useCounter</span>, <span class="fn">useUserProfile</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>ESLint identifies by prefix</h4>
+<p>The rules-of-hooks plugin only analyzes functions starting with <code>use</code>. Without the prefix, no linting.</p>
+</div>
+<div class="concept-card">
+<h4>Prefix propagates</h4>
+<p>Custom hooks that use other hooks keep the prefix — so a chain of hook calls stays linted throughout.</p>
+</div>
+<div class="concept-card">
+<h4>Naming conventions</h4>
+<p><code>useCounter</code>, <code>useFetch</code>, <code>useLocalStorage</code>, <code>useDebounce</code> — noun/verb after <code>use</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Hook or function</h4>
+<p>Uses hooks? Make it <code>useX</code>. Pure calculation? Regular function. The choice is mechanical.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The rules-of-hooks mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Hook inside an <code>if</code> block</div>
+<p>Varying hook count per render. Fix: call unconditionally, use conditionally.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Hook inside a loop</div>
+<p>Count depends on array length. Fix: one hook with an array, or extract a child component.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Hook inside a regular function</div>
+<p><code>function helper() { useState(); }</code> — not a component or hook. Fix: move to top level, pass values down.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Hook inside useEffect callback</div>
+<p><code>useEffect(() => { useState(); })</code> — the callback isn't a render. Fix: state at top, effect uses it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Hook inside an event handler</div>
+<p><code>onClick={() => { useState(); }}</code> — handlers aren't render. Fix: state at top, setter in handler.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Calling a hook from an async function</div>
+<p><code>async function f() { useState(); }</code> — async isn't a render. Fix: async work goes in effect.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Custom hook without <code>use</code> prefix</div>
+<p>ESLint skips checking. Rules-of-hooks bugs go uncaught. Fix: prefix every custom hook.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Early return before hooks</div>
+<p><code>if (!user) return null; const [x] = useState();</code> — hook skipped conditionally. Fix: all hooks first, then early return.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does "Hooks can only be called inside the body of a function component" mean?</summary>
+<p class="mt-2 text-sm text-slate-300">You called a hook (useState, useEffect, etc.) from a place that isn't a function component or another hook. React hooks rely on call order — each render, hooks are identified by the sequence they're called in. Calling a hook from a regular function, an event handler, a class method, or outside a component breaks the tracking.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are the two rules of hooks?</summary>
+<p class="mt-2 text-sm text-slate-300">Rule 1: Only call hooks at the top level. Never inside loops, conditions, or nested functions. Rule 2: Only call hooks from React function components or custom hooks. Never from regular JS functions, class components, or utility functions.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why can't I call hooks conditionally?</summary>
+<p class="mt-2 text-sm text-slate-300">React tracks hooks by call order. If you call useState inside an if block, React can't know whether to allocate a new state slot or reuse the old one — the count of hooks would differ between renders. Fix: call hooks unconditionally at the top level, then use the resulting state or value conditionally inside the render.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I call a hook inside useEffect or an event handler?</summary>
+<p class="mt-2 text-sm text-slate-300">No. useEffect callbacks and event handlers run after the component renders — they're not part of the render. Hooks must be called during render, at the top level. If you need state inside an effect, capture it via closure or a ref. If you need a state update in an event, use the setter (setCount) — that's not a hook, it's a function the hook returned.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/custom-hook.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to write a custom hook</div>
+<div class="text-xs text-slate-400 mt-1">The rules in practice</div>
+</a>
+<a href="/courses/react/problems/useref-type.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to type useRef</div>
+<div class="text-xs text-slate-400 mt-1">Hook typing patterns</div>
+</a>
+<a href="/courses/react/problems/infinite-loop.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Maximum update depth exceeded"</div>
+<div class="text-xs text-slate-400 mt-1">Hook-related infinite loops</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
