@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React "Each child in a list should have a unique key" — Fix (2026)</title>
+<meta name="description" content="Fix the React warning "Each child in a list should have a unique key." Learn why keys matter, when index keys break, and the stable ID pattern that scales.">
+<meta name="keywords" content="react missing key, react unique key warning, react key prop, react list keys, react index key problem">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React "Each child in a list should have a unique key" — Fix">
+<meta property="og:description" content="Why keys matter, when index keys break, and the stable ID pattern that scales.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/missing-key.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React "Each child in a list should have a unique key"">
+<meta name="twitter:description" content="Why keys matter and the stable ID pattern.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/missing-key.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React "Each child in a list should have a unique key" — Fix",
+"description": "Fix the React warning "Each child in a list should have a unique key."",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What does "Each child in a list should have a unique key" mean?","acceptedAnswer":{"@type":"Answer","text":"When you render an array of elements with .map(), each returned element needs a key prop that is unique among its siblings. React uses keys to identify which items changed, were added, or were removed between renders. Without keys, React falls back to index-based reconciliation, which causes bugs when items reorder, insert, or delete. The fix: add key={item.id} to the root element inside your .map() return."}},
+{"@type":"Question","name":"Why not use index as the key?","acceptedAnswer":{"@type":"Answer","text":"Index keys work only if the list never reorders, inserts, or deletes. When it does, React reuses the wrong component state — inputs keep wrong values, animations jump, local state leaks between items. The classic bug: a list of inputs where you delete the first item — the second item's text remains in what's now the first row. Fix: use a stable ID from your data (item.id, item.uuid, item.slug). If there's no ID, generate one once (crypto.randomUUID()) and store it with the item."}},
+{"@type":"Question","name":"Do keys need to be globally unique?","acceptedAnswer":{"@type":"Answer","text":"No — keys only need to be unique among siblings in the same array. Two separate .map() calls can use the same key values without conflict. Two different lists in the same parent also can't conflict because they're in different arrays. The uniqueness scope is the immediate sibling set. That said, using globally unique IDs (uuids) is simpler to reason about and prevents accidental collisions when you refactor."}},
+{"@type":"Question","name":"What if my data has no ID?","acceptedAnswer":{"@type":"Answer","text":"Generate one when the item enters the list, not on every render. If items come from an API, use whatever the server provides (id, uuid, slug). If items are purely local (form rows, optimistic UI), generate ids with crypto.randomUUID() when creating the item. Never generate a key with Math.random() inside render — that changes every render and forces React to remount every item, which is slower than the bug you're trying to fix."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · missing key</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Missing key</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>"Each child should have a unique key."<br><span class="py-accent">The fix, and why index keys are wrong.</span></h1>
+<p class="lead">
+React renders a list with <code>.map()</code>, and the console warns about missing keys. Every beginner adds <code>key={index}</code> to silence it. Then a bug appears: deleting an item leaves the wrong state in the wrong row. This page explains why keys matter, why index keys break, and the stable-ID pattern that actually works.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Add <code>key={item.id}</code> to the root element inside your <code>.map()</code>. Keys must be <strong>stable</strong> (same value for the same item across renders) and <strong>unique among siblings</strong>. Never use array indices if the list can reorder, insert, or delete. If your data has no ID, generate one with <code>crypto.randomUUID()</code> when the item is created — not during render.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — The correct fix: stable <code>key={item.id}</code></h2>
+<p class="section-sub">Unique ID from your data. Stable across renders. React tracks items correctly.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">React uses the <code>key</code> prop to match elements between renders. When you add an item, React needs to know which element is new. When you delete one, React needs to know which one is gone. A stable key lets React answer those questions correctly — and only the changed element re-renders.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">correct-key.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── BAD: no key, or index as key ────────────</span>
+<span class="kw">function</span> <span class="fn">BadList</span>({ users }: { users: User[] }) {
+<span class="kw">return</span> (
+<ul>
+{users.<span class="fn">map</span>((user, index) => (
+<li key={index}> <span class="com">{/* ⚠️ index key */}</span>
+{user.name} — {user.email}
+</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// ─── GOOD: stable ID as key ──────────────────</span>
+<span class="kw">function</span> <span class="fn">GoodList</span>({ users }: { users: User[] }) {
+<span class="kw">return</span> (
+<ul>
+{users.<span class="fn">map</span>(user => (
+<li key={user.id}> <span class="com">{/* ✅ stable id */}</span>
+{user.name} — {user.email}
+</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// ─── Why index breaks — a live demo ──────────</span>
+<span class="kw">function</span> <span class="fn">IndexKeyBug</span>() {
+<span class="kw">const</span> [users, setUsers] = <span class="fn">useState</span><User[]>([
+{ id: <span class="str">'a'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> },
+{ id: <span class="str">'b'</span>, name: <span class="str">'Bob'</span>, email: <span class="str">'b@x.com'</span> },
+{ id: <span class="str">'c'</span>, name: <span class="str">'Carol'</span>, email: <span class="str">'c@x.com'</span> }
+]);
+
+<span class="kw">function</span> <span class="fn">remove</span>(id: <span class="fn">string</span>) {
+<span class="fn">setUsers</span>(u => u.<span class="fn">filter</span>(x => x.id !== id));
+}
+
+<span class="kw">return</span> (
+<div>
+<h3>With ID key (correct)</h3>
+<ul>
+{users.<span class="fn">map</span>(u => (
+<li key={u.id}>
+{u.name}
+<button onClick={() => <span class="fn">remove</span>(u.id)}>×</button>
+</li>
+))}
+</ul>
+
+<span class="com">{/* If you switch to key={index}:
+- Delete Alice (index 0)
+- Bob moves to index 0
+- React sees "the element at index 0 changed"
+- Any state inside that row (input, checkbox, focus)
+leaks from Alice's row to Bob's row
+- THIS is the bug index keys cause */}</span>
+</div>
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadList</span>, <span class="fn">GoodList</span>, <span class="fn">IndexKeyBug</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadList</span>({ users }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+users.<span class="fn">map</span>((user, index) =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: index },
+user.name, <span class="str">' — '</span>, user.email
+)
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodList</span>({ users }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+users.<span class="fn">map</span>(user =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: user.id },
+user.name, <span class="str">' — '</span>, user.email
+)
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">IndexKeyBug</span>() {
+<span class="kw">const</span> [users, setUsers] = <span class="fn">useState</span>([
+{ id: <span class="str">'a'</span>, name: <span class="str">'Alice'</span>, email: <span class="str">'a@x.com'</span> },
+{ id: <span class="str">'b'</span>, name: <span class="str">'Bob'</span>, email: <span class="str">'b@x.com'</span> },
+{ id: <span class="str">'c'</span>, name: <span class="str">'Carol'</span>, email: <span class="str">'c@x.com'</span> }
+]);
+
+<span class="kw">function</span> <span class="fn">remove</span>(id) {
+<span class="fn">setUsers</span>(u => u.<span class="fn">filter</span>(x => x.id !== id));
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'h3'</span>, <span class="kw">null</span>, <span class="str">'With ID key (correct)'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+users.<span class="fn">map</span>(u =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: u.id },
+u.name,
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">remove</span>(u.id) }, <span class="str">'×'</span>)
+)
+)
+)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadList</span>, <span class="fn">GoodList</span>, <span class="fn">IndexKeyBug</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Key = identity</h4>
+<p>The key tells React which element is which across renders. Same key = same element = React preserves its state, DOM, focus.</p>
+</div>
+<div class="concept-card">
+<h4>Unique among siblings</h4>
+<p>Not globally unique — just within the array. Two lists can have the same keys. Only siblings compete for uniqueness.</p>
+</div>
+<div class="concept-card">
+<h4>Stable across renders</h4>
+<p>If the key changes, React treats it as a new element — remounts, loses state. Use a stable ID from your data, not <code>Math.random()</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Attach to the root</h4>
+<p>The <code>key</code> goes on the outermost element returned by <code>.map()</code>. Not on a nested child, not on a fragment wrapper.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Keys are the most misunderstood prop in React.</strong> They're not passed to the component as a prop — React intercepts them. They're not for you to use inside the component — they're for React's reconciliation algorithm. They exist for one reason: telling React "these are the same elements as last time, even if they're in a different order." Get this right and lists behave correctly forever. Get it wrong and you'll debug "why did my input lose focus" for hours.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Why index keys break</h2>
+<p class="section-sub">The bug that surfaces weeks after you ship.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Index keys seem harmless — until the list changes. When you delete an item, the item that was at index 2 becomes index 1, and React sees "the element at index 1 changed." Any state inside that element (input value, checkbox, focus, animation) stays with the index, not with the item. The result: state leaks between rows.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">index-key-bug.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> Row {
+id: <span class="fn">string</span>;
+label: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── The bug, demonstrated ──────────────────</span>
+<span class="kw">function</span> <span class="fn">IndexKeyBug</span>() {
+<span class="kw">const</span> [rows, setRows] = <span class="fn">useState</span><Row[]>([
+{ id: <span class="str">'a'</span>, label: <span class="str">'Row A'</span> },
+{ id: <span class="str">'b'</span>, label: <span class="str">'Row B'</span> },
+{ id: <span class="str">'c'</span>, label: <span class="str">'Row C'</span> }
+]);
+
+<span class="kw">function</span> <span class="fn">remove</span>(id: <span class="fn">string</span>) {
+<span class="fn">setRows</span>(r => r.<span class="fn">filter</span>(x => x.id !== id));
+}
+
+<span class="kw">return</span> (
+<div>
+<p>Try this: type "AAA" in Row A's input, then delete Row A.</p>
+
+<span class="com">{/* ✅ CORRECT — key={row.id} */}</span>
+<h3>Correct: key={{row.id}}</h3>
+{rows.<span class="fn">map</span>(row => (
+<RowComponent
+key={row.id}
+label={row.label}
+onDelete={() => <span class="fn">remove</span>(row.id)}
+/>
+))}
+
+<span class="com">{/* ❌ BUGGY — key={{index}} */}</span>
+<h3>Buggy: key={{index}}</h3>
+{rows.<span class="fn">map</span>((row, index) => (
+<RowComponent
+key={index}
+label={row.label}
+onDelete={() => <span class="fn">remove</span>(row.id)}
+/>
+))}
+</div>
+);
+}
+
+<span class="kw">function</span> <span class="fn">RowComponent</span>({ label, onDelete }: { label: <span class="fn">string</span>; onDelete: () => <span class="fn">void</span> }) {
+<span class="com">// Local state that doesn't belong to the parent</span>
+<span class="kw">const</span> [text, setText] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">return</span> (
+<div style={{ display: <span class="str">'flex'</span>, gap: <span class="num">8</span>, margin: <span class="str">'4px 0'</span> }}>
+<span style={{ width: <span class="num">80</span> }}>{label}</span>
+<input
+value={text}
+onChange={e => <span class="fn">setText</span>(e.target.value)}
+placeholder=<span class="str">"type here..."</span>
+/>
+<button onClick={onDelete}>×</button>
+</div>
+);
+}
+
+<span class="com">// ─── What happens with index keys ─────────────
+//
+// Initial state:
+// Row A (index 0): text = 'AAA' ← user typed this
+// Row B (index 1): text = ''
+// Row C (index 2): text = ''
+//
+// User deletes Row A.
+// New array:
+// Row B (index 0)
+// Row C (index 1)
+//
+// React sees:
+// "Index 0: was 'Row A', now 'Row B' — same element, update the label"
+// "Index 1: was 'Row B', now 'Row C' — same element, update the label"
+// "Index 2: was 'Row C', now gone — unmount"
+//
+// Result:
+// Row B's input now contains "AAA" (leaked from Row A)
+// Row C's input is empty (was empty)
+//
+// The state leaked from one item to another because
+// the key (index) stayed the same — React thinks
+// it's the same component.
+//
+// ─────────────────────────────────────────────
+//
+// With key={row.id}, React sees:
+// "key 'a' is gone — unmount"
+// "key 'b' moved — same element, keep its state"
+// "key 'c' moved — same element, keep its state"
+//
+// Result:
+// Row B's input is empty (correct)
+// Row C's input is empty (correct)
+// No state leaks. Correct.
+
+console.<span class="fn">log</span>(<span class="fn">IndexKeyBug</span>, <span class="fn">RowComponent</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">IndexKeyBug</span>() {
+<span class="kw">const</span> [rows, setRows] = <span class="fn">useState</span>([
+{ id: <span class="str">'a'</span>, label: <span class="str">'Row A'</span> },
+{ id: <span class="str">'b'</span>, label: <span class="str">'Row B'</span> },
+{ id: <span class="str">'c'</span>, label: <span class="str">'Row C'</span> }
+]);
+
+<span class="kw">function</span> <span class="fn">remove</span>(id) {
+<span class="fn">setRows</span>(r => r.<span class="fn">filter</span>(x => x.id !== id));
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Try this: type "AAA" in Row A's input, then delete Row A.'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'h3'</span>, <span class="kw">null</span>, <span class="str">'Correct: key={row.id}'</span>),
+rows.<span class="fn">map</span>(row =>
+React.<span class="fn">createElement</span>(RowComponent, {
+key: row.id,
+label: row.label,
+onDelete: () => <span class="fn">remove</span>(row.id)
+})
+),
+React.<span class="fn">createElement</span>(<span class="str">'h3'</span>, <span class="kw">null</span>, <span class="str">'Buggy: key={index}'</span>),
+rows.<span class="fn">map</span>((row, index) =>
+React.<span class="fn">createElement</span>(RowComponent, {
+key: index,
+label: row.label,
+onDelete: () => <span class="fn">remove</span>(row.id)
+})
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">RowComponent</span>({ label, onDelete }) {
+<span class="kw">const</span> [text, setText] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, { style: { display: <span class="str">'flex'</span>, gap: <span class="num">8</span>, margin: <span class="str">'4px 0'</span> } },
+React.<span class="fn">createElement</span>(<span class="str">'span'</span>, { style: { width: <span class="num">80</span> } }, label),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: text, onChange: e => <span class="fn">setText</span>(e.target.value), placeholder: <span class="str">'type here...'</span> }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: onDelete }, <span class="str">'×'</span>)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">IndexKeyBug</span>, <span class="fn">RowComponent</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>State leaks between rows</h4>
+<p>Delete an item, and the next row's state (input value, checkbox) moves up. Index keys make React think "same element."</p>
+</div>
+<div class="concept-card">
+<h4>Focus jumps</h4>
+<p>If an input was focused, deleting a row above it can lose focus — React didn't track that element's identity.</p>
+</div>
+<div class="concept-card">
+<h4>Animations glitch</h4>
+<p>Reordering animations with index keys play in the wrong direction because React thinks the wrong element moved.</p>
+</div>
+<div class="concept-card">
+<h4>React 18 stricter</h4>
+<p>React 18+ warns on index keys more aggressively. It's not a bug — it's React telling you the truth about a real bug.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Generate IDs when data has none</h2>
+<p class="section-sub">For local lists — form rows, optimistic UI, temp items.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Not all data has IDs. Form rows, drag-and-drop lists, optimistic UI items — these are created locally and need IDs. Generate one when the item enters the list, not on every render. <code>crypto.randomUUID()</code> is the modern standard — stable, unique, no dependency.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">generate-ids.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── Form rows with generated IDs ────────────</span>
+<span class="kw">interface</span> FormRow {
+id: <span class="fn">string</span>;
+value: <span class="fn">string</span>;
+}
+
+<span class="kw">function</span> <span class="fn">DynamicForm</span>() {
+<span class="kw">const</span> [rows, setRows] = <span class="fn">useState</span><FormRow[]>([
+{ id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(), value: <span class="str">''</span> }
+]);
+
+<span class="kw">function</span> <span class="fn">addRow</span>() {
+<span class="fn">setRows</span>(r => [
+...r,
+{ id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(), value: <span class="str">''</span> } <span class="com">// ✅ new ID</span>
+]);
+}
+
+<span class="kw">function</span> <span class="fn">removeRow</span>(id: <span class="fn">string</span>) {
+<span class="fn">setRows</span>(r => r.<span class="fn">filter</span>(x => x.id !== id));
+}
+
+<span class="kw">function</span> <span class="fn">updateRow</span>(id: <span class="fn">string</span>, value: <span class="fn">string</span>) {
+<span class="fn">setRows</span>(r => r.<span class="fn">map</span>(x => x.id === id ? { ...x, value } : x));
+}
+
+<span class="kw">return</span> (
+<div>
+{rows.<span class="fn">map</span>(row => (
+<div key={row.id} style={{ display: <span class="str">'flex'</span>, gap: <span class="num">8</span> }}>
+<input
+value={row.value}
+onChange={e => <span class="fn">updateRow</span>(row.id, e.target.value)}
+/>
+<button onClick={() => <span class="fn">removeRow</span>(row.id)}>Remove</button>
+</div>
+))}
+<button onClick={addRow}>+ Add row</button>
+</div>
+);
+}
+
+<span class="com">// ─── BAD: generate IDs during render ─────────</span>
+<span class="kw">function</span> <span class="fn">BadIds</span>({ items }: { items: <span class="fn">string</span>[] }) {
+<span class="kw">return</span> (
+<ul>
+{items.<span class="fn">map</span>(item => (
+<span class="com">{/* ❌ New ID on every render — React remounts every item */}</span>
+<li key={<span class="fn">crypto</span>.<span class="fn">randomUUID</span>()}>{item}</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// ─── BAD: Math.random() as fallback ──────────</span>
+<span class="kw">function</span> <span class="fn">BadRandom</span>({ items }: { items: { name: <span class="fn">string</span> }[] }) {
+<span class="kw">return</span> (
+<ul>
+{items.<span class="fn">map</span>(item => (
+<span class="com">{/* ❌ Same problem — new key each render */}</span>
+<li key={<span class="fn">Math</span>.<span class="fn">random</span>()}>{item.name}</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// ─── When to use what ────────────────────────
+//
+// ✅ Data has an ID:
+// key={item.id}
+//
+// ✅ Local form rows / optimistic UI:
+// Generate crypto.randomUUID() when item is created
+//
+// ✅ Backend IDs available:
+// key={item.uuid || item.id || item.slug}
+//
+// ❌ Never:
+// key={index} — breaks on reorder/delete
+// key={Math.random()} — remounts on every render
+// key={crypto.randomUUID()} inside render — same as above</span>
+
+console.<span class="fn">log</span>(<span class="fn">DynamicForm</span>, <span class="fn">BadIds</span>, <span class="fn">BadRandom</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">DynamicForm</span>() {
+<span class="kw">const</span> [rows, setRows] = <span class="fn">useState</span>([
+{ id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(), value: <span class="str">''</span> }
+]);
+
+<span class="kw">function</span> <span class="fn">addRow</span>() {
+<span class="fn">setRows</span>(r => [...r, { id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(), value: <span class="str">''</span> }]);
+}
+<span class="kw">function</span> <span class="fn">removeRow</span>(id) {
+<span class="fn">setRows</span>(r => r.<span class="fn">filter</span>(x => x.id !== id));
+}
+<span class="kw">function</span> <span class="fn">updateRow</span>(id, value) {
+<span class="fn">setRows</span>(r => r.<span class="fn">map</span>(x => x.id === id ? { ...x, value } : x));
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+rows.<span class="fn">map</span>(row =>
+React.<span class="fn">createElement</span>(<span class="str">'div'</span>, { key: row.id, style: { display: <span class="str">'flex'</span>, gap: <span class="num">8</span> } },
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+value: row.value,
+onChange: e => <span class="fn">updateRow</span>(row.id, e.target.value)
+}),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">removeRow</span>(row.id) }, <span class="str">'Remove'</span>)
+)
+),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: addRow }, <span class="str">'+ Add row'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">BadIds</span>({ items }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+items.<span class="fn">map</span>(item =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>() }, item)
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">BadRandom</span>({ items }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+items.<span class="fn">map</span>(item =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: <span class="fn">Math</span>.<span class="fn">random</span>() }, item.name)
+)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">DynamicForm</span>, <span class="fn">BadIds</span>, <span class="fn">BadRandom</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Generate when created</h4>
+<p><code>crypto.randomUUID()</code> when the item enters the list. The ID then lives in state — stable across renders.</p>
+</div>
+<div class="concept-card">
+<h4>Never during render</h4>
+<p><code>key={crypto.randomUUID()}</code> inside <code>.map()</code> produces a new key every render — full remount. Worse than the bug.</p>
+</div>
+<div class="concept-card">
+<h4>Server IDs are best</h4>
+<p>If the API returns an <code>id</code>, <code>uuid</code>, or <code>slug</code>, use it. It's stable, unique, and no extra work.</p>
+</div>
+<div class="concept-card">
+<h4>Fallback chain</h4>
+<p><code>item.id ?? item.uuid ?? item.slug</code> for polymorphic data. All are stable. Just pick whichever the item has.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong><code>crypto.randomUUID()</code> inside render is worse than index keys.</strong> Index keys cause state leaks on reorder; random keys force React to unmount and remount every item every render — full DOM destruction, lost focus, lost state, no animations. The fix for a missing key is a stable ID. If you can't produce a stable ID, use the index as a temporary measure — but plan to add IDs. Never use random values as keys during render.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The key mistakes that surface weeks later.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using index as key</div>
+<p>Works until items reorder or delete. Then state leaks. Fix: use <code>item.id</code> or a stable identifier.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using <code>Math.random()</code></div>
+<p>New key every render — full remount. Fix: stable ID or generate once when the item is created.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Not putting the key on the root</div>
+<p><code><li><span key={id}></span></li></code> — warning. Fix: <code><li key={id}><span></span></li></code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using key as a prop</div>
+<p><code>key</code> isn't passed to the component. If you need it inside, pass it separately. Fix: <code>key={id} id={id}</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Keys duplicated across siblings</div>
+<p><code>key={item.category}</code> when two items share a category — duplicate key warning. Fix: unique per item.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Assuming keys need to be global</div>
+<p>Two separate lists can use the same key. Fix: only unique within the array. Don't overcomplicate with prefixes.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Key on a fragment in a map</div>
+<p><code><React.Fragment key={id}>...</React.Fragment></code> works, but <code><>...</></code> can't take a key. Fix: use <code>React.Fragment key={...}</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Silencing the warning with suppressHydrationWarning</div>
+<p>Doesn't help — that's for SSR mismatches. Fix: add the actual key.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does "Each child in a list should have a unique key" mean?</summary>
+<p class="mt-2 text-sm text-slate-300">When you render an array of elements with .map(), each returned element needs a key prop that is unique among its siblings. React uses keys to identify which items changed, were added, or were removed between renders. Without keys, React falls back to index-based reconciliation, which causes bugs when items reorder, insert, or delete.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why not use index as the key?</summary>
+<p class="mt-2 text-sm text-slate-300">Index keys work only if the list never reorders, inserts, or deletes. When it does, React reuses the wrong component state — inputs keep wrong values, animations jump, local state leaks between items. Use a stable ID from your data (item.id, item.uuid, item.slug).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Do keys need to be globally unique?</summary>
+<p class="mt-2 text-sm text-slate-300">No — keys only need to be unique among siblings in the same array. Two separate .map() calls can use the same key values without conflict. The uniqueness scope is the immediate sibling set.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What if my data has no ID?</summary>
+<p class="mt-2 text-sm text-slate-300">Generate one when the item enters the list, not on every render. If items come from an API, use whatever the server provides. If items are purely local, generate ids with crypto.randomUUID() when creating the item. Never generate a key with Math.random() inside render.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/lists-keys.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson: Lists & keys</div>
+<div class="text-xs text-slate-400 mt-1">Full lesson on rendering arrays</div>
+</a>
+<a href="/courses/react/problems/update-array-in-state.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to update an array in state</div>
+<div class="text-xs text-slate-400 mt-1">Add/remove items correctly</div>
+</a>
+<a href="/courses/react/problems/state-not-updating.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "State is not updating"</div>
+<div class="text-xs text-slate-400 mt-1">The async setState confusion</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
