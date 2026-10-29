@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Pass a Function as a Prop in React (2026)</title>
+<meta name="description" content="Pass functions as props in React. Callbacks, arrow functions vs method references, event handlers, and the "this" question — with working code.">
+<meta name="keywords" content="react pass function as prop, react callback prop, react event handler prop, react arrow function prop, react function props">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Pass a Function as a Prop in React">
+<meta property="og:description" content="Callbacks, arrow functions vs method references, and the 'this' question.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/pass-function-as-prop.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Pass a Function as a Prop in React">
+<meta name="twitter:description" content="Callbacks, method references, and the this question.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/pass-function-as-prop.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Pass a Function as a Prop in React",
+"description": "Pass functions as props in React. Callbacks, arrow functions vs method references, event handlers, and the 'this' question.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I pass a function as a prop in React?","acceptedAnswer":{"@type":"Answer","text":"Pass it like any other prop, but don't call it: onClick={handleClick}, not onClick={handleClick()}. The first passes the function reference; the second calls it during render and passes the return value. The child receives the function and calls it when needed: function Button({ onClick }) { return <button onClick={onClick}>Click</button>; }. Common mistake: writing onClick={handleClick()} which executes immediately on render, not on click."}},
+{"@type":"Question","name":"Should I use arrow functions or method references as props?","acceptedAnswer":{"@type":"Answer","text":"Both are valid. onClick={handleClick} passes a stable reference — better for React.memo'd children. onClick={() => handleClick(id)} creates a new function each render — needed when you must pass arguments. Use method references when no args are needed; use inline arrows when passing args or wrapping logic. Neither is wrong; pick based on the call site."}},
+{"@type":"Question","name":"Why do I get 'handleClick is not a function' when I pass a prop?","acceptedAnswer":{"@type":"Answer","text":"Either you passed the result of calling the function (onClick={handleClick()}) instead of the function itself (onClick={handleClick}), or the child isn't receiving the prop. Check the parent's prop name matches the child's destructuring. Also check that you didn't overwrite the prop with a local variable or shadow it in a callback."}},
+{"@type":"Question","name":"Do I need to bind 'this' in functional components?","acceptedAnswer":{"@type":"Answer","text":"No — that's a class component issue. Functional components don't have 'this'. Every function you define inside a function component closes over the surrounding variables automatically. Arrow functions and regular functions both work without binding. If you see .bind(this) in a tutorial, it's for class components and doesn't apply to modern React code."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · pass function as prop</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Function as prop</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>How to pass a function as a prop.<br><span class="py-accent">The callbacks pattern.</span></h1>
+<p class="lead">
+Children trigger, parents handle. That's the React data flow — props go down, callbacks come up. Passing a function as a prop is how the callback goes up. But there's one critical mistake everyone makes (calling it instead of passing it), and a decision between arrow functions and method references. This page covers both.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Pass the function reference, not the result of calling it. <code>onClick={handleClick}</code> ✅. <code>onClick={handleClick()}</code> ❌ (calls it during render). The child receives the function and calls it whenever — on click, in an effect, in another handler. For arguments: wrap in an arrow — <code>onClick={() => handleClick(id)}</code>. No <code>.bind(this)</code> in function components.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Pass the function, not the call</h2>
+<p class="section-sub">The #1 mistake — happens to everyone once.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When you write <code>onClick={handleClick()}</code>, you're not passing <code>handleClick</code> — you're calling it immediately and passing its return value. For a function that returns nothing, the child receives <code>undefined</code>. For a function that returns a value, the child receives that value (usually not a function). Either way, it's broken. The fix: remove the parentheses.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">pass-vs-call.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── Child component ─────────────────────────</span>
+<span class="kw">function</span> <span class="fn">Button</span>({ onClick, children }: { onClick: () => <span class="fn">void</span>; children: React.ReactNode }) {
+<span class="kw">return</span> <button onClick={onClick}>{children}</button>;
+}
+
+<span class="com">// ─── BAD: calling the function during render</span>
+<span class="kw">function</span> <span class="fn">BadParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}
+
+<span class="kw">return</span> (
+<Button onClick={handleClick()}>Click</Button>
+<span class="com">{/* ❌ Calls handleClick during render.
+→ count increments immediately on render
+→ re-render → calls again → infinite loop or wrong behavior
+→ Button receives undefined (handleClick returns void)
+→ clicking does nothing */}</span>
+);
+}
+
+<span class="com">// ─── GOOD: passing the reference ─────────────</span>
+<span class="kw">function</span> <span class="fn">GoodParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}
+
+<span class="kw">return</span> (
+<div>
+<p>{count}</p>
+<Button onClick={handleClick}>Click</Button>
+<span class="com">{/* ✅ Passes the function. Button decides when to call. */}</span>
+</div>
+);
+}
+
+<span class="com">// ─── Passing with arguments ──────────────────</span>
+<span class="kw">function</span> <span class="fn">ArgParent</span>() {
+<span class="kw">const</span> [message, setMessage] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">function</span> <span class="fn">handleClick</span>(text: <span class="fn">string</span>) {
+<span class="fn">setMessage</span>(text);
+}
+
+<span class="kw">return</span> (
+<div>
+<p>{message}</p>
+<span class="com">{/* ❌ Wrong: calling with no args /}</span>
+<span class="com">{/ <Button onClick={handleClick()}>Hi</Button> */}</span>
+
+<span class="com">{/* ✅ Correct: wrap in arrow to pass args */}</span>
+<Button onClick={() => <span class="fn">handleClick</span>(<span class="str">'Hello'</span>)}>Hello</Button>
+<Button onClick={() => <span class="fn">handleClick</span>(<span class="str">'Hi'</span>)}>Hi</Button>
+</div>
+);
+}
+
+<span class="com">// ─── The rule ────────────────────────────────
+//
+// onClick={handleClick} → pass the function ✅
+// onClick={handleClick()} → call during render ❌
+// onClick={() => handleClick()} → call on click ✅
+//
+// Adding () = calling. Adding () => = wrapping.
+// Wrap when you need args or additional logic.</span>
+
+console.<span class="fn">log</span>(<span class="fn">Button</span>, <span class="fn">BadParent</span>, <span class="fn">GoodParent</span>, <span class="fn">ArgParent</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">Button</span>({ onClick, children }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick }, children);
+}
+
+<span class="kw">function</span> <span class="fn">BadParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(Button, { onClick: <span class="fn">handleClick</span>() }, <span class="str">'Click'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">GoodParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">function</span> <span class="fn">handleClick</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count),
+React.<span class="fn">createElement</span>(Button, { onClick: handleClick }, <span class="str">'Click'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">ArgParent</span>() {
+<span class="kw">const</span> [message, setMessage] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">function</span> <span class="fn">handleClick</span>(text) {
+<span class="fn">setMessage</span>(text);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, message),
+React.<span class="fn">createElement</span>(Button, { onClick: () => <span class="fn">handleClick</span>(<span class="str">'Hello'</span>) }, <span class="str">'Hello'</span>),
+React.<span class="fn">createElement</span>(Button, { onClick: () => <span class="fn">handleClick</span>(<span class="str">'Hi'</span>) }, <span class="str">'Hi'</span>)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">Button</span>, <span class="fn">BadParent</span>, <span class="fn">GoodParent</span>, <span class="fn">ArgParent</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Reference vs call</h4>
+<p><code>onClick={fn}</code> passes the function. <code>onClick={fn()}</code> calls it and passes the result. Different things entirely.</p>
+</div>
+<div class="concept-card">
+<h4>Adding <code>()</code> calls it</h4>
+<p>Every time you add <code>()</code> after a function name, you call it. In JSX, only add <code>()</code> inside an arrow function or callback.</p>
+</div>
+<div class="concept-card">
+<h4>Wrapping to pass args</h4>
+<p><code>onClick={() => fn('x')}</code> — the arrow is called on click, which calls <code>fn</code> with the arg. The whole pattern in one line.</p>
+</div>
+<div class="concept-card">
+<h4>Common symptom</h4>
+<p>"My button does nothing" + "state updates on render" = you called the function in the prop. Check the props for stray <code>()</code>.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The mental model: <code>{'{fn}'}</code> passes, <code>{'{fn()}'}</code> calls.</strong> When you write JSX, everything inside <code>{'{...}'}</code> is a JavaScript expression. So <code>{'{handleClick}'}</code> evaluates to the function reference, and <code>{'{handleClick()}'}</code> evaluates to whatever <code>handleClick</code> returns. For a callback, you want the function to be called later, by the child. So you pass the reference — no <code>()</code>. If you find yourself debugging "my button doesn't work," check the JSX for stray <code>()</code> before anything else.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Method reference vs arrow function</h2>
+<p class="section-sub">Both work. Different trade-offs.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Two ways to pass a handler. Method reference: <code>onClick={handleClick}</code> — stable, memoizable. Arrow function: <code>onClick={() => handleClick(id)}</code> — new each render, needed for args. Neither is wrong. The choice depends on whether you need to pass arguments and whether the child is memoized.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">reference-vs-arrow.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState, memo } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── Method reference — stable, memo-friendly</span>
+<span class="kw">function</span> <span class="fn">RefParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">function</span> <span class="fn">handleIncrement</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}
+
+<span class="kw">return</span> (
+<div>
+<p>{count}</p>
+<MemoChild onClick={handleIncrement} />
+<span class="com">{/* handleIncrement is a new function each render (function declaration)
+BUT for a single handler, that's fine — React.memo can still help if you useCallback it */}
+</div>
+);
+}
+
+<span class="com">// ─── Arrow function — new each render ────────</span>
+<span class="kw">const</span> <span class="fn">MemoChild</span> = <span class="fn">memo</span>(({ onClick }: { onClick: () => <span class="fn">void</span> }) => {
+console.<span class="fn">log</span>(<span class="str">'MemoChild rendered'</span>);
+<span class="kw">return</span> <button onClick={onClick}>Click</button>;
+});
+
+<span class="kw">function</span> <span class="fn">ArrowParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">return</span> (
+<div>
+<p>{count}</p>
+<span class="com">{/* ❌ New function each render — MemoChild re-renders every time */}</span>
+<MemoChild onClick={() => <span class="fn">setCount</span>(c => c + <span class="num">1</span>)} />
+</div>
+);
+}
+
+<span class="com">// ─── Passing args with arrow — the right way</span>
+<span class="kw">function</span> <span class="fn">ListWithArgs</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span>([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> }
+]);
+
+<span class="kw">function</span> <span class="fn">remove</span>(id: <span class="fn">string</span>) {
+<span class="fn">setItems</span>(prev => prev.<span class="fn">filter</span>(i => i.id !== id));
+}
+
+<span class="kw">return</span> (
+<ul>
+{items.<span class="fn">map</span>(item => (
+<li key={item.id}>
+{item.name}
+<span class="com">{/* ✅ Arrow passes the id, calls remove on click */}</span>
+<button onClick={() => <span class="fn">remove</span>(item.id)}>×</button>
+</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// ─── Memoized handler + arrow — best of both</span>
+<span class="kw">import</span> { useCallback } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BestParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="com">// ✅ Stable — MemoChild skips re-render</span>
+<span class="kw">const</span> handleIncrement = <span class="fn">useCallback</span>(() => {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}, []);
+
+<span class="kw">return</span> (
+<div>
+<p>{count}</p>
+<MemoChild onClick={handleIncrement} />
+</div>
+);
+}
+
+<span class="com">// ─── Decision matrix ─────────────────────────
+//
+// No args, no memo'd child:
+// onClick={handleClick} — simplest, fine
+//
+// No args, memo'd child:
+// const cb = useCallback(() => {...}, []);
+// onClick={cb} — stable, memo works
+//
+// Args, any case:
+// onClick={() => handle(id)} — needed for args
+//
+// Inline simple logic:
+// onClick={() => setCount(0)} — fine, no memo issue
+//
+// Each render creates a new arrow function. For non-memo'd
+// children, this is harmless. For memo'd children, it
+// defeats the memo — use useCallback or method reference.</span>
+
+console.<span class="fn">log</span>(<span class="fn">RefParent</span>, <span class="fn">MemoChild</span>, <span class="fn">ArrowParent</span>, <span class="fn">ListWithArgs</span>, <span class="fn">BestParent</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, memo, useCallback } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">RefParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">function</span> <span class="fn">handleIncrement</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count),
+React.<span class="fn">createElement</span>(MemoChild, { onClick: handleIncrement })
+);
+}
+
+<span class="kw">const</span> MemoChild = <span class="fn">memo</span>(({ onClick }) => {
+console.<span class="fn">log</span>(<span class="str">'MemoChild rendered'</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick }, <span class="str">'Click'</span>);
+});
+
+<span class="kw">function</span> <span class="fn">ArrowParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count),
+React.<span class="fn">createElement</span>(MemoChild, { onClick: () => <span class="fn">setCount</span>(c => c + <span class="num">1</span>) })
+);
+}
+
+<span class="kw">function</span> <span class="fn">ListWithArgs</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span>([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Bob'</span> }
+]);
+<span class="kw">function</span> <span class="fn">remove</span>(id) {
+<span class="fn">setItems</span>(prev => prev.<span class="fn">filter</span>(i => i.id !== id));
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+items.<span class="fn">map</span>(item =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: item.id },
+item.name,
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">remove</span>(item.id) }, <span class="str">'×'</span>)
+)
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">BestParent</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> handleIncrement = <span class="fn">useCallback</span>(() => {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count),
+React.<span class="fn">createElement</span>(MemoChild, { onClick: handleIncrement })
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">RefParent</span>, MemoChild, <span class="fn">ArrowParent</span>, <span class="fn">ListWithArgs</span>, <span class="fn">BestParent</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Method reference is stable</h4>
+<p><code>onClick={handleClick}</code> — same function reference unless <code>useCallback</code> wraps it. Good for memo'd children.</p>
+</div>
+<div class="concept-card">
+<h4>Arrow is new each render</h4>
+<p><code>onClick={() => ...}</code> — fresh function every render. Fine for non-memo'd children; defeats <code>React.memo</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Arrow for args</h4>
+<p><code>onClick={() => remove(item.id)}</code> — the standard way to pass arguments. There's no cleaner option.</p>
+</div>
+<div class="concept-card">
+<h4>useCallback when it matters</h4>
+<p>Only optimize with <code>useCallback</code> when the child is memo'd and the props would otherwise change every render.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Callback props with types</h2>
+<p class="section-sub">Typing callbacks properly in TypeScript.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">In TypeScript, a callback prop has a function type. <code>onClick: () => void</code>, <code>onChange: (value: string) => void</code>, <code>onSelect: (item: User) => void</code>. The parent must pass a function with a matching signature. This is how React + TS combines props and callbacks safely.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">typed-callbacks.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── Simple callback props ───────────────────</span>
+<span class="kw">interface</span> ButtonProps {
+onClick: () => <span class="fn">void</span>; <span class="com">// no args</span>
+onDoubleClick?: () => <span class="fn">void</span>; <span class="com">// optional</span>
+children: React.ReactNode;
+}
+
+<span class="kw">function</span> <span class="fn">Button</span>({ onClick, onDoubleClick, children }: ButtonProps) {
+<span class="kw">return</span> (
+<button onClick={onClick} onDoubleClick={onDoubleClick}>
+{children}
+</button>
+);
+}
+
+<span class="com">// ─── Callback with args ──────────────────────</span>
+<span class="kw">interface</span> SearchBoxProps {
+onSearch: (query: <span class="fn">string</span>) => <span class="fn">void</span>; <span class="com">// takes string</span>
+onClear: () => <span class="fn">void</span>;
+}
+
+<span class="kw">function</span> <span class="fn">SearchBox</span>({ onSearch, onClear }: SearchBoxProps) {
+<span class="kw">const</span> [query, setQuery] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">function</span> <span class="fn">handleSubmit</span>(e: React.FormEvent) {
+e.<span class="fn">preventDefault</span>();
+<span class="fn">onSearch</span>(query); <span class="com">// ✅ passes the query to the parent</span>
+}
+
+<span class="kw">function</span> <span class="fn">handleClear</span>() {
+<span class="fn">setQuery</span>(<span class="str">''</span>);
+<span class="fn">onClear</span>();
+}
+
+<span class="kw">return</span> (
+<form onSubmit={handleSubmit}>
+<input value={query} onChange={e => <span class="fn">setQuery</span>(e.target.value)} />
+<button type=<span class="str">"submit"</span>>Search</button>
+<button type=<span class="str">"button"</span> onClick={handleClear}>Clear</button>
+</form>
+);
+}
+
+<span class="com">// ─── Parent with typed handlers ──────────────</span>
+<span class="kw">function</span> <span class="fn">Parent</span>() {
+<span class="kw">const</span> [results, setResults] = <span class="fn">useState</span><<span class="fn">string</span>[]>([]);
+
+<span class="kw">function</span> <span class="fn">handleSearch</span>(query: <span class="fn">string</span>) {
+<span class="fn">fetch</span>(<span class="str">/api/search?q=${query}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(setResults);
+}
+
+<span class="kw">function</span> <span class="fn">handleClear</span>() {
+<span class="fn">setResults</span>([]);
+}
+
+<span class="kw">return</span> (
+<div>
+<SearchBox onSearch={handleSearch} onClear={handleClear} />
+<ul>{results.<span class="fn">map</span>(r => <li key={r}>{r}</li>)}</ul>
+</div>
+);
+}
+
+<span class="com">// ─── Callback with an object argument ────────</span>
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+
+<span class="kw">interface</span> UserListProps {
+users: User[];
+onSelect: (user: User) => <span class="fn">void</span>;
+onDelete: (id: <span class="fn">string</span>) => <span class="fn">void</span>;
+}
+
+<span class="kw">function</span> <span class="fn">UserList</span>({ users, onSelect, onDelete }: UserListProps) {
+<span class="kw">return</span> (
+<ul>
+{users.<span class="fn">map</span>(user => (
+<li key={user.id}>
+<button onClick={() => <span class="fn">onSelect</span>(user)}>{user.name}</button>
+<button onClick={() => <span class="fn">onDelete</span>(user.id)}>×</button>
+</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// ─── TypeScript catches prop mismatches ──────</span>
+<span class="kw">function</span> <span class="fn">TypeSafety</span>() {
+<span class="kw">return</span> (
+<div>
+<span class="com">{/* ❌ Compile errors: /}</span>
+<span class="com">{/ <Button onClick="not a function" /> /}</span>
+<span class="com">{/ <SearchBox onSearch={(n: number) => {}} onClear={() => {}} /> */}</span>
+
+<span class="com">{/* ✅ Correct: */}</span>
+<Button onClick={() => console.<span class="fn">log</span>(<span class="str">'clicked'</span>)}>OK</Button>
+<SearchBox
+onSearch={(q) => console.<span class="fn">log</span>(q)} <span class="com">// q is inferred as string</span>
+onClear={() => {}}
+/>
+</div>
+);
+}
+
+<span class="com">// ─── The pattern ─────────────────────────────
+//
+// Child: define prop as function type
+// interface Props { onX: (arg: T) => void }
+//
+// Child: call the function
+// function Child({ onX }: Props) {
+// return <button onClick={() => onX(value)} />
+// }
+//
+// Parent: pass a handler
+// function Parent() {
+// return <Child onX={(value) => doSomething(value)} />
+// }
+//
+// TypeScript ensures:
+// - The prop exists
+// - The function signature matches
+// - The argument type matches at the call site</span>
+
+console.<span class="fn">log</span>(<span class="fn">Button</span>, <span class="fn">SearchBox</span>, <span class="fn">Parent</span>, <span class="fn">UserList</span>, <span class="fn">TypeSafety</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">Button</span>({ onClick, onDoubleClick, children }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick, onDoubleClick }, children);
+}
+
+<span class="kw">function</span> <span class="fn">SearchBox</span>({ onSearch, onClear }) {
+<span class="kw">const</span> [query, setQuery] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">function</span> <span class="fn">handleSubmit</span>(e) {
+e.<span class="fn">preventDefault</span>();
+<span class="fn">onSearch</span>(query);
+}
+<span class="kw">function</span> <span class="fn">handleClear</span>() {
+<span class="fn">setQuery</span>(<span class="str">''</span>);
+<span class="fn">onClear</span>();
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, { onSubmit: handleSubmit },
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: query, onChange: e => <span class="fn">setQuery</span>(e.target.value) }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { type: <span class="str">'submit'</span> }, <span class="str">'Search'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { type: <span class="str">'button'</span>, onClick: handleClear }, <span class="str">'Clear'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">Parent</span>() {
+<span class="kw">const</span> [results, setResults] = <span class="fn">useState</span>([]);
+<span class="kw">function</span> <span class="fn">handleSearch</span>(query) {
+<span class="fn">fetch</span>(<span class="str">/api/search?q=${query}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setResults);
+}
+<span class="kw">function</span> <span class="fn">handleClear</span>() {
+<span class="fn">setResults</span>([]);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(SearchBox, { onSearch: handleSearch, onClear: handleClear }),
+React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, results.<span class="fn">map</span>(r => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: r }, r)))
+);
+}
+
+<span class="kw">function</span> <span class="fn">UserList</span>({ users, onSelect, onDelete }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+users.<span class="fn">map</span>(user =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: user.id },
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">onSelect</span>(user) }, user.name),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">onDelete</span>(user.id) }, <span class="str">'×'</span>)
+)
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">TypeSafety</span>() {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(Button, { onClick: () => console.<span class="fn">log</span>(<span class="str">'clicked'</span>) }, <span class="str">'OK'</span>),
+React.<span class="fn">createElement</span>(SearchBox, {
+onSearch: (q) => console.<span class="fn">log</span>(q),
+onClear: () => {}
+})
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">Button</span>, <span class="fn">SearchBox</span>, <span class="fn">Parent</span>, <span class="fn">UserList</span>, <span class="fn">TypeSafety</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Function type = callback</h4>
+<p><code>onClick: () => void</code> — the type signature is a function. The parent must pass a function matching it.</p>
+</div>
+<div class="concept-card">
+<h4>Args type-check</h4>
+<p><code>onSearch: (query: string) => void</code> — the parent's handler receives <code>string</code>. Wrong type = compile error.</p>
+</div>
+<div class="concept-card">
+<h4>Optional callbacks</h4>
+<p><code>onDoubleClick?: () => void</code> — with <code>?</code>, the parent can omit it. Child checks with <code>?.()</code> or <code>if (onDoubleClick)</code>.</p>
+</div>
+<div class="concept-card">
+<h4>The whole pattern</h4>
+<p>Child receives function → calls it with args → parent handles. Types ensure signature matches at every call site.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The function-as-prop mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>onClick={fn()}</code></div>
+<p>Calls during render instead of passing. Fix: <code>onClick={fn}</code> or <code>onClick={() => fn()}</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Passing <code>undefined</code> as a callback</div>
+<p><code><Child onClick={undefined} /></code> — child crashes on click. Fix: optional prop with <code>?.</code>, or default to noop.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using <code>.bind(this)</code> in a function component</div>
+<p>No <code>this</code> in function components. Fix: drop the bind — function components don't need it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. <code>onClick={() => fn}</code></div>
+<p>Arrow returns the function without calling. Fix: <code>onClick={fn}</code> or <code>onClick={() => fn()}</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting args in the arrow</div>
+<p><code>onChange={() => setName}</code> — doesn't pass event. Fix: <code>onChange={(e) => setName(e.target.value)}</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Over-using useCallback</div>
+<p>Wrapping every handler without a memo'd child. Fix: only memoize when the child is memo'd or the reference matters.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Type mismatch on the callback</div>
+<p><code>onSearch={(n: number) => {}}</code> when the prop expects <code>(string) => void</code>. Fix: match the signature.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Async callbacks that aren't handled</div>
+<p><code>onClick={async () => fetch(...)}</code> — errors swallowed. Fix: try/catch, or handle state updates for error.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I pass a function as a prop in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Pass it like any other prop, but don't call it: onClick={handleClick}, not onClick={handleClick()}. The first passes the function reference; the second calls it during render and passes the return value.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use arrow functions or method references as props?</summary>
+<p class="mt-2 text-sm text-slate-300">Both are valid. onClick={handleClick} passes a stable reference — better for React.memo'd children. onClick={() => handleClick(id)} creates a new function each render — needed when you must pass arguments.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why do I get 'handleClick is not a function' when I pass a prop?</summary>
+<p class="mt-2 text-sm text-slate-300">Either you passed the result of calling the function (onClick={handleClick()}) instead of the function itself (onClick={handleClick}), or the child isn't receiving the prop. Check the parent's prop name matches the child's destructuring.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Do I need to bind 'this' in functional components?</summary>
+<p class="mt-2 text-sm text-slate-300">No — that's a class component issue. Functional components don't have 'this'. Every function you define inside a function component closes over the surrounding variables automatically.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/props.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 2: Props & composition</div>
+<div class="text-xs text-slate-400 mt-1">The full props lesson</div>
+</a>
+<a href="/courses/react/problems/controlled-input.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to make a controlled input</div>
+<div class="text-xs text-slate-400 mt-1">onChange patterns</div>
+</a>
+<a href="/courses/react/problems/usememo-vs-usecallback.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ useMemo vs useCallback</div>
+<div class="text-xs text-slate-400 mt-1">When to memoize callbacks</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
