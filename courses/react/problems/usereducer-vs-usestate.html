@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>useReducer vs useState in React — Which to Use (2026)</title>
+<meta name="description" content="useReducer vs useState in React. Learn when state transitions need a reducer, how to model actions, and the decision rule for choosing between them.">
+<meta name="keywords" content="usereducer vs usestate, react usereducer, react state management, react reducer pattern, react complex state">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="useReducer vs useState in React — Which to Use">
+<meta property="og:description" content="When state transitions need a reducer, and the decision rule.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/usereducer-vs-usestate.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="useReducer vs useState in React">
+<meta name="twitter:description" content="When to use a reducer, and the decision rule.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/usereducer-vs-usestate.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "useReducer vs useState in React — Which to Use",
+"description": "useReducer vs useState in React. Learn when state transitions need a reducer, and the decision rule.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between useState and useReducer?","acceptedAnswer":{"@type":"Answer","text":"useState manages one value and exposes a setter: const [count, setCount] = useState(0). useReducer manages a state object via a reducer function and dispatches actions: const [state, dispatch] = useReducer(reducer, initialState). useState is simpler; useReducer scales better for complex state. Both trigger re-renders. useReducer doesn't have state setters — it has dispatch(action), and the reducer function decides what the next state is. Choose based on complexity: 1-2 independent values → useState; 3+ related values or state transitions → useReducer."}},
+{"@type":"Question","name":"When should I use useReducer?","acceptedAnswer":{"@type":"Answer","text":"Three signals. (1) The state has multiple related fields that transition together — a form with loading/error/success states, a counter with history. (2) The next state depends on the previous state in non-trivial ways — undo, redo, sequence-dependent updates. (3) The state update logic is complex enough to test independently — reducers are pure functions, easy to unit-test. If your component has three or more useState calls that always change together, consolidate into a useReducer."}},
+{"@type":"Question","name":"Is useReducer faster than useState?","acceptedAnswer":{"@type":"Answer","text":"No. Both trigger re-renders the same way. The performance is nearly identical for most use cases. useReducer can be slightly better when you're batching many state updates (one dispatch vs many setters), but the difference is negligible. Choose useReducer for code clarity and testability, not for speed. If you have a real performance problem, useMemo/useCallback and React.memo are the tools — not useReducer."}},
+{"@type":"Question","name":"How does dispatch compare to setState?","acceptedAnswer":{"@type":"Answer","text":"setState takes a new value or updater function: setCount(c => c + 1). dispatch takes an action object: dispatch({ type: 'increment' }). The reducer function decides what the new state is based on the action. dispatch is stable — it never changes identity across renders, so it's safe to omit from dependency arrays. But you don't call setCount directly — you dispatch actions. This is more verbose for simple updates but clearer for complex state transitions."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · useReducer vs useState</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">useReducer vs useState</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>useReducer vs useState.<br><span class="py-accent">When state transitions deserve a reducer.</span></h1>
+<p class="lead">
+Both manage state. Both trigger re-renders. The difference is how the state changes. <code>useState</code> says "set this value." <code>useReducer</code> says "handle this action." For simple state, <code>useState</code> is fine. For complex state with transitions, invariants, or testable logic, <code>useReducer</code> is cleaner. This page shows when each wins.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>useState</code> for 1-2 independent values. <code>useReducer</code> for 3+ related values that change together, or state that transitions between defined states (loading → success → error). The signals: (1) many <code>useState</code> calls that always change together, (2) complex update logic you want to test, (3) state with a clear set of allowed transitions. It's not about performance — it's about readability and correctness.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — The same counter, two ways</h2>
+<p class="section-sub">When useState is simpler and clearer.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">For a simple counter, <code>useState</code> wins. The state is one number. The operations are increment, decrement, reset. There's no transition logic, no invariants, no testable reducer. Adding useReducer would be over-engineering.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">simple-counter.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState, useReducer } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── useState — simpler, faster to write ─────</span>
+<span class="kw">function</span> <span class="fn">CounterWithState</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">return</span> (
+<div>
+<p>{count}</p>
+<button onClick={() => <span class="fn">setCount</span>(c => c + <span class="num">1</span>)}>+1</button>
+<button onClick={() => <span class="fn">setCount</span>(c => c - <span class="num">1</span>)}>-1</button>
+<button onClick={() => <span class="fn">setCount</span>(<span class="num">0</span>)}>Reset</button>
+</div>
+);
+}
+
+<span class="com">// ─── useReducer — same thing, more ceremony</span>
+<span class="kw">type</span> Action = { type: <span class="str">'increment'</span> } | { type: <span class="str">'decrement'</span> } | { type: <span class="str">'reset'</span> };
+
+<span class="kw">function</span> <span class="fn">reducer</span>(state: <span class="fn">number</span>, action: Action): <span class="fn">number</span> {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'increment'</span>: <span class="kw">return</span> state + <span class="num">1</span>;
+<span class="kw">case</span> <span class="str">'decrement'</span>: <span class="kw">return</span> state - <span class="num">1</span>;
+<span class="kw">case</span> <span class="str">'reset'</span>: <span class="kw">return</span> <span class="num">0</span>;
+}
+}
+
+<span class="kw">function</span> <span class="fn">CounterWithReducer</span>() {
+<span class="kw">const</span> [count, dispatch] = <span class="fn">useReducer</span>(reducer, <span class="num">0</span>);
+
+<span class="kw">return</span> (
+<div>
+<p>{count}</p>
+<button onClick={() => <span class="fn">dispatch</span>({ type: <span class="str">'increment'</span> })}>+1</button>
+<button onClick={() => <span class="fn">dispatch</span>({ type: <span class="str">'decrement'</span> })}>-1</button>
+<button onClick={() => <span class="fn">dispatch</span>({ type: <span class="str">'reset'</span> })}>Reset</button>
+</div>
+);
+}
+
+<span class="com">// ─── The verdict ─────────────────────────────
+//
+// For this counter, useState is clearly better:
+// - Less code (7 lines vs 20)
+// - No action union to define
+// - No reducer to test
+// - More direct — "setCount(c => c + 1)"
+//
+// But the reducer version has hidden advantages:
+// - The reducer is a pure function → easy to unit-test
+// - All state transitions visible in one place
+// - Adding a new action is mechanical
+// - The dispatch API is stable → safe in callbacks
+//
+// For a simple counter? useState wins. Simple is good.
+// For a to-do app with undo? useReducer wins. See next.</span>
+
+console.<span class="fn">log</span>(<span class="fn">CounterWithState</span>, <span class="fn">reducer</span>, <span class="fn">CounterWithReducer</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useReducer } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">CounterWithState</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setCount</span>(c => c + <span class="num">1</span>) }, <span class="str">'+1'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setCount</span>(c => c - <span class="num">1</span>) }, <span class="str">'-1'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setCount</span>(<span class="num">0</span>) }, <span class="str">'Reset'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">reducer</span>(state, action) {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'increment'</span>: <span class="kw">return</span> state + <span class="num">1</span>;
+<span class="kw">case</span> <span class="str">'decrement'</span>: <span class="kw">return</span> state - <span class="num">1</span>;
+<span class="kw">case</span> <span class="str">'reset'</span>: <span class="kw">return</span> <span class="num">0</span>;
+}
+}
+
+<span class="kw">function</span> <span class="fn">CounterWithReducer</span>() {
+<span class="kw">const</span> [count, dispatch] = <span class="fn">useReducer</span>(reducer, <span class="num">0</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">dispatch</span>({ type: <span class="str">'increment'</span> }) }, <span class="str">'+1'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">dispatch</span>({ type: <span class="str">'decrement'</span> }) }, <span class="str">'-1'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">dispatch</span>({ type: <span class="str">'reset'</span> }) }, <span class="str">'Reset'</span>)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">CounterWithState</span>, <span class="fn">reducer</span>, <span class="fn">CounterWithReducer</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>useState = direct</h4>
+<p><code>setCount(c => c + 1)</code> — direct setter. One value, one operation. Less code, less indirection.</p>
+</div>
+<div class="concept-card">
+<h4>useReducer = indirect</h4>
+<p><code>dispatch({ type: 'increment' })</code> — the reducer decides the next state. More code, more structure.</p>
+</div>
+<div class="concept-card">
+<h4>For simple counters</h4>
+<p><code>useState</code> wins. No reason for the extra ceremony — the direct form is clearer.</p>
+</div>
+<div class="concept-card">
+<h4>Both re-render the same</h4>
+<p>Performance is essentially identical. Choose based on readability and testability, not speed.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — When useReducer wins</h2>
+<p class="section-sub">Complex state with transitions, invariants, or testable logic.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When the state has multiple related fields that transition together — a counter with undo history, a form with loading/error/success, a to-do app with filters — <code>useReducer</code> becomes clearer than multiple <code>useState</code> calls. The reducer centralizes all transitions in one pure function, which you can test in isolation.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">reducer-wins.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useReducer } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── State with history + undo ───────────────</span>
+<span class="kw">interface</span> State {
+count: <span class="fn">number</span>;
+history: <span class="fn">number</span>[];
+}
+
+<span class="kw">type</span> Action =
+| { type: <span class="str">'increment'</span> }
+| { type: <span class="str">'decrement'</span> }
+| { type: <span class="str">'add'</span>; by: <span class="fn">number</span> }
+| { type: <span class="str">'reset'</span> }
+| { type: <span class="str">'undo'</span> };
+
+<span class="kw">const</span> initialState: State = { count: <span class="num">0</span>, history: [] };
+
+<span class="kw">function</span> <span class="fn">reducer</span>(state: State, action: Action): State {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'increment'</span>: {
+<span class="kw">const</span> next = state.count + <span class="num">1</span>;
+<span class="kw">return</span> { count: next, history: [...state.history, state.count] };
+}
+<span class="kw">case</span> <span class="str">'decrement'</span>: {
+<span class="kw">const</span> next = state.count - <span class="num">1</span>;
+<span class="kw">return</span> { count: next, history: [...state.history, state.count] };
+}
+<span class="kw">case</span> <span class="str">'add'</span>: {
+<span class="kw">const</span> next = state.count + action.by;
+<span class="kw">return</span> { count: next, history: [...state.history, state.count] };
+}
+<span class="kw">case</span> <span class="str">'reset'</span>:
+<span class="kw">return</span> { count: <span class="num">0</span>, history: [...state.history, state.count] };
+<span class="kw">case</span> <span class="str">'undo'</span>: {
+<span class="kw">if</span> (state.history.<span class="fn">length</span> === <span class="num">0</span>) <span class="kw">return</span> state;
+<span class="kw">const</span> prev = state.history[state.history.<span class="fn">length</span> - <span class="num">1</span>];
+<span class="kw">return</span> { count: prev, history: state.history.<span class="fn">slice</span>(<span class="num">0</span>, -<span class="num">1</span>) };
+}
+}
+}
+
+<span class="kw">function</span> <span class="fn">CounterWithHistory</span>() {
+<span class="kw">const</span> [state, dispatch] = <span class="fn">useReducer</span>(reducer, initialState);
+
+<span class="kw">return</span> (
+<div>
+<p>Count: {state.count}</p>
+<p>History: {state.history.<span class="fn">join</span>(<span class="str">', '</span>)}</p>
+<button onClick={() => <span class="fn">dispatch</span>({ type: <span class="str">'increment'</span> })}>+1</button>
+<button onClick={() => <span class="fn">dispatch</span>({ type: <span class="str">'decrement'</span> })}>-1</button>
+<button onClick={() => <span class="fn">dispatch</span>({ type: <span class="str">'add'</span>, by: <span class="num">10</span> })}>+10</button>
+<button onClick={() => <span class="fn">dispatch</span>({ type: <span class="str">'undo'</span> })}>Undo</button>
+<button onClick={() => <span class="fn">dispatch</span>({ type: <span class="str">'reset'</span> })}>Reset</button>
+</div>
+);
+}
+
+<span class="com">// ─── State machine — loading / success / error</span>
+<span class="kw">type</span> FetchState<T> =
+| { status: <span class="str">'idle'</span> }
+| { status: <span class="str">'loading'</span> }
+| { status: <span class="str">'success'</span>; data: T }
+| { status: <span class="str">'error'</span>; message: <span class="fn">string</span> };
+
+<span class="kw">type</span> FetchAction<T> =
+| { type: <span class="str">'fetch'</span> }
+| { type: <span class="str">'success'</span>; data: T }
+| { type: <span class="str">'error'</span>; message: <span class="fn">string</span> }
+| { type: <span class="str">'reset'</span> };
+
+<span class="kw">function</span> <span class="fn">fetchReducer</span><T>(state: FetchState<T>, action: FetchAction<T>): FetchState<T> {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'fetch'</span>: <span class="kw">return</span> { status: <span class="str">'loading'</span> };
+<span class="kw">case</span> <span class="str">'success'</span>: <span class="kw">return</span> { status: <span class="str">'success'</span>, data: action.data };
+<span class="kw">case</span> <span class="str">'error'</span>: <span class="kw">return</span> { status: <span class="str">'error'</span>, message: action.message };
+<span class="kw">case</span> <span class="str">'reset'</span>: <span class="kw">return</span> { status: <span class="str">'idle'</span> };
+}
+}
+
+<span class="com">// ─── Testable reducer ────────────────────────
+//
+// Because reducer is a pure function, you can test it
+// without rendering React:
+//
+// expect(reducer(initial, { type: 'increment' }))
+// .toEqual({ count: 1, history: [0] })
+//
+// expect(reducer({ count: 5, history: [4] }, { type: 'undo' }))
+// .toEqual({ count: 4, history: [] })
+//
+// This is the killer feature of useReducer. State
+// transitions become unit-testable logic, not
+// buried-in-JSX behavior.</span>
+
+console.<span class="fn">log</span>(<span class="fn">reducer</span>, <span class="fn">CounterWithHistory</span>, <span class="fn">fetchReducer</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useReducer } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">const</span> initialState = { count: <span class="num">0</span>, history: [] };
+
+<span class="kw">function</span> <span class="fn">reducer</span>(state, action) {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'increment'</span>: {
+<span class="kw">const</span> next = state.count + <span class="num">1</span>;
+<span class="kw">return</span> { count: next, history: [...state.history, state.count] };
+}
+<span class="kw">case</span> <span class="str">'decrement'</span>: {
+<span class="kw">const</span> next = state.count - <span class="num">1</span>;
+<span class="kw">return</span> { count: next, history: [...state.history, state.count] };
+}
+<span class="kw">case</span> <span class="str">'add'</span>: {
+<span class="kw">const</span> next = state.count + action.by;
+<span class="kw">return</span> { count: next, history: [...state.history, state.count] };
+}
+<span class="kw">case</span> <span class="str">'reset'</span>:
+<span class="kw">return</span> { count: <span class="num">0</span>, history: [...state.history, state.count] };
+<span class="kw">case</span> <span class="str">'undo'</span>: {
+<span class="kw">if</span> (state.history.<span class="fn">length</span> === <span class="num">0</span>) <span class="kw">return</span> state;
+<span class="kw">const</span> prev = state.history[state.history.<span class="fn">length</span> - <span class="num">1</span>];
+<span class="kw">return</span> { count: prev, history: state.history.<span class="fn">slice</span>(<span class="num">0</span>, -<span class="num">1</span>) };
+}
+}
+}
+
+<span class="kw">function</span> <span class="fn">CounterWithHistory</span>() {
+<span class="kw">const</span> [state, dispatch] = <span class="fn">useReducer</span>(reducer, initialState);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Count: '</span>, state.count),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'History: '</span>, state.history.<span class="fn">join</span>(<span class="str">', '</span>)),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">dispatch</span>({ type: <span class="str">'increment'</span> }) }, <span class="str">'+1'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">dispatch</span>({ type: <span class="str">'decrement'</span> }) }, <span class="str">'-1'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">dispatch</span>({ type: <span class="str">'add'</span>, by: <span class="num">10</span> }) }, <span class="str">'+10'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">dispatch</span>({ type: <span class="str">'undo'</span> }) }, <span class="str">'Undo'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">dispatch</span>({ type: <span class="str">'reset'</span> }) }, <span class="str">'Reset'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">fetchReducer</span>(state, action) {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'fetch'</span>: <span class="kw">return</span> { status: <span class="str">'loading'</span> };
+<span class="kw">case</span> <span class="str">'success'</span>: <span class="kw">return</span> { status: <span class="str">'success'</span>, data: action.data };
+<span class="kw">case</span> <span class="str">'error'</span>: <span class="kw">return</span> { status: <span class="str">'error'</span>, message: action.message };
+<span class="kw">case</span> <span class="str">'reset'</span>: <span class="kw">return</span> { status: <span class="str">'idle'</span> };
+}
+}
+
+console.<span class="fn">log</span>(<span class="fn">reducer</span>, <span class="fn">CounterWithHistory</span>, <span class="fn">fetchReducer</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Many related fields</h4>
+<p>Count + history are inseparable. One dispatch updates both consistently. With useState, you'd have to remember to update both.</p>
+</div>
+<div class="concept-card">
+<h4>State transitions</h4>
+<p>Idle → loading → success/error is a state machine. The reducer defines allowed transitions; impossible ones become compile errors.</p>
+</div>
+<div class="concept-card">
+<h4>Testable in isolation</h4>
+<p><code>reducer(state, action)</code> is a pure function. Test it without rendering React. This is the biggest win for complex state.</p>
+</div>
+<div class="concept-card">
+<h4>Stable dispatch</h4>
+<p><code>dispatch</code> never changes identity. Safe to pass to children or omit from dependency arrays.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — The decision rule</h2>
+<p class="section-sub">A checklist for choosing between them.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The choice isn't about performance or preference — it's about state complexity. Here's the checklist. If the answer to any of these is "yes," useReducer is probably right.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">decision-rule.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState, useReducer } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── CHECKLIST ───────────────────────────────
+//
+// Use useReducer when ANY of these are true:
+//
+// ✅ 3+ useState calls that always change together
+// (e.g. loading + data + error)
+//
+// ✅ State has defined transitions
+// (e.g. idle → loading → success | error)
+//
+// ✅ Undo/redo or history matters
+// (e.g. counter with undo, text editor with back)
+//
+// ✅ Update logic has invariants
+// (e.g. selectedCount can't exceed items.length)
+//
+// ✅ You want to unit-test state transitions
+// (reducers are pure functions)
+//
+// ✅ State updates are complex
+// (e.g. conditional logic, sequences, guards)
+//
+// Use useState when ALL of these are true:
+//
+// ✅ 1-2 independent values
+// ✅ Simple, direct updates
+// ✅ No transitions or invariants
+// ✅ Testing the component tests the state
+//
+// ─────────────────────────────────────────────</span>
+
+<span class="com">// ─── Example 1: useState — simple and clear ──</span>
+<span class="kw">function</span> <span class="fn">ToggleButton</span>() {
+<span class="kw">const</span> [isOpen, setIsOpen] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">return</span> <button onClick={() => <span class="fn">setIsOpen</span>(o => !o)}>{isOpen ? <span class="str">'Open'</span> : <span class="str">'Closed'</span>}</button>;
+}
+
+<span class="com">// One boolean. One operation. useState wins.</span>
+
+<span class="com">// ─── Example 2: useReducer — form with validation</span>
+<span class="kw">interface</span> FormState {
+values: { name: <span class="fn">string</span>; email: <span class="fn">string</span> };
+errors: { name?: <span class="fn">string</span>; email?: <span class="fn">string</span> };
+touched: { name: <span class="fn">boolean</span>; email: <span class="fn">boolean</span> };
+submitting: <span class="fn">boolean</span>;
+}
+
+<span class="kw">type</span> FormAction =
+| { type: <span class="str">'change'</span>; field: <span class="kw">keyof</span> FormState[<span class="str">'values'</span>]; value: <span class="fn">string</span> }
+| { type: <span class="str">'blur'</span>; field: <span class="kw">keyof</span> FormState[<span class="str">'touched'</span>] }
+| { type: <span class="str">'submit'</span> }
+| { type: <span class="str">'success'</span> }
+| { type: <span class="str">'error'</span>; errors: FormState[<span class="str">'errors'</span>] };
+
+<span class="kw">function</span> <span class="fn">formReducer</span>(state: FormState, action: FormAction): FormState {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'change'</span>:
+<span class="kw">return</span> {
+...state,
+values: { ...state.values, [action.field]: action.value }
+};
+<span class="kw">case</span> <span class="str">'blur'</span>:
+<span class="kw">return</span> {
+...state,
+touched: { ...state.touched, [action.field]: <span class="kw">true</span> }
+};
+<span class="kw">case</span> <span class="str">'submit'</span>:
+<span class="kw">return</span> { ...state, submitting: <span class="kw">true</span>, errors: {} };
+<span class="kw">case</span> <span class="str">'success'</span>:
+<span class="kw">return</span> { ...state, submitting: <span class="kw">false</span> };
+<span class="kw">case</span> <span class="str">'error'</span>:
+<span class="kw">return</span> { ...state, submitting: <span class="kw">false</span>, errors: action.errors };
+}
+}
+
+<span class="kw">function</span> <span class="fn">ComplexForm</span>() {
+<span class="kw">const</span> [state, dispatch] = <span class="fn">useReducer</span>(formReducer, {
+values: { name: <span class="str">''</span>, email: <span class="str">''</span> },
+errors: {},
+touched: { name: <span class="kw">false</span>, email: <span class="kw">false</span> },
+submitting: <span class="kw">false</span>
+});
+
+<span class="com">// 4 fields on FormState, 5 action types, complex transitions
+// → useState would need 4+ separate calls + sync issues
+// → useReducer keeps everything in one reducer, testable</span>
+
+<span class="kw">return</span> <form />;
+}
+
+<span class="com">// ─── Example 3: useState — data fetching (simple)</span>
+<span class="kw">function</span> <span class="fn">SimpleFetch</span>({ url }: { url: <span class="fn">string</span> }) {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span><<span class="fn">unknown</span>>(<span class="fn">null</span>);
+<span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="kw">true</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span><<span class="fn">string</span> | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="com">// For a single fetch in a single component, 3 useState calls is fine.
+// The states are independent in practice (only one is "on" at a time).
+// If you extract this to useFetch → useReducer becomes better (discriminated union).</span>
+
+<span class="kw">return</span> <span class="fn">null</span>;
+}
+
+<span class="com">// ─── The progressive threshold ───────────────
+//
+// Start with useState. Add complexity slowly.
+//
+// 1-2 states, simple → useState
+// 3+ states, related → useReducer
+// Complex transitions → useReducer
+// Extractable to a hook → often useReducer (discriminated union)
+// Needs unit testing → useReducer (pure reducer)
+//
+// If you find yourself writing:
+// setLoading(true); setData(null); setError(null);
+// ... fetch ...
+// setLoading(false); setData(data);
+//
+// That's 4 setters that always change together.
+// That's a signal. Use useReducer.</span>
+
+console.<span class="fn">log</span>(<span class="fn">ToggleButton</span>, <span class="fn">formReducer</span>, <span class="fn">ComplexForm</span>, <span class="fn">SimpleFetch</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useReducer } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">ToggleButton</span>() {
+<span class="kw">const</span> [isOpen, setIsOpen] = <span class="fn">useState</span>(<span class="kw">false</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setIsOpen</span>(o => !o) }, isOpen ? <span class="str">'Open'</span> : <span class="str">'Closed'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">formReducer</span>(state, action) {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'change'</span>:
+<span class="kw">return</span> { ...state, values: { ...state.values, [action.field]: action.value } };
+<span class="kw">case</span> <span class="str">'blur'</span>:
+<span class="kw">return</span> { ...state, touched: { ...state.touched, [action.field]: <span class="kw">true</span> } };
+<span class="kw">case</span> <span class="str">'submit'</span>:
+<span class="kw">return</span> { ...state, submitting: <span class="kw">true</span>, errors: {} };
+<span class="kw">case</span> <span class="str">'success'</span>:
+<span class="kw">return</span> { ...state, submitting: <span class="kw">false</span> };
+<span class="kw">case</span> <span class="str">'error'</span>:
+<span class="kw">return</span> { ...state, submitting: <span class="kw">false</span>, errors: action.errors };
+}
+}
+
+<span class="kw">function</span> <span class="fn">ComplexForm</span>() {
+<span class="kw">const</span> [state, dispatch] = <span class="fn">useReducer</span>(formReducer, {
+values: { name: <span class="str">''</span>, email: <span class="str">''</span> },
+errors: {},
+touched: { name: <span class="kw">false</span>, email: <span class="kw">false</span> },
+submitting: <span class="kw">false</span>
+});
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">SimpleFetch</span>({ url }) {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="kw">true</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="kw">return</span> <span class="fn">null</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">ToggleButton</span>, <span class="fn">formReducer</span>, <span class="fn">ComplexForm</span>, <span class="fn">SimpleFetch</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Start simple</h4>
+<p>Use <code>useState</code>. Add complexity only when it's earned. Refactoring <code>useState</code> → <code>useReducer</code> later is easy.</p>
+</div>
+<div class="concept-card">
+<h4>Watch for grouped setters</h4>
+<p><code>setLoading(true); setData(null); setError(null);</code> — 4 setters that always change together = reducer signal.</p>
+</div>
+<div class="concept-card">
+<h4>Reducers are pure</h4>
+<p>Same input → same output. No side effects. That's what makes them testable and predictable.</p>
+</div>
+<div class="concept-card">
+<h4>Both are valid</h4>
+<p>Neither is "better." Both are correct for different codebases. Pick the one that reads clearer for the specific state.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The best refactor signal: your component has 4+ useState calls for one logical concept.</strong> Loading, data, error, lastUpdated, retryCount — five useState calls that always change together. That's a reducer. The reducer gives you one state object, one action type per transition, and a testable pure function. Same for form state — values + errors + touched + submitting in five useState calls is a nightmare; one reducer is clean. The rule: if the states are related, bundle them.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The useReducer mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using useReducer for one boolean</div>
+<p>Over-engineering. Fix: <code>useState</code> for simple state — one value, one operation.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Mutating state in the reducer</div>
+<p><code>state.count++</code> — no re-render. Fix: <code>return { ...state, count: state.count + 1 }</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Forgetting to return default</div>
+<p><code>switch</code> without a default — returns <code>undefined</code> for unknown actions. Fix: exhaustive switch with <code>never</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Side effects inside the reducer</div>
+<p><code>fetch()</code> in the reducer — reducers must be pure. Fix: dispatch from effects, reducer only computes state.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Not memoizing dispatch consumers</div>
+<p><code>dispatch</code> is stable, but state-derived callbacks aren't. Fix: <code>useCallback</code> when passing derived handlers down.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Using useReducer for performance</div>
+<p>Both re-render the same way. Fix: choose based on readability; use <code>useMemo</code> for perf.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Complex actions without discriminated unions</div>
+<p>Actions typed as <code>{ type: string; payload?: any }</code>. Fix: discriminated union — <code>{ type: 'add'; by: number } | { type: 'reset' }</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not extracting reducers</div>
+<p>Reducer inline in the component — hard to test. Fix: define it outside the component, export for tests.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between useState and useReducer?</summary>
+<p class="mt-2 text-sm text-slate-300">useState manages one value and exposes a setter. useReducer manages a state object via a reducer function and dispatches actions. useState is simpler; useReducer scales better for complex state. Both trigger re-renders. Choose based on complexity: 1-2 independent values → useState; 3+ related values or state transitions → useReducer.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use useReducer?</summary>
+<p class="mt-2 text-sm text-slate-300">Three signals. (1) The state has multiple related fields that transition together. (2) The next state depends on the previous state in non-trivial ways — undo, redo. (3) The state update logic is complex enough to test independently — reducers are pure functions.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Is useReducer faster than useState?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Both trigger re-renders the same way. The performance is nearly identical for most use cases. Choose useReducer for code clarity and testability, not for speed.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How does dispatch compare to setState?</summary>
+<p class="mt-2 text-sm text-slate-300">setState takes a new value or updater function. dispatch takes an action object. The reducer function decides what the new state is based on the action. dispatch is stable — it never changes identity across renders.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/state.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 3: State & useState</div>
+<div class="text-xs text-slate-400 mt-1">The useState foundation</div>
+</a>
+<a href="/courses/react/problems/state-not-updating.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "State is not updating"</div>
+<div class="text-xs text-slate-400 mt-1">The async state confusion</div>
+</a>
+<a href="/courses/react/problems/update-array-in-state.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to update an array in state</div>
+<div class="text-xs text-slate-400 mt-1">Reducers handle arrays well</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
