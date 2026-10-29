@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React "Maximum update depth exceeded" — How to Fix (2026)</title>
+<meta name="description" content="Fix React error "Maximum update depth exceeded." Learn the three causes of infinite render loops and how to fix each one safely.">
+<meta name="keywords" content="react maximum update depth exceeded, react infinite loop, react re-render loop, useeffect infinite loop, react setState loop">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React "Maximum update depth exceeded" — How to Fix">
+<meta property="og:description" content="Three causes of infinite render loops and how to fix each one.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/infinite-loop.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React "Maximum update depth exceeded"">
+<meta name="twitter:description" content="The three causes and three fixes.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/infinite-loop.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React "Maximum update depth exceeded" — How to Fix",
+"description": "Fix React error "Maximum update depth exceeded."",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What does "Maximum update depth exceeded" mean in React?","acceptedAnswer":{"@type":"Answer","text":"A component is triggering setState during render, in a useEffect with unstable dependencies, or in an event that re-fires itself, causing React to schedule renders faster than it can complete them. React stops after 50 nested updates and throws. The three common causes: (1) setState directly in the render function, (2) a useEffect whose dependency array includes a value with new identity on every render (function or object), (3) a useEffect that calls setState, which re-runs because of state dependencies. Each has a distinct fix."}},
+{"@type":"Question","name":"How do I find which useEffect is causing the loop?","acceptedAnswer":{"@type":"Answer","text":"React's error message includes a component stack trace in the console — search upward to find the effect. Alternatively, add console.log to each useEffect and see which one fires repeatedly. Or use React DevTools Profiler — the flame graph will show the same component rendering dozens of times. Once you've found the effect, check the dependency array for functions, objects, or arrays that are recreated on every render — those are the most common culprits."}},
+{"@type":"Question","name":"Why does adding a function to useEffect dependencies cause a loop?","acceptedAnswer":{"@type":"Answer","text":"A function defined in a component body is a new object on every render — its reference changes each time the component renders. If it's in the dependency array, the effect thinks the dependency changed, so it re-runs. If the effect calls setState (directly or indirectly), that triggers another render, which creates a new function, which triggers the effect again — infinite loop. Fix: wrap the function in useCallback so its reference is stable until its dependencies change."}},
+{"@type":"Question","name":"How do I stop an infinite loop in useEffect?","acceptedAnswer":{"@type":"Answer","text":"Identify the cause: (1) setState in render — move it to an event or effect. (2) Function in deps — wrap with useCallback. (3) Object/array in deps — wrap with useMemo or destructure primitives. (4) Effect calls setState with a value that changes — use functional setState (setX(prev => ...)) or add a guard. (5) setState unconditionally in an effect with the state in its own dependency array — add a condition (if (x !== prevX) setX(x)) or move the state to a ref."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · infinite loop</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Infinite loop</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>"Maximum update depth exceeded."<br><span class="py-accent">Three causes, three fixes.</span></h1>
+<p class="lead">
+React stops after 50 nested updates and throws. The browser freezes for a second, then the console fills with warnings. This error means your component is causing renders faster than React can complete them — an infinite loop. There are exactly three causes, and each has a distinct fix. This page covers all three.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Find which component is looping (React's stack trace tells you). Then check for three patterns: (1) <strong>setState in render</strong> — move to an event handler or <code>useEffect</code>. (2) <strong>unstable dep</strong> in <code>useEffect</code> — wrap functions in <code>useCallback</code>, objects in <code>useMemo</code>. (3) <strong>effect sets state that's in its own deps</strong> — use functional <code>setState</code>, add a guard, or move the value to a ref. Once you fix the cause, the loop stops.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — setState in render</h2>
+<p class="section-sub">The most obvious cause — and the easiest to fix.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If you call <code>setState</code> during render, React schedules an update before the render finishes, which triggers a new render, which calls <code>setState</code> again — infinite loop. The fix: move the <code>setState</code> out of render, into an event handler or <code>useEffect</code>. Or, better, remove the state entirely and compute the value.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">setState-in-render.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: setState in render ─────────────────</span>
+<span class="kw">function</span> <span class="fn">BadCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="fn">setCount</span>(count + <span class="num">1</span>);
+<span class="com">// ⚠️ Maximum update depth exceeded
+// Render → setState → re-render → setState → ...</span>
+
+<span class="kw">return</span> <p>{count}</p>;
+}
+
+<span class="com">// ─── GOOD: setState in an event handler ──────</span>
+<span class="kw">function</span> <span class="fn">GoodCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">function</span> <span class="fn">increment</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>); <span class="com">// ✅ called from a click</span>
+}
+
+<span class="kw">return</span> <button onClick={increment}>Count: {count}</button>;
+}
+
+<span class="com">// ─── GOOD: derived value, no state ───────────</span>
+<span class="kw">function</span> <span class="fn">DerivedExample</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="com">// If a value is derived, compute it in render.
+// Don't store it in state — that causes the loop.</span>
+<span class="kw">const</span> doubled = count * <span class="num">2</span>; <span class="com">// ✅ derived, no loop</span>
+
+<span class="kw">return</span> (
+<div>
+<p>Count: {count}, Doubled: {doubled}</p>
+<button onClick={() => <span class="fn">setCount</span>(c => c + <span class="num">1</span>)}>+1</button>
+</div>
+);
+}
+
+<span class="com">// ─── BAD variant: setState inside .map() ─────</span>
+<span class="kw">function</span> <span class="fn">BadItems</span>({ items }: { items: <span class="fn">string</span>[] }) {
+<span class="kw">const</span> [valid, setValid] = <span class="fn">useState</span><<span class="fn">string</span>[]>([]);
+
+items.<span class="fn">forEach</span>(item => {
+<span class="kw">if</span> (item.<span class="fn">length</span> > <span class="num">0</span>) {
+<span class="fn">setValid</span>(v => [...v, item]); <span class="com">// ⚠️ setState during render</span>
+}
+});
+
+<span class="kw">return</span> <ul>{valid.<span class="fn">map</span>(v => <li key={v}>{v}</li>)}</ul>;
+}
+
+<span class="com">// ─── GOOD: compute during render ─────────────</span>
+<span class="kw">function</span> <span class="fn">GoodItems</span>({ items }: { items: <span class="fn">string</span>[] }) {
+<span class="com">// ✅ Filter during render — no state, no loop</span>
+<span class="kw">const</span> valid = items.<span class="fn">filter</span>(item => item.<span class="fn">length</span> > <span class="num">0</span>);
+
+<span class="kw">return</span> <ul>{valid.<span class="fn">map</span>(v => <li key={v}>{v}</li>)}</ul>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadCounter</span>, <span class="fn">GoodCounter</span>, <span class="fn">DerivedExample</span>, <span class="fn">BadItems</span>, <span class="fn">GoodItems</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="fn">setCount</span>(count + <span class="num">1</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count);
+}
+
+<span class="kw">function</span> <span class="fn">GoodCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">function</span> <span class="fn">increment</span>() {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: increment }, <span class="str">'Count: '</span>, count);
+}
+
+<span class="kw">function</span> <span class="fn">DerivedExample</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> doubled = count * <span class="num">2</span>;
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Count: '</span>, count, <span class="str">', Doubled: '</span>, doubled),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setCount</span>(c => c + <span class="num">1</span>) }, <span class="str">'+1'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">BadItems</span>({ items }) {
+<span class="kw">const</span> [valid, setValid] = <span class="fn">useState</span>([]);
+items.<span class="fn">forEach</span>(item => {
+<span class="kw">if</span> (item.<span class="fn">length</span> > <span class="num">0</span>) {
+<span class="fn">setValid</span>(v => [...v, item]);
+}
+});
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, valid.<span class="fn">map</span>(v => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: v }, v)));
+}
+
+<span class="kw">function</span> <span class="fn">GoodItems</span>({ items }) {
+<span class="kw">const</span> valid = items.<span class="fn">filter</span>(item => item.<span class="fn">length</span> > <span class="num">0</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, valid.<span class="fn">map</span>(v => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: v }, v)));
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadCounter</span>, <span class="fn">GoodCounter</span>, <span class="fn">DerivedExample</span>, <span class="fn">BadItems</span>, <span class="fn">GoodItems</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>setState ≠ render</h4>
+<p>Render is for computing JSX. <code>setState</code> schedules a new render. Calling it during render creates a loop.</p>
+</div>
+<div class="concept-card">
+<h4>Event handlers are safe</h4>
+<p><code>onClick</code>, <code>onChange</code> — these run after render. <code>setState</code> there schedules one render.</p>
+</div>
+<div class="concept-card">
+<h4>Derived values</h4>
+<p>If a value comes from other state, compute it in render. <code>const doubled = count * 2</code>. Don't store it.</p>
+</div>
+<div class="concept-card">
+<h4>Filtering/mapping</h4>
+<p>Do it during render. <code>items.filter(...)</code> in render is fine — it's not state, it's a computed value.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Unstable dependency in useEffect</h2>
+<p class="section-sub">The most common cause in real codebases.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When a <code>useEffect</code> has a dependency whose identity changes on every render, the effect re-runs on every render. If the effect also updates state, you get a loop: render → effect → setState → render → effect → setState → ... The fix: stabilize the dependency with <code>useCallback</code>, <code>useMemo</code>, or destructuring.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">unstable-dep.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState, useEffect, useCallback, useMemo } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: object dep causes loop ─────────────</span>
+<span class="kw">function</span> <span class="fn">BadObjectDep</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> options = { retries: <span class="num">3</span> }; <span class="com">// new object every render</span>
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">setData</span>(d => d + <span class="num">1</span>);
+}, [options]);
+<span class="com">// ⚠️ Effect runs every render (options changed)
+// Effect calls setData → renders again → options changes → loop</span>
+
+<span class="kw">return</span> <p>{data}</p>;
+}
+
+<span class="com">// ─── GOOD: useMemo stabilizes object ─────────</span>
+<span class="kw">function</span> <span class="fn">GoodObjectDep</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> options = <span class="fn">useMemo</span>(() => ({ retries: <span class="num">3</span> }), []); <span class="com">// ✅ stable</span>
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">setData</span>(d => d + <span class="num">1</span>);
+}, [options]);
+<span class="com">// ✅ Effect runs once (options stable)
+// Effect calls setData → renders again → options unchanged → no loop</span>
+
+<span class="kw">return</span> <p>{data}</p>;
+}
+
+<span class="com">// ─── BAD: function dep causes loop ───────────</span>
+<span class="kw">function</span> <span class="fn">BadFunctionDep</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> <span class="fn">fetchData</span> = () => {
+<span class="fn">setData</span>(d => d + <span class="num">1</span>);
+};
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetchData</span>();
+}, [fetchData]);
+<span class="com">// ⚠️ Loop — fetchData is new on every render</span>
+
+<span class="kw">return</span> <p>{data}</p>;
+}
+
+<span class="com">// ─── GOOD: useCallback stabilizes function ───</span>
+<span class="kw">function</span> <span class="fn">GoodFunctionDep</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="kw">const</span> fetchData = <span class="fn">useCallback</span>(() => {
+<span class="fn">setData</span>(d => d + <span class="num">1</span>);
+}, []); <span class="com">// ✅ stable</span>
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetchData</span>();
+}, [fetchData]);
+<span class="com">// ✅ Effect runs once</span>
+
+<span class="kw">return</span> <p>{data}</p>;
+}
+
+<span class="com">// ─── GOOD: inline the function instead ───────</span>
+<span class="kw">function</span> <span class="fn">InlineFix</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="com">// No external function, no dependency</span>
+<span class="fn">setData</span>(d => d + <span class="num">1</span>);
+}, []); <span class="com">// ✅ runs once on mount</span>
+
+<span class="kw">return</span> <p>{data}</p>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadObjectDep</span>, <span class="fn">GoodObjectDep</span>, <span class="fn">BadFunctionDep</span>, <span class="fn">GoodFunctionDep</span>, <span class="fn">InlineFix</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect, useCallback, useMemo } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadObjectDep</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> options = { retries: <span class="num">3</span> };
+<span class="fn">useEffect</span>(() => { <span class="fn">setData</span>(d => d + <span class="num">1</span>); }, [options]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, data);
+}
+
+<span class="kw">function</span> <span class="fn">GoodObjectDep</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> options = <span class="fn">useMemo</span>(() => ({ retries: <span class="num">3</span> }), []);
+<span class="fn">useEffect</span>(() => { <span class="fn">setData</span>(d => d + <span class="num">1</span>); }, [options]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, data);
+}
+
+<span class="kw">function</span> <span class="fn">BadFunctionDep</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> fetchData = () => { <span class="fn">setData</span>(d => d + <span class="num">1</span>); };
+<span class="fn">useEffect</span>(() => { <span class="fn">fetchData</span>(); }, [fetchData]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, data);
+}
+
+<span class="kw">function</span> <span class="fn">GoodFunctionDep</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> fetchData = <span class="fn">useCallback</span>(() => { <span class="fn">setData</span>(d => d + <span class="num">1</span>); }, []);
+<span class="fn">useEffect</span>(() => { <span class="fn">fetchData</span>(); }, [fetchData]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, data);
+}
+
+<span class="kw">function</span> <span class="fn">InlineFix</span>() {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="fn">useEffect</span>(() => { <span class="fn">setData</span>(d => d + <span class="num">1</span>); }, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, data);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadObjectDep</span>, <span class="fn">GoodObjectDep</span>, <span class="fn">BadFunctionDep</span>, <span class="fn">GoodFunctionDep</span>, <span class="fn">InlineFix</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Objects have identity</h4>
+<p><code>{ retries: 3 }</code> creates a new object each render — different reference. <code>useMemo</code> returns the same reference until deps change.</p>
+</div>
+<div class="concept-card">
+<h4>Functions have identity</h4>
+<p>Same for functions. <code>useCallback(fn, [])</code> returns the same function until deps change.</p>
+</div>
+<div class="concept-card">
+<h4>Inline vs stabilize</h4>
+<p>If the function is only used in the effect, move it inside — no dependency. <code>useCallback</code> is for functions that must be passed to other components.</p>
+</div>
+<div class="concept-card">
+<h4>Primitives don't need memo</h4>
+<p>Strings, numbers, booleans — <code>count</code>, <code>id</code>, <code>enabled</code> — are compared by value. Adding them to deps is fine.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Effect sets state that's in its own deps</h2>
+<p class="section-sub">The subtlest cause — and the most important to know.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The pattern: <code>useEffect(() => setX(...), [x])</code>. The effect reads <code>x</code>, sets <code>x</code>, which changes <code>x</code>, which re-runs the effect — infinite loop. The fix depends on what the effect is trying to do. Often, the state doesn't need to be in <code>useState</code> at all — it's a derived value.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">self-dep-effect.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState, useEffect, useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: effect depends on state it sets ────</span>
+<span class="kw">function</span> <span class="fn">BadSelfDep</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span><<span class="fn">string</span>[]>([]);
+
+<span class="fn">useEffect</span>(() => {
+<span class="com">// Reads items, sets items — infinite loop</span>
+<span class="fn">setItems</span>(prev => [...prev, <span class="str">'new item'</span>]);
+}, [items]);
+<span class="com">// ⚠️ Maximum update depth exceeded</span>
+
+<span class="kw">return</span> <ul>{items.<span class="fn">map</span>(i => <li key={i}>{i}</li>)}</ul>;
+}
+
+<span class="com">// ─── GOOD 1: derive, don't store ─────────────</span>
+<span class="kw">function</span> <span class="fn">DerivedFix</span>({ source }: { source: <span class="fn">string</span>[] }) {
+<span class="com">// No state needed — the "derived" list IS source</span>
+<span class="kw">return</span> <ul>{source.<span class="fn">map</span>(i => <li key={i}>{i}</li>)}</ul>;
+}
+
+<span class="com">// ─── GOOD 2: functional setState + guard ─────</span>
+<span class="kw">function</span> <span class="fn">GuardedFix</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span><<span class="fn">string</span>[]>([]);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">if</span> (items.<span class="fn">length</span> >= <span class="num">3</span>) <span class="kw">return</span>; <span class="com">// stop at 3</span>
+<span class="kw">const</span> timer = <span class="fn">setTimeout</span>(() => {
+<span class="fn">setItems</span>(prev => [...prev, <span class="str">item-${prev.length}`</span>]);
+}, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearTimeout</span>(timer);
+}, [items]); <span class="com">// ✅ guard prevents infinite loop</span>
+
+<span class="kw">return</span> <ul>{items.<span class="fn">map</span>(i => <li key={i}>{i}</li>)}</ul>;
+}
+
+<span class="com">// ─── GOOD 3: use a ref to track "latest" ─────</span>
+<span class="kw">function</span> <span class="fn">RefFix</span>({ value }: { value: <span class="fn">number</span> }) {
+<span class="kw">const</span> [history, setHistory] = <span class="fn">useState</span><<span class="fn">number</span>[]>([]);
+<span class="kw">const</span> lastValue = <span class="fn">useRef</span>(value);
+
+<span class="fn">useEffect</span>(() => {
+<span class="com">// Only record when value actually changed</span>
+<span class="kw">if</span> (lastValue.current !== value) {
+lastValue.current = value;
+<span class="fn">setHistory</span>(h => [...h, value]);
+}
+}, [value]); <span class="com">// ✅ depends on prop, guards with ref</span>
+
+<span class="kw">return</span> <p>History: {history.<span class="fn">join</span>(<span class="str">', '</span>)}</p>;
+}
+
+<span class="com">// ─── GOOD 4: run once, use setInterval ───────</span>
+<span class="kw">function</span> <span class="fn">IntervalFix</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>); <span class="com">// functional — no count dep</span>
+}, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, []); <span class="com">// ✅ runs once on mount</span>
+
+<span class="kw">return</span> <p>{count}</p>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadSelfDep</span>, <span class="fn">DerivedFix</span>, <span class="fn">GuardedFix</span>, <span class="fn">RefFix</span>, <span class="fn">IntervalFix</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect, useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadSelfDep</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span>([]);
+<span class="fn">useEffect</span>(() => { <span class="fn">setItems</span>(prev => [...prev, <span class="str">'new item'</span>]); }, [items]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, items.<span class="fn">map</span>(i => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, i)));
+}
+
+<span class="kw">function</span> <span class="fn">DerivedFix</span>({ source }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, source.<span class="fn">map</span>(i => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, i)));
+}
+
+<span class="kw">function</span> <span class="fn">GuardedFix</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span>([]);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">if</span> (items.<span class="fn">length</span> >= <span class="num">3</span>) <span class="kw">return</span>;
+<span class="kw">const</span> timer = <span class="fn">setTimeout</span>(() => {
+<span class="fn">setItems</span>(prev => [...prev, <span class="str">item-${prev.length}`</span>]);
+}, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearTimeout</span>(timer);
+}, [items]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>, items.<span class="fn">map</span>(i => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, i)));
+}
+
+<span class="kw">function</span> <span class="fn">RefFix</span>({ value }) {
+<span class="kw">const</span> [history, setHistory] = <span class="fn">useState</span>([]);
+<span class="kw">const</span> lastValue = <span class="fn">useRef</span>(value);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">if</span> (lastValue.current !== value) {
+lastValue.current = value;
+<span class="fn">setHistory</span>(h => [...h, value]);
+}
+}, [value]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'History: '</span>, history.<span class="fn">join</span>(<span class="str">', '</span>));
+}
+
+<span class="kw">function</span> <span class="fn">IntervalFix</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => { <span class="fn">setCount</span>(c => c + <span class="num">1</span>); }, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadSelfDep</span>, <span class="fn">DerivedFix</span>, <span class="fn">GuardedFix</span>, <span class="fn">RefFix</span>, <span class="fn">IntervalFix</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Don't store derived</h4>
+<p>If <code>x</code> comes from other state, don't put it in <code>useState</code>. Compute during render. Eliminates the need for the effect entirely.</p>
+</div>
+<div class="concept-card">
+<h4>Functional setState + guard</h4>
+<p><code>setX(prev => ...)</code> avoids stale closure. The guard (<code>if (x.length >= 3) return</code>) stops the loop conditionally.</p>
+</div>
+<div class="concept-card">
+<h4>Ref for "last value"</h4>
+<p><code>useRef</code> stores the previous value without triggering renders. <code>if (ref.current !== val)</code> guards the setState.</p>
+</div>
+<div class="concept-card">
+<h4>Intervals and timers</h4>
+<p><code>setInterval</code> + functional setState + empty deps = no loop, cleanup on unmount. The idiomatic pattern.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't silence the error by removing the dependency array.</strong> Removing deps means the effect runs every render — which is exactly the infinite loop, just without React catching it. Adding <code>// eslint-disable-next-line</code> hides the warning but keeps the loop. The fix is <em>always</em> to address the cause: don't set state in render, stabilize the dependency, or use functional setState with a guard. Every workaround trades a clear error for a silent bug.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The loop patterns that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. setState in render</div>
+<p>Function body, inside <code>.map()</code>, inside <code>.forEach()</code>. Fix: move to event handler or effect, or compute during render.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Object/array in deps</div>
+<p>New identity every render → effect re-runs. Fix: <code>useMemo</code>, or destructure primitives from it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Function in deps</div>
+<p>Same — new function every render. Fix: <code>useCallback</code>, or inline inside the effect.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Effect sets its own dep</div>
+<p><code>useEffect(() => setX(x + 1), [x])</code> — infinite loop. Fix: functional setState + guard, or derive instead.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. setState without a condition</div>
+<p><code>setX(newValue)</code> where <code>newValue !== x</code> — always triggers. Fix: <code>if (x !== newValue) setX(newValue)</code>, or use functional setState.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Store "last value" in state</div>
+<p><code>const [prev, setPrev] = useState(...)</code> — same problem. Fix: use <code>useRef</code> for previous values.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Removing deps as a "fix"</div>
+<p>Effect runs every render — same loop, no error message. Fix: address the dependency properly.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Calling setState in a store subscription</div>
+<p>Custom stores that notify on every change — the component re-renders, the store notifies, loop. Fix: <code>useSyncExternalStore</code> or guarded subscriptions.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does "Maximum update depth exceeded" mean in React?</summary>
+<p class="mt-2 text-sm text-slate-300">A component is triggering setState during render, in a useEffect with unstable dependencies, or in an event that re-fires itself, causing React to schedule renders faster than it can complete them. React stops after 50 nested updates and throws.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I find which useEffect is causing the loop?</summary>
+<p class="mt-2 text-sm text-slate-300">React's error message includes a component stack trace in the console — search upward to find the effect. Alternatively, add console.log to each useEffect and see which one fires repeatedly. Or use React DevTools Profiler — the flame graph will show the same component rendering dozens of times.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does adding a function to useEffect dependencies cause a loop?</summary>
+<p class="mt-2 text-sm text-slate-300">A function defined in a component body is a new object on every render — its reference changes each time the component renders. If it's in the dependency array, the effect thinks the dependency changed, so it re-runs. If the effect calls setState, that triggers another render, which creates a new function, which triggers the effect again — infinite loop.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I stop an infinite loop in useEffect?</summary>
+<p class="mt-2 text-sm text-slate-300">Identify the cause: (1) setState in render — move it. (2) Function in deps — wrap with useCallback. (3) Object/array in deps — wrap with useMemo or destructure primitives. (4) Effect calls setState with a value that changes — use functional setState or add a guard. (5) setState unconditionally in an effect with the state in its own dependency array — add a condition or move to a ref.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/useeffect-deps.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "useEffect has a missing dependency"</div>
+<div class="text-xs text-slate-400 mt-1">The prerequisite warning</div>
+</a>
+<a href="/courses/react/problems/cannot-update-during-render.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Cannot update a component while rendering"</div>
+<div class="text-xs text-slate-400 mt-1">The setState-in-render warning</div>
+</a>
+<a href="/courses/react/lessons/useeffect.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 5: useEffect</div>
+<div class="text-xs text-slate-400 mt-1">The full lesson on effects</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
