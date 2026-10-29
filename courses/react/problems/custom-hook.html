@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Write a Custom Hook in React (2026)</title>
+<meta name="description" content="Write custom hooks in React. The rules, naming conventions, patterns, and three full examples — useLocalStorage, useDebounce, useFetch.">
+<meta name="keywords" content="react custom hook, how to write custom hook, usecustomhook react, react hooks pattern, useLocalStorage hook">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Write a Custom Hook in React">
+<meta property="og:description" content="The rules, naming, and three full examples.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/custom-hook.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Write a Custom Hook in React">
+<meta name="twitter:description" content="The rules and three full examples.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/custom-hook.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Write a Custom Hook in React",
+"description": "Write custom hooks in React. The rules, naming conventions, patterns, and three full examples.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I write a custom hook in React?","acceptedAnswer":{"@type":"Answer","text":"A custom hook is a function that starts with 'use' and calls other hooks. Example: function useCounter(initial = 0) { const [count, setCount] = useState(initial); const increment = () => setCount(c => c + 1); return { count, increment }; }. The 'use' prefix is required — it tells React and lint rules that this is a hook, and it enables the rules-of-hooks checks. Custom hooks are just function composition — they let you extract stateful logic and share it between components."}},
+{"@type":"Question","name":"What is the difference between a custom hook and a regular function?","acceptedAnswer":{"@type":"Answer","text":"A custom hook can call other hooks (useState, useEffect, etc.). A regular function cannot — hooks can only be called from within components or other hooks. The 'use' prefix is how React and ESLint know a function is a hook, so its body can contain hook calls. If your function needs to use useState or useEffect, it must be a hook. If it's pure logic (no state, no effects), a regular function is simpler and reusable anywhere."}},
+{"@type":"Question","name":"Do custom hooks share state between components?","acceptedAnswer":{"@type":"Answer","text":"No — custom hooks share LOGIC, not state. Each call to useCounter() creates its own independent state. Two components calling useCounter() have separate counters. This is the most important thing to understand about custom hooks: they're a way to reuse stateful behavior, not a way to share state. For shared state, use Context, state management (Zustand, Redux), or lift state to a common parent."}},
+{"@type":"Question","name":"What are the rules for custom hooks?","acceptedAnswer":{"@type":"Answer","text":"Same rules as built-in hooks. (1) Name starts with 'use' — required for React to recognize it. (2) Call only at the top level of a component or another hook — never in loops, conditions, or nested functions. (3) Call from React components or other hooks only — never from regular JS functions, class components, or async callbacks. (4) No conditional hook calls — if the hook is called, all hooks inside it must be called too."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · custom hook</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Custom hook</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 6 min read</div>
+<h1>How to write a custom hook.<br><span class="py-accent">The rules and three full examples.</span></h1>
+<p class="lead">
+A custom hook is how you extract stateful logic from a component and reuse it. It's not a new API — it's function composition. But the rules, the naming, and the patterns matter. This page covers the rules, three complete examples (useLocalStorage, useDebounce, useFetch), and the one thing that trips up almost everyone: custom hooks don't share state.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> A custom hook is a function whose name starts with <code>use</code> and that calls other hooks. <code>function useCounter(init = 0) { const [count, setCount] = useState(init); ... }</code>. The <code>use</code> prefix is required — it tells React and lint rules the function is a hook. <strong>Custom hooks share logic, not state</strong> — each call gets its own state. For shared state, use Context or a state library.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — The simplest custom hook: useCounter</h2>
+<p class="section-sub">Extract stateful logic that would otherwise be duplicated.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A custom hook is just a function that starts with <code>use</code> and calls other hooks. The simplest useful one: <code>useCounter</code>. It bundles state, an increment function, a decrement function, and a reset into one call. Every component that uses it gets its own independent state.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">use-counter.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── The custom hook ─────────────────────────</span>
+<span class="kw">interface</span> UseCounterReturn {
+count: <span class="fn">number</span>;
+increment: () => <span class="fn">void</span>;
+decrement: () => <span class="fn">void</span>;
+reset: () => <span class="fn">void</span>;
+set: (value: <span class="fn">number</span>) => <span class="fn">void</span>;
+}
+
+<span class="kw">function</span> <span class="fn">useCounter</span>(initial: <span class="fn">number</span> = <span class="num">0</span>): UseCounterReturn {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(initial);
+
+<span class="kw">return</span> {
+count,
+increment: () => <span class="fn">setCount</span>(c => c + <span class="num">1</span>),
+decrement: () => <span class="fn">setCount</span>(c => c - <span class="num">1</span>),
+reset: () => <span class="fn">setCount</span>(initial),
+set: (value: <span class="fn">number</span>) => <span class="fn">setCount</span>(value)
+};
+}
+
+<span class="com">// ─── Usage ───────────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">CounterA</span>() {
+<span class="kw">const</span> { count, increment, decrement, reset } = <span class="fn">useCounter</span>(<span class="num">0</span>);
+
+<span class="kw">return</span> (
+<div>
+<p>Counter A: {count}</p>
+<button onClick={increment}>+1</button>
+<button onClick={decrement}>-1</button>
+<button onClick={reset}>Reset</button>
+</div>
+);
+}
+
+<span class="com">// ─── Independent state ───────────────────────</span>
+<span class="kw">function</span> <span class="fn">TwoCounters</span>() {
+<span class="com">// Each call gets its OWN state — not shared</span>
+<span class="kw">const</span> a = <span class="fn">useCounter</span>(<span class="num">0</span>);
+<span class="kw">const</span> b = <span class="fn">useCounter</span>(<span class="num">100</span>);
+
+<span class="kw">return</span> (
+<div>
+<p>A: {a.count} / B: {b.count}</p>
+<button onClick={a.increment}>A +1</button>
+<button onClick={b.increment}>B +1</button>
+</div>
+);
+}
+
+<span class="com">// ─── Custom hook vs regular function ─────────
+//
+// Custom hook (useCounter):
+// - Can call useState, useEffect, other hooks
+// - Name MUST start with 'use'
+// - Only callable inside components or other hooks
+//
+// Regular function (increment):
+// - Cannot call hooks
+// - Any name
+// - Callable anywhere
+//
+// Rule: if it uses hooks, it's a hook. Add 'use'.</span>
+
+console.<span class="fn">log</span>(<span class="fn">useCounter</span>, <span class="fn">CounterA</span>, <span class="fn">TwoCounters</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">useCounter</span>(initial = <span class="num">0</span>) {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(initial);
+<span class="kw">return</span> {
+count,
+increment: () => <span class="fn">setCount</span>(c => c + <span class="num">1</span>),
+decrement: () => <span class="fn">setCount</span>(c => c - <span class="num">1</span>),
+reset: () => <span class="fn">setCount</span>(initial),
+set: (value) => <span class="fn">setCount</span>(value)
+};
+}
+
+<span class="kw">function</span> <span class="fn">CounterA</span>() {
+<span class="kw">const</span> { count, increment, decrement, reset } = <span class="fn">useCounter</span>(<span class="num">0</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Counter A: '</span>, count),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: increment }, <span class="str">'+1'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: decrement }, <span class="str">'-1'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: reset }, <span class="str">'Reset'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">TwoCounters</span>() {
+<span class="kw">const</span> a = <span class="fn">useCounter</span>(<span class="num">0</span>);
+<span class="kw">const</span> b = <span class="fn">useCounter</span>(<span class="num">100</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'A: '</span>, a.count, <span class="str">' / B: '</span>, b.count),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: a.increment }, <span class="str">'A +1'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: b.increment }, <span class="str">'B +1'</span>)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">useCounter</span>, <span class="fn">CounterA</span>, <span class="fn">TwoCounters</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Name starts with <code>use</code></h4>
+<p>Required. React and ESLint use it to identify hooks. <code>counter()</code> is a regular function; <code>useCounter()</code> is a hook.</p>
+</div>
+<div class="concept-card">
+<h4>Calls other hooks</h4>
+<p>Inside, you use <code>useState</code>, <code>useEffect</code>, etc. That's what makes it a hook instead of a plain function.</p>
+</div>
+<div class="concept-card">
+<h4>Returns what's useful</h4>
+<p>The return can be an object (named fields), an array (tuple — like <code>useState</code>), or a single value. Whatever's cleanest.</p>
+</div>
+<div class="concept-card">
+<h4>State is per-call</h4>
+<p>Every call to <code>useCounter()</code> gets its own independent state. Two components — two counters. No sharing.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>The <code>use</code> prefix is not a convention — it's a requirement.</strong> React doesn't enforce it at runtime, but ESLint's exhaustive-deps and rules-of-hooks checks only run on functions starting with <code>use</code>. Without the prefix, you lose all hook-related linting, and bugs like "called <code>useState</code> conditionally" won't be caught. Every custom hook starts with <code>use</code> — no exceptions. This one rule prevents whole categories of subtle bugs.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — useLocalStorage (side-effect hook)</h2>
+<p class="section-sub">State that persists across reloads.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A more realistic custom hook: <code>useLocalStorage</code>. It works like <code>useState</code> but persists the value to <code>localStorage</code> and reads it back on mount. This is a hook with both state and effects — the pattern that makes custom hooks powerful.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">use-localstorage.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── The custom hook ─────────────────────────</span>
+<span class="kw">function</span> <span class="fn">useLocalStorage</span><T>(
+key: <span class="fn">string</span>,
+initial: T
+): [T, (value: T | ((prev: T) => T)) => <span class="fn">void</span>] {
+<span class="com">// Lazy init — reads localStorage once</span>
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span><T>(() => {
+<span class="kw">try</span> {
+<span class="kw">const</span> stored = <span class="fn">localStorage</span>.<span class="fn">getItem</span>(key);
+<span class="kw">return</span> stored ? <span class="fn">JSON</span>.<span class="fn">parse</span>(stored) : initial;
+} <span class="kw">catch</span> {
+<span class="kw">return</span> initial;
+}
+});
+
+<span class="com">// Persist on change</span>
+<span class="fn">useEffect</span>(() => {
+<span class="kw">try</span> {
+<span class="fn">localStorage</span>.<span class="fn">setItem</span>(key, <span class="fn">JSON</span>.<span class="fn">stringify</span>(value));
+} <span class="kw">catch</span> {
+console.<span class="fn">warn</span>(<span class="str">Failed to save ${key}`</span>);
+}
+}, [key, value]);
+
+<span class="kw">return</span> [value, setValue];
+}
+
+<span class="com">// ─── Usage: theme preference ─────────────────</span>
+<span class="kw">function</span> <span class="fn">ThemeToggle</span>() {
+<span class="kw">const</span> [theme, setTheme] = <span class="fn">useLocalStorage</span><<span class="str">'light'</span> | <span class="str">'dark'</span>>(<span class="str">'theme'</span>, <span class="str">'light'</span>);
+
+<span class="kw">return</span> (
+<div>
+<p>Current theme: {theme}</p>
+<button onClick={() => <span class="fn">setTheme</span>(t => t === <span class="str">'light'</span> ? <span class="str">'dark'</span> : <span class="str">'light'</span>)}>
+Toggle
+</button>
+</div>
+);
+}
+
+<span class="com">// ─── Usage: user preferences ─────────────────</span>
+<span class="kw">interface</span> Preferences {
+fontSize: <span class="fn">number</span>;
+notifications: <span class="fn">boolean</span>;
+}
+
+<span class="kw">function</span> <span class="fn">Settings</span>() {
+<span class="kw">const</span> [prefs, setPrefs] = <span class="fn">useLocalStorage</span><Preferences>(<span class="str">'prefs'</span>, {
+fontSize: <span class="num">16</span>,
+notifications: <span class="kw">true</span>
+});
+
+<span class="kw">return</span> (
+<div>
+<p>Font size: {prefs.fontSize}</p>
+<button onClick={() => <span class="fn">setPrefs</span>(p => ({ ...p, fontSize: p.fontSize + <span class="num">2</span> }))}>
+Larger
+</button>
+</div>
+);
+}
+
+<span class="com">// ─── Key points ──────────────────────────────
+//
+// 1. Generic <T> — works for any type
+// 2. Lazy initial state — reads once, not every render
+// 3. Effect syncs to localStorage on change
+// 4. Error handling — localStorage might throw (quota, private mode)
+// 5. Same interface as useState — setter accepts value or function
+//
+// This is the pattern: hide complexity, expose a simple API.</span>
+
+console.<span class="fn">log</span>(<span class="fn">useLocalStorage</span>, <span class="fn">ThemeToggle</span>, <span class="fn">Settings</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">useLocalStorage</span>(key, initial) {
+<span class="kw">const</span> [value, setValue] = <span class="fn">useState</span>(() => {
+<span class="kw">try</span> {
+<span class="kw">const</span> stored = <span class="fn">localStorage</span>.<span class="fn">getItem</span>(key);
+<span class="kw">return</span> stored ? <span class="fn">JSON</span>.<span class="fn">parse</span>(stored) : initial;
+} <span class="kw">catch</span> {
+<span class="kw">return</span> initial;
+}
+});
+<span class="fn">useEffect</span>(() => {
+<span class="kw">try</span> {
+<span class="fn">localStorage</span>.<span class="fn">setItem</span>(key, <span class="fn">JSON</span>.<span class="fn">stringify</span>(value));
+} <span class="kw">catch</span> {
+console.<span class="fn">warn</span>(<span class="str">Failed to save${key}`</span>);
+}
+}, [key, value]);
+<span class="kw">return</span> [value, setValue];
+}
+
+<span class="kw">function</span> <span class="fn">ThemeToggle</span>() {
+<span class="kw">const</span> [theme, setTheme] = <span class="fn">useLocalStorage</span>(<span class="str">'theme'</span>, <span class="str">'light'</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Current theme: '</span>, theme),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setTheme</span>(t => t === <span class="str">'light'</span> ? <span class="str">'dark'</span> : <span class="str">'light'</span>) }, <span class="str">'Toggle'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">Settings</span>() {
+<span class="kw">const</span> [prefs, setPrefs] = <span class="fn">useLocalStorage</span>(<span class="str">'prefs'</span>, { fontSize: <span class="num">16</span>, notifications: <span class="kw">true</span> });
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Font size: '</span>, prefs.fontSize),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setPrefs</span>(p => ({ ...p, fontSize: p.fontSize + <span class="num">2</span> })) }, <span class="str">'Larger'</span>)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">useLocalStorage</span>, <span class="fn">ThemeToggle</span>, <span class="fn">Settings</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Generic hook</h4>
+<p><code>useLocalStorage<T></code> works for any type. The caller specifies T — hook works the same way regardless.</p>
+</div>
+<div class="concept-card">
+<h4>Lazy init</h4>
+<p><code>useState(() => readStorage())</code> — the initializer runs only on mount. Not on every render. Saves reads.</p>
+</div>
+<div class="concept-card">
+<h4>Effect syncs</h4>
+<p>The effect writes to localStorage whenever value changes. Automatic persistence.</p>
+</div>
+<div class="concept-card">
+<h4>Same API as useState</h4>
+<p>Returns <code>[value, setter]</code>. The setter accepts a value or function. Callers swap <code>useState</code> for <code>useLocalStorage</code> without other changes.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — useDebounce and useFetch</h2>
+<p class="section-sub">The two hooks you'll write repeatedly.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Two custom hooks that appear in almost every codebase. <code>useDebounce</code> delays a value (classic for search inputs). <code>useFetch</code> bundles the fetch-and-validate pattern. Both are examples of "hide the effect, expose the value."</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">useful-hooks.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── useDebounce ─────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">useDebounce</span><T>(value: T, delay: <span class="fn">number</span> = <span class="num">300</span>): T {
+<span class="kw">const</span> [debounced, setDebounced] = <span class="fn">useState</span>(value);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setTimeout</span>(() => <span class="fn">setDebounced</span>(value), delay);
+<span class="kw">return</span> () => <span class="fn">clearTimeout</span>(id);
+}, [value, delay]);
+
+<span class="kw">return</span> debounced;
+}
+
+<span class="com">// Usage: type-ahead search</span>
+<span class="kw">function</span> <span class="fn">SearchBox</span>() {
+<span class="kw">const</span> [query, setQuery] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> debounced = <span class="fn">useDebounce</span>(query, <span class="num">500</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">if</span> (debounced) {
+<span class="fn">fetch</span>(<span class="str">/api/search?q=${debounced}`</span>);
+}
+}, [debounced]); <span class="com">// only fires after 500ms of quiet</span>
+
+<span class="kw">return</span> <input value={query} onChange={e => <span class="fn">setQuery</span>(e.target.value)} />;
+}
+
+<span class="com">// ─── useFetch ────────────────────────────────</span>
+<span class="kw">interface</span> UseFetchResult<T> {
+data: T | <span class="fn">null</span>;
+loading: <span class="fn">boolean</span>;
+error: <span class="fn">string</span> | <span class="fn">null</span>;
+}
+
+<span class="kw">function</span> <span class="fn">useFetch</span><T>(url: <span class="fn">string</span>): UseFetchResult<T> {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span><T | <span class="fn">null</span>>(<span class="fn">null</span>);
+<span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="kw">true</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span><<span class="fn">string</span> | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> controller = <span class="kw">new</span> <span class="fn">AbortController</span>();
+<span class="kw">let</span> cancelled = <span class="kw">false</span>;
+
+<span class="fn">setLoading</span>(<span class="kw">true</span>);
+<span class="fn">setError</span>(<span class="fn">null</span>);
+
+<span class="fn">fetch</span>(url, { signal: controller.signal })
+.<span class="fn">then</span>(r => {
+<span class="kw">if</span> (!r.ok) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">HTTP${r.status}`</span>);
+<span class="kw">return</span> r.<span class="fn">json</span>();
+})
+.<span class="fn">then</span>(d => {
+<span class="kw">if</span> (!cancelled) {
+<span class="fn">setData</span>(d);
+<span class="fn">setLoading</span>(<span class="kw">false</span>);
+}
+})
+.<span class="fn">catch</span>(err => {
+<span class="kw">if</span> (err.name !== <span class="str">'AbortError'</span> && !cancelled) {
+<span class="fn">setError</span>(err.<span class="fn">message</span>);
+<span class="fn">setLoading</span>(<span class="kw">false</span>);
+}
+});
+
+<span class="kw">return</span> () => {
+cancelled = <span class="kw">true</span>;
+controller.<span class="fn">abort</span>();
+};
+}, [url]);
+
+<span class="kw">return</span> { data, loading, error };
+}
+
+<span class="com">// Usage: display a user</span>
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+
+<span class="kw">function</span> <span class="fn">UserProfile</span>({ id }: { id: <span class="fn">string</span> }) {
+<span class="kw">const</span> { data, loading, error } = <span class="fn">useFetch</span><User>(<span class="str">/api/users/${id}`</span>);
+
+<span class="kw">if</span> (loading) <span class="kw">return</span> <p>Loading...</p>;
+<span class="kw">if</span> (error) <span class="kw">return</span> <p>Error: {error}</p>;
+<span class="kw">return</span> <p>{data?.name}</p>;
+}
+
+<span class="com">// ─── Composition — hooks calling hooks ───────</span>
+<span class="kw">function</span> <span class="fn">useDebouncedFetch</span><T>(query: <span class="fn">string</span>, delay = <span class="num">300</span>): UseFetchResult<T> {
+<span class="kw">const</span> debounced = <span class="fn">useDebounce</span>(query, delay);
+<span class="kw">const</span> url = debounced ? <span class="str">/api/search?q=${debounced}`</span> : <span class="str">''</span>;
+<span class="kw">return</span> <span class="fn">useFetch</span><T>(url);
+}
+
+<span class="com">// ─── Hooks compose ────────────────────────────
+//
+// useDebouncedFetch uses:
+// - useDebounce (which uses useState + useEffect)
+// - useFetch (which uses useState + useState + useState + useEffect)
+//
+// That's 6 built-in hooks under one custom hook.
+// Each call to useDebouncedFetch gets its own 6 state slots.
+// No conflict, no leakage. That's the power of hooks.</span>
+
+console.<span class="fn">log</span>(<span class="fn">useDebounce</span>, <span class="fn">SearchBox</span>, <span class="fn">useFetch</span>, <span class="fn">UserProfile</span>, <span class="fn">useDebouncedFetch</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">useDebounce</span>(value, delay = <span class="num">300</span>) {
+<span class="kw">const</span> [debounced, setDebounced] = <span class="fn">useState</span>(value);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setTimeout</span>(() => <span class="fn">setDebounced</span>(value), delay);
+<span class="kw">return</span> () => <span class="fn">clearTimeout</span>(id);
+}, [value, delay]);
+<span class="kw">return</span> debounced;
+}
+
+<span class="kw">function</span> <span class="fn">SearchBox</span>() {
+<span class="kw">const</span> [query, setQuery] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> debounced = <span class="fn">useDebounce</span>(query, <span class="num">500</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">if</span> (debounced) { <span class="fn">fetch</span>(<span class="str">/api/search?q=${debounced}`</span>); }
+}, [debounced]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: query, onChange: e => <span class="fn">setQuery</span>(e.target.value) });
+}
+
+<span class="kw">function</span> <span class="fn">useFetch</span>(url) {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="kw">const</span> [loading, setLoading] = <span class="fn">useState</span>(<span class="kw">true</span>);
+<span class="kw">const</span> [error, setError] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> controller = <span class="kw">new</span> <span class="fn">AbortController</span>();
+<span class="kw">let</span> cancelled = <span class="kw">false</span>;
+<span class="fn">setLoading</span>(<span class="kw">true</span>);
+<span class="fn">setError</span>(<span class="fn">null</span>);
+<span class="fn">fetch</span>(url, { signal: controller.signal })
+.<span class="fn">then</span>(r => {
+<span class="kw">if</span> (!r.ok) <span class="kw">throw new</span> <span class="fn">Error</span>(<span class="str">HTTP${r.status}`</span>);
+<span class="kw">return</span> r.<span class="fn">json</span>();
+})
+.<span class="fn">then</span>(d => {
+<span class="kw">if</span> (!cancelled) { <span class="fn">setData</span>(d); <span class="fn">setLoading</span>(<span class="kw">false</span>); }
+})
+.<span class="fn">catch</span>(err => {
+<span class="kw">if</span> (err.name !== <span class="str">'AbortError'</span> && !cancelled) { <span class="fn">setError</span>(err.<span class="fn">message</span>); <span class="fn">setLoading</span>(<span class="kw">false</span>); }
+});
+<span class="kw">return</span> () => { cancelled = <span class="kw">true</span>; controller.<span class="fn">abort</span>(); };
+}, [url]);
+<span class="kw">return</span> { data, loading, error };
+}
+
+<span class="kw">function</span> <span class="fn">UserProfile</span>({ id }) {
+<span class="kw">const</span> { data, loading, error } = <span class="fn">useFetch</span>(<span class="str">/api/users/${id}`</span>);
+<span class="kw">if</span> (loading) <span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Loading...'</span>);
+<span class="kw">if</span> (error) <span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Error: '</span>, error);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, data?.name);
+}
+
+<span class="kw">function</span> <span class="fn">useDebouncedFetch</span>(query, delay = <span class="num">300</span>) {
+<span class="kw">const</span> debounced = <span class="fn">useDebounce</span>(query, delay);
+<span class="kw">const</span> url = debounced ? <span class="str">/api/search?q=${debounced}`</span> : <span class="str">''</span>;
+<span class="kw">return</span> <span class="fn">useFetch</span>(url);
+}
+
+console.<span class="fn">log</span>(<span class="fn">useDebounce</span>, <span class="fn">SearchBox</span>, <span class="fn">useFetch</span>, <span class="fn">UserProfile</span>, <span class="fn">useDebouncedFetch</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>useDebounce</h4>
+<p>Delays a value — perfect for search inputs. The effect resets the timer on every change. Only the last value survives.</p>
+</div>
+<div class="concept-card">
+<h4>useFetch</h4>
+<p>Bundles fetch + abort + loading + error. Every component that fetches uses this — no repeated boilerplate.</p>
+</div>
+<div class="concept-card">
+<h4>Composition</h4>
+<p>Custom hooks can call each other. <code>useDebouncedFetch</code> uses <code>useDebounce</code> + <code>useFetch</code>. Each call still has independent state.</p>
+</div>
+<div class="concept-card">
+<h4>Hide the complexity</h4>
+<p>The point of a custom hook: the component doesn't see the effects, the abort controllers, the timers. Just clean data.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Custom hooks share logic, not state.</strong> Two components calling <code>useFetch('/api/users')</code> make two separate fetches. Two <code>useLocalStorage('theme')</code> calls share the underlying storage (both read/write the same key) but have independent React state — they can drift until one writes. If you need shared React state, use Context or a state library. Custom hooks are the wrong tool for sharing state; they're the right tool for sharing stateful behavior.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The custom hook mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Not starting with <code>use</code></div>
+<p><code>function counter() { useState(...) }</code> — hooks called from a non-hook. Fix: <code>function useCounter()</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Calling a hook conditionally</div>
+<p><code>if (x) { useState(...) }</code> — breaks hooks. Fix: call unconditionally, gate the logic inside.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Calling a hook from a regular function</div>
+<p><code>const handleClick = () => { useState(...) }</code> — hooks must be at the top level. Fix: extract the hook to the component top level.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Expecting shared state</div>
+<p>Two calls to <code>useCounter()</code> have separate counters. Fix: use Context or lift the state up.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Making the hook do too much</div>
+<p>A hook that fetches, caches, debounces, and formats. Fix: compose small hooks. Each hook does one thing.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Forgetting cleanup in a custom effect</div>
+<p>The hook's <code>useEffect</code> has no cleanup — component leaks. Fix: every effect that starts something must clean up.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Hooks inside loops</div>
+<p><code>items.map(i => useCustomHook(i))</code> — rules-of-hooks violation. Fix: extract an inner component, or use one hook with an array.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Async custom hooks that aren't hooks</div>
+<p><code>async function useX() { ... }</code> — hooks can't be async. Fix: define an async function inside, or use effects for async work.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I write a custom hook in React?</summary>
+<p class="mt-2 text-sm text-slate-300">A custom hook is a function that starts with 'use' and calls other hooks. Example: function useCounter(initial = 0) { const [count, setCount] = useState(initial); const increment = () => setCount(c => c + 1); return { count, increment }; }. The 'use' prefix is required.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between a custom hook and a regular function?</summary>
+<p class="mt-2 text-sm text-slate-300">A custom hook can call other hooks (useState, useEffect, etc.). A regular function cannot — hooks can only be called from within components or other hooks. The 'use' prefix is how React and ESLint know a function is a hook, so its body can contain hook calls.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Do custom hooks share state between components?</summary>
+<p class="mt-2 text-sm text-slate-300">No — custom hooks share LOGIC, not state. Each call to useCounter() creates its own independent state. Two components calling useCounter() have separate counters. For shared state, use Context, state management (Zustand, Redux), or lift state to a common parent.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are the rules for custom hooks?</summary>
+<p class="mt-2 text-sm text-slate-300">Same rules as built-in hooks. (1) Name starts with 'use'. (2) Call only at the top level of a component or another hook. (3) Call from React components or other hooks only. (4) No conditional hook calls.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/rules-of-hooks.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Hooks can only be called inside..."</div>
+<div class="text-xs text-slate-400 mt-1">The rules-of-hooks error</div>
+</a>
+<a href="/courses/react/problems/useeffect-cleanup.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to clean up useEffect</div>
+<div class="text-xs text-slate-400 mt-1">Essential for useFetch, useDebounce</div>
+</a>
+<a href="/courses/react/problems/usememo-vs-usecallback.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ useMemo vs useCallback</div>
+<div class="text-xs text-slate-400 mt-1">When custom hooks need them</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
