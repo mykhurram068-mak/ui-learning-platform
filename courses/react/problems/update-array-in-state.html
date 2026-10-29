@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Update an Array in State in React (2026)</title>
+<meta name="description" content="Update arrays in React state without mutation. Add, remove, edit, and sort items — the immutable patterns for every array operation, with working code.">
+<meta name="keywords" content="react update array state, react setstate array, react add item to array, react remove item from array, react immutable array">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Update an Array in State in React">
+<meta property="og:description" content="Add, remove, edit, sort — the immutable patterns for every array operation.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/update-array-in-state.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Update an Array in State in React">
+<meta name="twitter:description" content="Every immutable array update pattern.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/update-array-in-state.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Update an Array in State in React",
+"description": "Update arrays in React state without mutation. Add, remove, edit, and sort items.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I add an item to an array in React state?","acceptedAnswer":{"@type":"Answer","text":"Use the spread operator: setItems([...items, newItem]) or, with the functional form, setItems(prev => [...prev, newItem]). This creates a new array with the new item appended. Never use items.push(newItem) — push mutates the array in place, and React compares state by reference, so no re-render happens. To add at the beginning: setItems(prev => [newItem, ...prev])."}},
+{"@type":"Question","name":"How do I remove an item from an array in state?","acceptedAnswer":{"@type":"Answer","text":"Use filter: setItems(prev => prev.filter(i => i.id !== id)). Filter returns a new array without the matching items. This is the cleanest way to remove. Never use splice — it mutates. For removing by index, pass the index to filter: setItems(prev => prev.filter((_, i) => i !== index)). Both patterns work for objects and primitives."}},
+{"@type":"Question","name":"How do I update an item in an array in state?","acceptedAnswer":{"@type":"Answer","text":"Use map: setItems(prev => prev.map(i => i.id === id ? { ...i, name: 'new' } : i)). Map iterates, returns a new object for the matching item, leaves others unchanged. The result is a new array with the update applied. For primitives by index: setItems(prev => prev.map((item, i) => i === index ? 'new' : item)). Always create new objects/values, never mutate."}},
+{"@type":"Question","name":"How do I sort an array in state?","acceptedAnswer":{"@type":"Answer","text":"Sort mutates the original array, so never call it on state directly. Copy first: setItems(prev => [...prev].sort((a, b) => a.name.localeCompare(b.name))). The spread creates a new array, sort mutates the copy, and the result is a new sorted array. Same for reverse: [...prev].reverse(). This is the pattern for any mutating method (sort, reverse, splice)."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · update array in state</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Update array in state</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 6 min read</div>
+<h1>How to update an array in state.<br><span class="py-accent">Add, remove, edit, sort — no mutation.</span></h1>
+<p class="lead">
+Arrays are the most common collection in React state — to-do lists, chat messages, search results. Every update must produce a new array, not mutate the old one. The methods you already know (<code>push</code>, <code>splice</code>, <code>sort</code>) are exactly the ones you can't use. This page covers every array operation with the immutable pattern.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use methods that return new arrays: <code>filter</code> (remove), <code>map</code> (update), spread (add), <code>slice</code> / spread (copy). Never use <code>push</code>, <code>splice</code>, <code>sort</code>, <code>reverse</code> — they mutate. For sorting, copy first: <code>[...items].sort()</code>. Always use the functional setter: <code>setItems(prev => ...)</code>. When in doubt: <code>setItems(prev => produceNewArray(prev))</code>.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Add, remove, update</h2>
+<p class="section-sub">The three operations you'll use most.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Each operation has one right pattern. Adding uses spread. Removing uses filter. Updating uses map. All three return a new array — React sees the new reference, re-renders. The old array stays untouched, which is exactly what React needs.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">add-remove-update.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> Todo {
+id: <span class="fn">string</span>;
+text: <span class="fn">string</span>;
+done: <span class="fn">boolean</span>;
+}
+
+<span class="kw">function</span> <span class="fn">TodoList</span>() {
+<span class="kw">const</span> [todos, setTodos] = <span class="fn">useState</span><Todo[]>([]);
+<span class="kw">const</span> [input, setInput] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="com">// ─── ADD: spread at the end ──────────────────</span>
+<span class="kw">function</span> <span class="fn">addTodo</span>() {
+<span class="kw">if</span> (!input.<span class="fn">trim</span>()) <span class="kw">return</span>;
+<span class="fn">setTodos</span>(prev => [
+...prev,
+{ id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(), text: input, done: <span class="kw">false</span> }
+]);
+<span class="fn">setInput</span>(<span class="str">''</span>);
+}
+
+<span class="com">// ─── ADD at the beginning ────────────────────</span>
+<span class="kw">function</span> <span class="fn">addToTop</span>() {
+<span class="fn">setTodos</span>(prev => [
+{ id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(), text: input, done: <span class="kw">false</span> },
+...prev
+]);
+}
+
+<span class="com">// ─── REMOVE: filter ──────────────────────────</span>
+<span class="kw">function</span> <span class="fn">removeTodo</span>(id: <span class="fn">string</span>) {
+<span class="fn">setTodos</span>(prev => prev.<span class="fn">filter</span>(t => t.id !== id));
+}
+
+<span class="com">// ─── UPDATE: map ─────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">toggleTodo</span>(id: <span class="fn">string</span>) {
+<span class="fn">setTodos</span>(prev =>
+prev.<span class="fn">map</span>(t => t.id === id ? { ...t, done: !t.done } : t)
+);
+}
+
+<span class="com">// ─── UPDATE multiple fields ──────────────────</span>
+<span class="kw">function</span> <span class="fn">updateText</span>(id: <span class="fn">string</span>, text: <span class="fn">string</span>) {
+<span class="fn">setTodos</span>(prev =>
+prev.<span class="fn">map</span>(t => t.id === id ? { ...t, text } : t)
+);
+}
+
+<span class="com">// ─── CLEAR ALL ───────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">clearAll</span>() {
+<span class="fn">setTodos</span>([]);
+}
+
+<span class="com">// ─── REPLACE entire array ────────────────────</span>
+<span class="kw">function</span> <span class="fn">loadFromServer</span>() {
+<span class="fn">fetch</span>(<span class="str">'/api/todos'</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(setTodos);
+}
+
+<span class="kw">return</span> (
+<div>
+<div>
+<input value={input} onChange={e => <span class="fn">setInput</span>(e.target.value)} />
+<button onClick={addTodo}>Add</button>
+</div>
+<ul>
+{todos.<span class="fn">map</span>(todo => (
+<li key={todo.id}>
+<input
+type=<span class="str">"checkbox"</span>
+checked={todo.done}
+onChange={() => <span class="fn">toggleTodo</span>(todo.id)}
+/>
+<span style={{ textDecoration: todo.done ? <span class="str">'line-through'</span> : <span class="str">'none'</span> }}>
+{todo.text}
+</span>
+<button onClick={() => <span class="fn">removeTodo</span>(todo.id)}>×</button>
+</li>
+))}
+</ul>
+<button onClick={clearAll}>Clear all</button>
+</div>
+);
+}
+
+<span class="com">// ─── What NOT to do ──────────────────────────
+//
+// ❌ todos.push(newTodo); — mutates
+// ❌ setTodos(todos); — same reference
+//
+// ❌ todos.splice(index, 1); — mutates
+// ❌ setTodos(todos); — same reference
+//
+// ❌ todos[index] = newValue; — mutates
+// ❌ setTodos(todos); — same reference
+//
+// React compares state by reference. Mutation
+// keeps the same reference, so no re-render.
+//
+// ─────────────────────────────────────────────
+//
+// ✅ Add: setTodos([...prev, item])
+// ✅ Add at top: setTodos([item, ...prev])
+// ✅ Remove: setTodos(prev.filter(...))
+// ✅ Update: setTodos(prev.map(...))
+// ✅ Clear: setTodos([])
+// ✅ Replace: setTodos(newArray)</span>
+
+console.<span class="fn">log</span>(<span class="fn">TodoList</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">TodoList</span>() {
+<span class="kw">const</span> [todos, setTodos] = <span class="fn">useState</span>([]);
+<span class="kw">const</span> [input, setInput] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">function</span> <span class="fn">addTodo</span>() {
+<span class="kw">if</span> (!input.<span class="fn">trim</span>()) <span class="kw">return</span>;
+<span class="fn">setTodos</span>(prev => [...prev, { id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(), text: input, done: <span class="kw">false</span> }]);
+<span class="fn">setInput</span>(<span class="str">''</span>);
+}
+
+<span class="kw">function</span> <span class="fn">addToTop</span>() {
+<span class="fn">setTodos</span>(prev => [{ id: <span class="fn">crypto</span>.<span class="fn">randomUUID</span>(), text: input, done: <span class="kw">false</span> }, ...prev]);
+}
+
+<span class="kw">function</span> <span class="fn">removeTodo</span>(id) {
+<span class="fn">setTodos</span>(prev => prev.<span class="fn">filter</span>(t => t.id !== id));
+}
+
+<span class="kw">function</span> <span class="fn">toggleTodo</span>(id) {
+<span class="fn">setTodos</span>(prev => prev.<span class="fn">map</span>(t => t.id === id ? { ...t, done: !t.done } : t));
+}
+
+<span class="kw">function</span> <span class="fn">updateText</span>(id, text) {
+<span class="fn">setTodos</span>(prev => prev.<span class="fn">map</span>(t => t.id === id ? { ...t, text } : t));
+}
+
+<span class="kw">function</span> <span class="fn">clearAll</span>() {
+<span class="fn">setTodos</span>([]);
+}
+
+<span class="kw">function</span> <span class="fn">loadFromServer</span>() {
+<span class="fn">fetch</span>(<span class="str">'/api/todos'</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setTodos);
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: input, onChange: e => <span class="fn">setInput</span>(e.target.value) }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: addTodo }, <span class="str">'Add'</span>)
+),
+React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+todos.<span class="fn">map</span>(todo =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: todo.id },
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+type: <span class="str">'checkbox'</span>,
+checked: todo.done,
+onChange: () => <span class="fn">toggleTodo</span>(todo.id)
+}),
+React.<span class="fn">createElement</span>(<span class="str">'span'</span>, {
+style: { textDecoration: todo.done ? <span class="str">'line-through'</span> : <span class="str">'none'</span> }
+}, todo.text),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">removeTodo</span>(todo.id) }, <span class="str">'×'</span>)
+)
+)
+),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: clearAll }, <span class="str">'Clear all'</span>)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">TodoList</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Add = spread</h4>
+<p><code>[...prev, item]</code> — new array, item at end. <code>[item, ...prev]</code> for beginning.</p>
+</div>
+<div class="concept-card">
+<h4>Remove = filter</h4>
+<p><code>prev.filter(i => i.id !== id)</code> — new array without matching items. Never splice.</p>
+</div>
+<div class="concept-card">
+<h4>Update = map</h4>
+<p><code>prev.map(i => i.id === id ? {...i, done: !i.done} : i)</code> — new array, item updated, others preserved.</p>
+</div>
+<div class="concept-card">
+<h4>Never mutate</h4>
+<p><code>push</code>, <code>splice</code>, <code>sort</code>, <code>reverse</code> — all mutate. React sees the same reference, no re-render.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Memorize four methods: filter, map, spread, slice.</strong> They cover every array update. <code>filter</code> removes. <code>map</code> transforms. Spread adds. <code>slice</code> copies. Every array operation you'll ever need is built on these four. Push, splice, sort — the mutating methods — you'll never call on state. Once you internalize the four immutable methods, array updates become mechanical.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Sort, reverse, and other mutating methods</h2>
+<p class="section-sub">Copy first, then mutate the copy.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Some array methods only come in mutating form — <code>sort</code>, <code>reverse</code>, <code>splice</code>. You still need them. The fix: copy the array with spread, then call the method on the copy. The original stays untouched; the sorted/reversed result is a new array.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">sort-reverse.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> Item {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+price: <span class="fn">number</span>;
+}
+
+<span class="kw">function</span> <span class="fn">SortableList</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span><Item[]>([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Charlie'</span>, price: <span class="num">30</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Alice'</span>, price: <span class="num">10</span> },
+{ id: <span class="str">'3'</span>, name: <span class="str">'Bob'</span>, price: <span class="num">20</span> }
+]);
+
+<span class="com">// ─── BAD: sort mutates state ─────────────────</span>
+<span class="kw">function</span> <span class="fn">badSort</span>() {
+<span class="fn">items</span>.<span class="fn">sort</span>((a, b) => a.name.<span class="fn">localeCompare</span>(b.name));
+<span class="fn">setItems</span>(items); <span class="com">// same reference — no re-render</span>
+}
+
+<span class="com">// ─── GOOD: copy, then sort ───────────────────</span>
+<span class="kw">function</span> <span class="fn">sortByName</span>() {
+<span class="fn">setItems</span>(prev =>
+[...prev].<span class="fn">sort</span>((a, b) => a.name.<span class="fn">localeCompare</span>(b.name))
+);
+}
+
+<span class="kw">function</span> <span class="fn">sortByPrice</span>() {
+<span class="fn">setItems</span>(prev =>
+[...prev].<span class="fn">sort</span>((a, b) => a.price - b.price)
+);
+}
+
+<span class="com">// ─── Reverse: same pattern ───────────────────</span>
+<span class="kw">function</span> <span class="fn">reverseList</span>() {
+<span class="fn">setItems</span>(prev => [...prev].<span class="fn">reverse</span>());
+}
+
+<span class="com">// ─── Splice: insert at index (immutably) ─────</span>
+<span class="kw">function</span> <span class="fn">insertAt</span>(index: <span class="fn">number</span>, item: Item) {
+<span class="fn">setItems</span>(prev => [
+...prev.<span class="fn">slice</span>(<span class="num">0</span>, index),
+item,
+...prev.<span class="fn">slice</span>(index)
+]);
+}
+
+<span class="com">// ─── Splice: replace at index ────────────────</span>
+<span class="kw">function</span> <span class="fn">replaceAt</span>(index: <span class="fn">number</span>, item: Item) {
+<span class="fn">setItems</span>(prev => [
+...prev.<span class="fn">slice</span>(<span class="num">0</span>, index),
+item,
+...prev.<span class="fn">slice</span>(index + <span class="num">1</span>)
+]);
+}
+
+<span class="com">// ─── Splice: remove at index ─────────────────</span>
+<span class="kw">function</span> <span class="fn">removeAt</span>(index: <span class="fn">number</span>) {
+<span class="fn">setItems</span>(prev => [
+...prev.<span class="fn">slice</span>(<span class="num">0</span>, index),
+...prev.<span class="fn">slice</span>(index + <span class="num">1</span>)
+]);
+}
+
+<span class="com">// ─── More idiomatic: use filter/map ─────────
+// For "remove at index", the filter version is cleaner:
+// setItems(prev => prev.filter((_, i) => i !== index))
+// For "replace at index", the map version is cleaner:
+// setItems(prev => prev.map((item, i) => i === index ? newItem : item))
+// For "insert at index", slice + spread is the pattern.</span>
+
+<span class="com">// ─── Advanced: sorted derived value ──────────
+// Instead of sorting state, keep it unsorted and sort on render:</span>
+<span class="kw">const</span> sortedItems = [...items].<span class="fn">sort</span>((a, b) => a.name.<span class="fn">localeCompare</span>(b.name));
+
+<span class="kw">return</span> (
+<div>
+<button onClick={sortByName}>Sort by name</button>
+<button onClick={sortByPrice}>Sort by price</button>
+<button onClick={reverseList}>Reverse</button>
+<ul>
+{sortedItems.<span class="fn">map</span>(item => (
+<li key={item.id}>{item.name}: $`{item.price}</li>
+))}
+</ul>
+</div>
+);
+}
+
+<span class="com">// ─── The mutating methods and their immutable fixes
+//
+// sort(): [...prev].sort(...) or prev.toSorted(...)
+// reverse(): [...prev].reverse() or prev.toReversed()
+// splice(): [...] slice spread pattern or prev.toSpliced(...)
+// push(): [...prev, item]
+// unshift(): [item, ...prev]
+// pop(): prev.slice(0, -1)
+// shift(): prev.slice(1)
+//
+// ES2023 added toSorted, toReversed, toSpliced — they
+// return new arrays instead of mutating. Use them when
+// available; fall back to [...prev].method() for older
+// targets.</span>
+
+console.<span class="fn">log</span>(<span class="fn">SortableList</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">SortableList</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span>([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Charlie'</span>, price: <span class="num">30</span> },
+{ id: <span class="str">'2'</span>, name: <span class="str">'Alice'</span>, price: <span class="num">10</span> },
+{ id: <span class="str">'3'</span>, name: <span class="str">'Bob'</span>, price: <span class="num">20</span> }
+]);
+
+<span class="kw">function</span> <span class="fn">badSort</span>() {
+<span class="fn">items</span>.<span class="fn">sort</span>((a, b) => a.name.<span class="fn">localeCompare</span>(b.name));
+<span class="fn">setItems</span>(items);
+}
+
+<span class="kw">function</span> <span class="fn">sortByName</span>() {
+<span class="fn">setItems</span>(prev => [...prev].<span class="fn">sort</span>((a, b) => a.name.<span class="fn">localeCompare</span>(b.name)));
+}
+
+<span class="kw">function</span> <span class="fn">sortByPrice</span>() {
+<span class="fn">setItems</span>(prev => [...prev].<span class="fn">sort</span>((a, b) => a.price - b.price));
+}
+
+<span class="kw">function</span> <span class="fn">reverseList</span>() {
+<span class="fn">setItems</span>(prev => [...prev].<span class="fn">reverse</span>());
+}
+
+<span class="kw">function</span> <span class="fn">insertAt</span>(index, item) {
+<span class="fn">setItems</span>(prev => [
+...prev.<span class="fn">slice</span>(<span class="num">0</span>, index),
+item,
+...prev.<span class="fn">slice</span>(index)
+]);
+}
+
+<span class="kw">function</span> <span class="fn">replaceAt</span>(index, item) {
+<span class="fn">setItems</span>(prev => [
+...prev.<span class="fn">slice</span>(<span class="num">0</span>, index),
+item,
+...prev.<span class="fn">slice</span>(index + <span class="num">1</span>)
+]);
+}
+
+<span class="kw">function</span> <span class="fn">removeAt</span>(index) {
+<span class="fn">setItems</span>(prev => [
+...prev.<span class="fn">slice</span>(<span class="num">0</span>, index),
+...prev.<span class="fn">slice</span>(index + <span class="num">1</span>)
+]);
+}
+
+<span class="kw">const</span> sortedItems = [...items].<span class="fn">sort</span>((a, b) => a.name.<span class="fn">localeCompare</span>(b.name));
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: sortByName }, <span class="str">'Sort by name'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: sortByPrice }, <span class="str">'Sort by price'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: reverseList }, <span class="str">'Reverse'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+sortedItems.<span class="fn">map</span>(item => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: item.id }, item.name, <span class="str">': `$'</span>, item.price))
+)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">SortableList</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Copy before sort</h4>
+<p><code>[...prev].sort()</code> — new array, sorted. Without spread, sort mutates state.</p>
+</div>
+<div class="concept-card">
+<h4>ES2023 immutable methods</h4>
+<p><code>toSorted</code>, <code>toReversed</code>, <code>toSpliced</code> — return new arrays. Use them when targeting modern JS.</p>
+</div>
+<div class="concept-card">
+<h4>Slice for insert/remove</h4>
+<p><code>[...prev.slice(0, i), item, ...prev.slice(i)]</code> — insert. Without the middle item — remove.</p>
+</div>
+<div class="concept-card">
+<h4>Sort on render instead</h4>
+<p>If the sort is derived, keep state unsorted. <code>const sorted = [...items].sort(...)</code> during render.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong><code>sort</code> mutates in place — this is the #1 array bug.</strong> Even experience React developers hit it. <code>items.sort()</code> reorders the original array, then <code>setItems(items)</code> passes the same reference — React sees no change, no re-render. The items appear unsorted even though sort ran. Fix: <code>setItems([...items].sort())</code> — one spread fixes it. Same for <code>reverse</code>, <code>splice</code>, <code>push</code>, <code>pop</code>, <code>shift</code>, <code>unshift</code>. If the method's name doesn't start with "to" or "slice" or "map" or "filter", it probably mutates.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Advanced patterns</h2>
+<p class="section-sub">Nested objects, multiple updates, and reducers.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Real array updates often involve nested objects — updating <code>items[3].tags</code>, or removing <code>items[3].metadata.author</code>. The spread pattern extends to every level. For complex sequences of updates, <code>useReducer</code> is cleaner than multiple setters.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">advanced-arrays.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState, useReducer } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── Nested object updates ───────────────────</span>
+<span class="kw">interface</span> Item {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+metadata: { tags: <span class="fn">string</span>[]; author: <span class="fn">string</span> };
+}
+
+<span class="kw">function</span> <span class="fn">NestedUpdates</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span><Item[]>([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Item 1'</span>, metadata: { tags: [<span class="str">'a'</span>], author: <span class="str">'Alice'</span> } }
+]);
+
+<span class="kw">function</span> <span class="fn">addTag</span>(id: <span class="fn">string</span>, tag: <span class="fn">string</span>) {
+<span class="fn">setItems</span>(prev =>
+prev.<span class="fn">map</span>(item =>
+item.id === id
+? {
+...item,
+metadata: {
+...item.metadata,
+tags: [...item.metadata.tags, tag]
+}
+}
+: item
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">removeTag</span>(id: <span class="fn">string</span>, tag: <span class="fn">string</span>) {
+<span class="fn">setItems</span>(prev =>
+prev.<span class="fn">map</span>(item =>
+item.id === id
+? {
+...item,
+metadata: {
+...item.metadata,
+tags: item.metadata.tags.<span class="fn">filter</span>(t => t !== tag)
+}
+}
+: item
+)
+);
+}
+
+<span class="kw">return</span> (
+<ul>
+{items.<span class="fn">map</span>(item => (
+<li key={item.id}>
+{item.name} by {item.metadata.author}
+{item.metadata.tags.<span class="fn">map</span>(tag => (
+<span key={tag}>{tag} <button onClick={() => <span class="fn">removeTag</span>(item.id, tag)}>×</button></span>
+))}
+</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// ─── Multiple updates: useReducer ─────────────</span>
+<span class="kw">interface</span> State { items: Item[]; loading: <span class="fn">boolean</span>; error: <span class="fn">string</span> | <span class="fn">null</span> }
+
+<span class="kw">type</span> Action =
+| { type: <span class="str">'load'</span> }
+| { type: <span class="str">'success'</span>; items: Item[] }
+| { type: <span class="str">'error'</span>; message: <span class="fn">string</span> }
+| { type: <span class="str">'add'</span>; item: Item }
+| { type: <span class="str">'remove'</span>; id: <span class="fn">string</span> }
+| { type: <span class="str">'update'</span>; id: <span class="fn">string</span>; patch: <span class="fn">Partial</span><Item> }
+| { type: <span class="str">'clear'</span> };
+
+<span class="kw">function</span> <span class="fn">reducer</span>(state: State, action: Action): State {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'load'</span>: <span class="kw">return</span> { ...state, loading: <span class="kw">true</span>, error: <span class="fn">null</span> };
+<span class="kw">case</span> <span class="str">'success'</span>: <span class="kw">return</span> { ...state, loading: <span class="kw">false</span>, items: action.items };
+<span class="kw">case</span> <span class="str">'error'</span>: <span class="kw">return</span> { ...state, loading: <span class="kw">false</span>, error: action.message };
+<span class="kw">case</span> <span class="str">'add'</span>: <span class="kw">return</span> { ...state, items: [...state.items, action.item] };
+<span class="kw">case</span> <span class="str">'remove'</span>: <span class="kw">return</span> { ...state, items: state.items.<span class="fn">filter</span>(i => i.id !== action.id) };
+<span class="kw">case</span> <span class="str">'update'</span>:
+<span class="kw">return</span> {
+...state,
+items: state.items.<span class="fn">map</span>(i => i.id === action.id ? { ...i, ...action.patch } : i)
+};
+<span class="kw">case</span> <span class="str">'clear'</span>: <span class="kw">return</span> { ...state, items: [] };
+}
+}
+
+<span class="kw">function</span> <span class="fn">ManagedList</span>() {
+<span class="kw">const</span> [state, dispatch] = <span class="fn">useReducer</span>(reducer, { items: [], loading: <span class="kw">false</span>, error: <span class="fn">null</span> });
+
+<span class="kw">function</span> <span class="fn">loadItems</span>() {
+<span class="fn">dispatch</span>({ type: <span class="str">'load'</span> });
+<span class="fn">fetch</span>(<span class="str">'/api/items'</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(items => <span class="fn">dispatch</span>({ type: <span class="str">'success'</span>, items }))
+.<span class="fn">catch</span>(e => <span class="fn">dispatch</span>({ type: <span class="str">'error'</span>, message: e.<span class="fn">message</span> }));
+}
+
+<span class="kw">if</span> (state.loading) <span class="kw">return</span> <p>Loading...</p>;
+<span class="kw">if</span> (state.error) <span class="kw">return</span> <p>Error: {state.error}</p>;
+
+<span class="kw">return</span> (
+<ul>
+{state.items.<span class="fn">map</span>(i => <li key={i.id}>{i.name}</li>)}
+</ul>
+);
+}
+
+<span class="com">// ─── Derived arrays (don't store) ────────────</span>
+<span class="kw">function</span> <span class="fn">Derived</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span><<span class="fn">number</span>[]>([<span class="num">3</span>, <span class="num">1</span>, <span class="num">2</span>]);
+
+<span class="com">// ❌ Don't store sorted as state</span>
+<span class="com">// ✅ Compute during render</span>
+<span class="kw">const</span> sorted = [...items].<span class="fn">sort</span>((a, b) => a - b);
+<span class="kw">const</span> total = items.<span class="fn">reduce</span>((s, n) => s + n, <span class="num">0</span>);
+<span class="kw">const</span> evens = items.<span class="fn">filter</span>(n => n % <span class="num">2</span> === <span class="num">0</span>);
+
+<span class="kw">return</span> (
+<div>
+<p>Items: {items.<span class="fn">join</span>(<span class="str">', '</span>)}</p>
+<p>Sorted: {sorted.<span class="fn">join</span>(<span class="str">', '</span>)}</p>
+<p>Total: {total}</p>
+<p>Evens: {evens.<span class="fn">join</span>(<span class="str">', '</span>)}</p>
+</div>
+);
+}
+
+<span class="com">// ─── Summary ─────────────────────────────────
+//
+// Add: setItems(prev => [...prev, item])
+// Remove: setItems(prev => prev.filter(i => i.id !== id))
+// Update: setItems(prev => prev.map(i => i.id === id ? {...i, ...} : i))
+// Sort: setItems(prev => [...prev].sort(...))
+// Reverse: setItems(prev => [...prev].reverse())
+// Insert: setItems(prev => [...prev.slice(0, i), item, ...prev.slice(i)])
+// Remove at: setItems(prev => prev.filter((_, idx) => idx !== i))
+// Replace at: setItems(prev => prev.map((item, idx) => idx === i ? newItem : item))
+// Clear: setItems([])
+//
+// Never: push, pop, shift, unshift, splice, sort, reverse
+// on state directly.</span>
+
+console.<span class="fn">log</span>(<span class="fn">NestedUpdates</span>, <span class="fn">reducer</span>, <span class="fn">ManagedList</span>, <span class="fn">Derived</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useReducer } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">NestedUpdates</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span>([
+{ id: <span class="str">'1'</span>, name: <span class="str">'Item 1'</span>, metadata: { tags: [<span class="str">'a'</span>], author: <span class="str">'Alice'</span> } }
+]);
+<span class="kw">function</span> <span class="fn">addTag</span>(id, tag) {
+<span class="fn">setItems</span>(prev =>
+prev.<span class="fn">map</span>(item =>
+item.id === id
+? { ...item, metadata: { ...item.metadata, tags: [...item.metadata.tags, tag] } }
+: item
+)
+);
+}
+<span class="kw">function</span> <span class="fn">removeTag</span>(id, tag) {
+<span class="fn">setItems</span>(prev =>
+prev.<span class="fn">map</span>(item =>
+item.id === id
+? { ...item, metadata: { ...item.metadata, tags: item.metadata.tags.<span class="fn">filter</span>(t => t !== tag) } }
+: item
+)
+);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+items.<span class="fn">map</span>(item =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: item.id },
+item.name, <span class="str">' by '</span>, item.metadata.author,
+item.metadata.tags.<span class="fn">map</span>(tag =>
+React.<span class="fn">createElement</span>(<span class="str">'span'</span>, { key: tag },
+tag,
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">removeTag</span>(item.id, tag) }, <span class="str">'×'</span>)
+)
+)
+)
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">reducer</span>(state, action) {
+<span class="kw">switch</span> (action.type) {
+<span class="kw">case</span> <span class="str">'load'</span>: <span class="kw">return</span> { ...state, loading: <span class="kw">true</span>, error: <span class="fn">null</span> };
+<span class="kw">case</span> <span class="str">'success'</span>: <span class="kw">return</span> { ...state, loading: <span class="kw">false</span>, items: action.items };
+<span class="kw">case</span> <span class="str">'error'</span>: <span class="kw">return</span> { ...state, loading: <span class="kw">false</span>, error: action.message };
+<span class="kw">case</span> <span class="str">'add'</span>: <span class="kw">return</span> { ...state, items: [...state.items, action.item] };
+<span class="kw">case</span> <span class="str">'remove'</span>: <span class="kw">return</span> { ...state, items: state.items.<span class="fn">filter</span>(i => i.id !== action.id) };
+<span class="kw">case</span> <span class="str">'update'</span>: <span class="kw">return</span> { ...state, items: state.items.<span class="fn">map</span>(i => i.id === action.id ? { ...i, ...action.patch } : i) };
+<span class="kw">case</span> <span class="str">'clear'</span>: <span class="kw">return</span> { ...state, items: [] };
+}
+}
+
+<span class="kw">function</span> <span class="fn">ManagedList</span>() {
+<span class="kw">const</span> [state, dispatch] = <span class="fn">useReducer</span>(reducer, { items: [], loading: <span class="kw">false</span>, error: <span class="fn">null</span> });
+<span class="kw">function</span> <span class="fn">loadItems</span>() {
+<span class="fn">dispatch</span>({ type: <span class="str">'load'</span> });
+<span class="fn">fetch</span>(<span class="str">'/api/items'</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(items => <span class="fn">dispatch</span>({ type: <span class="str">'success'</span>, items }))
+.<span class="fn">catch</span>(e => <span class="fn">dispatch</span>({ type: <span class="str">'error'</span>, message: e.<span class="fn">message</span> }));
+}
+<span class="kw">if</span> (state.loading) <span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Loading...'</span>);
+<span class="kw">if</span> (state.error) <span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Error: '</span>, state.error);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+state.items.<span class="fn">map</span>(i => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i.id }, i.name))
+);
+}
+
+<span class="kw">function</span> <span class="fn">Derived</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span>([<span class="num">3</span>, <span class="num">1</span>, <span class="num">2</span>]);
+<span class="kw">const</span> sorted = [...items].<span class="fn">sort</span>((a, b) => a - b);
+<span class="kw">const</span> total = items.<span class="fn">reduce</span>((s, n) => s + n, <span class="num">0</span>);
+<span class="kw">const</span> evens = items.<span class="fn">filter</span>(n => n % <span class="num">2</span> === <span class="num">0</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Items: '</span>, items.<span class="fn">join</span>(<span class="str">', '</span>)),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Sorted: '</span>, sorted.<span class="fn">join</span>(<span class="str">', '</span>)),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Total: '</span>, total),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'Evens: '</span>, evens.<span class="fn">join</span>(<span class="str">', '</span>))
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">NestedUpdates</span>, <span class="fn">reducer</span>, <span class="fn">ManagedList</span>, <span class="fn">Derived</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Nested: spread every level</h4>
+<p><code>{'{...item, metadata: {...item.metadata, tags: [...]}}'}</code> — copy the item, copy its metadata, update the tags.</p>
+</div>
+<div class="concept-card">
+<h4>useReducer for many updates</h4>
+<p>Add, remove, update, clear — each is one action. One reducer handles them all with consistent patterns.</p>
+</div>
+<div class="concept-card">
+<h4>Derive, don't store</h4>
+<p>Sorted, filtered, total — compute during render. Storing them causes sync bugs.</p>
+</div>
+<div class="concept-card">
+<h4>The complete toolkit</h4>
+<p>filter, map, spread, slice for updates. useReducer for multiple related operations. useMemo for expensive derivations.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The array update bugs that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using <code>push</code> on state</div>
+<p><code>items.push(x); setItems(items)</code> — same reference. Fix: <code>setItems([...items, x])</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using <code>splice</code> on state</div>
+<p><code>items.splice(i, 1)</code> — mutates. Fix: <code>items.filter((_, idx) => idx !== i)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using <code>sort</code> on state directly</div>
+<p><code>items.sort()</code> — mutates. Fix: <code>[...items].sort()</code> or <code>items.toSorted()</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Mutating array elements</div>
+<p><code>items[0].done = true</code> — mutates. Fix: <code>items.map(i => i.id === id ? {...i, done: true} : i)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting functional setter</div>
+<p><code>setItems([...items, x])</code> uses stale items if called twice fast. Fix: <code>setItems(prev => [...prev, x])</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Assigning new array to same variable</div>
+<p><code>items = [...items, x]; setItems(items)</code> — works but confusing. Fix: <code>setItems(prev => [...prev, x])</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using index as key in a mutable list</div>
+<p>After sort/reorder, index keys cause state leaks. Fix: <code>key={item.id}</code> — stable identity.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Storing derived arrays</div>
+<p><code>sortedItems</code> in state, synced with <code>useEffect</code>. Fix: compute during render.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I add an item to an array in React state?</summary>
+<p class="mt-2 text-sm text-slate-300">Use the spread operator: setItems([...items, newItem]) or, with the functional form, setItems(prev => [...prev, newItem]). This creates a new array with the new item appended. Never use items.push(newItem).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I remove an item from an array in state?</summary>
+<p class="mt-2 text-sm text-slate-300">Use filter: setItems(prev => prev.filter(i => i.id !== id)). Filter returns a new array without the matching items. Never use splice — it mutates.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I update an item in an array in state?</summary>
+<p class="mt-2 text-sm text-slate-300">Use map: setItems(prev => prev.map(i => i.id === id ? { ...i, name: 'new' } : i)). Map iterates, returns a new object for the matching item, leaves others unchanged.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I sort an array in state?</summary>
+<p class="mt-2 text-sm text-slate-300">Sort mutates the original array, so never call it on state directly. Copy first: setItems(prev => [...prev].sort((a, b) => a.name.localeCompare(b.name))). Same for reverse.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/state-not-updating.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "State is not updating"</div>
+<div class="text-xs text-slate-400 mt-1">Reference equality and mutation</div>
+</a>
+<a href="/courses/react/problems/usereducer-vs-usestate.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ useReducer vs useState</div>
+<div class="text-xs text-slate-400 mt-1">For complex array state</div>
+</a>
+<a href="/courses/react/problems/missing-key.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Each child should have a unique key"</div>
+<div class="text-xs text-slate-400 mt-1">Rendering arrays correctly</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
