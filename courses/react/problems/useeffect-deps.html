@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React "useEffect has a missing dependency" — How to Fix (2026)</title>
+<meta name="description" content="Fix the React warning "React Hook useEffect has a missing dependency." Learn what the dependency array really means and the four safe fixes for this warning.">
+<meta name="keywords" content="react useeffect missing dependency, react useeffect warning, useeffect deps fix, react dependency array, useeffect stale closure">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React "useEffect has a missing dependency" — How to Fix">
+<meta property="og:description" content="What the dependency array really means and the four safe fixes.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/useeffect-deps.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React "useEffect has a missing dependency"">
+<meta name="twitter:description" content="The four fixes for this confusing warning.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/useeffect-deps.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React "useEffect has a missing dependency" — How to Fix",
+"description": "Fix the React warning "React Hook useEffect has a missing dependency."",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-26",
+"dateModified": "2026-10-26",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What does "React Hook useEffect has a missing dependency" mean?","acceptedAnswer":{"@type":"Answer","text":"The exhaustive-deps ESLint rule scans the variables used inside your useEffect and compares them to the dependency array. If a variable used inside the effect isn't in the array, the rule warns that the effect might be using a stale value. The fix isn't just to add the dependency — that can cause infinite loops. The correct fix depends on intent: add the dependency and accept re-runs, wrap the value in useCallback/useMemo so its identity is stable, use a ref to track the latest value without re-running, or restructure the effect to not need the value at all."}},
+{"@type":"Question","name":"Why can't I just add the missing dependency?","acceptedAnswer":{"@type":"Answer","text":"Adding it works sometimes but often creates an infinite loop. If the missing dependency is a function or object defined inside the component, its identity changes on every render — so the effect re-runs on every render, which triggers another render, and so on. The fix depends on what's actually missing: a prop or state (safe to add), a function (wrap in useCallback), an object/array (wrap in useMemo or restructure), or a setter (don't add — setState is stable)."}},
+{"@type":"Question","name":"What is a stale closure in useEffect?","acceptedAnswer":{"@type":"Answer","text":"A stale closure is when the effect captures a variable from an earlier render and uses that old value. If you write useEffect(() => { setCount(count + 1); }, []), the effect captures count = 0 forever — clicking a button 5 times results in count = 1, not 5. The empty dependency array is a promise that the effect doesn't depend on any reactive values. If it does, you have a stale closure. Fix: use a functional setter (setCount(c => c + 1)), or add the dep, or use a ref."}},
+{"@type":"Question","name":"When should I use the functional setState inside an effect?","acceptedAnswer":{"@type":"Answer","text":"Use functional setState (setCount(c => c + 1)) whenever the new state depends on the old state inside an effect, an event handler, or a callback. It avoids stale closures entirely because you don't read count from the closure — you receive the current value as an argument. This is the single biggest source of useEffect bugs and the cleanest fix."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · useEffect deps</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">useEffect deps</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>"useEffect has a missing dependency."<br><span class="py-accent">The four fixes, ranked by safety.</span></h1>
+<p class="lead">
+The <code>exhaustive-deps</code> rule warns about variables used inside <code>useEffect</code> that aren't in the dependency array. Add the dependency — sometimes it works, sometimes it causes an infinite loop. The rule isn't wrong; the fix depends on what's missing and why. This page covers the four correct fixes.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> The warning says an effect might use a stale value. Fix depending on what's missing: (1) <strong>props/state</strong> → add the dependency. (2) <strong>setters</strong> (<code>setCount</code>) → don't add — React guarantees they're stable. (3) <strong>functions</strong> → wrap in <code>useCallback</code>, then add. (4) <strong>objects/arrays</strong> → wrap in <code>useMemo</code>, or destructure what you need. (5) If the effect doesn't actually need the value, remove the dependency from the code inside. Use functional <code>setState</code> to avoid stale closures entirely.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Add the dependency (when it's truly needed)</h2>
+<p class="section-sub">For props and state used inside the effect.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If the effect reads a prop or state value that can change, that value <em>must</em> be in the dependency array. Otherwise the effect runs with the stale value. The fix is straightforward: add the dependency. This is the case the warning was designed for.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">add-dep.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
+
+<span class="com">// ─── BAD: missing userId ─────────────────────</span>
+<span class="kw">function</span> <span class="fn">BadUser</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(setUser);
+}, []); <span class="com">// ⚠️ missing userId</span>
+
+<span class="com">// Bug: when userId changes, effect doesn't re-run.
+// The displayed user stays the old one until unmount.</span>
+
+<span class="kw">return</span> <p>{user?.name ?? <span class="str">'Loading...'</span>}</p>;
+}
+
+<span class="com">// ─── GOOD: add userId to deps ────────────────</span>
+<span class="kw">function</span> <span class="fn">GoodUser</span>({ userId }: { userId: <span class="fn">string</span> }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span><User | <span class="fn">null</span>>(<span class="fn">null</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">let</span> cancelled = <span class="kw">false</span>;
+
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(data => {
+<span class="kw">if</span> (!cancelled) <span class="fn">setUser</span>(data);
+});
+
+<span class="kw">return</span> () => { cancelled = <span class="kw">true</span>; };
+}, [userId]); <span class="com">// ✅ re-runs when userId changes</span>
+
+<span class="kw">return</span> <p>{user?.name ?? <span class="str">'Loading...'</span>}</p>;
+}
+
+<span class="com">// ─── GOOD: add state that's read ─────────────</span>
+<span class="kw">function</span> <span class="fn">AutoSave</span>({ value }: { value: <span class="fn">string</span> }) {
+<span class="kw">const</span> [draft, setDraft] = <span class="fn">useState</span>(value);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> timer = <span class="fn">setTimeout</span>(() => {
+<span class="fn">fetch</span>(<span class="str">'/api/save'</span>, { method: <span class="str">'POST'</span>, body: draft });
+}, <span class="num">1000</span>);
+
+<span class="kw">return</span> () => <span class="fn">clearTimeout</span>(timer);
+}, [draft]); <span class="com">// ✅ re-runs when draft changes</span>
+
+<span class="kw">return</span> <input value={draft} onChange={e => <span class="fn">setDraft</span>(e.target.value)} />;
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadUser</span>, <span class="fn">GoodUser</span>, <span class="fn">AutoSave</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadUser</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(setUser);
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user?.name ?? <span class="str">'Loading...'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">GoodUser</span>({ userId }) {
+<span class="kw">const</span> [user, setUser] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">let</span> cancelled = <span class="kw">false</span>;
+<span class="fn">fetch</span>(<span class="str">/api/users/${userId}`</span>)
+.<span class="fn">then</span>(r => r.<span class="fn">json</span>())
+.<span class="fn">then</span>(data => { <span class="kw">if</span> (!cancelled) <span class="fn">setUser</span>(data); });
+<span class="kw">return</span> () => { cancelled = <span class="kw">true</span>; };
+}, [userId]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user?.name ?? <span class="str">'Loading...'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">AutoSave</span>({ value }) {
+<span class="kw">const</span> [draft, setDraft] = <span class="fn">useState</span>(value);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> timer = <span class="fn">setTimeout</span>(() => {
+<span class="fn">fetch</span>(<span class="str">'/api/save'</span>, { method: <span class="str">'POST'</span>, body: draft });
+}, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearTimeout</span>(timer);
+}, [draft]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: draft, onChange: e => <span class="fn">setDraft</span>(e.target.value) });
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadUser</span>, <span class="fn">GoodUser</span>, <span class="fn">AutoSave</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Props are reactive</h4>
+<p>If the effect reads a prop, add it. <code>userId</code> changing means the fetch should re-run. Add <code>[userId]</code>.</p>
+</div>
+<div class="concept-card">
+<h4>State is reactive</h4>
+<p>If the effect reads state, add it. <code>draft</code> changing means the timer should reset. Add <code>[draft]</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Cleanup is crucial</h4>
+<p>Return a cleanup function — cancel timers, abort fetches, set a cancelled flag. Effects that depend on values rerun often; cleanup prevents leaks.</p>
+</div>
+<div class="concept-card">
+<h4>Not every warning is a loop</h4>
+<p>Adding a primitive dependency (<code>userId</code>, <code>count</code>) is safe. Adding an object or function is what causes loops — see next solutions.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Don't add functions/objects (wrap in useCallback/useMemo)</h2>
+<p class="section-sub">When the missing dependency is a function or object that changes every render.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If the missing dependency is a function or object defined in the component, its identity changes on every render. Adding it to the dependency array causes the effect to re-run every render — usually an infinite loop. The fix is to stabilize the identity: <code>useCallback</code> for functions, <code>useMemo</code> for objects/arrays.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">stable-identity.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { useState, useEffect, useCallback, useMemo } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: function dep re-runs every render ──</span>
+<span class="kw">function</span> <span class="fn">BadCallback</span>({ id }: { id: <span class="fn">string</span> }) {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span><<span class="fn">unknown</span>>(<span class="fn">null</span>);
+
+<span class="kw">function</span> <span class="fn">load</span>() {
+<span class="fn">fetch</span>(<span class="str">/api/${id}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setData);
+}
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">load</span>();
+}, [load]); <span class="com">// ⚠️ load changes every render → infinite loop</span>
+
+<span class="kw">return</span> <p>{<span class="fn">String</span>(data)}</p>;
+}
+
+<span class="com">// ─── GOOD: useCallback stabilizes load ───────</span>
+<span class="kw">function</span> <span class="fn">GoodCallback</span>({ id }: { id: <span class="fn">string</span> }) {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span><<span class="fn">unknown</span>>(<span class="fn">null</span>);
+
+<span class="kw">const</span> load = <span class="fn">useCallback</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/${id}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setData);
+}, [id]); <span class="com">// ✅ load only changes when id changes</span>
+
+<span class="fn">useEffect</span>(() => {
+<span class="fn">load</span>();
+}, [load]); <span class="com">// ✅ runs when load identity changes (i.e. when id changes)</span>
+
+<span class="kw">return</span> <p>{<span class="fn">String</span>(data)}</p>;
+}
+
+<span class="com">// ─── BAD: object dep re-runs every render ────</span>
+<span class="kw">function</span> <span class="fn">BadObjectDep</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> options = { threshold: <span class="num">10</span> }; <span class="com">// new object every render</span>
+
+<span class="fn">useEffect</span>(() => {
+console.<span class="fn">log</span>(<span class="str">'count:'</span>, count, <span class="str">'threshold:'</span>, options.threshold);
+}, [count, options]); <span class="com">// ⚠️ options changes every render</span>
+
+<span class="kw">return</span> <button onClick={() => <span class="fn">setCount</span>(c => c + <span class="num">1</span>)}>{count}</button>;
+}
+
+<span class="com">// ─── GOOD: useMemo stabilizes the object ─────</span>
+<span class="kw">function</span> <span class="fn">GoodObjectDep</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> options = <span class="fn">useMemo</span>(() => ({ threshold: <span class="num">10</span> }), []); <span class="com">// ✅ stable</span>
+
+<span class="fn">useEffect</span>(() => {
+console.<span class="fn">log</span>(<span class="str">'count:'</span>, count, <span class="str">'threshold:'</span>, options.threshold);
+}, [count, options]); <span class="com">// ✅ runs when count changes</span>
+
+<span class="kw">return</span> <button onClick={() => <span class="fn">setCount</span>(c => c + <span class="num">1</span>)}>{count}</button>;
+}
+
+<span class="com">// ─── GOOD: destructure what you use ──────────</span>
+<span class="kw">function</span> <span class="fn">DestructureFix</span>({ config }: { config: { retry: <span class="fn">boolean</span> } }) {
+<span class="com">// Destructure primitive — no object identity issue</span>
+<span class="kw">const</span> { retry } = config;
+
+<span class="fn">useEffect</span>(() => {
+console.<span class="fn">log</span>(<span class="str">'retry:'</span>, retry);
+}, [retry]); <span class="com">// ✅ primitive dep, stable when value unchanged</span>
+
+<span class="kw">return</span> <span class="fn">null</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadCallback</span>, <span class="fn">GoodCallback</span>, <span class="fn">BadObjectDep</span>, <span class="fn">GoodObjectDep</span>, <span class="fn">DestructureFix</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect, useCallback, useMemo } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadCallback</span>({ id }) {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="kw">function</span> <span class="fn">load</span>() {
+<span class="fn">fetch</span>(<span class="str">/api/${id}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setData);
+}
+<span class="fn">useEffect</span>(() => { <span class="fn">load</span>(); }, [load]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="fn">String</span>(data));
+}
+
+<span class="kw">function</span> <span class="fn">GoodCallback</span>({ id }) {
+<span class="kw">const</span> [data, setData] = <span class="fn">useState</span>(<span class="fn">null</span>);
+<span class="kw">const</span> load = <span class="fn">useCallback</span>(() => {
+<span class="fn">fetch</span>(<span class="str">/api/${id}`</span>).<span class="fn">then</span>(r => r.<span class="fn">json</span>()).<span class="fn">then</span>(setData);
+}, [id]);
+<span class="fn">useEffect</span>(() => { <span class="fn">load</span>(); }, [load]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="fn">String</span>(data));
+}
+
+<span class="kw">function</span> <span class="fn">BadObjectDep</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> options = { threshold: <span class="num">10</span> };
+<span class="fn">useEffect</span>(() => { console.<span class="fn">log</span>(<span class="str">'count:'</span>, count, <span class="str">'threshold:'</span>, options.threshold); }, [count, options]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setCount</span>(c => c + <span class="num">1</span>) }, count);
+}
+
+<span class="kw">function</span> <span class="fn">GoodObjectDep</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="kw">const</span> options = <span class="fn">useMemo</span>(() => ({ threshold: <span class="num">10</span> }), []);
+<span class="fn">useEffect</span>(() => { console.<span class="fn">log</span>(<span class="str">'count:'</span>, count, <span class="str">'threshold:'</span>, options.threshold); }, [count, options]);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">setCount</span>(c => c + <span class="num">1</span>) }, count);
+}
+
+<span class="kw">function</span> <span class="fn">DestructureFix</span>({ config }) {
+<span class="kw">const</span> { retry } = config;
+<span class="fn">useEffect</span>(() => { console.<span class="fn">log</span>(<span class="str">'retry:'</span>, retry); }, [retry]);
+<span class="kw">return</span> <span class="fn">null</span>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadCallback</span>, <span class="fn">GoodCallback</span>, <span class="fn">BadObjectDep</span>, <span class="fn">GoodObjectDep</span>, <span class="fn">DestructureFix</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Functions need useCallback</h4>
+<p>A function defined in the component has a new identity every render. <code>useCallback</code> returns the same reference until deps change.</p>
+</div>
+<div class="concept-card">
+<h4>Objects need useMemo</h4>
+<p>Same for objects and arrays. New identity every render without memoization. <code>useMemo</code> returns the same reference until deps change.</p>
+</div>
+<div class="concept-card">
+<h4>Destructure to primitives</h4>
+<p>If you only use <code>config.retry</code>, destructure it: <code>const { retry } = config</code>. <code>retry</code> is a primitive — stable when the value doesn't change.</p>
+</div>
+<div class="concept-card">
+<h4>Setters are stable</h4>
+<p><code>setCount</code> from <code>useState</code> is guaranteed stable. Don't add it to deps — you'll just trigger extra re-runs unnecessarily.</p>
+</div>
+</div>
+
+<div class="pro-tip">
+<p><strong>Before you reach for <code>useCallback</code>, check if the effect actually needs the function.</strong> If you're inlining a function into <code>useEffect</code>, just inline the function inside the effect. <code>useEffect(() => { load(); }, [load])</code> becomes <code>useEffect(() => { fetch(...).then(setData); }, [id])</code> — no function, no dependency, no warning. Move functions <em>into</em> the effect when they don't need to live outside it. This eliminates 80% of <code>useCallback</code> usage before you even write it.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Functional setState eliminates the dependency</h2>
+<p class="section-sub">The cleanest fix — remove the need for the dependency entirely.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">If the effect's dependency is a state value that's only read to compute the next state, you can eliminate the dependency with a functional setter. <code>setCount(count + 1)</code> reads <code>count</code> from the closure; <code>setCount(c => c + 1)</code> receives the current value — no closure read, no dependency needed. This is the highest-value pattern in all of React hooks.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">functional-setstate.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: reads count, needs dep, stale closure</span>
+<span class="kw">function</span> <span class="fn">BadCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => {
+<span class="fn">setCount</span>(count + <span class="num">1</span>); <span class="com">// ⚠️ reads count from closure</span>
+}, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, []); <span class="com">// ⚠️ missing count — stale closure</span>
+
+<span class="com">// Bug: count increments once, then stays at 1 forever.
+// The closure captured count = 0 and never sees updates.</span>
+
+<span class="kw">return</span> <p>{count}</p>;
+}
+
+<span class="com">// ─── GOOD: functional setter, no dependency ───</span>
+<span class="kw">function</span> <span class="fn">GoodCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => {
+<span class="fn">setCount</span>(c => c + <span class="num">1</span>); <span class="com">// ✅ receives current value</span>
+}, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, []); <span class="com">// ✅ no count dep needed — no stale closure</span>
+
+<span class="kw">return</span> <p>{count}</p>;
+}
+
+<span class="com">// ─── BAD: reads state to merge objects ───────</span>
+<span class="kw">interface</span> Form { name: <span class="fn">string</span>; email: <span class="fn">string</span> }
+
+<span class="kw">function</span> <span class="fn">BadForm</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span><Form>({ name: <span class="str">''</span>, email: <span class="str">''</span> });
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> draft = <span class="fn">localStorage</span>.<span class="fn">getItem</span>(<span class="str">'draft'</span>);
+<span class="kw">if</span> (draft) {
+<span class="kw">const</span> saved = <span class="fn">JSON</span>.<span class="fn">parse</span>(draft);
+<span class="fn">setForm</span>({ ...form, ...saved }); <span class="com">// ⚠️ reads form</span>
+}
+}, []); <span class="com">// ⚠️ missing form — stale closure</span>
+
+<span class="kw">return</span> <div />;
+}
+
+<span class="com">// ─── GOOD: functional update ─────────────────</span>
+<span class="kw">function</span> <span class="fn">GoodForm</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span><Form>({ name: <span class="str">''</span>, email: <span class="str">''</span> });
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> draft = <span class="fn">localStorage</span>.<span class="fn">getItem</span>(<span class="str">'draft'</span>);
+<span class="kw">if</span> (draft) {
+<span class="kw">const</span> saved = <span class="fn">JSON</span>.<span class="fn">parse</span>(draft);
+<span class="fn">setForm</span>(f => ({ ...f, ...saved })); <span class="com">// ✅ receives current form</span>
+}
+}, []); <span class="com">// ✅ no form dep — safe</span>
+
+<span class="kw">return</span> <div />;
+}
+
+<span class="com">// ─── GOOD: functional update for arrays ──────</span>
+<span class="kw">function</span> <span class="fn">ItemList</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span><<span class="fn">string</span>[]>([]);
+
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => {
+<span class="fn">setItems</span>(prev => [...prev, <span class="str">item-${Date.now()}`</span>]);
+}, <span class="num">5000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, []); <span class="com">// ✅ no items dep — safe</span>
+
+<span class="kw">return</span> <p>{items.length} items</p>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadCounter</span>, <span class="fn">GoodCounter</span>, <span class="fn">BadForm</span>, <span class="fn">GoodForm</span>, <span class="fn">ItemList</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState, useEffect } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => { <span class="fn">setCount</span>(count + <span class="num">1</span>); }, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count);
+}
+
+<span class="kw">function</span> <span class="fn">GoodCounter</span>() {
+<span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => { <span class="fn">setCount</span>(c => c + <span class="num">1</span>); }, <span class="num">1000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, count);
+}
+
+<span class="kw">function</span> <span class="fn">BadForm</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span>({ name: <span class="str">''</span>, email: <span class="str">''</span> });
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> draft = <span class="fn">localStorage</span>.<span class="fn">getItem</span>(<span class="str">'draft'</span>);
+<span class="kw">if</span> (draft) {
+<span class="kw">const</span> saved = <span class="fn">JSON</span>.<span class="fn">parse</span>(draft);
+<span class="fn">setForm</span>({ ...form, ...saved });
+}
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>);
+}
+
+<span class="kw">function</span> <span class="fn">GoodForm</span>() {
+<span class="kw">const</span> [form, setForm] = <span class="fn">useState</span>({ name: <span class="str">''</span>, email: <span class="str">''</span> });
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> draft = <span class="fn">localStorage</span>.<span class="fn">getItem</span>(<span class="str">'draft'</span>);
+<span class="kw">if</span> (draft) {
+<span class="kw">const</span> saved = <span class="fn">JSON</span>.<span class="fn">parse</span>(draft);
+<span class="fn">setForm</span>(f => ({ ...f, ...saved }));
+}
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>);
+}
+
+<span class="kw">function</span> <span class="fn">ItemList</span>() {
+<span class="kw">const</span> [items, setItems] = <span class="fn">useState</span>([]);
+<span class="fn">useEffect</span>(() => {
+<span class="kw">const</span> id = <span class="fn">setInterval</span>(() => {
+<span class="fn">setItems</span>(prev => [...prev, <span class="str">item-${Date.now()}`</span>]);
+}, <span class="num">5000</span>);
+<span class="kw">return</span> () => <span class="fn">clearInterval</span>(id);
+}, []);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, items.length, <span class="str">' items'</span>);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadCounter</span>, <span class="fn">GoodCounter</span>, <span class="fn">BadForm</span>, <span class="fn">GoodForm</span>, <span class="fn">ItemList</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>setState(fn)</code> receives current</h4>
+<p>Pass a function to <code>setState</code>: <code>setCount(c => c + 1)</code>. <code>c</code> is always the latest value — no closure read, no stale value.</p>
+</div>
+<div class="concept-card">
+<h4>No dependency needed</h4>
+<p>If the effect only uses <code>setCount</code> (stable) and a functional update, there's no reactive dependency. Empty array is correct.</p>
+</div>
+<div class="concept-card">
+<h4>Works for any state shape</h4>
+<p>Objects: <code>setForm(f => ({ ...f, ...patch }))</code>. Arrays: <code>setItems(prev => [...prev, item])</code>. Same pattern.</p>
+</div>
+<div class="concept-card">
+<h4>Use it everywhere</h4>
+<p>Not just in effects — in event handlers, in callbacks, everywhere. Functional setState is always safe when the new value depends on the old.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Empty dependency array is a promise, not a hack.</strong> <code>[]</code> tells React "this effect doesn't depend on any reactive values — never re-run it." If the effect actually reads props, state, or context, that promise is a lie. React will warn. The bug might be hidden now, but it'll surface when someone changes a prop and the effect doesn't react. Don't silence with <code>// eslint-disable-next-line</code> — fix the dependency or restructure the effect.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The dependency mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Silencing with eslint-disable</div>
+<p><code>// eslint-disable-next-line react-hooks/exhaustive-deps</code> — hides the warning but keeps the bug. Fix: address the actual dependency.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Adding a function dep without useCallback</div>
+<p>Triggers infinite loop. Fix: <code>useCallback</code> the function, or inline it inside the effect.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Adding an object dep without useMemo</div>
+<p>Same infinite loop. Fix: <code>useMemo</code> the object, or destructure primitives from it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Adding setState to deps</div>
+<p><code>[count, setCount]</code> — <code>setCount</code> is stable, so it's harmless but noise. Fix: only include what actually changes.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Reading state without needing to</div>
+<p><code>setCount(count + 1)</code> reads state. Fix: <code>setCount(c => c + 1)</code> — no read, no dep.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Missing cleanup</div>
+<p>Effect with deps that change re-runs often. Without cleanup, timers/subscriptions leak. Fix: <code>return () => cleanup()</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Trying to run only on mount</div>
+<p>Empty deps <code>[]</code> — but reads props. Fix: if truly mount-only, use a ref to capture the value. Better: restructure to depend on what it reads.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Multiple useEffects instead of one</div>
+<p>Splitting into multiple effects with overlapping deps. Fix: one effect per concern, but respect the deps each needs.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does "React Hook useEffect has a missing dependency" mean?</summary>
+<p class="mt-2 text-sm text-slate-300">The exhaustive-deps ESLint rule scans the variables used inside your useEffect and compares them to the dependency array. If a variable used inside the effect isn't in the array, the rule warns that the effect might be using a stale value. The fix depends on intent: add the dependency and accept re-runs, wrap the value in useCallback/useMemo, use a ref, or restructure the effect.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why can't I just add the missing dependency?</summary>
+<p class="mt-2 text-sm text-slate-300">Adding it works sometimes but often creates an infinite loop. If the missing dependency is a function or object defined inside the component, its identity changes on every render — so the effect re-runs on every render, which triggers another render. The fix depends on what's actually missing.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a stale closure in useEffect?</summary>
+<p class="mt-2 text-sm text-slate-300">A stale closure is when the effect captures a variable from an earlier render and uses that old value. If you write useEffect(() => { setCount(count + 1); }, []), the effect captures count = 0 forever. Fix: use a functional setter (setCount(c => c + 1)), or add the dep, or use a ref.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use the functional setState inside an effect?</summary>
+<p class="mt-2 text-sm text-slate-300">Use functional setState (setCount(c => c + 1)) whenever the new state depends on the old state inside an effect, an event handler, or a callback. It avoids stale closures entirely because you don't read count from the closure — you receive the current value as an argument.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/lessons/useeffect.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Lesson 5: useEffect</div>
+<div class="text-xs text-slate-400 mt-1">The full lesson on side effects</div>
+</a>
+<a href="/courses/react/problems/infinite-loop.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Maximum update depth exceeded"</div>
+<div class="text-xs text-slate-400 mt-1">When adding deps goes wrong</div>
+</a>
+<a href="/courses/react/problems/useeffect-cleanup.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ How to clean up useEffect</div>
+<div class="text-xs text-slate-400 mt-1">Timers, subscriptions, fetch aborts</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
