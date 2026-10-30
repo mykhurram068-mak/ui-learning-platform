@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React "Type 'X' is not assignable to type 'ReactNode'" — How to Fix (2026)</title>
+<meta name="description" content="Fix React's "Objects are not valid as a React child" runtime error and the TypeScript "Type 'X' is not assignable to type 'ReactNode'" compile error. Three causes and the patterns that prevent them.">
+<meta name="keywords" content="react type is not assignable to type reactnode, objects are not valid as a react child, react children type, react node type, typescript react children">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React "Type 'X' is not assignable to type 'ReactNode'" — How to Fix">
+<meta property="og:description" content="Three causes and the patterns for typing children correctly.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/type-children.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React "Type 'X' is not assignable to type 'ReactNode'"">
+<meta name="twitter:description" content="Three causes, three fixes, plus the correct way to type children.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/type-children.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React "Type 'X' is not assignable to type 'ReactNode'" — How to Fix",
+"description": "Fix React's "Objects are not valid as a React child" runtime error and the TypeScript "Type 'X' is not assignable to type 'ReactNode'" compile error.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-10-30",
+"dateModified": "2026-10-30",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I fix "Objects are not valid as a React child" in React?","acceptedAnswer":{"@type":"Answer","text":"Three causes, three fixes. (1) Rendering an object directly — JSX can't render a plain object. Fix: render a specific field (obj.name) or JSON.stringify(obj) for debug. (2) Rendering a Date or Map/Set — these are objects, not strings. Fix: call .toISOString(), Array.from(map), or format explicitly. (3) Forgetting to call a function — onClick={handleClick} vs onClick={handleClick()} returning an object. Never put {someObject} inside JSX — always extract a primitive or wrap in a component."}},
+{"@type":"Question","name":"What is the difference between ReactNode, ReactElement, and JSX.Element?","acceptedAnswer":{"@type":"Answer","text":"ReactNode is the widest type — it includes string, number, boolean, null, undefined, ReactElement, and iterables of ReactNode. ReactElement is the object that createElement returns (a single JSX element). JSX.Element is ReactElement with a specific props type. For children props, always use ReactNode — it accepts everything React can render. Use ReactElement only when you need to access element internals (type, props)."}},
+{"@type":"Question","name":"Why does React complain about a Date object as a child?","acceptedAnswer":{"@type":"Answer","text":"React only renders strings, numbers, and elements. A Date is an object — React doesn't know how to display it. Fix: convert it first. Use date.toLocaleDateString(), date.toISOString(), or a formatting library. Same applies to Map, Set, and any class instance. If it's not a primitive or a ReactElement, React throws."}},
+{"@type":"Question","name":"Can children be a function in React?","acceptedAnswer":{"@type":"Answer","text":"Yes — this is the "function as children" / render prop pattern. The child prop is typed as (data: T) => ReactNode, not ReactNode. You opt into it explicitly: interface Props { children: (user: User) => ReactNode }. Then the component calls children(user) instead of rendering {children}. This is not the default children type — it must be declared. React's built-in children type is ReactNode, which excludes functions."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · type children</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Type children</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>"Objects are not valid as a React child."<br><span class="py-accent">Three causes, three fixes.</span></h1>
+<p class="lead">
+Two versions of the same bug. At runtime, React throws <code>Objects are not valid as a React child</code>. At compile time, TypeScript throws <code>Type 'X' is not assignable to type 'ReactNode'</code>. Both mean the same thing: you're trying to render something React can't display — an object, a Date, a Map, or a function. This page covers the three causes, the three fixes, and the correct way to type <code>children</code>.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Render primitives, elements, or nothing. Type <code>children</code> as <code>ReactNode</code>, not <code>ReactElement</code> or <code>JSX.Element</code>. The three causes: (1) you rendered an object (<code>{'{user}'}</code> instead of <code>{'{user.name}'}</code>), (2) you rendered a non-primitive like <code>Date</code>, <code>Map</code>, or <code>Set</code>, (3) you put a function in JSX instead of calling it, or forgot that <code>children</code> can be a render prop. Fix each at the source — don't <code>String()</code> everything.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Rendering an object</h2>
+<p class="section-sub">The most common cause: <code>{'{user}'}</code> when you meant <code>{'{user.name}'}</code>.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">React renders strings, numbers, and elements. A plain object is none of these. If you put <code>{'{user}'}</code> in JSX, React throws at render time. TypeScript catches this earlier — <code>User</code> is not assignable to <code>ReactNode</code>. Fix: render a specific field, or stringify for debugging.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">render-object.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">interface</span> User {
+id: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+email: <span class="fn">string</span>;
+}
+
+<span class="com">// ─── BAD: object as child ────────────────────</span>
+<span class="kw">function</span> <span class="fn">BadUserCard</span>({ user }: { user: User }) {
+<span class="com">// ❌ TS error: Type 'User' is not assignable to type 'ReactNode'
+// ❌ Runtime: Objects are not valid as a React child</span>
+<span class="kw">return</span> <div>{user}</div>;
+}
+
+<span class="com">// ─── GOOD 1: render a specific field ─────────</span>
+<span class="kw">function</span> <span class="fn">GoodUserCard</span>({ user }: { user: User }) {
+<span class="com">// ✅ String fields are valid ReactNode</span>
+<span class="kw">return</span> (
+<div>
+<h2>{user.name}</h2>
+<p>{user.email}</p>
+</div>
+);
+}
+
+<span class="com">// ─── GOOD 2: stringify for debugging ─────────</span>
+<span class="kw">function</span> <span class="fn">DebugUserCard</span>({ user }: { user: User }) {
+<span class="com">// ✅ JSON.stringify returns a string — valid child
+// Use only for debug. Never ship object dumps to users.</span>
+<span class="kw">return</span> <pre>{JSON.stringify(user, <span class="fn">null</span>, <span class="num">2</span>)}</pre>;
+}
+
+<span class="com">// ─── GOOD 3: render a list of fields ─────────</span>
+<span class="kw">function</span> <span class="fn">FieldList</span>({ user }: { user: User }) {
+<span class="com">// ✅ Object.entries → array of primitives → valid children</span>
+<span class="kw">return</span> (
+<dl>
+{Object.entries(user).map(([key, value]) => (
+<span class="kw">key</span>={key}
+<dt key={dt-${key}}&gt;{key}&lt;/dt&gt; &lt;dd key={dd-${key}}>{value}</dd>
+))}
+</dl>
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadUserCard</span>, <span class="fn">GoodUserCard</span>, <span class="fn">DebugUserCard</span>, <span class="fn">FieldList</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">BadUserCard</span>({ user }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>, user);
+}
+
+<span class="kw">function</span> <span class="fn">GoodUserCard</span>({ user }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'h2'</span>, <span class="kw">null</span>, user.name),
+React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, user.email)
+);
+}
+
+<span class="kw">function</span> <span class="fn">DebugUserCard</span>({ user }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'pre'</span>, <span class="kw">null</span>, JSON.<span class="fn">stringify</span>(user, <span class="fn">null</span>, <span class="num">2</span>));
+}
+
+<span class="kw">function</span> <span class="fn">FieldList</span>({ user }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'dl'</span>, <span class="kw">null</span>,
+Object.<span class="fn">entries</span>(user).<span class="fn">map</span>(([key, value]) =>
+React.<span class="fn">createElement</span>(React.Fragment, { key },
+React.<span class="fn">createElement</span>(<span class="str">'dt'</span>, <span class="kw">null</span>, key),
+React.<span class="fn">createElement</span>(<span class="str">'dd'</span>, <span class="kw">null</span>, value)
+)
+)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadUserCard</span>, <span class="fn">GoodUserCard</span>, <span class="fn">DebugUserCard</span>, <span class="fn">FieldList</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>ReactNode = primitives + elements</h4>
+<p><code>string | number | boolean | null | undefined | ReactElement | Iterable<ReactNode></code>. Objects are not included.</p>
+</div>
+<div class="concept-card">
+<h4><code>{'{user}'}</code> is the bug</h4>
+<p>You meant a field. <code>{'{user.name}'}</code>, <code>{'{user.email}'}</code>. Never the whole object.</p>
+</div>
+<div class="concept-card">
+<h4><code>JSON.stringify</code> for debug</h4>
+<p>Returns a string — valid child. Use <code><pre></code> to preserve formatting. Never ship this to users.</p>
+</div>
+<div class="concept-card">
+<h4><code>Object.entries</code> for generic render</h4>
+<p>Turns an object into an array of <code>[key, value]</code> pairs. Values must be primitives to render.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Rendering a non-primitive</h2>
+<p class="section-sub">Date, Map, Set, class instance — all objects, all crash.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3"><code>Date</code>, <code>Map</code>, <code>Set</code>, and class instances are objects. React can't render them — it renders the object, and throws. Fix: convert to a primitive or an array before rendering. <code>Date</code> → <code>.toLocaleDateString()</code>. <code>Map</code> → <code>Array.from(map)</code>. <code>Set</code> → <code>[...set]</code>.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">non-primitive.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="com">// ─── BAD: Date as child ──────────────────────</span>
+<span class="kw">function</span> <span class="fn">BadDate</span>({ date }: { date: <span class="fn">Date</span> }) {
+<span class="com">// ❌ Runtime: Objects are not valid as a React child
+// ❌ TS: Type 'Date' is not assignable to type 'ReactNode'</span>
+<span class="kw">return</span> <p>{date}</p>;
+}
+
+<span class="com">// ─── GOOD 1: format the Date ────────────────</span>
+<span class="kw">function</span> <span class="fn">GoodDate</span>({ date }: { date: <span class="fn">Date</span> }) {
+<span class="com">// ✅ toLocaleDateString returns a string</span>
+<span class="kw">return</span> <p>{date.<span class="fn">toLocaleDateString</span>()}</p>;
+}
+
+<span class="com">// ─── BAD: Map as child ───────────────────────</span>
+<span class="kw">function</span> <span class="fn">BadMap</span>({ scores }: { scores: <span class="fn">Map</span><<span class="fn">string</span>, <span class="fn">number</span>> }) {
+<span class="com">// ❌ Same crash — Map is an object</span>
+<span class="kw">return</span> <p>{scores}</p>;
+}
+
+<span class="com">// ─── GOOD 2: convert Map to array ───────────</span>
+<span class="kw">function</span> <span class="fn">GoodMap</span>({ scores }: { scores: <span class="fn">Map</span><<span class="fn">string</span>, <span class="fn">number</span>> }) {
+<span class="com">// ✅ Array.from gives an array of [key, value] tuples</span>
+<span class="kw">return</span> (
+<ul>
+{Array.<span class="fn">from</span>(scores).<span class="fn">map</span>(([name, score]) => (
+<li key={name}>{name}: {score}</li>
+))}
+</ul>
+);
+}
+
+<span class="com">// ─── BAD: Set as child ───────────────────────</span>
+<span class="kw">function</span> <span class="fn">BadSet</span>({ tags }: { tags: <span class="fn">Set</span><<span class="fn">string</span>> }) {
+<span class="com">// ❌ Same crash</span>
+<span class="kw">return</span> <p>{tags}</p>;
+}
+
+<span class="com">// ─── GOOD 3: spread Set into array ──────────</span>
+<span class="kw">function</span> <span class="fn">GoodSet</span>({ tags }: { tags: <span class="fn">Set</span><<span class="fn">string</span>> }) {
+<span class="com">// ✅ Spread gives an array of strings</span>
+<span class="kw">return</span> (
+<ul>
+{[...tags].<span class="fn">map</span>(tag => <li key={tag}>{tag}</li>)}
+</ul>
+);
+}
+
+<span class="com">// ─── BAD: class instance as child ────────────</span>
+<span class="kw">class</span> <span class="fn">Money</span> {
+<span class="kw">constructor</span>(<span class="kw">public</span> amount: <span class="fn">number</span>, <span class="kw">public</span> currency: <span class="fn">string</span>) {}
+<span class="fn">format</span>() { <span class="kw">return</span> ${this.amount} ${this.currency}; }
+}
+
+<span class="kw">function</span> <span class="fn">BadMoney</span>({ money }: { money: <span class="fn">Money</span> }) {
+<span class="com">// ❌ Same crash — class instance is an object</span>
+<span class="kw">return</span> <p>{money}</p>;
+}
+
+<span class="com">// ─── GOOD 4: call a formatting method ───────</span>
+<span class="kw">function</span> <span class="fn">GoodMoney</span>({ money }: { money: <span class="fn">Money</span> }) {
+<span class="com">// ✅ format() returns a string</span>
+<span class="kw">return</span> <p>{money.<span class="fn">format</span>()}</p>;
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadDate</span>, <span class="fn">GoodDate</span>, <span class="fn">BadMap</span>, <span class="fn">GoodMap</span>, <span class="fn">BadSet</span>, <span class="fn">GoodSet</span>, <span class="fn">Money</span>, <span class="fn">BadMoney</span>, <span class="fn">GoodMoney</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">function</span> <span class="fn">BadDate</span>({ date }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, date);
+}
+
+<span class="kw">function</span> <span class="fn">GoodDate</span>({ date }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, date.<span class="fn">toLocaleDateString</span>());
+}
+
+<span class="kw">function</span> <span class="fn">BadMap</span>({ scores }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, scores);
+}
+
+<span class="kw">function</span> <span class="fn">GoodMap</span>({ scores }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+Array.<span class="fn">from</span>(scores).<span class="fn">map</span>(([name, score]) =>
+React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: name }, name, <span class="str">': '</span>, score)
+)
+);
+}
+
+<span class="kw">function</span> <span class="fn">BadSet</span>({ tags }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, tags);
+}
+
+<span class="kw">function</span> <span class="fn">GoodSet</span>({ tags }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
+[...tags].<span class="fn">map</span>(tag => React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: tag }, tag))
+);
+}
+
+<span class="kw">class</span> <span class="fn">Money</span> {
+<span class="kw">constructor</span>(amount, currency) {
+<span class="kw">this</span>.amount = amount;
+<span class="kw">this</span>.currency = currency;
+}
+<span class="fn">format</span>() { <span class="kw">return</span> ${this.amount} ${this.currency}; }
+}
+
+<span class="kw">function</span> <span class="fn">BadMoney</span>({ money }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, money);
+}
+
+<span class="kw">function</span> <span class="fn">GoodMoney</span>({ money }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, money.<span class="fn">format</span>());
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadDate</span>, <span class="fn">GoodDate</span>, <span class="fn">BadMap</span>, <span class="fn">GoodMap</span>, <span class="fn">BadSet</span>, <span class="fn">GoodSet</span>, <span class="fn">Money</span>, <span class="fn">BadMoney</span>, <span class="fn">GoodMoney</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Date → format</h4>
+<p><code>date.toLocaleDateString()</code>, <code>date.toISOString()</code>, or a formatter. Never render the raw <code>Date</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Map → <code>Array.from</code></h4>
+<p><code>Array.from(map)</code> gives <code>[key, value][]</code>. <code>[map.keys()]</code> and <code>[map.values()]</code> also work.</p>
+</div>
+<div class="concept-card">
+<h4>Set → spread</h4>
+<p><code>[...set]</code> gives an array. <code>Array.from(set)</code> does the same. Both are valid children after <code>.map</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Class → method call</h4>
+<p>If the class has a <code>toString()</code> or <code>format()</code>, call it. React won't call it for you.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Functions and children typing</h2>
+<p class="section-sub"><code>onClick={'{handleClick()}'}</code> and the <code>ReactNode</code> vs <code>ReactElement</code> trap.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Two related mistakes. (1) You called a function in JSX instead of passing it: <code>onClick={'{handleClick()}'}</code> runs on render, and if it returns an object, React crashes. (2) You typed <code>children</code> as <code>ReactElement</code> or <code>JSX.Element</code> — too narrow. <code>children</code> can be a string, number, array, null, or element. Type it as <code>ReactNode</code>.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">functions-and-children.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { ReactNode, ReactElement, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: calling a function in JSX ──────────</span>
+<span class="kw">function</span> <span class="fn">BadButton</span>() {
+<span class="kw">const</span> handleClick = () => ({ message: <span class="str">'clicked'</span> });
+
+<span class="com">// ❌ onClick runs immediately, returns an object,
+// and that object is passed as the onClick prop.
+// React warns: "Expected onClick to be a function, got [object Object]"
+// Worse: if you render the return value, it crashes.</span>
+<span class="kw">return</span> <button onClick={handleClick()}>Click</button>;
+}
+
+<span class="com">// ─── GOOD 1: pass the function reference ────</span>
+<span class="kw">function</span> <span class="fn">GoodButton</span>() {
+<span class="kw">const</span> handleClick = () => ({ message: <span class="str">'clicked'</span> });
+
+<span class="com">// ✅ Function reference — React calls it on click</span>
+<span class="kw">return</span> <button onClick={handleClick}>Click</button>;
+}
+
+<span class="com">// ─── GOOD 2: inline arrow when you need args ──</span>
+<span class="kw">function</span> <span class="fn">ButtonWithArg</span>() {
+<span class="kw">const</span> log = (msg: <span class="fn">string</span>) => console.<span class="fn">log</span>(msg);
+
+<span class="com">// ✅ Arrow wrapper — calls log on click, not on render</span>
+<span class="kw">return</span> <button onClick={() => <span class="fn">log</span>(<span class="str">'hello'</span>)}>Click</button>;
+}
+
+<span class="com">// ─── BAD: children typed as ReactElement ─────</span>
+<span class="kw">interface</span> BadCardProps {
+<span class="com">// ❌ Too narrow. <Card>hello</Card> is a string, not an element.
+// ❌ <Card>{null}</Card> is null, not an element.</span>
+children: ReactElement;
+}
+
+<span class="kw">function</span> <span class="fn">BadCard</span>({ children }: BadCardProps) {
+<span class="kw">return</span> <div className="card">{children}</div>;
+}
+
+<span class="com">// ─── GOOD 3: children typed as ReactNode ─────</span>
+<span class="kw">interface</span> CardProps {
+<span class="com">// ✅ Accepts strings, numbers, elements, arrays, null</span>
+children: ReactNode;
+}
+
+<span class="kw">function</span> <span class="fn">Card</span>({ children }: CardProps) {
+<span class="kw">return</span> <div className="card">{children}</div>;
+}
+
+<span class="com">// ─── GOOD 4: render prop (function children) ──</span>
+<span class="kw">interface</span> DataLoaderProps {
+<span class="com">// ✅ Explicitly a function — must be declared, not default</span>
+children: (data: <span class="fn">string</span>) => ReactNode;
+}
+
+<span class="kw">function</span> <span class="fn">DataLoader</span>({ children }: DataLoaderProps) {
+<span class="kw">const</span> [data] = <span class="fn">useState</span>(<span class="str">'loaded data'</span>);
+<span class="com">// ✅ Call the function with the data — not {children}</span>
+<span class="kw">return</span> <div>{<span class="fn">children</span>(data)}</div>;
+}
+
+<span class="com">// ─── Usage ───────────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">App</span>() {
+<span class="kw">return</span> (
+<div>
+<span class="com">{/* ✅ children as string — works with ReactNode */}</span>
+<Card>hello</Card>
+
+<span class="com">{/* ✅ children as element */}</span>
+<Card><p>hello</p></Card>
+
+<span class="com">{/* ✅ children as null — works with ReactNode */}</span>
+<Card>{<span class="fn">null</span>}</Card>
+
+<span class="com">{/* ✅ render prop — function children */}</span>
+<DataLoader>
+{(data) => <p>{data}</p>}
+</DataLoader>
+</div>
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadButton</span>, <span class="fn">GoodButton</span>, <span class="fn">ButtonWithArg</span>, <span class="fn">BadCard</span>, <span class="fn">Card</span>, <span class="fn">DataLoader</span>, <span class="fn">App</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadButton</span>() {
+<span class="kw">const</span> handleClick = () => ({ message: <span class="str">'clicked'</span> });
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: <span class="fn">handleClick</span>() }, <
+<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: handleClick }, <span class="str">'Click'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">ButtonWithArg</span>() {
+<span class="kw">const</span> log = (msg) => console.<span class="fn">log</span>(msg);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => <span class="fn">log</span>(<span class="str">'hello'</span>) }, <span class="str">'Click'</span>);
+}
+
+<span class="kw">function</span> <span class="fn">BadCard</span>({ children }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, { className: <span class="str">'card'</span> }, children);
+}
+
+<span class="kw">function</span> <span class="fn">Card</span>({ children }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, { className: <span class="str">'card'</span> }, children);
+}
+
+<span class="kw">function</span> <span class="fn">DataLoader</span>({ children }) {
+<span class="kw">const</span> [data] = <span class="fn">useState</span>(<span class="str">'loaded data'</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>, <span class="fn">children</span>(data));
+}
+
+<span class="kw">function</span> <span class="fn">App</span>() {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(Card, <span class="kw">null</span>, <span class="str">'hello'</span>),
+React.<span class="fn">createElement</span>(Card, <span class="kw">null</span>, React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, <span class="str">'hello'</span>)),
+React.<span class="fn">createElement</span>(Card, <span class="kw">null</span>, <span class="fn">null</span>),
+React.<span class="fn">createElement</span>(DataLoader, <span class="kw">null</span>, (data) => React.<span class="fn">createElement</span>(<span class="str">'p'</span>, <span class="kw">null</span>, data))
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadButton</span>, <span class="fn">GoodButton</span>, <span class="fn">ButtonWithArg</span>, <span class="fn">BadCard</span>, <span class="fn">Card</span>, <span class="fn">DataLoader</span>, <span class="fn">App</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>children: ReactNode</code></h4>
+<p>Widest type. Accepts strings, numbers, elements, arrays, null, undefined. Use this for <code>children</code> always.</p>
+</div>
+<div class="concept-card">
+<h4><code>ReactElement</code> is narrow</h4>
+<p>Only a single JSX element. Fails on <code><Card>hello</Card></code> (string) and <code><Card>{'{null}'}</Card></code> (null).</p>
+</div>
+<div class="concept-card">
+<h4>Pass the function, don't call it</h4>
+<p><code>onClick={'{handleClick}'}</code> — not <code>onClick={'{handleClick()}'}</code>. Wrap in an arrow if you need args.</p>
+</div>
+<div class="concept-card">
+<h4>Render props need explicit typing</h4>
+<p><code>children: (data: T) => ReactNode</code>. The default <code>ReactNode</code> excludes functions — you opt in.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't reach for <code>String(x)</code> to silence the error.</strong> Wrapping everything in <code>String(user)</code> gives you <code>"[object Object]"</code> — a string, so React stops complaining, but the output is garbage. The right fix is to render the specific fields you want, format non-primitives (<code>Date</code>, <code>Map</code>, <code>Set</code>) explicitly, and type <code>children</code> as <code>ReactNode</code>. <code>String()</code> is a symptom patch, not a fix.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The crash patterns that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Rendering a whole object</div>
+<p><code>{'{user}'}</code> instead of <code>{'{user.name}'}</code>. Fix: render the field, not the object.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Rendering a <code>Date</code></div>
+<p><code>{'{createdAt}'}</code> where <code>createdAt</code> is a <code>Date</code>. Fix: <code>{'{createdAt.toLocaleDateString()}'}</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Rendering a <code>Map</code> or <code>Set</code></div>
+<p><code>{'{scores}'}</code> when <code>scores</code> is a <code>Map</code>. Fix: <code>{'Array.from(scores).map(...)'}</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Typing <code>children</code> as <code>ReactElement</code></div>
+<p>Fails on strings and null. Fix: <code>children: ReactNode</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Calling a function in JSX</div>
+<p><code>onClick={'{handleClick()}'}</code> runs on render. Fix: <code>onClick={'{handleClick}'}</code> or <code>onClick={'{() => handleClick(arg)}'}</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. <code>String()</code> as a workaround</div>
+<p><code>{'String(user)'}</code> gives <code>"[object Object]"</code>. Fix: render the fields you need.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Returning an object from <code>.map()</code></div>
+<p><code>{'items.map(i => ({ name: i.name }))'}</code> returns objects. Fix: return an element: <code>{'items.map(i => <li>{i.name}</li>)'}</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Forgetting that <code>children</code> can be a function</div>
+<p>Render-prop children need <code>(data: T) => ReactNode</code> typing, not <code>ReactNode</code>. Fix: declare the function signature.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix "Objects are not valid as a React child" in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Three causes, three fixes. (1) Rendering an object directly — render a specific field (user.name) or JSON.stringify(obj) for debug. (2) Rendering a Date or Map/Set — call .toISOString(), Array.from(map), or format explicitly. (3) Forgetting to call a function, or passing a function where a node is expected. Never put {someObject} inside JSX — always extract a primitive or wrap in a component.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between ReactNode, ReactElement, and JSX.Element?</summary>;
+<p class="mt-2 text-sm text-slate-300">ReactNode is the widest type — it includes string, number, boolean, null, undefined, ReactElement, and iterables of ReactNode. ReactElement is the object that createElement returns (a single JSX element). JSX.Element is ReactElement with a specific props type. For children props, always use ReactNode — it accepts everything React can render. Use ReactElement only when you need to access element internals (type, props).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does React complain about a Date object as a child?</summary>
+<p class="mt-2 text-sm text-slate-300">React only renders strings, numbers, and elements. A Date is an object — React doesn't know how to display it. Fix: convert it first. Use date.toLocaleDateString(), date.toISOString(), or a formatting library. Same applies to Map, Set, and any class instance. If it's not a primitive or a ReactElement, React throws.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can children be a function in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes — this is the "function as children" / render prop pattern. The child prop is typed as (data: T) => ReactNode, not ReactNode. You opt into it explicitly: interface Props { children: (user: User) => ReactNode }. Then the component calls children(user) instead of rendering {children}. This is not the default children type — it must be declared. React's built-in children type is ReactNode, which excludes functions.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/cannot-read-property.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Cannot read property of undefined"</div>
+<div class="text-xs text-slate-400 mt-1">Three causes, three fixes for null data</div>
+</a>
+<a href="/courses/react/problems/useeffect-deps.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "useEffect has a missing dependency"</div>
+<div class="text-xs text-slate-400 mt-1">Data fetching gotchas</div>
+</a>
+<a href="/courses/typescript/problems/type-guard-array.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔷 Type guard for array of objects</div>
+<div class="text-xs text-slate-400 mt-1">Validating API responses in TS</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
