@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React Component Re-renders Too Often — How to Fix (2026)</title>
+<meta name="description" content="Fix React re-render problems: state placed too high, unstable context values, and parent renders that cascade. Three causes, three fixes with useMemo, context splitting, and component extraction.">
+<meta name="keywords" content="react re-render too often, react component re-renders, react state placement, react context re-render, react render performance, react unnecessary re-renders">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React Component Re-renders Too Often — How to Fix">
+<meta property="og:description" content="Three causes, three fixes for unnecessary re-renders.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/re-render-too-often.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React Component Re-renders Too Often — How to Fix">
+<meta name="twitter:description" content="Three causes, three fixes for unnecessary re-renders.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/re-render-too-often.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React Component Re-renders Too Often — How to Fix",
+"description": "Fix unnecessary React re-renders caused by state placement and context.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-01",
+"dateModified": "2026-11-01",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why is my React component re-rendering too often?","acceptedAnswer":{"@type":"Answer","text":"Three causes, three fixes. (1) State is placed too high in the tree — every change re-renders the whole subtree. Fix: move the state down to the component that actually needs it. (2) Context value is a new object every render — every consumer re-renders, even those that don't use the changed field. Fix: memoize the context value with useMemo, or split the context. (3) Parent re-renders on every keystroke — the entire tree re-renders. Fix: extract the expensive child, memo it, or move state into a sibling. React re-renders a component whenever its state, its parent, or its context changes. Find which of the three is firing."}},
+{"@type":"Question","name":"Does a React component re-render when its parent re-renders?","acceptedAnswer":{"@type":"Answer","text":"Yes — by default, every child re-renders when its parent re-renders, regardless of whether props changed. React.memo is the opt-out: it does a shallow prop comparison and skips the render if every prop is the same reference. Without memo, the child renders. This is why state placement matters: if state lives high, every state change cascades down the tree, and only memoized children can skip."}},
+{"@type":"Question","name":"How do I stop a context from re-rendering all consumers?","acceptedAnswer":{"@type":"Answer","text":"Two fixes. (1) Memoize the context value — wrap the object in useMemo so its reference is stable unless a dependency changes. Without this, every render of the provider creates a new value object and every consumer re-renders. (2) Split the context — separate the rarely-changing value from the frequently-changing one. Consumers of the rare context stop re-rendering when the frequent context changes. Use useMemo for the value, and split when one context holds both stable and volatile data."}},
+{"@type":"Question","name":"Should I move state down to avoid re-renders?","acceptedAnswer":{"@type":"Answer","text":"Usually yes. State placed in a high parent re-renders the whole subtree when it changes. If only one child needs the state, move it into that child. If several siblings need it, keep it in the parent, but extract the parts that don't need it into memoized children. Lift only when multiple components need the same value. The rule: state should live at the lowest common ancestor of the components that read it — not higher."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · re-render too often</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Re-render too often</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 6 min read</div>
+<h1>"My component re-renders too often."<br><span class="py-accent">Three causes, three fixes.</span></h1>
+<p class="lead">
+React re-renders are not a bug by default — they're the rendering model. But when a single keystroke cascades through the whole tree, or a context change re-renders every consumer, that's a design problem, not a performance one. This page covers the three structural causes, the three fixes, and the rule for where state belongs.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> React re-renders a component when its state, its parent, or its context changes. The three causes: (1) state placed too high in the tree, (2) a context value that's a new object every render, (3) a parent that re-renders on every event. Fix each by moving state down, memoizing the context value, and extracting the expensive child. Don't reach for <code>React.memo</code> first — fix the structure.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — State placed too high</h2>
+<p class="section-sub">The most common cause: state lives in a parent that doesn't need it.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When state lives high in the tree, every change re-renders the entire subtree — even children that don't read the state. Fix: move the state down to the component that actually needs it. If only one child uses it, the state belongs there. The parent stops re-rendering on every change.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">state-too-high.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">import { useState } from 'react';
+
+// BAD: input state lives in the App — every keystroke re-renders everything
+function BadApp() {
+const [text, setText] = useState('');
+console.log('BadApp rendered');
+return (
+<div>
+<BadInput value={text} onChange={setText} />
+<BadExpensiveChart />
+<BadFooter />
+</div>
+);
+}
+
+function BadInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+return <input value={value} onChange={(e) => onChange(e.target.value)} />;
+}
+
+function BadExpensiveChart() {
+console.log('BadExpensiveChart rendered');
+return <div>[chart that doesn't need the input value]</div>;
+}
+
+function BadFooter() {
+console.log('BadFooter rendered');
+return <footer>Footer</footer>;
+}
+
+// GOOD 1: move the state down into the input's parent
+function GoodApp() {
+console.log('GoodApp rendered');
+return (
+<div>
+<GoodInput />
+<GoodExpensiveChart />
+<GoodFooter />
+</div>
+);
+}
+
+function GoodInput() {
+// State lives here — only this component re-renders on keystroke
+const [text, setText] = useState('');
+console.log('GoodInput rendered');
+return <input value={text} onChange={(e) => setText(e.target.value)} />;
+}
+
+function GoodExpensiveChart() {
+// Never re-renders on keystroke
+return <div>[chart]</div>;
+}
+
+function GoodFooter() {
+return <footer>Footer</footer>;
+}
+
+// GOOD 2: keep state in the parent but extract the consumers
+function GoodApp2() {
+const [text, setText] = useState('');
+console.log('GoodApp2 rendered');
+
+return (
+<div>
+{/* Only the consumer re-renders — pass the value and setter */}
+<TextDisplay value={text} />
+<TextInput value={text} onChange={setText} />
+<StaticFooter />
+</div>
+);
+}
+
+function TextDisplay({ value }: { value: string }) {
+return <p>You typed: {value}</p>;
+}
+
+function TextInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+return <input value={value} onChange={(e) => onChange(e.target.value)} />;
+}
+
+function StaticFooter() {
+return <footer>Footer</footer>;
+}
+
+export { BadApp, GoodApp, GoodApp2 };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>import { useState } from 'react';
+
+function BadApp() {
+const [text, setText] = useState('');
+console.log('BadApp rendered');
+return React.createElement('div', null,
+React.createElement(BadInput, { value: text, onChange: setText }),
+React.createElement(BadExpensiveChart),
+React.createElement(BadFooter)
+);
+}
+
+function BadInput({ value, onChange }) {
+return React.createElement('input', {
+value,
+onChange: (e) => onChange(e.target.value)
+});
+}
+
+function BadExpensiveChart() {
+console.log('BadExpensiveChart rendered');
+return React.createElement('div', null, '[chart]');
+}
+
+function BadFooter() {
+console.log('BadFooter rendered');
+return React.createElement('footer', null, 'Footer');
+}
+
+function GoodApp() {
+console.log('GoodApp rendered');
+return React.createElement('div', null,
+React.createElement(GoodInput),
+React.createElement(GoodExpensiveChart),
+React.createElement(GoodFooter)
+);
+}
+
+function GoodInput() {
+const [text, setText] = useState('');
+console.log('GoodInput rendered');
+return React.createElement('input', {
+value: text,
+onChange: (e) => setText(e.target.value)
+});
+}
+
+function GoodExpensiveChart() {
+return React.createElement('div', null, '[chart]');
+}
+
+function GoodFooter() {
+return React.createElement('footer', null, 'Footer');
+}
+
+function GoodApp2() {
+const [text, setText] = useState('');
+console.log('GoodApp2 rendered');
+return React.createElement('div', null,
+React.createElement(TextDisplay, { value: text }),
+React.createElement(TextInput, { value: text, onChange: setText }),
+React.createElement(StaticFooter)
+);
+}
+
+function TextDisplay({ value }) {
+return React.createElement('p', null, 'You typed: ', value);
+}
+
+function TextInput({ value, onChange }) {
+return React.createElement('input', {
+value,
+onChange: (e) => onChange(e.target.value)
+});
+}
+
+function StaticFooter() {
+return React.createElement('footer', null, 'Footer');
+}
+
+export { BadApp, GoodApp, GoodApp2 };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>State at the lowest consumer</h4>
+<p>Put state in the component that reads it, not the component that owns the subtree. Move it down.</p>
+</div>
+<div class="concept-card">
+<h4>Lift only when shared</h4>
+<p>Two siblings need the same value? Lift to their common parent. One component? Keep it local.</p>
+</div>
+<div class="concept-card">
+<h4>Extract consumers</h4>
+<p>When state must stay high, extract the parts that read it. Static siblings render once.</p>
+</div>
+<div class="concept-card">
+<h4>Measure, don't guess</h4>
+<p>React DevTools Profiler shows which components rendered. Find the actual cascade before refactoring.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Context value is a new object every render</h2>
+<p class="section-sub">The provider creates a new value object, and every consumer re-renders.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Context compares its value with <code>Object.is</code>, just like <code>React.memo</code> compares props. If the provider passes a new object literal on every render, every consumer re-renders — even those that only read a field that didn't change. Fix: wrap the context value in <code>useMemo</code>, or split the context into stable and volatile parts.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">context-new-object.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">import { createContext, useContext, useMemo, useState } from 'react';
+
+interface AppContextValue {
+user: string;
+theme: string;
+count: number;
+}
+
+const AppContext = createContext<AppContextValue | null>(null);
+
+// BAD: new value object every render — every consumer re-renders
+function BadProvider({ children }: { children: React.ReactNode }) {
+const [count, setCount] = useState(0);
+const [user] = useState('Alice');
+const [theme] = useState('dark');
+
+return (
+<AppContext.Provider value={{ user, theme, count }}>
+<button onClick={() => setCount((c) => c + 1)}>Increment</button>
+{children}
+</AppContext.Provider>
+);
+}
+
+function UserBadge() {
+const ctx = useContext(AppContext);
+console.log('UserBadge rendered');
+return <span>{ctx?.user}</span>;
+}
+
+// GOOD 1: memoize the context value
+function GoodProvider1({ children }: { children: React.ReactNode }) {
+const [count, setCount] = useState(0);
+const [user] = useState('Alice');
+const [theme] = useState('dark');
+
+const value = useMemo(
+() => ({ user, theme, count }),
+[user, theme, count]
+);
+
+return (
+<AppContext.Provider value={value}>
+<button onClick={() => setCount((c) => c + 1)}>Increment</button>
+{children}
+</AppContext.Provider>
+);
+}
+
+// GOOD 2: split the context — stable data and volatile data
+const StableContext = createContext<{ user: string; theme: string } | null>(null);
+const CountContext = createContext<number>(0);
+
+function GoodProvider2({ children }: { children: React.ReactNode }) {
+const [count, setCount] = useState(0);
+const [user] = useState('Alice');
+const [theme] = useState('dark');
+
+const stable = useMemo(() => ({ user, theme }), [user, theme]);
+
+return (
+<StableContext.Provider value={stable}>
+<CountContext.Provider value={count}>
+<button onClick={() => setCount((c) => c + 1)}>Increment</button>
+{children}
+</CountContext.Provider>
+</StableContext.Provider>
+);
+}
+
+function UserBadge2() {
+const ctx = useContext(StableContext);
+console.log('UserBadge2 rendered — only when user/theme change');
+return <span>{ctx?.user}</span>;
+}
+
+// GOOD 3: extract the consumer that needs the volatile field
+function CountDisplay() {
+const count = useContext(CountContext);
+return <p>Count: {count}</p>;
+}
+
+export { BadProvider, GoodProvider1, GoodProvider2, UserBadge, UserBadge2, CountDisplay };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>import { createContext, useContext, useMemo, useState } from 'react';
+
+const AppContext = createContext(null);
+
+function BadProvider({ children }) {
+const [count, setCount] = useState(0);
+const [user] = useState('Alice');
+const [theme] = useState('dark');
+
+return React.createElement(AppContext.Provider,
+{ value: { user, theme, count } },
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Increment'),
+children
+);
+}
+
+function UserBadge() {
+const ctx = useContext(AppContext);
+console.log('UserBadge rendered');
+return React.createElement('span', null, ctx?.user);
+}
+
+function GoodProvider1({ children }) {
+const [count, setCount] = useState(0);
+const [user] = useState('Alice');
+const [theme] = useState('dark');
+
+const value = useMemo(
+() => ({ user, theme, count }),
+[user, theme, count]
+);
+
+return React.createElement(AppContext.Provider,
+{ value },
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Increment'),
+children
+);
+}
+
+const StableContext = createContext(null);
+const CountContext = createContext(0);
+
+function GoodProvider2({ children }) {
+const [count, setCount] = useState(0);
+const [user] = useState('Alice');
+const [theme] = useState('dark');
+
+const stable = useMemo(() => ({ user, theme }), [user, theme]);
+
+return React.createElement(StableContext.Provider,
+{ value: stable },
+React.createElement(CountContext.Provider,
+{ value: count },
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Increment'),
+children
+)
+);
+}
+
+function UserBadge2() {
+const ctx = useContext(StableContext);
+console.log('UserBadge2 rendered — only when user/theme change');
+return React.createElement('span', null, ctx?.user);
+}
+
+function CountDisplay() {
+const count = useContext(CountContext);
+return React.createElement('p', null, 'Count: ', count);
+}
+
+export { BadProvider, GoodProvider1, GoodProvider2, UserBadge, UserBadge2, CountDisplay };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Context compares by reference</h4>
+<p>The provider's value is compared with <code>Object.is</code>. A new object literal re-renders every consumer.</p>
+</div>
+<div class="concept-card">
+<h4><code>useMemo</code> the value</h4>
+<p>Wrap the context value in <code>useMemo</code>. Same reference unless a dependency actually changed.</p>
+</div>
+<div class="concept-card">
+<h4>Split the context</h4>
+<p>Separate rarely-changing from frequently-changing data. Consumers of the rare one stop re-rendering on every change.</p>
+</div>
+<div class="concept-card">
+<h4>Extract consumers</h4>
+<p>Move the component that reads the volatile field into its own component. Siblings don't re-render.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Parent re-renders on every event</h2>
+<p class="section-sub">A state change at the top cascades through the whole tree.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The parent owns state that changes on every keystroke or scroll. React re-renders the parent — and by default, every child, whether or not its props changed. Fix: extract the expensive child into its own component, memoize it if props are stable, or move the state into a sibling that doesn't share the cascade.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">parent-cascade.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">import { memo, useState } from 'react';
+
+// BAD: every keystroke re-renders the entire App subtree
+function BadApp() {
+const [text, setText] = useState('');
+console.log('BadApp rendered');
+
+return (
+<div>
+<input value={text} onChange={(e) => setText(e.target.value)} />
+<BadHeavyTree />
+<BadFooter />
+</div>
+);
+}
+
+function BadHeavyTree() {
+console.log('BadHeavyTree rendered');
+return <div>[expensive chart / list]</div>;
+}
+
+function BadFooter() {
+console.log('BadFooter rendered');
+return <footer>Footer</footer>;
+}
+
+// GOOD 1: extract the input into its own component
+function GoodApp1() {
+console.log('GoodApp1 rendered');
+return (
+<div>
+<SearchInput />
+<HeavyTree />
+<Footer />
+</div>
+);
+}
+
+function SearchInput() {
+const [text, setText] = useState('');
+return <input value={text} onChange={(e) => setText(e.target.value)} />;
+}
+
+function HeavyTree() {
+return <div>[expensive chart / list]</div>;
+}
+
+function Footer() {
+return <footer>Footer</footer>;
+}
+
+// GOOD 2: memo the heavy child — parent can re-render, child skips
+const MemoHeavyTree = memo(function MemoHeavyTree() {
+console.log('MemoHeavyTree rendered');
+return <div>[expensive chart / list]</div>;
+});
+
+function GoodApp2() {
+const [text, setText] = useState('');
+console.log('GoodApp2 rendered — parent still renders');
+
+return (
+<div>
+<input value={text} onChange={(e) => setText(e.target.value)} />
+{/* GOOD: memoized — skips the render when props don't change */}
+<MemoHeavyTree />
+</div>
+);
+}
+
+// GOOD 3: pass children from a stable parent
+function GoodApp3() {
+const [text, setText] = useState('');
+console.log('GoodApp3 rendered');
+
+return (
+<div>
+<input value={text} onChange={(e) => setText(e.target.value)} />
+{/* HeavyTree is created once — same element reference */}
+<StableWrapper>
+<HeavyTree />
+</StableWrapper>
+</div>
+);
+}
+
+const StableWrapper = memo(function StableWrapper({ children }: { children: React.ReactNode }) {
+console.log('StableWrapper rendered');
+return <div>{children}</div>;
+});
+
+export { BadApp, GoodApp1, GoodApp2, GoodApp3 };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>import { memo, useState } from 'react';
+
+function BadApp() {
+const [text, setText] = useState('');
+console.log('BadApp rendered');
+return React.createElement('div', null,
+React.createElement('input', {
+value: text,
+onChange: (e) => setText(e.target.value)
+}),
+React.createElement(BadHeavyTree),
+React.createElement(BadFooter)
+);
+}
+
+function BadHeavyTree() {
+console.log('BadHeavyTree rendered');
+return React.createElement('div', null, '[expensive chart]');
+}
+
+function BadFooter() {
+console.log('BadFooter rendered');
+return React.createElement('footer', null, 'Footer');
+}
+
+function GoodApp1() {
+console.log('GoodApp1 rendered');
+return React.createElement('div', null,
+React.createElement(SearchInput),
+React.createElement(HeavyTree),
+React.createElement(Footer)
+);
+}
+
+function SearchInput() {
+const [text, setText] = useState('');
+return React.createElement('input', {
+value: text,
+onChange: (e) => setText(e.target.value)
+});
+}
+
+function HeavyTree() {
+return React.createElement('div', null, '[expensive chart]');
+}
+
+function Footer() {
+return React.createElement('footer', null, 'Footer');
+}
+
+const MemoHeavyTree = memo(function MemoHeavyTree() {
+console.log('MemoHeavyTree rendered');
+return React.createElement('div', null, '[expensive chart]');
+});
+
+function GoodApp2() {
+const [text, setText] = useState('');
+console.log('GoodApp2 rendered');
+return React.createElement('div', null,
+React.createElement('input', {
+value: text,
+onChange: (e) => setText(e.target.value)
+}),
+React.createElement(MemoHeavyTree)
+);
+}
+
+function GoodApp3() {
+const [text, setText] = useState('');
+console.log('GoodApp3 rendered');
+return React.createElement('div', null,
+React.createElement('input', {
+value: text,
+onChange: (e) => setText(e.target.value)
+}),
+React.createElement(StableWrapper, null,
+React.createElement(HeavyTree)
+)
+);
+}
+
+const StableWrapper = memo(function StableWrapper({ children }) {
+console.log('StableWrapper rendered');
+return React.createElement('div', null, children);
+});
+
+export { BadApp, GoodApp1, GoodApp2, GoodApp3 };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Default re-render</h4>
+<p>Every child re-renders when the parent re-renders. Only <code>React.memo</code> skips it (with stable props).</p>
+</div>
+<div class="concept-card">
+<h4>Extract the input</h4>
+<p>Move the state and the input into a child. The parent doesn't re-render on every keystroke.</p>
+</div>
+<div class="concept-card">
+<h4>Memo the expensive child</h4>
+<p>If the parent must re-render, memo the heavy child. It skips when props are the same reference.</p>
+</div>
+<div class="concept-card">
+<h4>Stable children trick</h4>
+<p>Pass JSX as children from a stable parent. The element reference is stable — the wrapper skips the render.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't reach for <code>React.memo</code> before fixing the structure.</strong> Most "too many re-renders" problems are state placement problems. Moving state down, splitting the context, or extracting a component fixes the cascade at its source. <code>React.memo</code> only hides the symptom — and it costs a comparison on every render. Measure with React DevTools Profiler first, then fix the structure, then memoize only what's actually expensive.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The patterns that cause cascading re-renders.</p>
+
+<div class="mistake">
+<div class="mtitle">1. State placed at the root</div>
+<p>Every keystroke re-renders the whole tree. Fix: move state to the component that reads it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Context value is a new object</div>
+<p>Every consumer re-renders on every provider render. Fix: <code>useMemo</code> the value.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. One context for everything</div>
+<p>Stable and volatile data in one context re-renders all consumers. Fix: split the context.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Inline object or function prop</div>
+<p>New references on every render defeat child memoization. Fix: <code>useMemo</code> / <code>useCallback</code> / hoist.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Memoizing the wrong thing</div>
+<p>Memoizing a cheap child costs more than it saves. Fix: measure first, memoize expensive components.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Reading state in the parent's JSX</div>
+<p>The parent re-renders to pass it down. Fix: pass the setter and let the child read its own state.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Children created inline in a memoized wrapper</div>
+<p>New element every render. Fix: pass stable children, or don't rely on memo for the wrapper.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using <code>useReducer</code> to avoid re-renders</div>
+<p>The reducer doesn't prevent re-renders — it only organizes state updates. Fix: state placement.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is my React component re-rendering too often?</summary>
+<p class="mt-2 text-sm text-slate-300">Three causes, three fixes. (1) State is placed too high in the tree — every change re-renders the whole subtree. Fix: move the state down to the component that actually needs it. (2) Context value is a new object every render — every consumer re-renders, even those that don't use the changed field. Fix: memoize the context value with useMemo, or split the context. (3) Parent re-renders on every keystroke — the entire tree re-renders. Fix: extract the expensive child, memo it, or move state into a sibling.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does a React component re-render when its parent re-renders?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes — by default, every child re-renders when its parent re-renders, regardless of whether props changed. React.memo is the opt-out: it does a shallow prop comparison and skips the render if every prop is the same reference. Without memo, the child renders. This is why state placement matters: if state lives high, every state change cascades down
+<p class="mt-2 text-sm text-slate-300">Yes — by default, every child re-renders when its parent re-renders, regardless of whether props changed. React.memo is the opt-out: it does a shallow prop comparison and skips the render if every prop is the same reference. Without memo, the child renders. This is why state placement matters: if state lives high, every state change cascades down the tree, and only memoized children can skip.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I stop a context from re-rendering all consumers?</summary>
+<p class="mt-2 text-sm text-slate-300">Two fixes. (1) Memoize the context value — wrap the object in useMemo so its reference is stable unless a dependency changes. Without this, every render of the provider creates a new value object and every consumer re-renders. (2) Split the context — separate the rarely-changing value from the frequently-changing one. Consumers of the rare context stop re-rendering when the frequent context changes.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I move state down to avoid re-renders?</summary>
+<p class="mt-2 text-sm text-slate-300">Usually yes. State placed in a high parent re-renders the whole subtree when it changes. If only one child needs the state, move it into that child. If several siblings need it, keep it in the parent, but extract the parts that don't need it into memoized children. Lift only when multiple components need the same value. The rule: state should live at the lowest common ancestor of the components that read it — not higher.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/react-memo.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ React.memo not working</div>
+<div class="text-xs text-slate-400 mt-1">Why memo doesn't skip the render</div>
+</a>
+<a href="/courses/react/problems/useeffect-deps.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "useEffect has a missing dependency"</div>
+<div class="text-xs text-slate-400 mt-1">Data fetching gotchas and infinite loops</div>
+</a>
+<a href="/courses/react/problems/state-not-updating.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "State is not updating"</div>
+<div class="text-xs text-slate-400 mt-1">Why setState doesn't change the current render</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
