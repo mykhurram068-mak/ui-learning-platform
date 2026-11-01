@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React "Parameter 'e' implicitly has an 'any' type" — How to Fix (2026)</title>
+<meta name="description" content="Fix React's "Parameter 'e' implicitly has an 'any' type" and "Property 'target' does not exist on type 'Event'" errors. Learn the correct ChangeEvent, FormEvent, and MouseEvent types for forms.">
+<meta name="keywords" content="react parameter e implicitly has an any type, react form event type, react changeevent typescript, react formevent typescript, typescript react onsubmit type, react event target value">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React "Parameter 'e' implicitly has an 'any' type" — How to Fix">
+<meta property="og:description" content="Three causes and the correct event types for forms.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/type-form-event.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React "Parameter 'e' implicitly has an 'any' type"">
+<meta name="twitter:description" content="Three causes, three fixes, plus the correct event types.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/type-form-event.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React "Parameter 'e' implicitly has an 'any' type" — How to Fix",
+"description": "Fix React's "Parameter 'e' implicitly has an 'any' type" and "Property 'target' does not exist on type 'Event'" errors.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-01",
+"dateModified": "2026-11-01",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I fix "Parameter 'e' implicitly has an 'any' type" in React?","acceptedAnswer":{"@type":"Answer","text":"Three causes, three fixes. (1) Inline handler with no type — the compiler can't infer. Fix: annotate the parameter: (e: React.ChangeEvent<HTMLInputElement>). (2) Handler extracted to a function — the type is lost. Fix: type the whole function: function handleChange(e: React.ChangeEvent<HTMLInputElement>) {}. (3) Generic event passed in — the compiler defaults to any. Fix: use the specific event type (ChangeEvent, FormEvent, MouseEvent) from React, never the DOM Event type."}},
+{"@type":"Question","name":"What is the difference between ChangeEvent, FormEvent, and MouseEvent in React?","acceptedAnswer":{"@type":"Answer","text":"ChangeEvent fires when an input's value changes — use it for onChange on inputs, textareas, and selects. Its target is typed to the specific element, so e.target.value works. FormEvent fires when a form is submitted — use it for onSubmit on <form>. It does not have a value; call e.preventDefault() to stop the page reload. MouseEvent fires on click handlers — use it for onClick on buttons and links. Each is a React synthetic event, not the native DOM Event. Import them from 'react', not from the DOM."}},
+{"@type":"Question","name":"Why does e.target.value fail on type 'Event'?","acceptedAnswer":{"@type":"Answer","text":"The DOM base type Event has no value property — only specific targets do. React's synthetic events narrow the target based on the element type. If you type the parameter as Event (or let it default to any), TypeScript can't see the value. Fix: type the parameter as React.ChangeEvent<HTMLInputElement>. The target is then HTMLInputElement, which has value, checked, files, etc. Use HTMLTextAreaElement for textareas and HTMLSelectElement for selects."}},
+{"@type":"Question","name":"Should I use React.FormEvent<HTMLFormElement> or just FormEvent?","acceptedAnswer":{"@type":"Answer","text":"Use React.FormEvent<HTMLFormElement> when you access form-specific properties like e.currentTarget.elements. The generic parameter narrows currentTarget. For the common case — e.preventDefault() only — React.FormEvent is enough and simpler. Both work on onSubmit. The <HTMLFormElement> generic is only needed when you reach into the form's elements, which most handlers don't."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · type form event</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Type form event</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>"Parameter 'e' implicitly has an 'any' type."<br><span class="py-accent">Three causes, three fixes.</span></h1>
+<p class="lead">
+The form handler every TypeScript + React project hits. You wrote <code>onChange={'{e => setEmail(e.target.value)}'}</code> and the compiler either complains about <code>any</code>, or about <code>target</code> not existing on <code>Event</code>. Both are the same bug: the event parameter isn't typed, so React's specific event type is lost. This page covers the three causes, the three fixes, and the correct event types for <code>onChange</code>, <code>onSubmit</code>, and <code>onClick</code>.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Type the event, not <code>any</code>. Use <code>React.ChangeEvent<HTMLInputElement></code> for inputs, <code>React.FormEvent<HTMLFormElement></code> for forms, <code>React.MouseEvent<HTMLButtonElement></code> for buttons. Import the types from <code>'react'</code> — not the DOM. The three causes: (1) no annotation on an inline handler, (2) the handler was extracted to a function, (3) the wrong event type (<code>Event</code> instead of <code>ChangeEvent</code>). Fix each at the parameter — never cast to <code>any</code>.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — No annotation on an inline handler</h2>
+<p class="section-sub">The most common cause: <code>onChange={'{e => ...}'}</code> with no type.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When the handler is inline and the parameter isn't annotated, TypeScript can't infer it in some configs — especially with <code>noImplicitAny</code> on. The compiler falls back to <code>any</code> and you lose <code>e.target.value</code>. Fix: annotate the parameter explicitly.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">inline-handler.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { ChangeEvent, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: no annotation ──────────────────────</span>
+<span class="kw">function</span> <span class="fn">BadForm</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="com">// ❌ TS: Parameter 'e' implicitly has an 'any' type
+// ❌ e.target is untyped — no autocomplete, no .value
+// Works at runtime, fails at compile</span>
+<span class="kw">return</span> (
+<form>
+<input value={email} onChange={<span class="fn">e</span> => <span class="fn">setEmail</span>(e.target.value)} />
+</form>
+);
+}
+
+<span class="com">// ─── GOOD 1: annotate the parameter ──────────</span>
+<span class="kw">function</span> <span class="fn">GoodForm1</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="com">// ✅ e.target is HTMLInputElement — .value is string</span>
+<span class="kw">return</span> (
+<form>
+<input
+value={email}
+onChange={(e: ChangeEvent<HTMLInputElement>) => <span class="fn">setEmail</span>(e.target.value)}
+/>
+</form>
+);
+}
+
+<span class="com">// ─── GOOD 2: let React infer from the JSX ────</span>
+<span class="kw">function</span> <span class="fn">GoodForm2</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="com">// ✅ Inline on a known element — React infers ChangeEvent<HTMLInputElement>
+// This works in modern @types/react without an explicit annotation</span>
+<span class="kw">return</span> (
+<form>
+<input value={email} onChange={e => <span class="fn">setEmail</span>(e.target.value)} />
+</form>
+);
+}
+
+<span class="com">// ─── GOOD 3: named handler, typed ────────────</span>
+<span class="kw">function</span> <span class="fn">GoodForm3</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="com">// ✅ Named handler keeps the type — see Solution 2</span>
+<span class="kw">function</span> <span class="fn">handleEmail</span>(e: ChangeEvent<HTMLInputElement>) {
+<span class="fn">setEmail</span>(e.target.value);
+}
+
+<span class="kw">return</span> (
+<form>
+<input value={email} onChange={handleEmail} />
+</form>
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadForm</span>, <span class="fn">GoodForm1</span>, <span class="fn">GoodForm2</span>, <span class="fn">GoodForm3</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadForm</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+value: email,
+onChange: (e) => <span class="fn">setEmail</span>(e.target.value)
+})
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodForm1</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+value: email,
+onChange: (e) => <span class="fn">setEmail</span>(e.target.value)
+})
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodForm2</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+value: email,
+onChange: (e) => <span class="fn">setEmail</span>(e.target.value)
+})
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodForm3</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">function</span> <span class="fn">handleEmail</span>(e) {
+<span class="fn">setEmail</span>(e.target.value);
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: email, onChange: handleEmail })
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadForm</span>, <span class="fn">GoodForm1</span>, <span class="fn">GoodForm2</span>, <span class="fn">GoodForm3</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>ChangeEvent<T></code></h4>
+<p>The React event for <code>onChange</code> on inputs, textareas, selects. <code>T</code> is the element type.</p>
+</div>
+<div class="concept-card">
+<h4><code>HTMLInputElement</code></h4>
+<p>For <code><input></code>. Has <code>value</code>, <code>checked</code>, <code>files</code>. Not the generic <code>Event</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Inference from JSX</h4>
+<p>Inline <code>onChange={'{e => ...}'}</code> on <code><input></code> infers the type — no annotation needed in modern React.</p>
+</div>
+<div class="concept-card">
+<h4>Named handlers lose inference</h4>
+<p>Moving the handler out of JSX drops the inferred type. Annotate the parameter — see Solution 2.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Handler extracted to a function</h2>
+<p class="section-sub">The type is lost the moment the handler leaves the JSX.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Inline handlers get inferred from the JSX attribute. Named handlers don't — they're standalone functions. The compiler can't see which element calls them, so it defaults to <code>any</code> under <code>noImplicitAny</code>. Fix: type the entire function signature.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">named-handler.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { ChangeEvent, FormEvent, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: named handler, untyped ─────────────</span>
+<span class="kw">function</span> <span class="fn">BadForm</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="com">// ❌ TS: Parameter 'e' implicitly has an 'any' type
+// ❌ Named function — no JSX inference</span>
+<span class="kw">function</span> <span class="fn">handleChange</span>(e) {
+<span class="fn">setEmail</span>(e.target.value);
+}
+
+<span class="kw">return</span> (
+<form>
+<input value={email} onChange={handleChange} />
+</form>
+);
+}
+
+<span class="com">// ─── GOOD 1: type the parameter ──────────────</span>
+<span class="kw">function</span> <span class="fn">GoodForm1</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="com">// ✅ e.target is HTMLInputElement</span>
+<span class="kw">function</span> <span class="fn">handleChange</span>(e: ChangeEvent<HTMLInputElement>) {
+<span class="fn">setEmail</span>(e.target.value);
+}
+
+<span class="kw">return</span> (
+<form>
+<input value={email} onChange={handleChange} />
+</form>
+);
+}
+
+<span class="com">// ─── GOOD 2: type the whole function ─────────</span>
+<span class="kw">function</span> <span class="fn">GoodForm2</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="com">// ✅ React's ChangeEventHandler is the function type</span>
+<span class="kw">const</span> handleChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+<span class="fn">setEmail</span>(e.target.value);
+};
+
+<span class="kw">return</span> (
+<form>
+<input value={email} onChange={handleChange} />
+</form>
+);
+}
+
+<span class="com">// ─── GOOD 3: form submit, typed ──────────────</span>
+<span class="kw">function</span> <span class="fn">GoodForm3</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="com">// ✅ FormEvent — for onSubmit. No .value here.</span>
+<span class="kw">function</span> <span class="fn">handleSubmit</span>(e: FormEvent<HTMLFormElement>) {
+e.<span class="fn">preventDefault</span>();
+console.<span class="fn">log</span>(<span class="str">'submitting'</span>, email);
+}
+
+<span class="kw">return</span> (
+<form onSubmit={handleSubmit}>
+<input value={email} onChange={e => <span class="fn">setEmail</span>(e.target.value)} />
+<button type="submit">Submit</button>
+</form>
+);
+}
+
+<span class="com">// ─── GOOD 4: generic across elements ─────────</span>
+<span class="kw">type</span> Field = <span class="str">'email'</span> | <span class="str">'password'</span>;
+
+<span class="kw">function</span> <span class="fn">GoodForm4</span>() {
+<span class="kw">const</span> [fields, setFields] = <span class="fn">useState</span><Record<Field, <span class="fn">string</span>>>({
+email: <span class="str">''</span>,
+password: <span class="str">''</span>
+});
+
+<span class="com">// ✅ One typed handler for both fields</span>
+<span class="kw">function</span> <span class="fn">handleChange</span>(e: ChangeEvent<HTMLInputElement>) {
+<span class="kw">const</span> name = e.target.name <span class="kw">as</span> Field;
+<span class="fn">setFields</span>(prev => ({ ...prev, [name]: e.target.value }));
+}
+
+<span class="kw">return</span> (
+<form>
+<input name="email" value={fields.email} onChange={handleChange} />
+<input name="password" type="password" value={fields.password} onChange={handleChange} />
+</form>
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadForm</span>, <span class="fn">GoodForm1</span>, <span class="fn">GoodForm2</span>, <span class="fn">GoodForm3</span>, <span class="fn">GoodForm4</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadForm</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">function</span> <span class="fn">handleChange</span>(e) {
+<span class="fn">setEmail</span>(e.target.value);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: email, onChange: handleChange })
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodForm1</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">function</span> <span class="fn">handleChange</span>(e) {
+<span class="fn">setEmail</span>(e.target.value);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: email, onChange: handleChange })
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodForm2</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">const</span> handleChange = (e) => {
+<span class="fn">setEmail</span>(e.target.value);
+};
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { value: email, onChange: handleChange })
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodForm3</span>() {
+<span class="kw">const</span> [email, setEmail] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">function</span> <span class="fn">handleSubmit</span>(e) {
+e.<span class="fn">preventDefault</span>();
+console.<span class="fn">log</span>(<span class="str">'submitting'</span>, email);
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, { onSubmit: handleSubmit },
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+value: email,
+onChange: e => <span class="fn">setEmail</span>(e.target.value)
+}),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { type: <span class="str">'submit'</span> }, <span class="str">'Submit'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodForm4</span>() {
+<span class="kw">const</span> [fields, setFields] = <span class="fn">useState</span>({
+email: <span class="str">''</span>,
+password: <span class="str">''</span>
+});
+
+<span class="kw">function</span> <span class="fn">handleChange</span>(e) {
+<span class="kw">const</span> name = e.target.name;
+<span class="fn">setFields</span>(prev => ({ ...prev, [name]: e.target.value }));
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+name: <span class="str">'email'</span>,
+value: fields.email,
+onChange: handleChange
+}),
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+name: <span class="str">'password'</span>,
+type: <span class="str">'password'</span>,
+value: fields.password,
+onChange: handleChange
+})
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadForm</span>, <span class="fn">GoodForm1</span>, <span class="fn">GoodForm2</span>, <span class="fn">GoodForm3</span>, <span class="fn">GoodForm4</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Annotate named handlers</h4>
+<p>Moving a handler out of JSX loses inference. Type the parameter: <code>(e: ChangeEvent<HTMLInputElement>)</code>.</p>
+</div>
+<div class="concept-card">
+<h4><code>ChangeEventHandler<T></code></h4>
+<p>The function type for <code>onChange</code>. Use it when typing the whole handler: <code>const h: ChangeEventHandler<HTMLInputElement> = ...</code></p>
+</div>
+<div class="concept-card">
+<h4><code>FormEvent</code> vs <code>ChangeEvent</code></h4>
+<p><code>onSubmit</code> uses <code>FormEvent</code>. <code>onChange</code> uses <code>ChangeEvent</code>. They are not interchangeable.</p>
+</div>
+<div class="concept-card">
+<h4>One handler, many fields</h4>
+<p>Use <code>e.target.name</code> to route. Type the parameter once. The dynamic key needs a cast to the field union.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — Wrong event type</h2>
+<p class="section-sub"><code>Event</code>, <code>any</code>, or <code>FormEvent</code> on an input — all fail.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Two related mistakes. (1) You typed the parameter as the DOM base <code>Event</code> — it has no <code>target.value</code>, so <code>.value</code> fails. (2) You typed it as <code>FormEvent</code> on an input's <code>onChange</code> — wrong event family. React's synthetic events are specific: <code>ChangeEvent</code> for inputs, <code>FormEvent</code> for forms, <code>MouseEvent</code> for clicks. Fix: use the event that matches the attribute.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">wrong-event-type.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { ChangeEvent, FormEvent, MouseEvent, useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: DOM Event has no .value ─────────────</span>
+<span class="kw">function</span> <span class="fn">BadEvent</span>({ onChange }: { onChange: (e: Event) => <span class="fn">void</span> }) {
+<span class="com">// ❌ TS: Property 'value' does not exist on type 'Event'
+// ❌ Event.target is EventTarget, not HTMLInputElement</span>
+<span class="kw">return</span> <input onChange={onChange} />;
+}
+
+<span class="com">// ─── BAD: FormEvent on an input ───────────────</span>
+<span class="kw">function</span> <span class="fn">BadFormEvent</span>() {
+<span class="kw">const</span> [v, setV] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="com">// ❌ FormEvent has no target.value — wrong event family</span>
+<span class="kw">return</span> <input value={v} onChange={(e: FormEvent) => <span class="fn">setV</span>((e.target <span class="kw">as</span> <span class="fn">any</span>).value)} />;
+}
+
+<span class="com">// ─── GOOD 1: ChangeEvent for inputs ──────────</span>
+<span class="kw">function</span> <span class="fn">GoodInput</span>() {
+<span class="kw">const</span> [v, setV] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="com">// ✅ target is HTMLInputElement — .value exists</span>
+<span class="kw">return</span> <input value={v} onChange={(e: ChangeEvent<HTMLInputElement>) => <span class="fn">setV</span>(e.target.value)} />;
+}
+
+<span class="com">// ─── GOOD 2: FormEvent for forms ─────────────</span>
+<span class="kw">function</span> <span class="fn">GoodForm</span>() {
+<span class="kw">const</span> [v, setV] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="com">// ✅ FormEvent has preventDefault — no .value</span>
+<span class="kw">function</span> <span class="fn">handleSubmit</span>(e: FormEvent<HTMLFormElement>) {
+e.<span class="fn">preventDefault</span>();
+console.<span class="fn">log</span>(v);
+}
+
+<span class="kw">return</span> (
+<form onSubmit={handleSubmit}>
+<input value={v<span class="fn">onChange</span>={(e: ChangeEvent<HTMLInputElement>) => <span class="fn">setV</span>(e.target.value)} />
+<button type="submit">Submit</button>
+</form>
+);
+}
+
+<span class="com">// ─── GOOD 3: MouseEvent for buttons ──────────</span>
+<span class="kw">function</span> <span class="fn">GoodButton</span>() {
+<span class="com">// ✅ MouseEvent — has clientX, currentTarget, etc.</span>
+<span class="kw">function</span> <span class="fn">handleClick</span>(e: MouseEvent<HTMLButtonElement>) {
+e.<span class="fn">preventDefault</span>();
+console.<span class="fn">log</span>(<span class="str">'clicked at'</span>, e.clientX, e.clientY);
+}
+
+<span class="kw">return</span> <button onClick={handleClick}>Click</button>;
+}
+
+<span class="com">// ─── GOOD 4: the event type map ──────────────</span>
+<span class="com">// onChange → ChangeEvent<HTMLInputElement>
+// onChange → ChangeEvent<HTMLTextAreaElement>
+// onChange → ChangeEvent<HTMLSelectElement>
+// onSubmit → FormEvent<HTMLFormElement>
+// onClick → MouseEvent<HTMLButtonElement>
+// onKeyDown → KeyboardEvent<HTMLInputElement>
+// onFocus → FocusEvent<HTMLInputElement>
+// onBlur → FocusEvent<HTMLInputElement></span>
+
+console.<span class="fn">log</span>(<span class="fn">BadEvent</span>, <span class="fn">BadFormEvent</span>, <span class="fn">GoodInput</span>, <span class="fn">GoodForm</span>, <span class="fn">GoodButton</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">BadEvent</span>({ onChange }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { onChange });
+}
+
+<span class="kw">function</span> <span class="fn">BadFormEvent</span>() {
+<span class="kw">const</span> [v, setV] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+value: v,
+onChange: (e) => <span class="fn">setV</span>(e.target.value)
+});
+}
+
+<span class="kw">function</span> <span class="fn">GoodInput</span>() {
+<span class="kw">const</span> [v, setV] = <span class="fn">useState</span>(<span class="str">''</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+value: v,
+onChange: (e) => <span class="fn">setV</span>(e.target.value)
+});
+}
+
+<span class="kw">function</span> <span class="fn">GoodForm</span>() {
+<span class="kw">const</span> [v, setV] = <span class="fn">useState</span>(<span class="str">''</span>);
+
+<span class="kw">function</span> <span class="fn">handleSubmit</span>(e) {
+e.<span class="fn">preventDefault</span>();
+console.<span class="fn">log</span>(v);
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'form'</span>, { onSubmit: handleSubmit },
+React.<span class="fn">createElement</span>(<span class="str">'input'</span>, {
+value: v,
+onChange: (e) => <span class="fn">setV</span>(e.target.value)
+}),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { type: <span class="str">'submit'</span> }, <span class="str">'Submit'</span>)
+);
+}
+
+<span class="kw">function</span> <span class="fn">GoodButton</span>() {
+<span class="kw">function</span> <span class="fn">handleClick</span>(e) {
+e.<span class="fn">preventDefault</span>();
+console.<span class="fn">log</span>(<span class="str">'clicked at'</span>, e.clientX, e.clientY);
+}
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: handleClick }, <span class="str">'Click'</span>);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadEvent</span>, <span class="fn">BadFormEvent</span>, <span class="fn">GoodInput</span>, <span class="fn">GoodForm</span>, <span class="fn">GoodButton</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Never use DOM <code>Event</code></h4>
+<p>The DOM base type has no <code>.value</code>. React's <code>ChangeEvent</code> narrows the target to the element type.</p>
+</div>
+<div class="concept-card">
+<h4>Match event to attribute</h4>
+<p><code>onChange</code> → <code>ChangeEvent</code>. <code>onSubmit</code> → <code>FormEvent</code>. <code>onClick</code> → <code>MouseEvent</code>. Never mix.</p>
+</div>
+<div class="concept-card">
+<h4>Import from <code>'react'</code></h4>
+<p><code>ChangeEvent</code>, <code>FormEvent</code>, <code>MouseEvent</code> are React types. Importing from the DOM gives you the wrong (native) event.</p>
+</div>
+<div class="concept-card">
+<h4>Element matters</h4>
+<p><code>HTMLInputElement</code> for inputs, <code>HTMLTextAreaElement</code> for textareas, <code>HTMLSelectElement</code> for selects.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't cast <code>e</code> to <code>any</code> to silence the error.</strong> <code>(e as any).target.value</code> compiles, but you lose autocomplete, you lose null-safety on <code>target</code>, and you reintroduce the bug on the next refactor. The right fix is the correct event type — <code>ChangeEvent<HTMLInputElement></code>. It's one annotation, and it unlocks every property on the target for free.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The type errors that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Unannotated inline handler</div>
+<p><code>onChange={'{e => ...}'}</code> with no type under <code>noImplicitAny</code>. Fix: annotate or let React infer on a known element.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Unannotated named handler</div>
+<p>Moving the handler out of JSX drops inference. Fix: <code>(e: ChangeEvent<HTMLInputElement>)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Typing as DOM <code>Event</code></div>
+<p><code>(e: Event)</code> has no <code>.value</code>. Fix: use React's <code>ChangeEvent</code>, not the DOM <code>Event</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. <code>FormEvent</code> on an input</div>
+<p><code>onChange={'{(e: FormEvent) => ...}'}</code> — wrong family. Fix: <code>ChangeEvent</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. <code>e.target.value</code> on a select</div>
+<p>Selects use <code>ChangeEvent<HTMLSelectElement></code>. Same <code>.value</code>, different element type.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Casting <code>e as any</code></div>
+<p>Silences the error, loses all safety. Fix: the correct event type.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Forgetting <code>e.preventDefault()</code></div>
+<p>The form reloads the page on submit. Fix: call it first thing in <code>handleSubmit</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Importing events from the DOM</div>
+<p><code>import { Event } from 'react'</code> — wrong. React has its own synthetic event types. Import from <code>'react'</code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix "Parameter 'e' implicitly has an 'any' type" in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Three causes, three fixes. (1) Inline handler with no type — annotate the parameter: (e: React.ChangeEvent<HTMLInputElement>). (2) Handler extracted to a function — type the whole function signature. (3) Generic event passed in — use the specific event type (ChangeEvent, FormEvent, MouseEvent) from React, never the DOM Event type.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between ChangeEvent, FormEvent, and MouseEvent in React?</summary>
+<p class="mt-2 text-sm text-slate-300">ChangeEvent fires when an input's value changes — use it for onChange on inputs, textareas, and selects. Its target is typed to the specific element, so e.target.value works. FormEvent fires when a form is submitted — use it for onSubmit on form. It does not have a value; call e.preventDefault() to stop the page reload. MouseEvent fires on click handlers — use it for onClick on buttons and links. Each is a React synthetic event, not the native DOM Event. Import them from 'react', not from the DOM.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does e.target.value fail on type 'Event'?</summary>
+<p class="mt-2 text-sm text-slate-300">The DOM base type Event has no value property — only specific targets do. React's synthetic events narrow the target based on the element type. If you type the parameter as Event (or let it default to any), TypeScript can't see the value. Fix: type the parameter as React.ChangeEvent<HTMLInputElement>. The target is then HTMLInputElement, which has value, checked, files, etc. Use HTMLTextAreaElement for textareas and HTMLSelectElement for selects.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use React.FormEvent<HTMLFormElement> or just FormEvent?</summary>
+<p class="mt-2 text-sm text-slate-300">Use React.FormEvent<HTMLFormElement> when you access form-specific properties like e.currentTarget.elements. The generic parameter narrows currentTarget. For the common case — e.preventDefault() only — React.FormEvent is enough and simpler. Both work on onSubmit. The <HTMLFormElement> generic is only needed when you reach into the form's elements, which most handlers don't.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/type-children.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Type 'X' is not assignable to type 'ReactNode'"</div>
+<div class="text-xs text-slate-400 mt-1">Typing children correctly</div>
+</a>
+<a href="/courses/react/problems/cannot-read-property.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Cannot read property of undefined"</div>
+<div class="text-xs text-slate-400 mt-1">Three causes, three fixes for null data</div>
+</a>
+<a href="/courses/react/problems/state-not-updating.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "State is not updating"</div>
+<div class="text-xs text-slate-400 mt-1">Why setState doesn't change the current render</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
