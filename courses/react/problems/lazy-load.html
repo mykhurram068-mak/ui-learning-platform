@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React.lazy + Suspense — Fix "No fallback UI" and "lazy is not a function" (2026)</title>
+<meta name="description" content="Fix React.lazy errors: "React.lazy is not a function", "A React component suspended while rendering, but no fallback UI was specified", and dynamic import failures. Three causes, three fixes.">
+<meta name="keywords" content="react lazy suspense, react lazy not a function, react no fallback ui, react code splitting, react lazy dynamic import, react route lazy loading">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React.lazy + Suspense — Fix "No fallback UI" and "lazy is not a function"">
+<meta property="og:description" content="Three causes, three fixes for React.lazy + Suspense.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/lazy-load.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React.lazy + Suspense — Fix "No fallback UI" and "lazy is not a function"">
+<meta name="twitter:description" content="Three causes, three fixes for React.lazy + Suspense.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/lazy-load.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React.lazy + Suspense — Fix 'No fallback UI' and 'lazy is not a function'",
+"description": "Fix React.lazy and Suspense errors with route-level code splitting.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-01",
+"dateModified": "2026-11-01",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I fix "A React component suspended while rendering, but no fallback UI was specified"?","acceptedAnswer":{"@type":"Answer","text":"Three causes, three fixes. (1) A lazy component is rendered outside any Suspense boundary. Fix: wrap it (or its parent) in Suspense with a fallback. (2) The Suspense boundary is above the Router, so the lazy route has no ancestor boundary. Fix: put Suspense inside the route element, not around the Router. (3) The lazy import failed — network error, wrong path — and React suspended forever. Fix: use an error boundary, or ensure the module path resolves. The error is not about lazy itself; it's about where the Suspense boundary sits relative to the lazy component."}},
+{"@type":"Question","name":"Why does React.lazy say 'not a function'?","acceptedAnswer":{"@type":"Answer","text":"Two common causes. (1) You imported it incorrectly — React.lazy is a named export of the React package, not a method on the default export in all setups. Fix: import { lazy } from 'react' or React.lazy. (2) You're on an older React version that predates lazy (React 16.6+ has it). Check your version. In React 19, lazy is still available as React.lazy and as a named import. The error almost always means the import is wrong, not that the function doesn't exist."}},
+{"@type":"Question","name":"How do I code-split routes with React.lazy?","acceptedAnswer":{"@type":"Answer","text":"Wrap each route element in lazy, then put Suspense around the routes (inside the Router, above the Switch/Routes). The dynamic import returns a module with a default export — the component must be exported as default. For React Router v6+, use the element prop: element: <Suspense fallback={<Spinner />}><LazyPage /></Suspense>. Or wrap the entire Routes in one Suspense — the fallback shows for the first navigation only."}},
+{"@type":"Question","name":"Does React.lazy work with named exports?","acceptedAnswer":{"@type":"Answer","text":"No — React.lazy expects a module with a default export. Named exports fail with 'Element type is invalid'. Two fixes: (1) add a default export to the module: export default MyComponent. (2) Re-export at the import site: React.lazy(() => import('./Comp').then(m => ({ default: m.NamedExport }))). The second is useful when you don't own the module or don't want to change it. Either way, the lazy loader must resolve to an object with a default component."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · lazy load</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Lazy load</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 6 min read</div>
+<h1>"A React component suspended while rendering, but no fallback UI was specified."<br><span class="py-accent">Three causes, three fixes.</span></h1>
+<p class="lead">
+The Suspense error that hits every project the first time you reach for <code>React.lazy</code>. A lazy component rendered without a Suspense ancestor throws — React has nowhere to show the loading state, so it fails loudly. This page covers the three causes (missing boundary, boundary in the wrong place, failed import), the three fixes, and the correct pattern for route-level code splitting.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Every lazy component needs a <code>Suspense</code> ancestor with a <code>fallback</code>. Put the boundary <em>above</em> the lazy component in the tree — and inside the router, not around it. The three causes: (1) no Suspense boundary, (2) boundary outside the router, (3) the lazy import fails (wrong path, no default export). Fix each at the boundary. Never lazy-load without a fallback — React will throw instead of rendering nothing.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — No Suspense boundary</h2>
+<p class="section-sub">The most common cause: a lazy component rendered without a Suspense ancestor.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A lazy component suspends while its module loads. React looks up the tree for the nearest <code>Suspense</code> boundary. If there is none, it throws: <em>A React component suspended while rendering, but no fallback UI was specified</em>. Fix: wrap the lazy component (or a parent) in <code>Suspense</code> with a <code>fallback</code> prop.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">no-suspense.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">import { lazy, Suspense } from 'react';
+
+// Lazy — the component is loaded on first render
+const LazyPage = lazy(() => import('./Page'));
+
+// BAD: no Suspense — React throws on first render
+function BadApp() {
+return (
+<div>
+<LazyPage />
+</div>
+);
+}
+
+// GOOD 1: Suspense around the lazy component
+function GoodApp1() {
+return (
+<div>
+<Suspense fallback={<p>Loading…</p>}>
+<LazyPage />
+</Suspense>
+</div>
+);
+}
+
+// GOOD 2: Suspense higher — one boundary for many lazy components
+const LazyPage2 = lazy(() => import('./Page2'));
+
+function GoodApp2() {
+return (
+<Suspense fallback={<div>Loading app…</div>}>
+<LazyPage />
+<LazyPage2 />
+</Suspense>
+);
+}
+
+// GOOD 3: Suspense at the layout — the standard pattern
+function GoodApp3({ children }: { children: React.ReactNode }) {
+return (
+<div className="layout">
+<h1>App</h1>
+<Suspense fallback={<p>Loading…</p>}>
+{children}
+</Suspense>
+</div>
+);
+}
+
+export { BadApp, GoodApp1, GoodApp2, GoodApp3 };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>import { lazy, Suspense } from 'react';
+
+const LazyPage = lazy(() => import('./Page'));
+
+function BadApp() {
+return React.createElement('div', null,
+React.createElement(LazyPage)
+);
+}
+
+function GoodApp1() {
+return React.createElement('div', null,
+React.createElement(Suspense, { fallback: React.createElement('p', null, 'Loading…') },
+React.createElement(LazyPage)
+)
+);
+}
+
+const LazyPage2 = lazy(() => import('./Page2'));
+
+function GoodApp2() {
+return React.createElement(Suspense, { fallback: React.createElement('div', null, 'Loading app…') },
+React.createElement(LazyPage),
+React.createElement(LazyPage2)
+);
+}
+
+function GoodApp3({ children }) {
+return React.createElement('div', { className: 'layout' },
+React.createElement('h1', null, 'App'),
+React.createElement(Suspense, { fallback: React.createElement('p', null, 'Loading…') },
+children
+)
+);
+}
+
+export { BadApp, GoodApp1, GoodApp2, GoodApp3 };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Every lazy needs Suspense</h4>
+<p><code>React.lazy</code> suspends. The nearest <code>Suspense</code> shows the fallback. No boundary, no render — it throws.</p>
+</div>
+<div class="concept-card">
+<h4>Boundary above the lazy</h4>
+<p>The <code>Suspense</code> ancestor must be in the same tree, higher up. Siblings or children won't catch it.</p>
+</div>
+<div class="concept-card">
+<h4>One boundary for many</h4>
+<p>A single <code>Suspense</code> around multiple lazy components shows one fallback until all are loaded.</p>
+</div>
+<div class="concept-card">
+<h4>Fallback is required</h4>
+<p>The <code>fallback</code> prop is the UI shown while suspended. It's not optional — omitting it causes the error.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Suspense boundary in the wrong place</h2>
+<p class="section-sub">The boundary exists, but it's above the router or on the wrong branch.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">You wrapped the app in <code>Suspense</code>, but the lazy route is rendered by the router — and the router is a <em>sibling</em> of the boundary, not a descendant. Or the boundary is inside the route element, which hasn't been created yet when the route suspends. Fix: put the boundary <em>inside</em> the router, around the routes — not around the router itself.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">suspense-wrong-place.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">import { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+
+const LazyHome = lazy(() => import('./pages/Home'));
+const LazyAbout = lazy(() => import('./pages/About'));
+
+// BAD: Suspense wraps the Router, but the lazy route is INSIDE the Router.
+// The Router itself doesn't suspend — the route element does.
+// The nearest Suspense ancestor of the route is OUTSIDE the Router.
+// But React Router may render the route in a way that skips this boundary
+// (e.g. data router API), causing "no fallback UI" errors in some setups.
+function BadApp() {
+return (
+<Suspense fallback={<p>Loading…</p>}>
+<BrowserRouter>
+<Routes>
+<Route path="/" element={<LazyHome />} />
+<Route path="/about" element={<LazyAbout />} />
+</Routes>
+</BrowserRouter>
+</Suspense>
+);
+}
+
+// GOOD 1: Suspense inside the Router, around the Routes
+function GoodApp1() {
+return (
+<BrowserRouter>
+<Suspense fallback={<p>Loading…</p>}>
+<Routes>
+<Route path="/" element={<LazyHome />} />
+<Route path="/about" element={<LazyAbout />} />
+</Routes>
+</Suspense>
+</BrowserRouter>
+);
+}
+
+// GOOD 2: Suspense per route element — isolated loading states
+function GoodApp2() {
+return (
+<BrowserRouter>
+<Routes>
+<Route
+path="/"
+element={
+<Suspense fallback={<p>Loading home…</p>}>
+<LazyHome />
+</Suspense>
+}
+/>
+<Route
+path="/about"
+element={
+<Suspense fallback={<p>Loading about…</p>}>
+<LazyAbout />
+</Suspense>
+}
+/>
+</Routes>
+</BrowserRouter>
+);
+}
+
+// GOOD 3: shared layout with a nested Suspense outlet
+import { Outlet } from 'react-router-dom';
+
+function Layout() {
+return (
+<div>
+<h1>My App</h1>
+<Suspense fallback={<p>Loading page…</p>}>
+<Outlet />
+</Suspense>
+</div>
+);
+}
+
+function GoodApp3() {
+return (
+<BrowserRouter>
+<Routes>
+<Route element={<Layout />}>
+<Route path="/" element={<LazyHome />} />
+<Route path="/about" element={<LazyAbout />} />
+</Route>
+</Routes>
+</BrowserRouter>
+);
+}
+
+export { BadApp, GoodApp1, GoodApp2, GoodApp3 };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>import { lazy, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
+
+const LazyHome = lazy(() => import('./pages/Home'));
+const LazyAbout = lazy(() => import('./pages/About'));
+
+function BadApp() {
+return React.createElement(Suspense, {
+fallback: React.createElement('p', null, 'Loading…')
+},
+React.createElement(BrowserRouter, null,
+React.createElement(Routes, null,
+React.createElement(Route, { path: '/', element: React.createElement(LazyHome) }),
+React.createElement(Route, { path: '/about', element: React.createElement(LazyAbout) })
+)
+)
+);
+}
+
+function GoodApp1() {
+return React.createElement(BrowserRouter, null,
+React.createElement(Suspense, {
+fallback: React.createElement('p', null, 'Loading…')
+},
+React.createElement(Routes, null,
+React.createElement(Route, { path: '/', element: React.createElement(LazyHome) }),
+React.createElement(Route, { path: '/about', element: React.createElement(LazyAbout) })
+)
+)
+);
+}
+
+function GoodApp2() {
+return React.createElement(BrowserRouter, null,
+React.createElement(Routes, null,
+React.createElement(Route, {
+path: '/',
+element: React.createElement(Suspense, {
+fallback: React.createElement('p', null, 'Loading home…')
+}, React.createElement(LazyHome))
+}),
+React.createElement(Route, {
+path: '/about',
+element: React.createElement(Suspense, {
+fallback: React.createElement('p', null, 'Loading about…')
+}, React.createElement(LazyAbout))
+})
+)
+);
+}
+
+function Layout() {
+return React.createElement('div', null,
+React.createElement('h1', null, 'My App'),
+React.createElement(Suspense, {
+fallback: React.createElement('p', null, 'Loading page…')
+}, React.createElement(Outlet))
+);
+}
+
+function GoodApp3() {
+return React.createElement(BrowserRouter, null,
+React.createElement(Routes, null,
+React.createElement(Route, { element: React.createElement(Layout) },
+React.createElement(Route, { path: '/', element: React.createElement(LazyHome) }),
+React.createElement(Route, { path: '/about', element: React.createElement(LazyAbout) })
+)
+)
+);
+}
+
+export { BadApp, GoodApp1, GoodApp2, GoodApp3 };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Boundary inside the Router</h4>
+<p><code>Suspense</code> around <code>Routes</code>, not around <code>BrowserRouter</code>. The route element is the lazy one.</p>
+</div>
+<div class="concept-card">
+<h4>Per-route boundaries</h4>
+<p>Wrap each route's <code>element</code> in its own <code>Suspense</code>. Each page has its own loading state.</p>
+</div>
+<div class="concept-card">
+<h4>Layout with Outlet</h4>
+<p>A <code>Layout</code> component wraps the <code>Outlet</code> in <code>Suspense</code>. One fallback for the whole route group.</p>
+</div>
+<div class="concept-card">
+<h4>Data routers</h4>
+<p>React Router's data router API (<code>createBrowserRouter</code>) may need the boundary inside the element or via <code>HydrateFallback</code>.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — The lazy import fails</h2>
+<p class="section-sub">The module fails to load — wrong path, no default export, or a network error.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">A lazy import must resolve to a module with a <code>default</code> export. If the path is wrong, the module doesn't exist, or it exports only named exports, the loader fails — React either suspends forever (no error boundary) or throws <em>Element type is invalid</em>. Fix: verify the path, add a default export, or re-map the module in the loader. Add an error boundary for production resilience.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">lazy-import-fails.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">import { lazy, Suspense } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
+
+// BAD 1: wrong path — the module doesn't exist
+const BadPath = lazy(() => import('./does-not-exist'));
+
+// BAD 2: module has no default export
+// The loader resolves, but the module has only named exports.
+// React.lazy expects { default: Component }.
+const BadNamedExport = lazy(() => import('./NamedOnly'));
+
+// GOOD 1: fix the path
+const GoodPath = lazy(() => import('./pages/About'));
+
+// GOOD 2: map a named export to default at the loader
+const GoodNamedExport = lazy(() =>
+import('./NamedOnly').then((module) => ({
+default: module.NamedComponent,
+}))
+);
+
+// GOOD 3: add an error boundary for real network failures
+function App() {
+return (
+<ErrorBoundary fallback={<p>Something went wrong loading the page.</p>}>
+<Suspense fallback={<p>Loading…</p>}>
+<GoodPath />
+<GoodNamedExport />
+</Suspense>
+</ErrorBoundary>
+);
+}
+
+// GOOD 4: retry the import once on failure
+const RetryLazy = lazy(() => {
+return new Promise<{ default: React.ComponentType }>((resolve, reject) => {
+import('./pages/About')
+.then((module) => resolve({ default: module.default }))
+.catch(() => {
+// Retry once — useful for transient network failures
+import('./pages/About')
+.then((module) => resolve({ default: module.default }))
+.catch(reject);
+});
+});
+});
+
+export { App, GoodPath, GoodNamedExport, RetryLazy };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>import { lazy, Suspense } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
+
+const BadPath = lazy(() => import('./does-not-exist'));
+
+const BadNamedExport = lazy(() => import('./NamedOnly'));
+
+const GoodPath = lazy(() => import('./pages/About'));
+
+const GoodNamedExport = lazy(() =>
+import('./NamedOnly').then((module) => ({
+default: module.NamedComponent,
+}))
+);
+
+function App() {
+return React.createElement(ErrorBoundary, {
+fallback: React.createElement('p', null, 'Something went wrong loading the page.')
+},
+React.createElement(Suspense, {
+fallback: React.createElement('p', null, 'Loading…')
+},
+React.createElement(GoodPath),
+React.createElement(GoodNamedExport)
+)
+);
+}
+
+const RetryLazy = lazy(() => {
+return new Promise((resolve, reject) => {
+import('./pages/About')
+.then((module) => resolve({ default: module.default }))
+.catch(() => {
+import('./pages/About')
+.then((module) => resolve({ default: module.default }))
+.catch(reject);
+});
+});
+});
+
+export { App, GoodPath, GoodNamedExport, RetryLazy };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Default export required</h4>
+<p>The loader must resolve to <code>{'{ default: Component }'}</code>. Named exports alone fail with <em>Element type is invalid</em>.</p>
+</div>
+<div class="concept-card">
+<h4>Map named to default</h4>
+<p><code>.then(m => ({'{ default: m.Named }'}))</code> — re-map the named export at the loader, no module change needed.</p>
+</div>
+<div class="concept-card">
+<h4>Error boundary</h4>
+<p>Catch network failures. Without one, a rejected lazy load throws to the nearest error boundary or crashes the app.</p>
+</div>
+<div class="concept-card">
+<h4>Retry logic</h4>
+<p>Wrap the import in a promise that retries once on failure. Useful for flaky networks and CDN cache misses.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't lazy-load without a fallback — and don't skip the error boundary.</strong> A lazy component that never resolves (network failure, wrong path) suspends forever if there's no Suspense fallback. With a Suspense fallback but no error boundary, the app hangs at the fallback. With neither, React throws. The right pattern is always: <code>ErrorBoundary</code> → <code>Suspense fallback</code> → <code>LazyComponent</code>. Treat this as a stack, not a single component.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The lazy + Suspense errors that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. No Suspense boundary</div>
+<p><code>{'<LazyPage />'}</code> rendered without a <code>Suspense</code> ancestor. Fix: wrap it (or a parent) in <code>Suspense</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Suspense around the Router</div>
+<p>The boundary is outside the tree that contains the lazy element. Fix: put it inside the Router, around the routes.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. No default export</div>
+<p><code>export const Comp = ...</code> — the loader resolves to <code>{'{ Comp }'}</code>, not <code>{'{ default: Comp }'}</code>. Fix: add a default export, or map named to default in the loader.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Wrong import path</div>
+<p>The module doesn't exist. Fix: check the path. Vite and Webpack both fail loudly here, but the error is at runtime.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Missing error boundary</div>
+<p>Network failure hangs at the fallback forever. Fix: wrap in an error boundary with a reset.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Lazy-loading small components</div>
+<p>The extra request costs more than the bundle size saved. Fix: lazy-load routes and heavy features, not tiny components.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using <code>import()</code> inside the component</div>
+<p>The import runs on every render. Fix: <code>lazy(() => import(...))</code> at module scope.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Forgetting <code>HydrateFallback</code> in data routers</div>
+<p>React Router's data router API needs <code>HydrateFallback</code> for SSR. Fix: provide it at the route level.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix "A React component suspended while rendering, but no fallback UI was specified"?</summary>
+<p class="mt-2 text-sm text-slate-300">Three causes, three fixes. (1) A lazy component is rendered outside any Suspense boundary. Fix: wrap it (or its parent) in Suspense with a fallback. (2) The Suspense boundary is above the Router, so the lazy route has no ancestor boundary. Fix: put Suspense inside the route element, not around the Router. (3) The lazy import failed — network error, wrong path — and React suspended forever. Fix: use an error boundary, or ensure the module path resolves.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does React.lazy say "not a function"?</summary>
+<p class="mt-2 text-sm text-slate-300">Two common causes. (1) You imported it incorrectly — React.lazy is a named export of the React package, not a method on the default export in all setups. Fix: import { lazy } from 'react' or React.lazy. (2) You're on an older React version that predates lazy (React 16.6+ has it). Check your version. In React 19, lazy is still available as React.lazy and as a named import. The error almost always means the import is wrong, not that the function doesn't exist.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I code-split routes with React.lazy?</summary>;
+<p class="mt-2 text-sm text-slate-300">Wrap each route element in lazy, then put Suspense around the routes (inside the Router, above the Routes). The dynamic import returns a module with a default export — the component must be exported as default. For React Router v6+, use the element prop with Suspense around the lazy element, or wrap the entire Routes in one Suspense — the fallback shows for the first navigation only.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does React.lazy work with named exports?</summary>
+<p class="mt-2 text-sm text-slate-300">No — React.lazy expects a module with a default export. Named exports fail with "Element type is invalid". Two fixes: (1) add a default export to the module: export default MyComponent. (2) Re-export at the import site: React.lazy(() => import('./Comp').then(m => ({ default: m.NamedExport }))). The second is useful when you don't own the module or don't want to change it.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/re-render-too-often.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "My component re-renders too often"</div>
+<div class="text-xs text-slate-400 mt-1">State placement and context splitting</div>
+</a>
+<a href="/courses/react/problems/react-memo.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ React.memo not working</div>
+<div class="text-xs text-slate-400 mt-1>
+Why memo doesn't skip the render</div>
+</a>
+<a href="/courses/react/problems/useeffect-deps.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "useEffect has a missing dependency"</div>
+<div class="text-xs text-slate-400 mt-1">Data fetching gotchas and infinite loops</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
