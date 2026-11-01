@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React "Type is not assignable to type IntrinsicAttributes" — How to Fix (2026)</title>
+<meta name="description" content="Fix React + TypeScript props errors: "Type is not assignable to type IntrinsicAttributes & Props" and "Property does not exist on type IntrinsicAttributes". Three causes, three fixes for typing props correctly.">
+<meta name="keywords" content="react props typescript, intrinsic attributes error, type not assignable to intrinsicattributes, react props type, typescript react component props, react children prop type">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React "Type is not assignable to type IntrinsicAttributes" — How to Fix">
+<meta property="og:description" content="Three causes, three fixes for typing React props.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/type-props.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React "Type is not assignable to type IntrinsicAttributes"">
+<meta name="twitter:description" content="Three causes, three fixes for typing React props.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/type-props.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React "Type is not assignable to type IntrinsicAttributes & Props" — How to Fix",
+"description": "Fix React + TypeScript props errors and type props correctly.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-01",
+"dateModified": "2026-11-01",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I fix "Type is not assignable to type IntrinsicAttributes & Props" in React?","acceptedAnswer":{"@type":"Answer","text":"Three causes, three fixes. (1) Missing prop — you forgot to declare a prop in the interface, or you passed a prop the interface doesn't have. Fix: add the prop to the interface, or use the correct name. (2) Wrong prop type — the value you passed doesn't match the declared type. Fix: check the error carefully; it usually names the exact prop and the exact type mismatch. (3) Component has no props interface — TypeScript defaults to IntrinsicAttributes, which has no custom props. Fix: declare a Props interface and pass it to the component function."}},
+{"@type":"Question","name":"What is IntrinsicAttributes in React?","acceptedAnswer":{"@type":"Answer","text":"IntrinsicAttributes is React's base type for all JSX attributes. It contains only the internal key and ref props. When your component has no explicit props interface, TypeScript defaults to IntrinsicAttributes, which means any custom prop you pass is rejected. Fix: declare a Props interface with the fields you need. Then IntrinsicAttributes & Props is the actual type, and your custom props are accepted alongside the built-in ones."}},
+{"@type":"Question","name":"Why does my component reject a prop I'm clearly passing?","acceptedAnswer":{"@type":"Answer","text":"Three reasons. (1) The prop isn't in the interface — add it. (2) The prop is in the interface but the value is the wrong type — check the value's type. (3) You're passing the prop to a wrapper component that doesn't forward it — the wrapper needs to accept and pass the prop through. Read the full error: TypeScript names both the prop and the type mismatch. Fix the specific prop, not the whole interface."}},
+{"@type":"Question","name":"Should I use interface or type for React props?","acceptedAnswer":{"@type":"Answer","text":"Both work. Interface supports declaration merging and is the convention in many React codebases. Type is fine for simple cases and can be slightly stricter. Pick one and be consistent. The compiler treats them identically for React props. The only functional difference is that interface can be extended with declaration merging, while type cannot."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · type props</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Type props</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 5 min read</div>
+<h1>"Type is not assignable to type 'IntrinsicAttributes & Props'."<br><span class="py-accent">Three causes, three fixes.</span></h1>
+<p class="lead">
+The prop error every TypeScript + React project hits the first week. You passed a prop, TypeScript rejected it — and the message mentions <code>IntrinsicAttributes</code>, which sounds like React internals, not your code. It's not. The compiler is telling you exactly which prop it doesn't recognize, and why. This page covers the three causes, the three fixes, and the correct shape of a props interface.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Declare a <code>Props</code> interface, one field per prop, correct type. Pass it to the component function. <code>function Card({ title, count }: CardProps) {'{ ... }'}</code>. The three causes: (1) the prop isn't in the interface, (2) the prop is there but the value has the wrong type, (3) the component has no props interface at all. Fix each at the interface — never with <code>any</code>.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — Prop missing from the interface</h2>
+<p class="section-sub">The most common cause: you passed a prop the interface doesn't declare.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The interface lists some props. You pass one more. TypeScript rejects it — the extra prop isn't in the type. Fix: add the prop to the interface, or remove it from the call site. The error message names the prop exactly: <em>Property 'subtitle' does not exist on type 'CardProps'</em>.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">missing-prop.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">// BAD: interface is missing 'subtitle'
+interface BadCardProps {
+title: string;
+}
+
+function BadCard({ title }: BadCardProps) {
+return <div>{title}</div>;
+}
+
+function BadApp() {
+return (
+<BadCard
+title="Hello"
+subtitle="World" // BAD: Property 'subtitle' does not exist on type 'BadCardProps'
+/>
+);
+}
+
+// GOOD 1: add the prop to the interface
+interface CardProps {
+title: string;
+subtitle?: string; // optional — same type as the value
+}
+
+function Card({ title, subtitle }: CardProps) {
+return (
+<div>
+<h2>{title}</h2>
+{subtitle && <p>{subtitle}</p>}
+</div>
+);
+}
+
+function App() {
+return <Card title="Hello" subtitle="World" />;
+}
+
+// GOOD 2: extend a shared interface
+interface BaseProps {
+className?: string;
+id?: string;
+}
+
+interface FancyCardProps extends BaseProps {
+title: string;
+subtitle?: string;
+}
+
+function FancyCard({ title, subtitle, className, id }: FancyCardProps) {
+return (
+<div className={className} id={id}>
+<h2>{title}</h2>
+{subtitle && <p>{subtitle}</p>}
+</div>
+);
+}
+
+// GOOD 3: index signature for dynamic props
+interface DynamicProps {
+title: string;
+[key: string]: unknown; // any extra prop is allowed
+}
+
+function DynamicCard({ title, ...rest }: DynamicProps) {
+return (
+<div data-rest={JSON.stringify(rest)}>
+{title}
+</div>
+);
+}
+
+export { App, FancyCard, DynamicCard };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>function BadCard({ title }) {
+return React.createElement('div', null, title);
+}
+
+function BadApp() {
+return React.createElement(BadCard, {
+title: 'Hello',
+subtitle: 'World'
+});
+}
+
+function Card({ title, subtitle }) {
+return React.createElement('div', null,
+React.createElement('h2', null, title),
+subtitle && React.createElement('p', null, subtitle)
+);
+}
+
+function App() {
+return React.createElement(Card, { title: 'Hello', subtitle: 'World' });
+}
+
+function FancyCard({ title, subtitle, className, id }) {
+return React.createElement('div', { className, id },
+React.createElement('h2', null, title),
+subtitle && React.createElement('p', null, subtitle)
+);
+}
+
+function DynamicCard({ title, ...rest }) {
+return React.createElement('div', { 'data-rest': JSON.stringify(rest) }, title);
+}
+
+export { App, FancyCard, DynamicCard };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>One field per prop</h4>
+<p>Every prop the component accepts must be declared in the interface. No field → rejected at the call site.</p>
+</div>
+<div class="concept-card">
+<h4>Optional with <code>?</code></h4>
+<p><code>subtitle?: string</code> — the prop may or may not be passed. Without <code>?</code>, it's required.</p>
+</div>
+<div class="concept-card">
+<h4><code>extends</code> for shared props</h4>
+<p><code>interface CardProps extends BaseProps</code> — inherit <code>className</code>, <code>id</code>, etc. from a shared type.</p>
+</div>
+<div class="concept-card">
+<h4>Index signature</h4>
+<p><code>[key: string]: unknown</code> — allows any extra prop. Use sparingly — it disables the check.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Wrong prop type</h2>
+<p class="section-sub">The prop is declared, but the value you passed doesn't match the type.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The interface has the prop, but you passed a string where it expects a number, or an object where it expects a string. The error names both types: <em>Type 'string' is not assignable to type 'number'</em>. Fix: change the value, or change the declared type. Never cast to <code>any</code> to silence it.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">wrong-type.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">// BAD: value doesn't match the declared type
+interface BadBadgeProps {
+count: number;
+label: string;
+}
+
+function BadBadge({ count, label }: BadBadgeProps) {
+return (
+<span>
+{label}: {count}
+</span>
+);
+}
+
+function BadApp() {
+return (
+<BadBadge
+count="5" // BAD: Type 'string' is not assignable to type 'number'
+label={42} // BAD: Type 'number' is not assignable to type 'string'
+/>
+);
+}
+
+// GOOD 1: fix the values
+function App() {
+return <BadBadge count={5} label="Items" />;
+}
+
+// GOOD 2: make the interface accept both
+interface FlexibleBadgeProps {
+count: number | string; // number or string
+label: string | number;
+}
+
+function FlexibleBadge({ count, label }: FlexibleBadgeProps) {
+return (
+<span>
+{String(label)}: {String(count)}
+</span>
+);
+}
+
+// GOOD 3: accept a broader type, narrow inside
+interface BadgeProps {
+count: number;
+label: string;
+onClick?: (e: React.MouseEvent<HTMLSpanElement>) => void;
+}
+
+function Badge({ count, label, onClick }: BadgeProps) {
+return (
+<span onClick={onClick}>
+{label}: {count}
+</span>
+);
+}
+
+function CorrectApp() {
+return (
+<div>
+<Badge count={5} label="Items" />
+<Badge count={0} label="Empty" onClick={() => console.log('clicked')} />
+</div>
+);
+}
+
+export { App, CorrectApp, FlexibleBadge };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>function BadBadge({ count, label }) {
+return React.createElement('span', null, label, ': ', count);
+}
+
+function BadApp() {
+return React.createElement(BadBadge, { count: '5', label: 42 });
+}
+
+function App() {
+return React.createElement(BadBadge, { count: 5, label: 'Items' });
+}
+
+function FlexibleBadge({ count, label }) {
+return React.createElement('span', null, String(label), ': ', String(count));
+}
+
+function Badge({ count, label, onClick }) {
+return React.createElement('span', { onClick }, label, ': ', count);
+}
+
+function CorrectApp() {
+return React.createElement('div', null,
+React.createElement(Badge, { count: 5, label: 'Items' }),
+React.createElement(Badge, {
+count: 0,
+label: 'Empty',
+onClick: () => console.log('clicked')
+})
+);
+}
+
+export { App, CorrectApp, FlexibleBadge };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Read the error</h4>
+<p><em>Type 'X' is not assignable to type 'Y'</em> — X is what you passed, Y is what the interface expects. Fix one of them.</p>
+</div>
+<div class="concept-card">
+<h4>Union types</h4>
+<p><code>count: number | string</code> — accept both. Good when the value comes from user input or an API.</p>
+</div>
+<div class="concept-card">
+<h4>Function props</h4>
+<p><code>onClick?: (e: React.MouseEvent<HTMLSpanElement>) => void</code> — optional callback, typed parameter.</p>
+</div>
+<div class="concept-card">
+<h4>No <code>any</code></h4>
+<p><code>count={'{5 as any}'}</code> silences the error but removes the check. Fix the type or the value.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — No props interface at all</h2>
+<p class="section-sub">The component has no props type — TypeScript defaults to <code>IntrinsicAttributes</code>.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">When a component has no props interface, TypeScript uses React's built-in <code>IntrinsicAttributes</code>, which contains only React internals (<code>key</code>, <code>ref</code>). Every custom prop you pass is rejected. Fix: declare a props interface — even an empty one if the component takes no props.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">no-props-interface.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// BAD: no props interface
+function BadGreeting(props) {
+return <h1>Hello, {props.name}</h1>;
+}
+
+function BadApp() {
+return (
+<BadGreeting
+name="Alice" // BAD: Property 'name' does not exist on type 'IntrinsicAttributes'
+/>
+);
+}
+
+// GOOD 1: declare a props interface
+interface GreetingProps {
+name: string;
+}
+
+function Greeting({ name }: GreetingProps) {
+return <h1>Hello, {name}</h1>;
+}
+
+function App() {
+return <Greeting name="Alice" />;
+}
+
+// GOOD 2: empty interface for a prop-less component
+interface DividerProps {}
+
+function Divider(_props: DividerProps) {
+return <hr />;
+}
+
+// GOOD 3: React.FC (older style — still works)
+const Label: React.FC<{ text: string }> = ({ text }) => {
+return <span>{text}</span>;
+};
+
+function FullApp() {
+return (
+<div>
+<Greeting name="Alice" />
+<Divider />
+<Label text="ok" />
+</div>
+);
+}
+
+export { App, FullApp };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>function BadGreeting(props) {
+return React.createElement('h1', null, 'Hello, ', props.name);
+}
+
+function BadApp() {
+return React.createElement(BadGreeting, { name: 'Alice' });
+}
+
+function Greeting({ name }) {
+return React.createElement('h1', null, 'Hello, ', name);
+}
+
+function App() {
+return React.createElement(Greeting, { name: 'Alice' });
+}
+
+function Divider(_props) {
+return React.createElement('hr');
+}
+
+const Label = ({ text }) => {
+return React.createElement('span', null, text);
+};
+
+function FullApp() {
+return React.createElement('div', null,
+React.createElement(Greeting, { name: 'Alice' }),
+React.createElement(Divider),
+React.createElement(Label, { text: 'ok' })
+);
+}
+
+export { App, FullApp };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Always declare Props</h4>
+<p>Even <code>interface Props {'{}'}</code> for prop-less components. Without it, TypeScript defaults to <code>IntrinsicAttributes</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Destructure the props</h4>
+<p><code>function Greeting({ name }: GreetingProps)</code> — destructure in the signature, type the whole object.</p>
+</div>
+<div class="concept-card">
+<h4><code>React.FC<Props></code></h4>
+<p>Older style, still supported. Less preferred than a plain function, but works. Use it if your team prefers it.</p>
+</div>
+<div class="concept-card">
+<h4>Prop-less component</h4>
+<p><code>function Divider(_props: DividerProps) {'{ ... }'}</code> — takes no props. The interface is empty but exists.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't cast props to <code>any</code> to silence the error.</strong> <code>{'{ name: "Alice" } as any'}</code> compiles, but the next refactor breaks it silently. Every prop check is gone for that component. The right fix is to declare the prop in the interface — one field, correct type. It's the same amount of typing, and it keeps the compiler doing its job.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The prop errors that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Prop not in the interface</div>
+<p>You passed a prop the interface doesn't declare. Fix: add it to the interface, or remove it from the call site.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Wrong value type</div>
+<p>The prop exists but the value doesn't match. Fix: check the error, fix the value or the declared type.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. No props interface at all</div>
+<p>TypeScript defaults to <code>IntrinsicAttributes</code> — every custom prop rejected. Fix: declare a Props interface.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Confusing <code>?</code> optional with default</div>
+<p><code>subtitle?: string</code> means "may be undefined" — not "has a default". Fix: add a default in destructuring.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forwarding props through a wrapper</div>
+<p>The wrapper doesn't accept the prop, so it can't pass it through. Fix: add the prop to the wrapper's interface and forward it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Using <code>React.FC</code> and missing the generic</div>
+<p><code>React.FC</code> with no type parameter is <code>React.FC<{}></code> — no custom props. Fix: <code>React.FC<Props></code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Casting to <code>any</code></div>
+<p>Silences the error, removes the check. Fix: declare the prop correctly.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Index signature everywhere</div>
+<p><code>[key: string]: unknown</code> allows any prop — disables the check entirely. Fix: declare each prop explicitly.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I fix "Type is not assignable to type IntrinsicAttributes & Props" in React?</summary>
+<p class="mt-2 text-sm text-slate-300">Three causes, three fixes. (1) Missing prop — you forgot to declare a prop in the interface, or you passed a prop the interface doesn't have. Fix: add the prop to the interface, or use the correct name. (2) Wrong prop type — the value you passed doesn't match the declared type. Fix: check the error carefully; it usually names the exact prop and the exact type mismatch. (3) Component has no props interface — TypeScript defaults to IntrinsicAttributes, which has no custom props. Fix: declare a Props interface.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is IntrinsicAttributes in React?</summary>
+<p class="mt-2 text-sm text-slate-300">IntrinsicAttributes is React's base type for all JSX attributes. It contains only the internal key and ref props. When your component has no explicit props interface, TypeScript defaults to IntrinsicAttributes, which means any custom prop you pass is rejected. Fix: declare a Props interface with the fields you need. Then IntrinsicAttributes & Props is the actual type, and your custom props are accepted alongside the built-in ones.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does my component reject a prop I'm clearly passing?</summary>
+<p class="mt-2 text-sm text-slate-300">Three reasons. (1) The prop isn't in the interface — add it. (2) The prop is in the interface but the value is the wrong type — check the value's type. (3) You're passing the prop to a wrapper component that doesn't forward it — the wrapper needs to accept and pass the prop through. Read the full error: TypeScript names both the prop and the type mismatch. Fix the specific prop, not the whole interface.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use interface or type for React props?</summary>
+<p class="mt-2 text-sm text-slate-300">Both work. Interface supports declaration merging and is the convention in many React codebases. Type is fine for simple cases and can be slightly stricter. Pick one and be consistent. The compiler treats them identically for React props. The only functional difference is that interface can be extended with declaration merging, while type cannot.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/generic-component.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ Generic components in TypeScript</div>
+<div class="text-xs text-slate-400 mt-1">Typing generic props and inference</div>
+</a>
+<a href="/courses/react/problems/type-children.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Type 'X' is not assignable to type 'ReactNode'"</div>
+<div class="text-xs text-slate-400 mt-1">Typing children correctly</div>
+</a>
+<a href="/courses/react/problems/forwardref-typescript.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ forwardRef in TypeScript</div>
+<div class="text-xs text-slate-400 mt-1">Ref generics and useImperativeHandle</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
