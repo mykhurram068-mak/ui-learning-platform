@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React forwardRef in TypeScript — How to Type It (2026)</title>
+<meta name="description" content="Fix React forwardRef TypeScript errors: "Property 'focus' does not exist on type 'never'", "forwardRef requires a render function", and ref typing with useImperativeHandle. Three causes, three fixes.">
+<meta name="keywords" content="react forwardref typescript, forwardref typescript error, useimperativehandle typescript, react ref typescript, forwardref generic, react 19 ref as prop">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React forwardRef in TypeScript — How to Type It">
+<meta property="og:description" content="Three causes, three fixes, plus React 19's ref-as-prop.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/forwardref-typescript.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React forwardRef in TypeScript — How to Type It">
+<meta name="twitter:description" content="Three causes, three fixes, plus React 19's ref-as-prop.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/forwardref-typescript.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React forwardRef in TypeScript — How to Type It",
+"description": "Fix React forwardRef TypeScript errors and type ref with useImperativeHandle.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-01",
+"dateModified": "2026-11-01",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I type forwardRef in TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Three causes, three fixes. (1) No generics — forwardRef defaults to unknown and ref is typed never. Fix: pass both type parameters: forwardRef<HTMLInputElement, Props>((props, ref) => ...). (2) Wrong ref type — the first generic must match the element or handle you expose. Fix: HTMLInputElement for a DOM node, a custom interface for useImperativeHandle. (3) Missing displayName — not a type error, but a lint error. Fix: set Component.displayName = 'Component'. Always pass both generics, and make ref the second parameter."}},
+{"@type":"Question","name":"Why does my ref have type 'never' in forwardRef?","acceptedAnswer":{"@type":"Answer","text":"Because forwardRef's first generic defaults to unknown, and React's ref utilities narrow it. Without the generic, the compiler can't know what element the ref attaches to, so it infers never. Fix: forwardRef<HTMLInputElement, Props>((props, ref) => ...). The first generic is the ref's target type. The second is the props type. Both are required for good inference."}},
+{"@type":"Question","name":"What is the difference between forwardRef and ref-as-prop in React 19?","acceptedAnswer":{"@type":"Answer","text":"In React 18 and earlier, forwardRef was the only way to pass a ref to a function component. In React 19, ref is a regular prop — you can accept it directly in the props object. forwardRef is still supported for compatibility but is no longer required. For new code on React 19, prefer ref as a prop: function Input({ ref, ...props }: InputProps & { ref?: Ref<HTMLInputElement> }). It's simpler and removes the extra wrapper."}},
+{"@type":"Question","name":"How do I type useImperativeHandle?","acceptedAnswer":{"@type":"Answer","text":"Define a handle interface with the methods you expose, then pass it as the second generic to forwardRef, and as the generic to useImperativeHandle. For example: interface InputHandle { focus(): void; clear(): void }, forwardRef<InputHandle, Props>((props, ref) => { useImperativeHandle(ref, () => ({ focus() { inputRef.current?.focus(); }, clear() { ... } })); }). The handle type flows from the parent's useRef<InputHandle>(null) through forwardRef to useImperativeHandle. Break any link and the type collapses to never."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · forwardRef TypeScript</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">forwardRef TypeScript</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 6 min read</div>
+<h1>"Property 'focus' does not exist on type 'never'."<br><span class="py-accent">Three causes, three fixes.</span></h1>
+<p class="lead">
+The forwardRef type error that stumps every TypeScript + React project the first time. You wrapped your component in <code>forwardRef</code>, passed a ref from the parent — and the compiler says the ref is <code>never</code>, or that <code>focus</code> doesn't exist. Both are the same bug: <code>forwardRef</code>'s generics weren't supplied, so the ref type collapsed. This page covers the three causes, the three fixes, and the correct typing for <code>forwardRef</code> + <code>useImperativeHandle</code>.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Pass both generics. <code>forwardRef<HTMLInputElement, Props>((props, ref) => ...)</code>. The first generic is the ref's target — a DOM element type or a custom handle interface. The second is the props type. Without generics, <code>ref</code> is <code>never</code>. For <code>useImperativeHandle</code>, pass the handle interface as the generic to both. In React 19, prefer <code>ref</code> as a regular prop — <code>forwardRef</code> is no longer required.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — No generics on forwardRef</h2>
+<p class="section-sub">The most common cause: <code>forwardRef((props, ref) => ...)</code> with no type parameters.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Without generics, <code>forwardRef</code> defaults its ref type to <code>unknown</code>, and React's ref utilities narrow it to <code>never</code>. The compiler can't know what element the ref attaches to, so it can't check access. Fix: supply both generics — element type first, props type second.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">no-generics.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"><span class="kw">import</span> { forwardRef, useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: no generics ────────────────────────</span>
+<span class="kw">const</span> BadInput = <span class="fn">forwardRef</span>((props, ref) => {
+<span class="com">// ❌ ref is typed never — no .current, no .focus()
+// ❌ TS: Property 'focus' does not exist on type 'never'
+// ❌ props is {} — no name, no placeholder</span>
+<span class="kw">return</span> <input ref={ref} {...props} />;
+});
+
+<span class="com">// ─── GOOD 1: both generics ───────────────────</span>
+<span class="kw">interface</span> InputProps {
+placeholder?: <span class="fn">string</span>;
+name: <span class="fn">string</span>;
+}
+
+<span class="kw">const</span> GoodInput = <span class="fn">forwardRef</span><HTMLInputElement, InputProps>((props, ref) => {
+<span class="com">// ✅ ref is Ref<HTMLInputElement> — .current is HTMLInputElement | null
+// ✅ props is InputProps — name and placeholder autocomplete</span>
+<span class="kw">return</span> <input ref={ref} {...props} />;
+});
+
+<span class="com">// ─── GOOD 2: element-only generic ────────────</span>
+<span class="com">// When the component takes no props, only the ref type is needed</span>
+<span class="kw">const</span> BareInput = <span class="fn">forwardRef</span><HTMLInputElement>((props, ref) => {
+<span class="com">// ✅ ref is Ref<HTMLInputElement> — props is {}</span>
+<span class="kw">return</span> <input ref={ref} {...props} />;
+});
+
+<span class="com">// ─── GOOD 3: parent call sites ───────────────</span>
+<span class="kw">function</span> <span class="fn">Parent</span>() {
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span><HTMLInputElement>(<span class="fn">null</span>);
+
+<span class="com">// ✅ ref type matches — no cast, no error</span>
+<span class="kw">return</span> (
+<div>
+<GoodInput ref={inputRef} name="email" placeholder="you@example.com" />
+<BareInput ref={inputRef} />
+<button onClick={() => inputRef.current?.<span class="fn">focus</span>()}>Focus</button>
+</div>
+);
+}
+
+<span class="com">// ─── Naming the component ────────────────────</span>
+<span class="com">// forwardRef loses the function name — set displayName for DevTools
+// and for React's error messages. Not a type error, but a lint error
+// under react/display-name.</span>
+GoodInput.displayName = <span class="str">'GoodInput'</span>;
+BareInput.displayName = <span class="str">'BareInput'</span>;
+
+console.<span class="fn">log</span>(<span class="fn">BadInput</span>, <span class="fn">GoodInput</span>, <span class="fn">BareInput</span>, <span class="fn">Parent</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { forwardRef, useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">const</span> BadInput = <span class="fn">forwardRef</span>((props, ref) => {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref, ...props });
+});
+
+<span class="kw">const</span> GoodInput = <span class="fn">forwardRef</span>((props, ref) => {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref, ...props });
+});
+
+<span class="kw">const</span> BareInput = <span class="fn">forwardRef</span>((props, ref) => {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref, ...props });
+});
+
+<span class="kw">function</span> <span class="fn">Parent</span>() {
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(GoodInput, { ref: inputRef, name: <span class="str">'email'</span>, placeholder: <span class="str">'you@example.com'</span> }),
+React.<span class="fn">createElement</span>(BareInput, { ref: inputRef }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => inputRef.current?.<span class="fn">focus</span>() }, <span class="str">'Focus'</span>)
+);
+}
+
+GoodInput.displayName = <span class="str">'GoodInput'</span>;
+BareInput.displayName = <span class="str">'BareInput'</span>;
+
+console.<span class="fn">log</span>(<span class="fn">BadInput</span>, <span class="fn">GoodInput</span>, <span class="fn">BareInput</span>, <span class="fn">Parent</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Two generics</h4>
+<p><code>forwardRef<RefType, PropsType></code>. First is the ref target, second is props. Missing either loses inference.</p>
+</div>
+<div class="concept-card">
+<h4><code>never</code> = missing generic</h4>
+<p>Without the first generic, <code>ref</code> is <code>unknown</code> narrowed to <code>never</code>. Any access fails.</p>
+</div>
+<div class="concept-card">
+<h4>Element type</h4>
+<p><code>HTMLInputElement</code>, <code>HTMLButtonElement</code>, <code>HTMLDivElement</code> — match the element the ref attaches to.</p>
+</div>
+<div class="concept-card">
+<h4><code>displayName</code></h4>
+<p><code>forwardRef</code> loses the function name. Set <code>Component.displayName = 'Component'</code> for DevTools and lint.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — Wrong ref type</h2>
+<p class="section-sub">The generic must match the element — or the handle you expose.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The first generic is the ref's target. If you pass the wrong type — <code>HTMLButtonElement</code> for an input, or <code>HTMLElement</code> when you need <code>HTMLInputElement</code> — the ref doesn't match the element, and access fails. Fix: match the element, or use <code>useImperativeHandle</code> to expose a custom handle.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">wrong-ref-type.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><span class="kw">import</span> { forwardRef, useImperativeHandle, useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── BAD: wrong element type ─────────────────</span>
+<span class="kw">const</span> BadInput = <span class="fn">forwardRef</span><HTMLButtonElement>((props, ref) => {
+<span class="com">// ❌ ref is Ref<HTMLButtonElement> but attached to an input
+// ❌ TS: Type 'Ref<HTMLButtonElement>' is not assignable to 'Ref<HTMLInputElement>'</span>
+<span class="kw">return</span> <input ref={ref} {...props} />;
+});
+
+<span class="com">// ─── BAD: too-broad element type ──────────────</span>
+<span class="kw">const</span> BroadInput = <span class="fn">forwardRef</span><HTMLElement>((props, ref) => {
+<span class="com">// ❌ HTMLElement has no .value, no .focus with input semantics
+// ❌ TS: Property 'value' does not exist on type 'HTMLElement'</span>
+<span class="kw">return</span> <input ref={ref <span class="kw">as</span> React.Ref<HTMLInputElement>} {...props} />;
+});
+
+<span class="com">// ─── GOOD 1: match the element ───────────────</span>
+<span class="kw">const</span> GoodInput = <span class="fn">forwardRef</span><HTMLInputElement>((props, ref) => {
+<span class="com">// ✅ ref is Ref<HTMLInputElement> — .value, .focus all work</span>
+<span class="kw">return</span> <input ref={ref} {...props} />;
+});
+
+<span class="com">// ─── GOOD 2: useImperativeHandle for custom API ──</span>
+<span class="kw">interface</span> InputHandle {
+<span class="fn">focus</span>(): <span class="fn">void</span>;
+<span class="fn">clear</span>(): <span class="fn">void</span>;
+<span class="fn">getValue</span>(): <span class="fn">string</span>;
+}
+
+<span class="kw">const</span> CustomInput = <span class="fn">forwardRef</span><InputHandle>((props, ref) => {
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span><HTMLInputElement>(<span class="fn">null</span>);
+
+<span class="com">// ✅ Expose a custom handle instead of the raw DOM node
+// The handle type flows from parent → forwardRef → here</span>
+<span class="fn">useImperativeHandle</span>(ref, () => ({
+<span class="fn">focus</span>() {
+inputRef.current?.<span class="fn">focus</span>();
+},
+<span class="fn">clear</span>() {
+<span class="kw">if</span> (inputRef.current) inputRef.current.value = <span class="str">''</span>;
+},
+<span class="fn">getValue</span>() {
+<span class="kw">return</span> inputRef.current?.value ?? <span class="str">''</span>;
+}
+}), []);
+
+<span class="kw">return</span> <input ref={inputRef} {...props} />;
+});
+
+<span class="com">// ─── GOOD 3: parent uses the handle ──────────</span>
+<span class="kw">function</span> <span class="fn">Parent</span>() {
+<span class="kw">const</span> handleRef = <span class="fn">useRef</span><InputHandle>(<span class="fn">null</span>);
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span><HTMLInputElement>(<span class="fn">null</span>);
+
+<span class="kw">function</span> <span class="fn">handleReset</span>() {
+handleRef.current?.<span class="fn">clear</span>();
+console.<span class="fn">log</span>(handleRef.current?.<span class="fn">getValue</span>());
+}
+
+<span class="kw">return</span> (
+<div>
+<CustomInput ref={handleRef} />
+<GoodInput ref={inputRef} />
+<button onClick={handleReset}>Reset</button>
+<button onClick={() => inputRef.current?.<span class="fn">focus</span>()}>Focus</button>
+</div>
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadInput</span>, <span class="fn">BroadInput</span>, <span class="fn">GoodInput</span>, <span class="fn">CustomInput</span>, <span class="fn">Parent</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { forwardRef, useImperativeHandle, useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">const</span> BadInput = <span class="fn">forwardRef</span>((props, ref) => {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref, ...props });
+});
+
+<span class="kw">const</span> BroadInput = <span class="fn">forwardRef</span>((props, ref) => {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref, ...props });
+});
+
+<span class="kw">const</span> GoodInput = <span class="fn">forwardRef</span>((props, ref) => {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref, ...props });
+});
+
+<span class="kw">const</span> CustomInput = <span class="fn">forwardRef</span>((props, ref) => {
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+
+<span class="fn">useImperativeHandle</span>(ref, () => ({
+<span class="fn">focus</span>() {
+inputRef.current?.<span class="fn">focus</span>();
+},
+<span class="fn">clear</span>() {
+<span class="kw">if</span> (inputRef.current) inputRef.current.value = <span class="str">''</span>;
+},
+<span class="fn">getValue</span>() {
+<span class="kw">return</span> inputRef.current?.value ?? <span class="str">''</span>;
+}
+}), []);
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref: inputRef, ...props });
+});
+
+<span class="kw">function</span> <span class="fn">Parent</span>() {
+<span class="kw">const</span> handleRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+
+<span class="kw">function</span> <span class="fn">handleReset</span>() {
+handleRef.current?.<span class="fn">clear</span>();
+console.<span class="fn">log</span>(handleRef.current?.<span class="fn">getValue</span>());
+}
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class="fn">createElement</span>(CustomInput, { ref: handleRef }),
+React.<span class="fn">createElement</span>(GoodInput, { ref: inputRef }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: handleReset }, <span class="str">'Reset'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => inputRef.current?.<span class="fn">focus</span>() }, <span class="str">'Focus'</span>)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">BadInput</span>, <span class="fn">BroadInput</span>, <span class="fn">GoodInput</span>, <span class="fn">CustomInput</span>, <span class="fn">Parent</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Match the element</h4>
+<p><code>HTMLInputElement</code> for inputs, <code>HTMLButtonElement</code> for buttons. Wrong type → ref mismatch.</p>
+</div>
+<div class="concept-card">
+<h4>Don't over-broaden</h4>
+<p><code>HTMLElement</code> loses <code>.value</code>, <code>.focus</code> with input semantics. Use the specific element type.</p>
+</div>
+<div class="concept-card">
+<h4><code>useImperativeHandle</code></h4>
+<p>Expose a custom handle instead of the DOM node. Type flows from parent's <code>useRef<Handle></code>.</p>
+</div>
+<div class="concept-card">
+<h4>Handle interface</h4>
+<p>Define <code>interface InputHandle { focus(): void; clear(): void }</code>. Pass as first generic to <code>forwardRef</code>.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — React 19's ref-as-prop</h2>
+<p class="section-sub"><code>forwardRef</code> is no longer required. <code>ref</code> is a regular prop.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">In React 19, function components can accept <code>ref</code> directly in props. No <code>forwardRef</code> wrapper, no extra generics — just a normal prop of type <code>Ref<T></code>. Existing <code>forwardRef</code> code still works, but new code should prefer the prop. It's simpler and TypeScript infers correctly.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">ref-as-prop.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"><span class="kw">import</span> { Ref, useImperativeHandle, useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="com">// ─── React 19: ref as a prop ─────────────────</span>
+<span class="kw">interface</span> InputProps {
+name: <span class="fn">string</span>;
+ref?: Ref<HTMLInputElement>; <span class="com">// regular prop</span>
+}
+
+<span class="kw">function</span> <span class="fn">Input</span>({ name, ref }: InputProps) {
+<span class="com">// ✅ No forwardRef wrapper — ref is just a prop
+// ✅ TypeScript infers Ref<HTMLInputElement> from the interface</span>
+<span class="kw">return</span> <input ref={ref} name={name} />;
+}
+
+<span class="com">// ─── Custom handle with ref-as-prop ──────────</span>
+<span class="kw">interface</span> InputHandle {
+<span class="fn">focus</span>(): <span class="fn">void</span>;
+<span class="fn">clear</span>(): <span class="fn">void</span>;
+}
+
+<span class="kw">interface</span> CustomProps {
+ref?: Ref<InputHandle>;
+placeholder?: <span class="fn">string</span>;
+}
+
+<span class="kw">function</span> <span class="fn">CustomInput</span>({ ref, placeholder }: CustomProps) {
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span><HTMLInputElement>(<span class="fn">null</span>);
+
+<span class="fn">useImperativeHandle</span>(ref, () => ({
+<span class="fn">focus</span>() {
+inputRef.current?.<span class="fn">focus</span>();
+},
+<span class="fn">clear</span>() {
+<span class="kw">if</span> (inputRef.current) inputRef.current.value = <span class="str">''</span>;
+}
+}), []);
+
+<span class="kw">return</span> <input ref={inputRef} placeholder={placeholder} />;
+}
+
+<span class="com">// ─── Parent call sites ───────────────────────</span>
+<span class="kw">function</span> <span class="fn">Parent</span>() {
+<span class="kw">const</span> domRef = <span class="fn">useRef</span><HTMLInputElement>(<span class="fn">null</span>);
+<span class="kw">const</span> handleRef = <span class="fn">useRef</span><InputHandle>(<span class="fn">null</span>);
+
+<span class="kw">return</span> (
+<div>
+<Input ref={domRef} name="email" />
+<CustomInput ref={handleRef} placeholder="Type here" />
+<button onClick={() => domRef.current?.<span class="fn">focus</span>()}>Focus</button>
+<button onClick={() => handleRef.current?.<span class="fn">clear</span>()}>Clear</button>
+</div>
+);
+}
+
+<span class="com">// ─── Migrating from forwardRef ───────────────
+//
+// Before (React 18):
+// const Input = forwardRef<HTMLInputElement, Props>((props, ref) => ...)
+// Input.displayName = 'Input'
+//
+// After (React 19):
+// function Input({ ref, ...props }: Props & { ref?: Ref<HTMLInputElement> }) { ... }
+//
+// forwardRef still works in React 19. Only new code needs the prop form.
+// The prop form is simpler, has no displayName requirement, and
+// TypeScript infers the ref type from the interface.</span>
+
+console.<span class="fn">log</span>(<span class="fn">Input</span>, <span class="fn">CustomInput</span>, <span class="fn">Parent</span>);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre><span class="kw">import</span> { useImperativeHandle, useRef } <span class="kw">from</span> <span class="str">'react'</span>;
+
+<span class="kw">function</span> <span class="fn">Input</span>({ name, ref }) {
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref, name });
+}
+
+<span class="kw">function</span> <span class="fn">CustomInput</span>({ ref, placeholder }) {
+<span class="kw">const</span> inputRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+
+<span class="fn">useImperativeHandle</span>(ref, () => ({
+<span class="fn">focus</span>() {
+inputRef.current?.<span class="fn">focus</span>();
+},
+<span class="fn">clear</span>() {
+<span class="kw">if</span> (inputRef.current) inputRef.current.value = <span class="str">''</span>;
+}
+}), []);
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'input'</span>, { ref: inputRef, placeholder });
+}
+
+<span class="kw">function</span> <span class="fn">Parent</span>() {
+<span class="kw">const</span> domRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+<span class="kw">const</span> handleRef = <span class="fn">useRef</span>(<span class="fn">null</span>);
+
+<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
+React.<span class <span class="fn">createElement</span>(Input, { ref: domRef, name: <span class="str">'email'</span> }),
+React.<span class="fn">createElement</span>(CustomInput, { ref: handleRef, placeholder: <span class="str">'Type here'</span> }),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => domRef.current?.<span class="fn">focus</span>() }, <span class="str">'Focus'</span>),
+React.<span class="fn">createElement</span>(<span class="str">'button'</span>, { onClick: () => handleRef.current?.<span class="fn">clear</span>() }, <span class="str">'Clear'</span>)
+);
+}
+
+console.<span class="fn">log</span>(<span class="fn">Input</span>, <span class="fn">CustomInput</span>, <span class="fn">Parent</span>);</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>ref</code> as a prop</h4>
+<p>React 19 accepts <code>ref</code> in the props object. No <code>forwardRef</code> wrapper needed for new code.</p>
+</div>
+<div class="concept-card">
+<h4><code>Ref<T></code> type</h4>
+<p>Type the prop as <code>ref?: Ref<HTMLInputElement></code>. It accepts both callback and object refs.</p>
+</div>
+<div class="concept-card">
+<h4>No <code>displayName</code></h4>
+<p>The prop form keeps the function name. DevTools shows <code>Input</code> without extra setup.</p>
+</div>
+<div class="concept-card">
+<h4><code>forwardRef</code> still works</h4>
+<p>React 19 supports both. Migrate only when you touch the component — no forced rewrite.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't skip the generics to "make it work."</strong> <code>forwardRef((props, ref) => ...)</code> compiles — with <code>ref: never</code> and <code>props: {}</code>. It silently disables every ref check and every prop check for that component. The bug shows up later as a runtime <code>Cannot read property 'focus' of null</code>, or as a prop typo that nobody caught. The two generics are not optional polish — they're the only thing making <code>forwardRef</code> type-safe.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The type errors that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. No generics on <code>forwardRef</code></div>
+<p><code>forwardRef((props, ref) => ...)</code> — ref is <code>never</code>. Fix: <code>forwardRef<HTMLInputElement, Props></code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Only the props generic</div>
+<p><code>forwardRef<Props></code> — that's the ref generic, not props. Fix: both in order, ref first.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Wrong element type</div>
+<p><code>forwardRef<HTMLButtonElement></code> on an <code><input></code>. Fix: match the element.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Over-broad <code>HTMLElement</code></div>
+<p>Loses <code>.value</code>, <code>.checked</code>. Fix: the specific element type.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting <code>displayName</code></div>
+<p>Lint error under <code>react/display-name</code>. Fix: <code>Component.displayName = 'Component'</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. <code>useImperativeHandle</code> generic mismatch</div>
+<p>The handle interface must match between <code>forwardRef</code>, <code>useImperativeHandle</code>, and the parent's <code>useRef</code>. Break one link and the type collapses.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Casting <code>ref as any</code></div>
+<p>Silences the error, loses all safety. Fix: the correct generic.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using <code>forwardRef</code> in new React 19 code</div>
+<p>Not wrong, but unnecessary. Fix: accept <code>ref</code> as a prop and type it as <code>Ref<T></code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I type forwardRef in TypeScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Three causes, three fixes. (1) No generics — forwardRef defaults to unknown and ref is typed never. Fix: pass both type parameters: forwardRef<HTMLInputElement, Props>((props, ref) => ...). (2) Wrong ref type — the first generic must match the element or handle you expose. (3) Missing displayName — not a type error, but a lint error. Always pass both generics, and make ref the second parameter.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does my ref have type 'never' in forwardRef?</summary>
+<p class="mt-2 text-sm text-slate-300">Because forwardRef's first generic defaults to unknown, and React's ref utilities narrow it. Without the generic, the compiler can't know what element the ref attaches to, so it infers never. Fix: forwardRef<HTMLInputElement, Props>((props, ref) => ...). The first generic is the ref's target type. The second is the props type. Both are required for good inference.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between forwardRef and ref-as-prop in React 19?</summary>
+<p class="mt-2 text-sm text-slate-300">In React 18 and earlier, forwardRef was the only way to pass a ref to a function component. In React 19, ref is a regular prop — you can accept it directly in the props object. forwardRef is still supported for compatibility but is no longer required. For new code on React 19, prefer ref as a prop: function Input({ ref, ...props }: InputProps & { ref?: Ref<HTMLInputElement> }). It's simpler and removes the extra wrapper.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I type useImperativeHandle?</summary>
+<p class="mt-2 text-sm text-slate-300">Define a handle interface with the methods you expose, then pass it as the second generic to forwardRef, and as the generic to useImperativeHandle. For example: interface InputHandle { focus(): void; clear(): void }, forwardRef<InputHandle, Props>((props, ref) => { useImperativeHandle(ref, () => ({ focus() { inputRef.current?.focus(); }, clear() { ... } })); }). The handle type flows from the parent's useRef<InputHandle>(null) through forwardRef to useImperativeHandle. Break any link and the type collapses to never.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/type-children.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Type 'X' is not assignable to type 'ReactNode'"</div>
+<div class="text-xs text-slate-400 mt-1">Typing children correctly</div>
+</a>
+<a href="/courses/react/problems/type-form-event.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Parameter 'e' implicitly has an 'any' type"</div>
+<div class="text-xs text-slate-400 mt-1">The correct event types for forms</div>
+</a>
+<a href="/courses/react/problems/cannot-read-property.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Cannot read property of undefined"</div>
+<div class="text-xs text-slate-400 mt-1">Three causes, three fixes for null data</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
