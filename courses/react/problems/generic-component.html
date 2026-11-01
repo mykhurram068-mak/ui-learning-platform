@@ -40,9 +40,9 @@
 "@type": "FAQPage",
 "mainEntity": [
 {"@type":"Question","name":"How do I create a generic component in React with TypeScript?","acceptedAnswer":{"@type":"Answer","text":"Three causes, three fixes. (1) Arrow function with a generic in .tsx — the compiler parses <T> as JSX. Fix: add a trailing comma: const List = <T,>(props: Props<T>) => ... or use a function declaration: function List<T>(props: Props<T>) {}. (2) No type parameter on the component — you wrote Props without a generic and the types collapse to unknown. Fix: declare <T> before the props: function List<T>(props: Props<T>). (3) JSX call site doesn't infer the generic — the props have no T-typed field. Fix: put T somewhere in the props, or pass it explicitly: <List<string> items={['a']} />."}},
-{"@type":"Question","name":"Why does <T> in a .tsx arrow function fail?","acceptedAnswer":{"@type":"Answer","text":"In .tsx files, <T> is parsed as the start of a JSX element, not as a type parameter. The compiler sees <T> and expects a tag name and attributes. Fix: add a trailing comma — <T,> — which disambiguates the generic. Or use a function declaration: function List<T>(props) {}, which is unambiguous in both .ts and .tsx. The comma is a quirk of the TSX grammar, not a bug."}},
-{"@type":"Question","name":"How do I infer the generic type at the JSX call site?","acceptedAnswer":{"@type":"Answer","text":"The generic must appear somewhere in the props. If Props<T> = { items: T[] }, then <List items={users} /> infers T = User. If the generic is only in the return type or in a callback, the compiler has nothing to infer from and defaults to unknown. Two fixes: (1) put T in a prop field, (2) pass it explicitly: <List<User> items={users} />. The second is only needed when inference fails — most of the time the props carry the type."}},
-{"@type":"Question","name":"What is the difference between a generic component and a component with generic props?","acceptedAnswer":{"@type":"Answer","text":"They're the same thing. A generic component is a function that takes a generic props type: function List<T>(props: Props<T>) {}. The generic is on the function, not on the props interface. When you call it in JSX, TypeScript infers T from the props you pass. There is no separate 'generic props' feature — the generic belongs to the component function, and the props type references it."}}
+{"@type":"Question","name":"Why does <T> in a .tsx arrow function fail?","acceptedAnswer":{"@type":"Answer","text":"In .tsx files, <T> is parsed as the start of a JSX element, not as a type parameter. The compiler sees <T> and expects a tag name and attributes. Fix: add a trailing comma — <T,> — which disambiguates the generic. Or use a function declaration: function List<T>(props) {}, which is unambiguous in both .ts and .tsx."}},
+{"@type":"Question","name":"How do I infer the generic type at the JSX call site?","acceptedAnswer":{"@type":"Answer","text":"The generic must appear somewhere in the props. If Props<T> = { items: T[] }, then <List items={users} /> infers T = User. If the generic is only in the return type or in a callback, the compiler has nothing to infer from and defaults to unknown. Two fixes: (1) put T in a prop field, (2) pass it explicitly: <List<User> items={users} />."}},
+{"@type":"Question","name":"What is the difference between a generic component and a component with generic props?","acceptedAnswer":{"@type":"Answer","text":"They're the same thing. A generic component is a function that takes a generic props type: function List<T>(props: Props<T>) {}. The generic is on the function, not on the props interface. When you call it in JSX, TypeScript infers T from the props you pass."}}
 ]
 }
 </script>
@@ -81,20 +81,20 @@
 <div class="badge">⚛️ Problem · 6 min read</div>
 <h1>"Generic type 'Component' requires 1 type argument(s)."<br><span class="py-accent">Three causes, three fixes.</span></h1>
 <p class="lead">
-The generic component error that hits every TypeScript + React project the first time you try to write <code><List items={'{users}'} /></code>. The compiler either parses your <code><T></code> as JSX, or can't infer the generic from the props, or you forgot to declare the type parameter at all. This page covers the three causes, the three fixes, and the correct syntax for generic components in <code>.tsx</code>.
+The generic component error that hits every TypeScript + React project the first time you try to write a typed list. The compiler either parses your type parameter as JSX, or can't infer it from the props, or you forgot to declare it at all. This page covers the three causes, the three fixes, and the correct syntax for generic components in <code>.tsx</code>.
 </p>
 </div>
 
 <div class="info-box">
 <p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
-<strong>Short answer:</strong> Put the generic on the function, not the props interface. <code>function List<T>(props: Props<T>) {'{ ... }'}</code>. In <code>.tsx</code>, arrow functions need a trailing comma: <code>const List = <T,>(props) => ...</code>. The generic must appear in a prop field so JSX can infer it — <code>items: T[]</code> works, a generic return type doesn't. The three causes: (1) TSX parses <code><T></code> as JSX, (2) no type parameter on the component, (3) the generic isn't inferable at the call site. Fix each at the declaration.
+<strong>Short answer:</strong> Put the generic on the function, not the props interface. Write <code>function List<T>(props: Props<T>)</code>. In <code>.tsx</code>, arrow functions need a trailing comma: <code>const List = <T,>(props) => ...</code>. The generic must appear in a prop field so JSX can infer it — <code>items: T[]</code> works, a generic return type doesn't. The three causes: (1) TSX parses the generic as JSX, (2) no type parameter on the component, (3) the generic isn't inferable at the call site.
 </p>
 </div>
 
 <section>
-<h2 class="section-title">✅ Solution 1 — TSX parses <code><T></code> as JSX</h2>
+<h2 class="section-title">✅ Solution 1 — TSX parses the generic as JSX</h2>
 <p class="section-sub">The most common cause: arrow function with a bare generic in a <code>.tsx</code> file.</p>
-<p class="text-sm text-slate-300 leading-relaxed mb-3">In <code>.tsx</code>, <code><T></code> at the start of an expression is parsed as a JSX element — the compiler expects a tag name and attributes, not a type parameter. The error is usually <em>"JSX element 'T' has no corresponding closing tag"</em> or <em>"Type 'T' is not a valid JSX element"</em>. Fix: add a trailing comma after the generic — <code><T,></code> — or use a function declaration, which is unambiguous.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">In <code>.tsx</code>, an opening angle bracket at the start of an expression is parsed as a JSX element. Fix: add a trailing comma after the generic, or use a function declaration.</p>
 
 <div class="code-block" id="sol1">
 <div class="code-header">
@@ -107,127 +107,92 @@ The generic component error that hits every TypeScript + React project the first
 <button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
 </div>
 <div class="code-output-pane active" data-pane="ts">
-<pre id="code-sol1"><span class="com">// ─── BAD: bare generic in an arrow function ───</span>
-<span class="kw">interface</span> ListProps<T> {
+<pre id="code-sol1">// BAD: bare generic in an arrow function
+interface ListProps<T> {
 items: T[];
 renderItem: (item: T) => React.ReactNode;
 }
 
-<span class="com">// ❌ TSX parses <T> as a JSX element
-// ❌ Error: JSX element 'T' has no corresponding closing tag
-// ❌ Or: Type 'T' is not a valid JSX element
-// const BadList = <T>(props: ListProps<T>) => (...) // ❌</span>
+// TSX parses the angle bracket as a JSX element
+// Error: JSX element has no corresponding closing tag
+// const BadList = <T>(props: ListProps<T>) => (...) // BAD
 
-<span class="com">// ─── GOOD 1: trailing comma in the generic ───</span>
-<span class="kw">const</span> GoodList1 = <T,>(props: ListProps<T>) => {
-<span class="com">// ✅ The comma disambiguates: <T,> is a type parameter, not JSX</span>
-<span class="kw">return</span> (
+// GOOD 1: trailing comma in the generic
+const GoodList1 = <T,>(props: ListProps<T>) => {
+// The comma disambiguates: this is a type parameter, not JSX
+return (
 <ul>
-{props.items.<span class="fn">map</span>((item, i) => (
-<li key={i}>{props.<span class="fn">renderItem</span>(item)}</li>
+{props.items.map((item, i) => (
+<li key={i}>{props.renderItem(item)}</li>
 ))}
 </ul>
 );
 };
 
-<span class="com">// ─── GOOD 2: function declaration ────────────</span>
-<span class="kw">function</span> <span class="fn">GoodList2</span><T>(props: ListProps<T>) {
-<span class="com">// ✅ Function declarations are unambiguous in .tsx
-// No comma needed — the parser knows this is a generic</span>
-<span class="kw">return</span> (
+// GOOD 2: function declaration
+function GoodList2<T>(props: ListProps<T>) {
+// Function declarations are unambiguous in .tsx
+return (
 <ul>
-{props.items.<span class="fn">map</span>((item, i) => (
-<li key={i}>{props.<span class="fn">renderItem</span>(item)}</li>
+{props.items.map((item, i) => (
+<li key={i}>{props.renderItem(item)}</li>
 ))}
 </ul>
 );
 }
 
-<span class="com">// ─── GOOD 3: React.FC with generic ───────────</span>
-<span class="com">// React.FC does not support generics directly.
-// Use a plain function signature — it's the recommended form.</span>
-<span class="kw">type</span> ListComponent = <T>(props: ListProps<T>) => React.ReactElement;
+// Call sites
+interface User { id: string; name: string }
+const users: User[] = [{ id: '1', name: 'Alice' }];
 
-<span class="kw">const</span> GoodList3: ListComponent = (props) => {
-<span class="com">// ✅ A typed function alias, generic at the type level</span>
-<span class="kw">return</span> (
-<ul>
-{props.items.<span class="fn">map</span>((item, i) => (
-<li key={i}>{props.<span class="fn">renderItem</span>(item)}</li>
-))}
-</ul>
-);
-};
-
-<span class="com">// ─── Call sites ──────────────────────────────</span>
-<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
-<span class="kw">const</span> users: User[] = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }];
-
-<span class="kw">function</span> <span class="fn">App</span>() {
-<span class="kw">return</span> (
+function App() {
+return (
 <div>
-<span class="com">{/* ✅ T inferred as User from items */}</span>
-<GoodList1 items={users} renderItem={u => <span><span>{u.name}</span></span>} />
-<GoodList2 items={users} renderItem={u => <span><span>{u.name}</span></span>} />
-<GoodList3 items={users} renderItem={u => <span><span>{u.name}</span></span>} />
+{/* T inferred as User from items */}
+<GoodList1 items={users} renderItem={u => <span>{u.name}</span>} />
+<GoodList2 items={users} renderItem={u => <span>{u.name}</span>} />
 </div>
 );
-}
-
-console.<span class="fn">log</span>(<span class="fn">GoodList1</span>, <span class="fn">GoodList2</span>, <span class="fn">GoodList3</span>, <span class="fn">App</span>);</pre>
+}</pre>
 </div>
 <div class="code-output-pane" data-pane="js">
-<pre><span class="kw">const</span> GoodList1 = (props) => {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
-props.items.<span class="fn">map</span>((item, i) =>
-React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, props.<span class="fn">renderItem</span>(item))
+<pre>const GoodList1 = (props) => {
+return React.createElement('ul', null,
+props.items.map((item, i) =>
+React.createElement('li', { key: i }, props.renderItem(item))
 )
 );
 };
 
-<span class="kw">function</span> <span class="fn">GoodList2</span>(props) {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
-props.items.<span class="fn">map</span>((item, i) =>
-React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, props.<span class="fn">renderItem</span>(item))
+function GoodList2(props) {
+return React.createElement('ul', null,
+props.items.map((item, i) =>
+React.createElement('li', { key: i }, props.renderItem(item))
 )
 );
 }
 
-<span class="kw">const</span> GoodList3 = (props) => {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
-props.items.<span class="fn">map</span>((item, i) =>
-React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, props.<span class="fn">renderItem</span>(item))
-)
-);
-};
+const users = [{ id: '1', name: 'Alice' }];
 
-<span class="kw">const</span> users = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }];
-
-<span class="kw">function</span> <span class="fn">App</span>() {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
-React.<span class="fn">createElement</span>(GoodList1, {
+function App() {
+return React.createElement('div', null,
+React.createElement(GoodList1, {
 items: users,
-renderItem: u => React.<span class="fn">createElement</span>(<span class="str">'span'</span>, <span class="kw">null</span>, u.name)
+renderItem: u => React.createElement('span', null, u.name)
 }),
-React.<span class="fn">createElement</span>(GoodList2, {
+React.createElement(GoodList2, {
 items: users,
-renderItem: u => React.<span class="fn">createElement</span>(<span class="str">'span'</span>, <span class="kw">null</span>, u.name)
-}),
-React.<span class="fn">createElement</span>(GoodList3, {
-items: users,
-renderItem: u => React.<span class="fn">createElement</span>(<span class="str">'span'</span>, <span class="kw">null</span>, u.name)
+renderItem: u => React.createElement('span', null, u.name)
 })
 );
-}
-
-console.<span class="fn">log</span>(<span class="fn">GoodList1</span>, <span class="fn">GoodList2</span>, <span class="fn">GoodList3</span>, <span class="fn">App</span>);</pre>
+}</pre>
 </div>
 </div>
 
 <div class="concept-grid">
 <div class="concept-card">
-<h4><code><T,></code> trailing comma</h4>
-<p>In <code>.tsx</code>, <code><T></code> is JSX. <code><T,></code> is a type parameter. One character fixes the parse.</p>
+<h4>Trailing comma</h4>
+<p>In <code>.tsx</code>, a bare generic is JSX. Add a trailing comma after the type parameter to disambiguate.</p>
 </div>
 <div class="concept-card">
 <h4>Function declaration</h4>
@@ -238,16 +203,16 @@ console.<span class="fn">log</span>(<span class="fn">GoodList1</span>, <span cla
 <p>Not on the props interface. <code>ListProps<T></code> is the props type; <code><T></code> belongs to the component.</p>
 </div>
 <div class="concept-card">
-<h4><code>React.FC</code> has no generics</h4>
-<p>Use a function declaration or a typed function alias. <code>React.FC</code> can't express a generic component.</p>
+<h4>React.FC has no generics</h4>
+<p>Use a function declaration or a typed function alias. React.FC can't express a generic component.</p>
 </div>
 </div>
 </section>
 
 <section>
 <h2 class="section-title">✅ Solution 2 — No type parameter on the component</h2>
-<p class="section-sub">The props reference <code>T</code>, but the function never declares it.</p>
-<p class="text-sm text-slate-300 leading-relaxed mb-3">You wrote <code>ListProps<T></code> on the props, but the function signature has no <code><T></code>. The compiler either errors (<em>"Cannot find name 'T'"</em>) or defaults it to <code>unknown</code>, and every field loses its type. Fix: declare the type parameter on the function, before the props parameter.</p>
+<p class="section-sub">The props reference the generic, but the function never declares it.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">You wrote the props type with a generic, but the function signature has no type parameter. Fix: declare the type parameter on the function, before the props parameter.</p>
 
 <div class="code-block" id="sol2">
 <div class="code-header">
@@ -260,42 +225,40 @@ console.<span class="fn">log</span>(<span class="fn">GoodList1</span>, <span cla
 <button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
 </div>
 <div class="code-output-pane active" data-pane="ts">
-<pre id="code-sol2"><span class="kw">import</span> { ReactNode } <span class="kw">from</span> <span class="str">'react'</span>;
+<pre id="code-sol2">import { ReactNode } from 'react';
 
-<span class="com">// ─── BAD: T not declared on the function ─────</span>
-<span class="kw">interface</span> ListProps<T> {
+// BAD: type parameter not declared
+interface ListProps<T> {
 items: T[];
 renderItem: (item: T) => ReactNode;
 }
 
-<span class="com">// ❌ TS: Cannot find name 'T'
-// ❌ Or: T defaults to unknown, items is unknown[]
-// function BadList(props: ListProps<T>) { ... } // ❌</span>
+// Cannot find name 'T'
+// Or: T defaults to unknown, items is unknown[]
+// function BadList(props: ListProps<T>) { ... } // BAD
 
-<span class="com">// ─── GOOD 1: declare T on the function ───────</span>
-<span class="kw">function</span> <span class="fn">GoodList1</span><T>(props: ListProps<T>) {
-<span class="com">// ✅ T flows from the call site into props</span>
-<span class="kw">return</span> (
+// GOOD 1: declare the type parameter
+function GoodList1<T>(props: ListProps<T>) {
+return (
 <ul>
-{props.items.<span class="fn">map</span>((item, i) => (
-<li key={i}>{props.<span class="fn">renderItem</span>(item)}</li>
+{props.items.map((item, i) => (
+<li key={i}>{props.renderItem(item)}</li>
 ))}
 </ul>
 );
 }
 
-<span class="com">// ─── GOOD 2: multiple generics ───────────────</span>
-<span class="kw">interface</span> SelectProps<T, K <span class="kw">extends</span> keyof T> {
+// GOOD 2: multiple generics
+interface SelectProps<T, K extends keyof T> {
 items: T[];
 valueKey: K;
 labelKey: K;
 }
 
-<span class="kw">function</span> <span class="fn">Select</span><T, K <span class="kw">extends</span> keyof T>({ items, valueKey, labelKey }: SelectProps<T, K>) {
-<span class="com">// ✅ Both generics declared — K is constrained to keys of T</span>
-<span class="kw">return</span> (
+function Select<T, K extends keyof T>({ items, valueKey, labelKey }: SelectProps<T, K>) {
+return (
 <select>
-{items.<span class="fn">map</span>((item, i) => (
+{items.map((item, i) => (
 <option key={i} value={String(item[valueKey])}>
 {String(item[labelKey])}
 </option>
@@ -304,104 +267,91 @@ labelKey: K;
 );
 }
 
-<span class="com">// ─── GOOD 3: constrained generic ─────────────</span>
-<span class="kw">interface</span> Identifiable {
-id: <span class="fn">string</span>;
+// GOOD 3: constrained generic
+interface Identifiable {
+id: string;
 }
 
-<span class="kw">function</span> <span class="fn">KeyedList</span><T <span class="kw">extends</span> Identifiable>({ items }: { items: T[] }) {
-<span class="com">// ✅ T must have an id — the constraint is enforced at the call site</span>
-<span class="kw">return</span> (
+function KeyedList<T extends Identifiable>({ items }: { items: T[] }) {
+return (
 <ul>
-{items.<span class="fn">map</span>(item => <li key={item.id}>{JSON.stringify(item)}</li>)}
+{items.map(item => <li key={item.id}>{JSON.stringify(item)}</li>)}
 </ul>
 );
 }
 
-<span class="com">// ─── Call sites ──────────────────────────────</span>
-<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
-<span class="kw">const</span> users: User[] = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }];
+// Call sites
+interface User { id: string; name: string }
+const users: User[] = [{ id: '1', name: 'Alice' }];
 
-<span class="kw">function</span> <span class="fn">App</span>() {
-<span class="kw">return</span> (
+function App() {
+return (
 <div>
-<span class="com">{/* ✅ T inferred as User */}</span>
-<GoodList1 items={users} renderItem={u => <span><span>{u.name}</span></span>} />
-
-<span class="com">{/* ✅ T=User, K='name' */}</span>
+<GoodList1 items={users} renderItem={u => <span>{u.name}</span>} />
 <Select items={users} valueKey="id" labelKey="name" />
-
-<span class="com">{/* ✅ T=User — User has id */}</span>
 <KeyedList items={users} />
-
-<span class="com">{/* ❌ compile error — {} has no id /}</span>
-<span class="com">{/ <KeyedList items={[{}]} /> */}</span>
 </div>
 );
-}
-
-console.<span class="fn">log</span>(<span class="fn">GoodList1</span>, <span class="fn">Select</span>, <span class="fn">KeyedList</span>, <span class="fn">App</span>);</pre>
+}</pre>
 </div>
 <div class="code-output-pane" data-pane="js">
-<pre><span class="kw">function</span> <span class="fn">GoodList1</span>(props) {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
-props.items.<span class="fn">map</span>((item, i) =>
-React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, props.<span class="fn">renderItem</span>(item))
+<pre>function GoodList1(props) {
+return React.createElement('ul', null,
+props.items.map((item, i) =>
+React.createElement('li', { key: i }, props.renderItem(item))
 )
 );
 }
 
-<span class="kw">function</span> <span class="fn">Select</span>({ items, valueKey, labelKey }) {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'select'</span>, <span class="kw">null</span>,
-items.<span class="fn">map</span>((item, i) =>
-React.<span class="fn">createElement</span>(<span class="str">'option'</span>, { key: i, value: String(item[valueKey]) },
+function Select({ items, valueKey, labelKey }) {
+return React.createElement('select', null,
+items.map((item, i) =>
+React.createElement('option', { key: i, value: String(item[valueKey]) },
 String(item[labelKey])
 )
 )
 );
 }
 
-<span class="kw">function</span> <span class="fn">KeyedList</span>({ items }) {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
-items.<span class="fn">map</span>(item =>
-React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: item.id }, JSON.<span class="fn">stringify</span>(item))
+function KeyedList({ items }) {
+return React.createElement('ul', null,
+items.map(item =>
+React.createElement('li', { key: item.id }, JSON.stringify(item))
 )
 );
 }
 
-<span class="kw">const</span> users = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }];
+const users = [{ id: '1', name: 'Alice' }];
 
-<span class="kw">function</span> <span class="fn">App</span>() {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
-React.<span class="fn">createElement</span>(GoodList1, {
+function App() {
+return React.createElement('div', null,
+React.createElement(GoodList1, {
 items: users,
-renderItem: u => React.<span class="fn">createElement</span>(<span class="str">'span'</span>, <span class="kw">null</span>, u.name)
+renderItem: u => React.createElement('span', null, u.name)
 }),
-React.<span class="fn">createElement</span>(Select, { items: users, valueKey: <span class="str">'id'</span>, labelKey: <span class="str">'name'</span> }),
-React.<span class="fn">createElement</span>(KeyedList, { items: users })
+React.createElement(Select, { items: users, valueKey: 'id', labelKey: 'name' }),
+React.createElement(KeyedList, { items: users })
 );
-}
-
-console.<span class="fn">log</span>(<span class="fn">GoodList1</span>, <span class="fn">Select</span>, <span class="fn">KeyedList</span>, <span class="fn">App</span>);</pre>
+}</pre>
 </div>
 </div>
 
 <div class="concept-grid">
 <div class="concept-card">
-<h4>Declare <code><T></code> first</h4>
+<h4>Declare the type parameter</h4>
 <p>The type parameter goes on the function, before props: <code>function List<T>(props: ListProps<T>)</code>.</p>
 </div>
 <div class="concept-card">
-<h4>Constrain with <code>extends</code></h4>
-<p><code><T extends Identifiable></code> — T must have <code>id</code>. The compiler enforces it at call sites.</p>
+<h4>Constrain with extends</h4>
+<p><code><T extends Identifiable></code> — T must have an id. The compiler enforces it at call sites.</p>
 </div>
 <div class="concept-card">
 <h4>Multiple generics</h4>
 <p><code><T, K extends keyof T></code> — K is a key of T. Common for select components and table column APIs.</p>
 </div>
 <div class="concept-card">
-<h4>No <code>React.FC</code></h4>
-<p><code>React.FC</code> can't express a generic component. Use a function declaration or a typed function alias.</p>
+<h4>No React.FC</h4>
+<p>React.FC can't express a generic component. Use a function declaration or a typed function alias.</p>
 </div>
 </div>
 </section>
@@ -409,7 +359,7 @@ console.<span class="fn">log</span>(<span class="fn">GoodList1</span>, <span cla
 <section>
 <h2 class="section-title">✅ Solution 3 — Generic not inferable at the call site</h2>
 <p class="section-sub">The generic is on the component, but no prop carries it.</p>
-<p class="text-sm text-slate-300 leading-relaxed mb-3">You declared <code><T></code>, but no prop field is typed as <code>T</code> — only the return type or a callback uses it. The compiler has nothing to infer from, so it defaults to <code>unknown</code>, and every access fails. Fix: put the generic in a prop field, or pass it explicitly at the call site.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">You declared the type parameter, but no prop field is typed as that generic. Fix: put the generic in a prop field, or pass it explicitly at the call site, or give it a default.</p>
 
 <div class="code-block" id="sol3">
 <div class="code-header">
@@ -422,140 +372,115 @@ console.<span class="fn">log</span>(<span class="fn">GoodList1</span>, <span cla
 <button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
 </div>
 <div class="code-output-pane active" data-pane="ts">
-<pre id="code-sol3"><span class="kw">import</span> { ReactNode } <span class="kw">from</span> <span class="str">'react'</span>;
+<pre id="code-sol3">import { ReactNode } from 'react';
 
-<span class="com">// ─── BAD: T only in the return type ──────────</span>
-<span class="kw">interface</span> BadProps {
-<span class="fn">make</span>: () => <span class="fn">unknown</span>;
+// BAD: generic only in the return type
+function BadComponent<T>({ make }: { make: () => T }) {
+const value = make();
+return <div>{String(value)}</div>;
 }
 
-<span class="kw">function</span> <span class="fn">BadComponent</span><T>({ make }: { make: () => T }) {
-<span class="com">// ❌ T appears only in make's return — no prop field carries it
-// ❌ At the call site, T defaults to unknown</span>
-<span class="kw">const</span> value = <span class="fn">make</span>();
-<span class="kw">return</span> <div>{String(value)}</div>;
+// BAD: generic only in a callback's param
+function BadRender<T>({ render }: { render: (x: T) => ReactNode }) {
+return <div>{render({} as T)}</div>;
 }
 
-<span class="com">// ─── BAD: T only in a callback's param ───────</span>
-<span class="kw">function</span> <span class="fn">BadRender</span><T>({ render }: { render: (x: T) => ReactNode }) {
-<span class="com">// ❌ No data prop — nothing to infer T from</span>
-<span class="kw">return</span> <div>{<span class="fn">render</span>({} <span class="kw">as</span> T)}</div>;
-}
-
-<span class="com">// ─── GOOD 1: put T in a prop field ───────────</span>
-<span class="kw">interface</span> ListProps<T> {
-<span class="com">// ✅ items: T[] carries the type — inference works</span>
+// GOOD 1: put the generic in a prop
+interface ListProps<T> {
 items: T[];
 renderItem: (item: T) => ReactNode;
 }
 
-<span class="kw">function</span> <span class="fn">GoodList</span><T>({ items, renderItem }: ListProps<T>) {
-<span class="kw">return</span> (
+function GoodList<T>({ items, renderItem }: ListProps<T>) {
+return (
 <ul>
-{items.<span class="fn">map</span>((item, i) => (
-<li key={i}>{<span class="fn">renderItem</span>(item)}</li>
+{items.map((item, i) => (
+<li key={i}>{renderItem(item)}</li>
 ))}
 </ul>
 );
 }
 
-<span class="com">// ─── GOOD 2: pass the generic explicitly ─────</span>
-<span class="kw">function</span> <span class="fn">EmptyList</span><T>({ items }: { items: T[] }) {
-<span class="com">// ✅ T inferred from items even when the array is empty,
-// if you write <EmptyList<User> items={[]} /></span>
-<span class="kw">return</span> (
+// GOOD 2: pass the generic explicitly
+function EmptyList<T>({ items }: { items: T[] }) {
+return (
 <ul>
-{items.<span class="fn">map</span>((item, i) => <li key={i}>{String(item)}</li>)}
+{items.map((item, i) => <li key={i}>{String(item)}</li>)}
 </ul>
 );
 }
 
-<span class="com">// ─── GOOD 3: default the generic ────────────</span>
-<span class="kw">function</span> <span class="fn">ListWithDefault</span><T = <span class="fn">string</span>>({ items }: { items: T[] }) {
-<span class="com">// ✅ T defaults to string — no inference needed if omitted</span>
-<span class="kw">return</span> (
+// GOOD 3: default the generic
+function ListWithDefault<T = string>({ items }: { items: T[] }) {
+return (
 <ul>
-{items.<span class="fn">map</span>((item, i) => <li key={i}>{String(item)}</li>)}
+{items.map((item, i) => <li key={i}>{String(item)}</li>)}
 </ul>
 );
 }
 
-<span class="com">// ─── Call sites ──────────────────────────────</span>
-<span class="kw">interface</span> User { id: <span class="fn">string</span>; name: <span class="fn">string</span> }
-<span class="kw">const</span> users: User[] = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }];
+// Call sites
+interface User { id: string; name: string }
+const users: User[] = [{ id: '1', name: 'Alice' }];
 
-<span class="kw">function</span> <span class="fn">App</span>() {
-<span class="kw">return</span> (
+function App() {
+return (
 <div>
-<span class="com">{/* ✅ T=User from items */}</span>
-<GoodList items={users} renderItem={u => <span><span>{u.name}</span></span>} />
-
-<span class="com">{/* ❌ T=unknown — nothing to infer from
-<BadRender render={x => <span />} /> */}</span>
-
-<span class="com">{/* ✅ explicit generic for an empty array */}</span>
+<GoodList items={users} renderItem={u => <span>{u.name}</span>} />
 <EmptyList<User> items={[]} />
-
-<span class="com">{/* ✅ T defaults to string — no explicit generic needed */}</span>
-<ListWithDefault items={[<span class="str">'a'</span>, <span class="str">'b'</span>]} />
-
-<span class="com">{/* ✅ explicit generic when inference is ambiguous */}</span>
-<ListWithDefault<number> items={[<span class="num">1</span>, <span class="num">2</span>]} />
+<ListWithDefault items={['a', 'b']} />
+<ListWithDefault<number> items={[1, 2]} />
 </div>
 );
-}
-
-console.<span class="fn">log</span>(<span class="fn">BadComponent</span>, <span class="fn">BadRender</span>, <span class="fn">GoodList</span>, <span <span class="fn">EmptyList</span>, <span class="fn">ListWithDefault</span>, <span class="fn">App</span>);</pre>
+}</pre>
 </div>
 <div class="code-output-pane" data-pane="js">
-<pre><span class="kw">function</span> <span class="fn">BadComponent</span>({ make }) {
-<span class="kw">const</span> value = <span class="fn">make</span>();
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>, String(value));
+<pre>function BadComponent({ make }) {
+const value = make();
+return React.createElement('div', null, String(value));
 }
 
-<span class="kw">function</span> <span class="fn">BadRender</span>({ render }) {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>, <span class="fn">render</span>({}));
+function BadRender({ render }) {
+return React.createElement('div', null, render({}));
 }
 
-<span class="kw">function</span> <span class="fn">GoodList</span>({ items, renderItem }) {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
-items.<span class="fn">map</span>((item, i) =>
-React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, <span class="fn">renderItem</span>(item))
+function GoodList({ items, renderItem }) {
+return React.createElement('ul', null,
+items.map((item, i) =>
+React.createElement('li', { key: i }, renderItem(item))
 )
 );
 }
 
-<span class="kw">function</span> <span class="fn">EmptyList</span>({ items }) {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
-items.<span class="fn">map</span>((item, i) =>
-React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, String(item))
+function EmptyList({ items }) {
+return React.createElement('ul', null,
+items.map((item, i) =>
+React.createElement('li', { key: i }, String(item))
 )
 );
 }
 
-<span class="kw">function</span> <span class="fn">ListWithDefault</span>({ items }) {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'ul'</span>, <span class="kw">null</span>,
-items.<span class="fn">map</span>((item, i) =>
-React.<span class="fn">createElement</span>(<span class="str">'li'</span>, { key: i }, String(item))
+function ListWithDefault({ items }) {
+return React.createElement('ul', null,
+items.map((item, i) =>
+React.createElement('li', { key: i }, String(item))
 )
 );
 }
 
-<span class="kw">const</span> users = [{ id: <span class="str">'1'</span>, name: <span class="str">'Alice'</span> }];
+const users = [{ id: '1', name: 'Alice' }];
 
-<span class="kw">function</span> <span class="fn">App</span>() {
-<span class="kw">return</span> React.<span class="fn">createElement</span>(<span class="str">'div'</span>, <span class="kw">null</span>,
-React.<span class="fn">createElement</span>(GoodList, {
+function App() {
+return React.createElement('div', null,
+React.createElement(GoodList, {
 items: users,
-renderItem: u => React.<span class="fn">createElement</span>(<span class="str">'span'</span>, <span class="kw">null</span>, u.name)
+renderItem: u => React.createElement('span', null, u.name)
 }),
-React.<span class="fn">createElement</span>(EmptyList, { items: [] }),
-React.<span class="fn">createElement</span>(ListWithDefault, { items: [<span class="str">'a'</span>, <span class="str">'b'</span>] }),
-React.<span class="fn">createElement</span>(ListWithDefault, { items: [<span class="num">1</span>, <span class="num">2</span>] })
+React.createElement(EmptyList, { items: [] }),
+React.createElement(ListWithDefault, { items: ['a', 'b'] }),
+React.createElement(ListWithDefault, { items: [1, 2] })
 );
-}
-
-console.<span class="fn">log</span>(<span class="fn">BadComponent</span>, <span class="fn">BadRender</span>, <span class="fn">GoodList</span>, <span class="fn">EmptyList</span>, <span class="fn">ListWithDefault</span>, <span class="fn">App</span>);</pre>
+}</pre>
 </div>
 </div>
 
@@ -573,13 +498,13 @@ console.<span class="fn">log</span>(<span class="fn">BadComponent</span>, <span 
 <p><code><T = string></code> — sets a fallback when inference fails. Good for optional-type components.</p>
 </div>
 <div class="concept-card">
-<h4>Never cast <code>{'{} as T'}</code></h4>
-<p>That's a lie. If you find yourself writing <code>{'{} as T'}</code>, the generic is on the wrong prop — move it.</p>
+<h4>Never cast as T</h4>
+<p>If you find yourself writing an empty object cast to T, the generic is on the wrong prop — move it.</p>
 </div>
 </div>
 
 <div class="warning-box">
-<p><strong>Don't silence the generic error by removing the type parameter.</strong> Deleting <code><T></code> "fixes" the compile error, but every prop, every callback, and every render loses its type — <code>items</code> becomes <code>any[]</code>, <code>renderItem</code> becomes <code>(item: any) => any</code>. The bug reappears as a runtime crash on a property that doesn't exist, and TypeScript is no longer there to catch it. The right fix is one of the three above — trailing comma, declare <code><T></code>, or put <code>T</code> in a prop.</p>
+<p><strong>Don't silence the generic error by removing the type parameter.</strong> Deleting the type parameter "fixes" the compile error, but every prop, every callback, and every render loses its type. The bug reappears as a runtime crash on a property that doesn't exist. The right fix is one of the three above — trailing comma, declare the type parameter, or put it in a prop.</p>
 </div>
 </section>
 
@@ -588,36 +513,36 @@ console.<span class="fn">log</span>(<span class="fn">BadComponent</span>, <span 
 <p class="section-sub">The type errors that cost real time.</p>
 
 <div class="mistake">
-<div class="mtitle">1. Bare <code><T></code> in a <code>.tsx</code> arrow function</div>
-<p>Parsed as JSX. Fix: <code><T,></code> (trailing comma) or use a function declaration.</p>
+<div class="mtitle">1. Bare generic in a .tsx arrow function</div>
+<p>Parsed as JSX. Fix: add a trailing comma after the type parameter, or use a function declaration.</p>
 </div>
 <div class="mistake">
 <div class="mtitle">2. Missing type parameter</div>
-<p><code>function List(props: Props<T>)</code> with no <code><T></code>. Fix: <code>function List<T>(props: Props<T>)</code>.</p>
+<p>Props reference the generic but the function doesn't declare it. Fix: declare it before the props parameter.</p>
 </div>
 <div class="mistake">
 <div class="mtitle">3. Generic only in the return type</div>
-<p><code><T>(props: { make: () => T })</code> — can't infer. Fix: put <code>T</code> in a prop field.</p>
+<p>Nothing to infer from at the call site. Fix: put the generic in a prop field.</p>
 </div>
 <div class="mistake">
-<div class="mtitle">4. <code>React.FC</code> with generics</div>
-<p><code>React.FC</code> doesn't accept type parameters. Fix: plain function or typed function alias.</p>
+<div class="mtitle">4. React.FC with generics</div>
+<p>React.FC doesn't accept type parameters. Fix: plain function or typed function alias.</p>
 </div>
 <div class="mistake">
-<div class="mtitle">5. Casting <code>{'{} as T'}</code></div>
-<p>A lie the compiler accepts. Fix: move <code>T</code> to a prop that carries real data.</p>
+<div class="mtitle">5. Casting an empty object to the generic</div>
+<p>A lie the compiler accepts. Fix: move the generic to a prop that carries real data.</p>
 </div>
 <div class="mistake">
 <div class="mtitle">6. Forgetting the constraint</div>
-<p><code><T></code> when you access <code>item.id</code>. Fix: <code><T extends Identifiable></code>.</p>
+<p>Using a property on the generic without constraining it. Fix: add an extends clause.</p>
 </div>
 <div class="mistake">
 <div class="mtitle">7. No default for optional generics</div>
-<p>An unconstrained <code><T></code> with no inference target defaults to <code>unknown</code>. Fix: <code><T = string></code>.</p>
+<p>An unconstrained generic with no inference target defaults to unknown. Fix: give it a default.</p>
 </div>
 <div class="mistake">
 <div class="mtitle">8. Passing the generic on the props type only</div>
-<p><code>ListProps<T></code> is the props shape, not the component signature. Fix: declare <code><T></code> on the function.</p>
+<p>The props shape is not the component signature. Fix: declare the type parameter on the function.</p>
 </div>
 </section>
 
@@ -626,19 +551,19 @@ console.<span class="fn">log</span>(<span class="fn">BadComponent</span>, <span 
 <div class="space-y-3">
 <details class="bg-slate-950 p-3 rounded-xl">
 <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I create a generic component in React with TypeScript?</summary>
-<p class="mt-2 text-sm text-slate-300">Three causes, three fixes. (1) Arrow function with a generic in .tsx — the compiler parses <T> as JSX. Fix: add a trailing comma: const List = <T,>(props: Props<T>) => ... or use a function declaration. (2) No type parameter on the component — you wrote Props without a generic and the types collapse to unknown. Fix: declare <T> before the props. (3) JSX call site doesn't infer the generic — the props have no T-typed field. Fix: put T somewhere in the props, or pass it explicitly: <List<string> items={['a']} />.</p>
+<p class="mt-2 text-sm text-slate-300">Three causes, three fixes. (1) Arrow function with a generic in .tsx — the compiler parses the angle bracket as JSX. Fix: add a trailing comma after the type parameter, or use a function declaration. (2) No type parameter on the component. Fix: declare it before the props. (3) JSX call site doesn't infer the generic. Fix: put the generic in a prop field, or pass it explicitly.</p>
 </details>
 <details class="bg-slate-950 p-3 rounded-xl">
-<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does <T> in a .tsx arrow function fail?</summary>
-<p class="mt-2 text-sm text-slate-300">In .tsx files, <T> is parsed as the start of a JSX element, not as a type parameter. The compiler sees <T> and expects a tag name and attributes. Fix: add a trailing comma — <T,> — which disambiguates the generic. Or use a function declaration: function List<T>(props) {}, which is unambiguous in both .ts and .tsx. The comma is a quirk of the TSX grammar, not a bug.</p>
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does a generic in a .tsx arrow function fail?</summary>
+<p class="mt-2 text-sm text-slate-300">In .tsx files, an opening angle bracket is parsed as the start of a JSX element, not as a type parameter. Fix: add a trailing comma after the type parameter to disambiguate, or use a function declaration, which is unambiguous in both .ts and .tsx.</p>
 </details>
 <details class="bg-slate-950 p-3 rounded-xl">
 <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I infer the generic type at the JSX call site?</summary>
-<p class="mt-2 text-sm text-slate-300">The generic must appear somewhere in the props. If Props<T> = { items: T[] }, then <List items={users} /> infers T = User. If the generic is only in the return type or in a callback, the compiler has nothing to infer from and defaults to unknown. Two fixes: (1) put T in a prop field, (2) pass it explicitly: <List<User> items={users} />. The second is only needed when inference fails — most of the time the props carry the type.</p>
+<p class="mt-2 text-sm text-slate-300">The generic must appear somewhere in the props. If the props type includes an array of the generic, the call site infers it. If the generic is only in the return type or in a callback, the compiler has nothing to infer from and defaults to unknown. Fix: put the generic in a prop field, or pass it explicitly at the call site, or give it a default.</p>
 </details>
 <details class="bg-slate-950 p-3 rounded-xl">
 <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between a generic component and a component with generic props?</summary>
-<p class="mt-2 text-sm text-slate-300">They're the same thing. A generic component is a function that takes a generic props type: function List<T>(props: Props<T>) {}. The generic is on the function, not on the props interface. When you call it in JSX, TypeScript infers T from the props you pass. There is no separate 'generic props' feature — the generic belongs to the component function, and the props type references it.</p>
+<p class="mt-2 text-sm text-slate-300">They're the same thing. A generic component is a function that takes a generic props type. The generic is on the function, not on the props interface. When you call it in JSX, TypeScript infers the generic from the props you pass.</p>
 </details>
 </div>
 </section>
