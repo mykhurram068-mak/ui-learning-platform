@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>React.memo Not Working — Why Your Component Still Re-renders (2026)</title>
+<meta name="description" content="Fix React.memo not working: your component re-renders because props are new references (objects, arrays, functions). Three causes, three fixes — useCallback, useMemo, and stable props.">
+<meta name="keywords" content="react memo not working, react memo re-render, react.memo props reference, usecallback react memo, react memo object prop, react performance memo">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="React.memo Not Working — Why Your Component Still Re-renders">
+<meta property="og:description" content="Three causes, three fixes for React.memo that doesn't memoize.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/react/problems/react-memo.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="React.memo Not Working — Why Your Component Still Re-renders">
+<meta name="twitter:description" content="Three causes, three fixes for React.memo that doesn't memoize.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/react/problems/react-memo.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "React.memo Not Working — Why Your Component Still Re-renders",
+"description": "Fix React.memo not working and understand referential equality in props.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-01",
+"dateModified": "2026-11-01",
+"proficiencyLevel": "Intermediate",
+"dependencies": "React 19"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why is my React.memo component still re-rendering?","acceptedAnswer":{"@type":"Answer","text":"Three causes, three fixes. (1) A new object or array is passed as a prop on every render — React.memo does a shallow comparison, so a new reference defeats it. Fix: lift the value out of render, or useMemo it. (2) A new function is passed as a prop — functions are objects, and a new closure is a new reference. Fix: wrap the handler in useCallback. (3) The parent passes children or inline JSX — children is a new element every render. Fix: move the children outside the memoized component, or pass props instead. React.memo is a shallow comparison; every prop must be the same reference between renders to skip."}},
+{"@type":"Question","name":"Does React.memo do a deep comparison?","acceptedAnswer":{"@type":"Answer","text":"No — React.memo does a shallow comparison by default. It compares each prop with Object.is. If every prop is the same reference, it skips the re-render. If a single prop is a new object, array, or function, it re-renders. You can pass a custom compare function as the second argument to React.memo to do a deeper comparison, but the default is shallow. Most memoization bugs come from assuming it's deep."}},
+{"@type":"Question","name":"When should I use useCallback with React.memo?","acceptedAnswer":{"@type":"Answer","text":"Use useCallback whenever a function prop is passed to a memoized child. A function defined inline in the parent is a new reference on every render, so the memoized child re-renders. Wrap it in useCallback with the correct dependency array. If the function captures no changing values, the dependency array is empty. If it captures state or props, include them. Do not use useCallback without React.memo on the child — it's wasted work."}},
+{"@type":"Question","name":"Is React.memo always worth it?","acceptedAnswer":{"@type":"Answer","text":"No. React.memo has a cost: the shallow comparison on every render, plus the extra reference tracking you have to maintain (useCallback, useMemo, stable references). For components that render quickly, the comparison costs more than the render. Use React.memo for components that are expensive to render (large lists, heavy charts) or that render frequently. Don't wrap every component by default."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">React · memo re-render</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/react/index.html" style="color:#7ee8fc;">React</a> ›
+<a href="/courses/react/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">React.memo</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚛️ Problem · 6 min read</div>
+<h1>"I wrapped it in React.memo. It still re-renders."<br><span class="py-accent">Three causes, three fixes.</span></h1>
+<p class="lead">
+React.memo is the most misunderstood performance tool in React. It does a shallow comparison — not a deep one — and any new prop reference defeats it. Objects, arrays, and functions created in the parent's render are new references on every render. This page covers the three causes, the three fixes, and the mental model that makes memoization predictable.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> React.memo compares props with <code>Object.is</code>. A new reference re-renders. The three causes: (1) a new object or array prop, (2) a new function prop, (3) new children elements. Fix: use <code>useMemo</code> for objects/arrays, <code>useCallback</code> for functions, and lift children out or pass props instead. Don't memo every component — it's a trade-off, not a default.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Solution 1 — New object or array prop</h2>
+<p class="section-sub">The most common cause: an object or array created inline in the parent.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Every render creates new objects and arrays. React.memo compares with <code>Object.is</code>, so two objects with identical contents are still different references. Fix: hoist the value out of the render, or wrap it in <code>useMemo</code> so the reference stays stable across renders.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">object-prop.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">import { memo, useMemo, useState } from 'react';
+
+interface Config { theme: string; size: number }
+
+// BAD: object created inline every render
+const BadChild = memo(({ config }: { config: Config }) => {
+console.log('BadChild rendered');
+return <div className={config.theme}>Size: {config.size}</div>;
+});
+
+function BadParent() {
+const [count, setCount] = useState(0);
+
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+{/* BAD: new object every render — memo doesn't help */}
+<BadChild config={{ theme: 'dark', size: 12 }} />
+</div>
+);
+}
+
+// GOOD 1: hoist the object outside the component
+const STATIC_CONFIG: Config = { theme: 'dark', size: 12 };
+
+const GoodChild1 = memo(({ config }: { config: Config }) => {
+console.log('GoodChild1 rendered');
+return <div className={config.theme}>Size: {config.size}</div>;
+});
+
+function GoodParent1() {
+const [count, setCount] = useState(0);
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+{/* GOOD: same reference every render — memo skips */}
+<GoodChild1 config={STATIC_CONFIG} />
+</div>
+);
+}
+
+// GOOD 2: useMemo when the object depends on state
+const GoodChild2 = memo(({ config }: { config: Config }) => {
+console.log('GoodChild2 rendered');
+return <div className={config.theme}>Size: {config.size}</div>;
+});
+
+function GoodParent2() {
+const [count, setCount] = useState(0);
+const [size, setSize] = useState(12);
+
+// GOOD: new object only when size changes
+const config = useMemo(() => ({ theme: 'dark', size }), [size]);
+
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+<button onClick={() => setSize(s => s + 1)}>Size: {size}</button>
+<GoodChild2 config={config} />
+</div>
+);
+}
+
+// GOOD 3: pass primitives instead of an object
+const GoodChild3 = memo(({ theme, size }: { theme: string; size: number }) => {
+console.log('GoodChild3 rendered');
+return <div className={theme}>Size: {size}</div>;
+});
+
+function GoodParent3() {
+const [count, setCount] = useState(0);
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+{/* GOOD: primitives — stable references by value */}
+<GoodChild3 theme="dark" size={12} />
+</div>
+);
+}
+
+export { BadParent, GoodParent1, GoodParent2, GoodParent3 };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>import { memo, useMemo, useState } from 'react';
+
+const BadChild = memo(({ config }) => {
+console.log('BadChild rendered');
+return React.createElement('div', { className: config.theme }, 'Size: ', config.size);
+});
+
+function BadParent() {
+const [count, setCount] = useState(0);
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement(BadChild, { config: { theme: 'dark', size: 12 } })
+);
+}
+
+const STATIC_CONFIG = { theme: 'dark', size: 12 };
+
+const GoodChild1 = memo(({ config }) => {
+console.log('GoodChild1 rendered');
+return React.createElement('div', { className: config.theme }, 'Size: ', config.size);
+});
+
+function GoodParent1() {
+const [count, setCount] = useState(0);
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement(GoodChild1, { config: STATIC_CONFIG })
+);
+}
+
+const GoodChild2 = memo(({ config }) => {
+console.log('GoodChild2 rendered');
+return React.createElement('div', { className: config.theme }, 'Size: ', config.size);
+});
+
+function GoodParent2() {
+const [count, setCount] = useState(0);
+const [size, setSize] = useState(12);
+const config = useMemo(() => ({ theme: 'dark', size }), [size]);
+
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement('button', { onClick: () => setSize(s => s + 1) }, 'Size: ', size),
+React.createElement(GoodChild2, { config })
+);
+}
+
+const GoodChild3 = memo(({ theme, size }) => {
+console.log('GoodChild3 rendered');
+return React.createElement('div', { className: theme }, 'Size: ', size);
+});
+
+function GoodParent3() {
+const [count, setCount] = useState(0);
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement(GoodChild3, { theme: 'dark', size: 12 })
+);
+}
+
+export { BadParent, GoodParent1, GoodParent2, GoodParent3 };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Shallow comparison</h4>
+<p>React.memo uses <code>Object.is</code> per prop. Two equal objects are different references. One new prop defeats memo.</p>
+</div>
+<div class="concept-card">
+<h4>Hoist static values</h4>
+<p>If the object never changes, define it outside the component. Same reference every render, no useMemo needed.</p>
+</div>
+<div class="concept-card">
+<h4><code>useMemo</code> for dependencies</h4>
+<p>When the object depends on state, wrap it in <code>useMemo</code> with the correct deps. New reference only when deps change.</p>
+</div>
+<div class="concept-card">
+<h4>Primitives are stable</h4>
+<p><code>theme="dark"</code>, <code>size={12}</code> — passed by value, compared by value. No new reference.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 2 — New function prop</h2>
+<p class="section-sub">Functions are objects. An inline handler is a new reference every render.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">Every render creates a new closure for an inline handler. React.memo sees a new function reference and re-renders the child. Fix: wrap the handler in <code>useCallback</code>. The dependency array keeps the reference stable until a real dependency changes.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">function-prop.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">import { memo, useCallback, useState } from 'react';
+
+// BAD: inline handler — new function every render
+const BadButton = memo(({ onClick }: { onClick: () => void }) => {
+console.log('BadButton rendered');
+return <button onClick={onClick}>Click</button>;
+});
+
+function BadParent() {
+const [count, setCount] = useState(0);
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+{/* BAD: new function every render — memo defeated */}
+<BadButton onClick={() => console.log('clicked')} />
+</div>
+);
+}
+
+// GOOD 1: useCallback with stable deps
+const GoodButton1 = memo(({ onClick }: { onClick: () => void }) => {
+console.log('GoodButton1 rendered');
+return <button onClick={onClick}>Click</button>;
+});
+
+function GoodParent1() {
+const [count, setCount] = useState(0);
+
+// GOOD: same function reference across renders
+const handleClick = useCallback(() => {
+console.log('clicked');
+}, []);
+
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+<GoodButton1 onClick={handleClick} />
+</div>
+);
+}
+
+// GOOD 2: useCallback with dependencies
+const GoodButton2 = memo(({ onSelect }: { onSelect: (id: string) => void }) => {
+console.log('GoodButton2 rendered');
+return <button onClick={() => onSelect('a')}>Select A</button>;
+});
+
+function GoodParent2() {
+const [count, setCount] = useState(0);
+const [selected, setSelected] = useState('');
+
+// GOOD: new reference only when setSelected would change — which never happens
+const handleSelect = useCallback((id: string) => {
+setSelected(id);
+}, []);
+
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+<p>Selected: {selected}</p>
+<GoodButton2 onSelect={handleSelect} />
+</div>
+);
+}
+
+// GOOD 3: hoist the handler outside the component
+const handleStatic = () => console.log('static click');
+
+const GoodButton3 = memo(({ onClick }: { onClick: () => void }) => {
+console.log('GoodButton3 rendered');
+return <button onClick={onClick}>Click</button>;
+});
+
+function GoodParent3() {
+const [count, setCount] = useState(0);
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+{/* GOOD: module-scope function — same reference forever */}
+<GoodButton3 onClick={handleStatic} />
+</div>
+);
+}
+
+export { BadParent, GoodParent1, GoodParent2, GoodParent3 };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>import { memo, useCallback, useState } from 'react';
+
+const BadButton = memo(({ onClick }) => {
+console.log('BadButton rendered');
+return React.createElement('button', { onClick }, 'Click');
+});
+
+function BadParent() {
+const [count, setCount] = useState(0);
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement(BadButton, { onClick: () => console.log('clicked') })
+);
+}
+
+const GoodButton1 = memo(({ onClick }) => {
+console.log('GoodButton1 rendered');
+return React.createElement('button', { onClick }, 'Click');
+});
+
+function GoodParent1() {
+const [count, setCount] = useState(0);
+const handleClick = useCallback(() => {
+console.log('clicked');
+}, []);
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement(GoodButton1, { onClick: handleClick })
+);
+}
+
+const GoodButton2 = memo(({ onSelect }) => {
+console.log('GoodButton2 rendered');
+return React.createElement('button', { onClick: () => onSelect('a') }, 'Select A');
+});
+
+function GoodParent2() {
+const [count, setCount] = useState(0);
+const [selected, setSelected] = useState('');
+const handleSelect = useCallback((id) => {
+setSelected(id);
+}, []);
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement('p', null, 'Selected: ', selected),
+React.createElement(GoodButton2, { onSelect: handleSelect })
+);
+}
+
+const handleStatic = () => console.log('static click');
+
+const GoodButton3 = memo(({ onClick }) => {
+console.log('GoodButton3 rendered');
+return React.createElement('button', { onClick }, 'Click');
+});
+
+function GoodParent3() {
+const [count, setCount] = useState(0);
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement(GoodButton3, { onClick: handleStatic })
+);
+}
+
+export { BadParent, GoodParent1, GoodParent2, GoodParent3 };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Functions are objects</h4>
+<p>An inline arrow is a new function value on every render. React.memo treats it as a different prop.</p>
+</div>
+<div class="concept-card">
+<h4><code>useCallback</code></h4>
+<p>Memoize the function itself. Same reference until a dependency changes. Include every captured value in the deps.</p>
+</div>
+<div class="concept-card">
+<h4>Module-scope handlers</h4>
+<p>If a handler doesn't close over state, define it outside the component. Same reference forever, no hook needed.</p>
+</div>
+<div class="concept-card">
+<h4>Don't <code>useCallback</code> without memo</h4>
+<p>If the child isn't wrapped in <code>React.memo</code>, <code>useCallback</code> does nothing. The child re-renders anyway.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Solution 3 — New children elements</h2>
+<p class="section-sub">Children are React elements. New JSX is a new element — new reference.</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">The most subtle case. When you pass JSX as <code>children</code>, React creates a new element on every render. React.memo sees a new reference and re-renders. Fix: pass props instead of children, or lift the children out of the parent's render, or accept that this particular prop defeats memo (and memoize differently).</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">children-prop.tsx</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">TypeScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Compiled JS</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">import { memo, ReactNode, useState } from 'react';
+
+// BAD: children are new elements every render
+const BadCard = memo(({ children }: { children: ReactNode }) => {
+console.log('BadCard rendered');
+return <div className="card">{children}</div>;
+});
+
+function BadParent() {
+const [count, setCount] = useState(0);
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+{/* BAD: new element as children — memo defeated */}
+<BadCard>
+<h2>Title</h2>
+</BadCard>
+</div>
+);
+}
+
+// GOOD 1: pass data as props, render inside the memoized child
+interface CardProps {
+title: string;
+}
+
+const GoodCard1 = memo(({ title }: CardProps) => {
+console.log('GoodCard1 rendered');
+return (
+<div className="card">
+<h2>{title}</h2>
+</div>
+);
+});
+
+function GoodParent1() {
+const [count, setCount] = useState(0);
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+{/* GOOD: primitive prop — stable reference */}
+<GoodCard1 title="Title" />
+</div>
+);
+}
+
+// GOOD 2: lift children out of the parent's render
+const GoodCard2 = memo(({ children }: { children: ReactNode }) => {
+console.log('GoodCard2 rendered');
+return <div className="card">{children}</div>;
+});
+
+// Children are created once, at module scope — stable reference
+const STATIC_CHILDREN = <h2>Title</h2>;
+
+function GoodParent2() {
+const [count, setCount] = useState(0);
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+{/* GOOD: same element reference every render */}
+<GoodCard2>{STATIC_CHILDREN}</GoodCard2>
+</div>
+);
+}
+
+// GOOD 3: split the component — memoize the inner part
+const Inner = memo(({ title }: { title: string }) => {
+console.log('Inner rendered');
+return <h2>{title}</h2>;
+});
+
+function GoodCard3({ children }: { children: ReactNode }) {
+// This wrapper always renders, but the expensive inner is memoized
+return (
+<div className="card">
+{children}
+</div>
+);
+}
+
+function GoodParent3() {
+const [count, setCount] = useState(0);
+return (
+<div>
+<button onClick={() => setCount(c => c + 1)}>Count: {count}</button>
+<GoodCard3>
+<Inner title="Title" />
+</GoodCard3>
+</div>
+);
+}
+
+export { BadParent, GoodParent1, GoodParent2, GoodParent3 };</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>import { memo, useState } from 'react';
+
+const BadCard = memo(({ children }) => {
+console.log('BadCard rendered');
+return React.createElement('div', { className: 'card' }, children);
+});
+
+function BadParent() {
+const [count, setCount] = useState(0);
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement(BadCard, null,
+React.createElement('h2', null, 'Title')
+)
+);
+}
+
+const GoodCard1 = memo(({ title }) => {
+console.log('GoodCard1 rendered');
+return React.createElement('div', { className: 'card' },
+React.createElement('h2', null, title)
+);
+});
+
+function GoodParent1() {
+const [count, setCount] = useState(0);
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement(GoodCard1, { title: 'Title' })
+);
+}
+
+const GoodCard2 = memo(({ children }) => {
+console.log('GoodCard2 rendered');
+return React.createElement('div', { className: 'card' }, children);
+});
+
+const STATIC_CHILDREN = React.createElement('h2', null, 'Title');
+
+function GoodParent2() {
+const [count, setCount] = useState(0);
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement(GoodCard2, null, STATIC_CHILDREN)
+);
+}
+
+const Inner = memo(({ title }) => {
+console.log('Inner rendered');
+return React.createElement('h2', null, title);
+});
+
+function GoodCard3({ children }) {
+return React.createElement('div', { className: 'card' }, children);
+}
+
+function GoodParent3() {
+const [count, setCount] = useState(0);
+return React.createElement('div', null,
+React.createElement('button', { onClick: () => setCount(c => c + 1) }, 'Count: ', count),
+React.createElement(GoodCard3, null,
+React.createElement(Inner, { title: 'Title' })
+)
+);
+}
+
+export { BadParent, GoodParent1, GoodParent2, GoodParent3 };</pre>
+</div>
+</div>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Children are elements</h4>
+<p>JSX in the parent creates a new React element every render. That's a new reference for <code>children</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Pass data, not JSX</h4>
+<p>Instead of <code><Card><h2>Title</h2></Card></code>, pass <code>title="Title"</code> and render the <code>h2</code> inside.</p>
+</div>
+<div class="concept-card">
+<h4>Hoist static children</h4>
+<p>If the children never change, define them outside the component. Same element reference, memo works.</p>
+</div>
+<div class="concept-card">
+<h4>Split and memoize</h4>
+<p>Wrapper always renders — fine. Memoize the expensive inner part. The wrapper is cheap; the child is skipped.</p>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't wrap every component in React.memo.</strong> React.memo has a cost: the shallow comparison on every render, plus the extra reference tracking in the parent (<code>useCallback</code>, <code>useMemo</code>, hoisted objects). For cheap components, the comparison costs more than the render. Use React.memo when the component is expensive (large lists, charts, complex trees) or renders frequently from an unrelated parent. Measure before memoizing.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The memoization errors that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Inline object prop</div>
+<p><code>{'<Child config={{ theme: "dark" }} />'}</code> — new object every render. Fix: hoist or <code>useMemo</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Inline function prop</div>
+<p><code>{'<Child onClick={() => ...} />'}</code> — new function every render. Fix: <code>useCallback</code> or hoist.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Inline array prop</div>
+<p><code>{'<List items={[1, 2, 3]} />'}</code> — new array every render. Fix: hoist or <code>useMemo</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. New children elements</div>
+<p>JSX passed as children is a new element every render. Fix: pass data as props, hoist children, or split and memoize.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using useCallback without React.memo</div>
+<p>If the child isn't memoized, <code>useCallback</code> does nothing. Fix: memo the child, or skip the hook.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Missing dependency in useCallback</div>
+<p>A stale closure or a new reference on every dep change. Fix: include every captured value in the deps array.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Deep comparison assumption</div>
+<p>React.memo is shallow. Two equal objects are still different references. Fix: stabilize the reference, or pass a custom compare.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Memoizing every component</div>
+<p>The comparison costs more than cheap renders. Fix: memo only expensive or frequently rendered components.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is my React.memo component still re-rendering?</summary>
+<p class="mt-2 text-sm text-slate-300">Three causes, three fixes. (1) A new object or array is passed as a prop on every render — React.memo does a shallow comparison, so a new reference defeats it. Fix: lift the value out of render, or useMemo it. (2) A new function is passed as a prop — functions are objects, and a new closure is a new reference. Fix: wrap the handler in useCallback. (3) The parent passes children or inline JSX — children is a new element every render. Fix: move the children outside the memoized component, or pass props instead. React.memo is a shallow comparison; every prop must be the same reference between renders to skip.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does React.memo do a deep comparison?</summary>
+<p class="mt-2 text-sm text-slate-300">No — React.memo does a shallow comparison by default. It compares each prop with Object.is. If every prop is the same reference, it skips the re-render. If a single prop is a new object, array, or function, it re-renders. You can pass a custom compare function as the second argument to React.memo to do a deeper comparison, but the default is shallow. Most memoization bugs come from assuming it's deep.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use useCallback with React.memo?</summary>;
+<p class="mt-2 text-sm text-slate-300">Use useCallback whenever a function prop is passed to a memoized child. A function defined inline in the parent is a new reference on every render, so the memoized child re-renders. Wrap it in useCallback with the correct dependency array. If the function captures no changing values, the dependency array is empty. If it captures state or props, include them. Do not use useCallback without React.memo on the child — it's wasted work.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Is React.memo always worth it?</summary>
+<p class="mt-2 text-sm text-slate-300">No. React.memo has a cost: the shallow comparison on every render, plus the extra reference tracking you have to maintain (useCallback, useMemo, stable references). For components that render quickly, the comparison costs more than the render. Use React.memo for components that are expensive to render (large lists, heavy charts) or that render frequently. Don't wrap every component by default.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/react/problems/useeffect-deps.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "useEffect has a missing dependency"</div>
+<div class="text-xs text-slate-400 mt-1">Data fetching gotchas and infinite loops</div>
+</a>
+<a href="/courses/react/problems/state-not-updating.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "State is not updating"</div>
+<div class="text-xs text-slate-400 mt-1">Why setState doesn't change the current render</div>
+</a>
+<a href="/courses/react/problems/type-props.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚛️ "Type is not assignable to type 'IntrinsicAttributes'"</div>
+<div class="text-xs text-slate-400 mt-1">Typing props correctly</div>
+</a>
+<a href="/courses/react/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All React problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/react/problems/index.html" class="back-link">← All React problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · React <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
