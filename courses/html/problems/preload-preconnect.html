@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Preload and Preconnect — Load Resources Before the Browser Knows (2026)</title>
+<meta name="description" content="HTML preload and preconnect explained: load fonts, scripts, and APIs before the browser discovers them. The rel=preload, rel=preconnect, and rel=dns-prefetch attributes.">
+<meta name="keywords" content="html preload, rel preconnect, dns-prefetch, resource hints, html preload font, preconnect cdn">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Preload and Preconnect — Load Resources Before the Browser Knows">
+<meta property="og:description" content="Load fonts, scripts, and APIs before the browser discovers them.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/html/problems/preload-preconnect.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Preload and Preconnect">
+<meta name="twitter:description" content="Load resources before the browser knows it needs them.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/html/problems/preload-preconnect.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Preload and Preconnect — Load Resources Before the Browser Knows",
+"description": "Resource hints: preload, preconnect, dns-prefetch, and prefetch.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-02",
+"dateModified": "2026-11-02",
+"proficiencyLevel": "Intermediate",
+"dependencies": "HTML5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is rel=preload?","acceptedAnswer":{"@type":"Answer","text":"rel='preload' on a link element tells the browser to download a resource as early as possible — before the browser would normally discover it. Use it for critical resources needed for first paint: fonts, the main hero image, the primary CSS file. Add as='font', as='image', as='style' to tell the browser what type of resource it is. Without as, the browser downloads the file but doesn't prioritize it correctly. Preload is the highest-priority resource hint and should be used sparingly — too many preloads compete for bandwidth and slow down everything."}},
+{"@type":"Question","name":"What is rel=preconnect?","acceptedAnswer":{"@type":"Answer","text":"rel='preconnect' on a link element tells the browser to establish a connection (DNS lookup + TCP handshake + TLS negotiation) to a domain before it actually needs to fetch from it. Use it for third-party domains you will definitely fetch from: Google Fonts, a CDN, an analytics endpoint, a payment processor. Each connection saves 100-300ms of round-trip time. Preconnect is expensive — each one opens a socket — so limit to 2-3 domains. Use for the most critical third-party resources only."}},
+{"@type":"Question","name":"What is the difference between preload and prefetch?","acceptedAnswer":{"@type":"Answer","text":"preload fetches a resource needed for the current page, with high priority. prefetch fetches a resource for a future navigation, with low priority. Preload says 'we need this now'; prefetch says 'we will need this later, download in idle time.' Use preload for the current page's critical resources. Use prefetch for the next page in a flow — the checkout page after cart, the article after a list. Prefetch consumes bandwidth, so only prefetch resources you're confident the user will need."}},
+{"@type":"Question","name":"What is dns-prefetch?","acceptedAnswer":{"@type":"Answer","text":"dns-prefetch does only the DNS lookup for a domain — the first step of a connection. It's cheaper than preconnect (no socket opened) but saves less time (only ~20-120ms instead of 100-300ms). Use it as a fallback for older browsers that don't support preconnect, or for domains you'll probably fetch from but aren't sure about. The common pattern: use both — preconnect for the main third-party domain, dns-prefetch for secondary ones. Browsers without preconnect support fall back to dns-prefetch."}},
+{"@type":"Question","name":"Should I preload my fonts?","acceptedAnswer":{"@type":"Answer","text":"Yes, but carefully. Fonts are critical for first paint — if the font isn't loaded, the page shows a fallback font, then jumps when the real font loads (FOUT — Flash of Unstyled Text). Preload the font file with as='font' and crossorigin. The crossorigin attribute is required for fonts, even same-origin — fonts are fetched in CORS mode. Preload only the font weights and styles you actually use above the fold. Preloading 6 font files is worse than preloading 1."}},
+{"@type":"Question","name":"How many preloads is too many?","acceptedAnswer":{"@type":"Answer","text":"Three to five is a reasonable ceiling. Each preload competes for bandwidth with other resources — including the HTML, CSS, and JavaScript that actually block rendering. Preloading too many resources causes the browser to download them all in parallel, which slows down each individual download. The rule: preload only resources critical to first paint, that the browser wouldn't discover on its own until later. Usually that means 1-2 fonts, 1 hero image, and nothing else. If you're preloading 10 things, you're not preloading — you're just downloading everything eagerly."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-html.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e34c26; border-bottom-color: #e34c26; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e34c26 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">HTML · preload & preconnect</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/html/index.html" style="color:#7ee8fc;">HTML</a> ›
+<a href="/courses/html/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Preload & preconnect</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">📄 Concept · 3 min read</div>
+<h1>Preload and preconnect.<br><span class="py-accent">Fetch before the browser knows.</span></h1>
+<p class="lead">
+Resource hints tell the browser about resources before it discovers them in the HTML. <code>preload</code> says "we need this now, fetch it first." <code>preconnect</code> says "we'll need this domain, open a connection." <code>prefetch</code> says "we'll need this later, fetch in idle time." Each one saves real time — but used incorrectly, they hurt more than help. This page covers when each one is appropriate.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>rel="preconnect"</code> for the 2–3 third-party domains you'll definitely fetch from (fonts, CDN, API). Use <code>rel="preload"</code> for the 1–2 critical resources needed for first paint — usually the main font and the hero image. Use <code>rel="dns-prefetch"</code> as a fallback for older browsers. Use <code>rel="prefetch"</code> for the next page in a user flow. Too many hints compete for bandwidth and slow down everything.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The four resource hints</h2>
+<p class="section-sub">Each one solves a different problem.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>rel="preload"</code></h4>
+<p>Fetch a resource the current page needs. High priority. For critical fonts, CSS, images above the fold. Use 1–3 max.</p>
+</div>
+<div class="concept-card">
+<h4><code>rel="preconnect"</code></h4>
+<p>Open a connection to a domain (DNS + TCP + TLS). For third-party APIs, fonts, CDNs. Use 2–3 max.</p>
+</div>
+<div class="concept-card">
+<h4><code>rel="dns-prefetch"</code></h4>
+<p>DNS lookup only. Cheaper than preconnect. Fallback for older browsers, or extra domains beyond the preconnect limit.</p>
+</div>
+<div class="concept-card">
+<h4><code>rel="prefetch"</code></h4>
+<p>Fetch a resource for a <em>future</em> page. Idle-time download. For the next step in a flow — cart → checkout.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">The same page, without and with resource hints.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">without-hints.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why it's slow</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">&lt;head&gt;
+&lt;meta charset="UTF-8"&gt;
+&lt;link rel="stylesheet" href="/style.css"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1 style="font-family: 'Inter', sans-serif;"&gt;Hello&lt;/h1&gt;
+&lt;img src="/hero.jpg" alt="Hero" width="1200" height="600"&gt;
+&lt;script src="https://cdn.example.com/analytics.js"&gt;&lt;/script&gt;
+&lt;/body&gt;</pre>
+<script type="text/plain" id="raw-code-sol1"><head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<h1 style="font-family: 'Inter', sans-serif;">Hello</h1>
+<img src="/hero.jpg" alt="Hero" width="1200" height="600">
+<script src="https://cdn.example.com/analytics.js"></script>
+</body></script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>❌ Browser discovers the font only after parsing
+style.css → +200ms before font fetch starts.
+❌ Hero image found during HTML parse → +50ms
+delay before download starts.
+❌ CDN domain not connected until script needs it
+→ +150ms DNS + TCP + TLS handshake.
+
+Total blocking delay: ~400ms before real
+content can paint.</pre>
+</div>
+</div>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">with-hints.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why it's faster</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">&lt;head&gt;
+&lt;meta charset="UTF-8"&gt;
+
+&lt;!-- Preconnect to third-party domains --&gt;
+&lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;
+&lt;link rel="preconnect" href="https://fonts.gstatic.com" crossorigin&gt;
+&lt;link rel="preconnect" href="https://cdn.example.com"&gt;
+
+&lt;!-- Preload the hero image --&gt;
+&lt;link rel="preload" as="image" href="/hero.jpg"&gt;
+
+&lt;!-- Preload the font file --&gt;
+&lt;link rel="preload" as="font"
+href="/fonts/inter-var.woff2"
+type="font/woff2" crossorigin&gt;
+
+&lt;link rel="stylesheet" href="/style.css"&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;h1 style="font-family: 'Inter', sans-serif;"&gt;Hello&lt;/h1&gt;
+&lt;img src="/hero.jpg" alt="Hero" width="1200" height="600"&gt;
+&lt;script src="https://cdn.example.com/analytics.js"&gt;&lt;/script&gt;
+&lt;/body&gt;</pre>
+<script type="text/plain" id="raw-code-sol2"><head>
+<meta charset="UTF-8">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.example.com">
+
+<!-- Preload the hero image -->
+<link rel="preload" as="image" href="/hero.jpg">
+
+<!-- Preload the font file -->
+<link rel="preload" as="font"
+href="/fonts/inter-var.woff2"
+type="font/woff2" crossorigin>
+
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<h1 style="font-family: 'Inter', sans-serif;">Hello</h1>
+<img src="/hero.jpg" alt="Hero" width="1200" height="600">
+<script src="https://cdn.example.com/analytics.js"></script>
+</body></script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>✅ Font domain connected immediately (+0ms).
+Font file downloading in parallel with CSS.
+✅ Hero image downloading immediately.
+✅ CDN connected before script needs it.
+
+Total blocking delay: ~50ms — 350ms faster.
+
+✅ Preconnect saves 100-300ms per domain.
+✅ Preload saves 100-500ms per resource.
+
+Rule: preload what blocks first paint.
+preconnect what the page will fetch from.
+Never preload what you don't need immediately.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Font preload — the crossorigin gotcha</h2>
+<p class="section-sub">Fonts need <code>crossorigin</code>, always.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">font-preload.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">&lt;!-- ✅ Correct font preload --&gt;
+&lt;link rel="preload"
+href="/fonts/inter-var.woff2"
+as="font"
+type="font/woff2"
+crossorigin&gt;
+
+&lt;!-- ❌ Missing crossorigin — font downloaded twice --&gt;
+&lt;link rel="preload"
+href="/fonts/inter-var.woff2"
+as="font"
+type="font/woff2"&gt;</pre>
+<script type="text/plain" id="raw-code-sol3"><!-- Correct font preload -->
+<link rel="preload"
+href="/fonts/inter-var.woff2"
+as="font"
+type="font/woff2"
+crossorigin>
+
+<!-- Missing crossorigin — font downloaded twice -->
+<link rel="preload"
+href="/fonts/inter-var.woff2"
+as="font"
+type="font/woff2"></script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Fonts are always fetched in CORS mode.
+That's the spec — even for same-origin fonts.
+
+Without crossorigin on the preload:
+❌ Browser downloads the font (preload).
+❌ CSS @font-face triggers another fetch (CORS).
+❌ Font downloaded twice. Worse than no preload.
+
+With crossorigin:
+✅ One fetch, cached, used by CSS.
+✅ No duplicate request.
+
+⚠️ as="font" is required.
+⚠️ type="font/woff2" helps older browsers skip.
+⚠️ Preload only the weights you use above the fold.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't preload everything.</strong> The mistake of "add preload to all my CSS/JS/images" makes pages <em>slower</em>, not faster. Each preload is a claim on bandwidth — the browser downloads all of them in parallel, which slows down each one individually. Preload should highlight 1–3 critical resources, not duplicate every <code>&lt;img&gt;</code> and <code>&lt;script&gt;</code> on the page. If you can't name exactly why a resource is preloaded, remove it. The browser's default discovery is good; preload is for the few cases where the default is late.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The resource-hint mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Preloading too many resources</div>
+<p>Competes for bandwidth. Fix: 1–3 preloads, only critical resources.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Preloading fonts without <code>crossorigin</code></div>
+<p>Font downloaded twice. Fix: add <code>crossorigin</code> always for fonts.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Missing <code>as</code> attribute</div>
+<p>Browser doesn't know priority or type. Fix: <code>as="font"</code>, <code>as="image"</code>, <code>as="style"</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Preconnecting to every domain</div>
+<p>Sockets are expensive. Fix: 2–3 preconnects max — the most critical third parties.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Preloading resources used below the fold</div>
+<p>Wastes bandwidth on what the user might not see. Fix: preload only above-the-fold resources.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Prefetching every page</div>
+<p>Downloads pages the user may never visit. Fix: prefetch only the most likely next step.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Confusing preload and prefetch</div>
+<p>preload = this page, now. prefetch = next page, later. Fix: match the hint to the intent.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. No metrics before and after</div>
+<p>Adding hints without measuring. Fix: check Lighthouse or WebPageTest before and after each change.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">What is rel=preload?</summary>
+<p class="mt-2 text-sm text-slate-300">rel='preload' on a link element tells the browser to download a resource as early as possible — before the browser would normally discover it. Use it for critical resources needed for first paint: fonts, the main hero image, the primary CSS file. Add as='font', as='image', as='style' to tell the browser what type of resource it is. Without as, the browser downloads the file but doesn't prioritize it correctly. Preload should be used sparingly — too many preloads compete for bandwidth and slow down everything.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">What is rel=preconnect?</summary>
+<p class="mt-2 text-sm text-slate-300">rel='preconnect' on a link element tells the browser to establish a connection (DNS lookup + TCP handshake + TLS negotiation) to a domain before it actually needs to fetch from it. Use it for third-party domains you will definitely fetch from: Google Fonts, a CDN, an analytics endpoint, a payment processor. Each connection saves 100-300ms of round-trip time. Preconnect is expensive — each one opens a socket — so limit to 2-3 domains.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">What is the difference between preload and prefetch?</summary>
+<p class="mt-2 text-sm text-slate-300">preload fetches a resource needed for the current page, with high priority. prefetch fetches a resource for a future navigation, with low priority. Preload says 'we need this now'; prefetch says 'we will need this later, download in idle time.' Use preload for the current page's critical resources. Use prefetch for the next page in a flow — the checkout page after cart, the article after a list.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">What is dns-prefetch?</summary>
+<p class="mt-2 text-sm text-slate-300">dns-prefetch does only the DNS lookup for a domain — the first step of a connection. It's cheaper than preconnect (no socket opened) but saves less time (only ~20-120ms instead of 100-300ms). Use it as a fallback for older browsers that don't support preconnect, or for domains you'll probably fetch from but aren't sure about. The common pattern: use both — preconnect for the main third-party domain, dns-prefetch for secondary ones.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Should I preload my fonts?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, but carefully. Fonts are critical for first paint — if the font isn't loaded, the page shows a fallback font, then jumps when the real font loads. Preload the font file with as='font' and crossorigin. The crossorigin attribute is required for fonts, even same-origin — fonts are fetched in CORS mode. Preload only the font weights and styles you actually use above the fold. Preloading 6 font files is worse than preloading 1.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">How many preloads is too many?</summary>
+<p class="mt-2 text-sm text-slate-300">Three to five is a reasonable ceiling. Each preload competes for bandwidth with other resources — including the HTML, CSS, and JavaScript that actually block rendering. Preloading too many resources causes the browser to download them all in parallel, which slows down each individual download. The rule: preload only resources critical to first paint, that the browser wouldn't discover on its own until later.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/html/problems/meta-charset.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 The meta charset attribute</div>
+<div class="text-xs text-slate-400 mt-1">Why UTF-8 must be the first tag</div>
+</a>
+<a href="/courses/html/problems/loading-lazy.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 Lazy-load with loading="lazy"</div>
+<div class="text-xs text-slate-400 mt-1">The complement to preload</div>
+</a>
+<a href="/courses/html/problems/srcset-sizes.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 Responsive images with srcset</div>
+<div class="text-xs text-slate-400 mt-1">Serve the right size for every screen</div>
+</a>
+<a href="/courses/html/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All HTML problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/html/problems/index.html" class="back-link">← All HTML problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · HTML <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-orange-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
