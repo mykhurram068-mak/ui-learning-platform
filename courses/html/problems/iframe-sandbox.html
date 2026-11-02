@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>The iframe sandbox Attribute — Safe Third-Party Embeds (2026)</title>
+<meta name="description" content="The HTML iframe sandbox attribute explained: how it isolates third-party content, the allow tokens that re-enable features, and why srcdoc is the modern pattern.">
+<meta name="keywords" content="iframe sandbox, html iframe security, iframe allow, sandbox attribute, srcdoc iframe, third-party iframe security">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="The iframe sandbox Attribute — Safe Third-Party Embeds">
+<meta property="og:description" content="How it isolates third-party content — and the allow tokens that re-enable features.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/html/problems/iframe-sandbox.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The iframe sandbox Attribute">
+<meta name="twitter:description" content="How it isolates third-party content.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/html/problems/iframe-sandbox.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "The iframe sandbox Attribute — Safe Third-Party Embeds",
+"description": "How iframe sandbox isolates content and the allow tokens that re-enable features.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-02",
+"dateModified": "2026-11-02",
+"proficiencyLevel": "Intermediate",
+"dependencies": "HTML5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What does the iframe sandbox attribute do?","acceptedAnswer":{"@type":"Answer","text":"The sandbox attribute on an iframe puts the embedded content in a restricted context. By default, sandbox blocks: script execution, form submission, top-level navigation, popups, plugins, pointer lock, downloads, and access to same-origin resources (cookies, localStorage, parent DOM). It's the most powerful security tool for embedding untrusted content. Without sandbox, an iframe can run scripts, redirect the user, and read data from the parent page. With sandbox, the iframe is isolated. You can selectively re-enable features with allow tokens like allow-scripts, allow-forms, allow-same-origin — but only add the ones the embed needs."}},
+{"@type":"Question","name":"Is an iframe without sandbox dangerous?","acceptedAnswer":{"@type":"Answer","text":"Yes, for untrusted content. A same-origin iframe can read cookies, access localStorage, modify the parent DOM, and redirect the top-level page. It's as trusted as the page that hosts it. Even cross-origin iframes (which can't read parent data due to same-origin policy) can still navigate the top-level page, open popups, and play audio. That's why a malicious ad or a compromised third-party widget can take over a page. Always add sandbox to untrusted iframes. For content you fully control on your own domain, sandbox is optional but still recommended as defense-in-depth."}},
+{"@type":"Question","name":"What are the sandbox allow tokens?","acceptedAnswer":{"@type":"Answer","text":"The most common tokens: allow-scripts (run JavaScript), allow-forms (submit forms), allow-same-origin (access cookies and same-origin storage — dangerous when combined with allow-scripts), allow-popups (open popups and new tabs), allow-top-navigation (navigate the parent page — dangerous), allow-modals (alert, confirm, prompt), allow-downloads (download files), allow-presentation (start screen sharing), allow-pointer-lock (control the mouse pointer). Add tokens as needed — never add all of them. The default (no tokens) is the safest; start there and add only what the embed requires."}},
+{"@type":"Question","name":"Why is allow-scripts plus allow-same-origin dangerous?","acceptedAnswer":{"@type":"Answer","text":"Because it defeats the sandbox. allow-same-origin gives the iframe access to cookies, localStorage, and the parent's DOM (if same origin). allow-scripts lets it run JavaScript. Together, the iframe can script against the parent — remove elements, read form values, exfiltrate cookies. It's no longer sandboxed. The MDN docs warn explicitly: combining these two removes the security boundary. If you need both, the content must be fully trusted — treat it like your own code. For untrusted content, pick one. Usually allow-scripts without allow-same-origin (untrusted widget that runs JS but can't touch your domain)."}},
+{"@type":"Question","name":"Does sandbox affect performance?","acceptedAnswer":{"@type":"Answer","text":"No meaningful impact. Sandbox is a browser security boundary, not a rendering layer. The iframe loads the same way — same network requests, same JavaScript engine, same DOM. The cost is small: the browser skips some optimizations that rely on same-origin trust (like shared memory between the iframe and parent), but the difference is measured in microseconds. Never omit sandbox for performance reasons. The security benefit is enormous and the cost is negligible."}},
+{"@type":"Question","name":"Can I sandbox my own content?","acceptedAnswer":{"@type":"Answer","text":"Yes, and you should. Even first-party content benefits from sandbox as defense-in-depth. If your own iframe is compromised via XSS, sandbox limits the damage — the attacker can't read cookies, can't access the parent DOM, can't redirect the user. The cost is trivial; the benefit is real. Use sandbox with the tokens your content needs: usually allow-scripts, allow-forms, allow-same-origin for trusted first-party widgets. For untrusted user content (embedded HTML from a CMS, comments with HTML), use sandbox with minimal tokens — often just allow-scripts if you allow JS at all."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-html.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e34c26; border-bottom-color: #e34c26; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e34c26 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">HTML · iframe sandbox</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/html/index.html" style="color:#7ee8fc;">HTML</a> ›
+<a href="/courses/html/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">iframe sandbox</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">📄 Concept · 4 min read</div>
+<h1>The iframe sandbox attribute.<br><span class="py-accent">Isolate untrusted content.</span></h1>
+<p class="lead">
+An iframe without <code>sandbox</code> is as trusted as the page that hosts it. A malicious ad, a compromised widget, or an untrusted user's embedded HTML can run scripts, read cookies, redirect the parent page. The <code>sandbox</code> attribute blocks all of that by default — scripts, forms, popups, top navigation, same-origin access. You then re-enable only what the embed actually needs. This page covers the tokens, the danger of <code>allow-scripts</code> + <code>allow-same-origin</code>, and the patterns that scale.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Add <code>sandbox</code> to every untrusted iframe. Start with no tokens (maximum restriction). Add only what the embed needs: <code>allow-scripts</code> for interactive widgets, <code>allow-forms</code> for form submissions, <code>allow-popups</code> for new tabs. Never combine <code>allow-scripts</code> with <code>allow-same-origin</code> for untrusted content — that defeats the sandbox entirely. Add <code>title</code> for accessibility. For user-submitted HTML, use <code>srcdoc</code> with sandbox — never set <code>src</code> to user-controlled URLs.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ What sandbox blocks by default</h2>
+<p class="section-sub">Everything. Then you re-enable.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Scripts</h4>
+<p>No &lt;script&gt;, no <code>onclick</code>, no JavaScript at all. Re-enable with <code>allow-scripts</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Forms</h4>
+<p>Submissions blocked. Re-enable with <code>allow-forms</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Top navigation</h4>
+<p>Iframe can't redirect the parent page. Re-enable with <code>allow-top-navigation</code> (dangerous).</p>
+</div>
+<div class="concept-card">
+<h4>Same-origin access</h4>
+<p>No cookies, no localStorage, no parent DOM access. Re-enable with <code>allow-same-origin</code> (dangerous with <code>allow-scripts</code>).</p>
+</div>
+<div class="concept-card">
+<h4>Popups</h4>
+<p><code>window.open</code>, &lt;a target="_blank"&gt; blocked. Re-enable with <code>allow-popups</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Modals</h4>
+<p><code>alert</code>, <code>confirm</code>, <code>prompt</code> blocked. Re-enable with <code>allow-modals</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Downloads</h4>
+<p>File downloads blocked. Re-enable with <code>allow-downloads</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Presentation</h4>
+<p>Screen sharing, presentations blocked. Re-enable with <code>allow-presentation</code>.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">The same embed, with and without sandbox.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">unsafe-iframe.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why it's unsafe</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">&lt;!-- Untrusted iframe — no sandbox --&gt;
+&lt;iframe src="https://untrusted-widget.com/embed"&gt;
+&lt;/iframe&gt;</pre>
+<script type="text/plain" id="raw-code-sol1"><!-- Untrusted iframe — no sandbox -->
+<iframe src="https://untrusted-widget.com/embed">
+</iframe></script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>❌ Iframe runs JavaScript freely.
+❌ Iframe can submit forms → CSRF.
+❌ Iframe can navigate the parent page
+(window.top.location = "...").
+❌ Iframe can open popups.
+❌ If the iframe is same-origin (or attacker
+tricks you into it), it can read your cookies,
+localStorage, and DOM.
+
+This is the most common iframe security bug.
+An ad network or a compromised third-party
+widget can take over the whole page.</pre>
+</div>
+</div>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">safe-iframe.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why it's safe</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">&lt;!-- Sandboxed — script-only widget --&gt;
+&lt;iframe
+src="https://untrusted-widget.com/embed"
+sandbox="allow-scripts"
+title="Interactive chart"&gt;
+&lt;/iframe&gt;
+
+&lt;!-- Fully locked — static embed --&gt;
+&lt;iframe
+src="https://untrusted-widget.com/embed"
+sandbox
+title="Embedded content"&gt;
+&lt;/iframe&gt;
+
+&lt;!-- Interactive + forms (still no top nav) --&gt;
+&lt;iframe
+src="https://untrusted-widget.com/embed"
+sandbox="allow-scripts allow-forms"
+title="Feedback form"&gt;
+&lt;/iframe&gt;</pre>
+<script type="text/plain" id="raw-code-sol2"><!-- Sandboxed — script-only widget -->
+<iframe
+src="https://untrusted-widget.com/embed"
+sandbox="allow-scripts"
+title="Interactive chart">
+</iframe>
+
+<iframe
+src="https://untrusted-widget.com/embed"
+sandbox
+title="Embedded content">
+</iframe>
+
+<iframe
+src="https://untrusted-widget.com/embed"
+sandbox="allow-scripts allow-forms"
+title="Feedback form">
+</iframe></script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>✅ sandbox="allow-scripts"
+→ JavaScript runs, but no forms, no popups,
+no top nav, no same-origin access.
+
+✅ sandbox (no tokens)
+→ Maximum restriction. Static content only.
+
+✅ sandbox="allow-scripts allow-forms"
+→ JS runs, forms submit. Still no top nav,
+still no same-origin.
+
+⚠️ title is required for accessibility.
+Screen readers announce "frame, {title}".
+Without it: "frame" with no name.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The dangerous combination</h2>
+<p class="section-sub"><code>allow-scripts</code> + <code>allow-same-origin</code> = no sandbox.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">dangerous-combo.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why it's dangerous</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">&lt;!-- ❌ Dangerous: defeats the sandbox --&gt;
+&lt;iframe
+src="https://untrusted-widget.com/embed"
+sandbox="allow-scripts allow-same-origin"&gt;
+&lt;/iframe&gt;
+
+&lt;!-- ✅ Safe: JS runs, but iframe is opaque-origin --&gt;
+&lt;iframe
+src="https://untrusted-widget.com/embed"
+sandbox="allow-scripts"&gt;
+&lt;/iframe&gt;</pre>
+<script type="text/plain" id="raw-code-sol3"><!-- Dangerous: defeats the sandbox -->
+<iframe
+src="https://untrusted-widget.com/embed"
+sandbox="allow-scripts allow-same-origin">
+</iframe>
+
+<iframe
+src="https://untrusted-widget.com/embed"
+sandbox="allow-scripts">
+</iframe></script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>allow-same-origin tells the browser:
+"treat this iframe as if it were same-origin
+(or its real origin), not as an opaque sandbox."
+
+allow-scripts then lets that same-origin iframe
+run JavaScript.
+
+Result:
+❌ Iframe can read parent cookies (if same origin).
+❌ Iframe can read parent localStorage.
+❌ Iframe can access parent DOM if same origin.
+❌ Iframe can remove the sandbox attribute
+from itself.
+❌ The sandbox is gone.
+
+Rule: for untrusted content, pick ONE:
+allow-scripts (run JS, no domain access)
+OR
+allow-same-origin (access domain, no JS)
+
+Never both, unless the content is fully trusted.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't combine <code>allow-scripts</code> with <code>allow-same-origin</code> for untrusted content.</strong> MDN warns about this explicitly. Together they give the iframe both script execution and same-origin access — which is exactly what the sandbox is meant to prevent. The iframe can read your cookies, script against your DOM, and remove its own sandbox attribute. For content from a third party (ads, widgets, user-submitted embeds), pick one: scripts without origin access, or origin access without scripts. Never both. For first-party content you fully control, the combination is fine — but the content isn't untrusted anymore.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The iframe-sandbox mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. No sandbox on third-party iframes</div>
+<p>The iframe runs scripts freely, can redirect parent, read data. Fix: add <code>sandbox</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. <code>allow-scripts</code> + <code>allow-same-origin</code> for untrusted content</div>
+<p>Defeats the sandbox. Fix: pick one. <code>allow-scripts</code> alone is usually right.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Adding all tokens "just in case"</div>
+<p>Same as no sandbox. Fix: add tokens as needed, one at a time.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Missing <code>title</code> on iframe</div>
+<p>Screen readers say "frame" with no name. Fix: <code>title="Description of the content"</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using <code>srcdoc</code> with <code>allow-same-origin</code></div>
+<p><code>srcdoc</code> content inherits the parent origin — dangerous. Fix: omit <code>allow-same-origin</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Trusting the domain name</div>
+<p>A trusted vendor can be compromised. Fix: sandbox anyway. Defense-in-depth.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Forgetting <code>allow-forms</code> for form embeds</div>
+<p>Forms don't submit — the embed appears broken. Fix: add the token.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Forgetting <code>allow-popups</code> for payment widgets</div>
+<p>Payment flows that open new windows fail. Fix: add <code>allow-popups</code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">What does the iframe sandbox attribute do?</summary>
+<p class="mt-2 text-sm text-slate-300">The sandbox attribute on an iframe puts the embedded content in a restricted context. By default, sandbox blocks: script execution, form submission, top-level navigation, popups, plugins, pointer lock, downloads, and access to same-origin resources (cookies, localStorage, parent DOM). It's the most powerful security tool for embedding untrusted content. Without sandbox, an iframe can run scripts, redirect the user, and read data from the parent page. With sandbox, the iframe is isolated.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Is an iframe without sandbox dangerous?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, for untrusted content. A same-origin iframe can read cookies, access localStorage, modify the parent DOM, and redirect the top-level page. It's as trusted as the page that hosts it. Even cross-origin iframes (which can't read parent data due to same-origin policy) can still navigate the top-level page, open popups, and play audio. That's why a malicious ad or a compromised third-party widget can take over a page. Always add sandbox to untrusted iframes.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">What are the sandbox allow tokens?</summary>
+<p class="mt-2 text-sm text-slate-300">The most common tokens: allow-scripts (run JavaScript), allow-forms (submit forms), allow-same-origin (access cookies and same-origin storage — dangerous when combined with allow-scripts), allow-popups (open popups and new tabs), allow-top-navigation (navigate the parent page — dangerous), allow-modals (alert, confirm, prompt), allow-downloads (download files), allow-presentation (start screen sharing), allow-pointer-lock (control the mouse pointer). Add tokens as needed — never add all of them.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Why is allow-scripts plus allow-same-origin dangerous?</summary>
+<p class="mt-2 text-sm text-slate-300">Because it defeats the sandbox. allow-same-origin gives the iframe access to cookies, localStorage, and the parent's DOM (if same origin). allow-scripts lets it run JavaScript. Together, the iframe can script against the parent — remove elements, read form values, exfiltrate cookies. It's no longer sandboxed. The MDN docs warn explicitly: combining these two removes the security boundary. If you need both, the content must be fully trusted — treat it like your own code.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Does sandbox affect performance?</summary>
+<p class="mt-2 text-sm text-slate-300">No meaningful impact. Sandbox is a browser security boundary, not a rendering layer. The iframe loads the same way — same network requests, same JavaScript engine, same DOM. The cost is small: the browser skips some optimizations that rely on same-origin trust (like shared memory between the iframe and parent), but the difference is measured in microseconds. Never omit sandbox for performance reasons.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Can I sandbox my own content?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, and you should. Even first-party content benefits from sandbox as defense-in-depth. If your own iframe is compromised via XSS, sandbox limits the damage — the attacker can't read cookies, can't access the parent DOM, can't redirect the user. The cost is trivial; the benefit is real. Use sandbox with the tokens your content needs: usually allow-scripts, allow-forms, allow-same-origin for trusted first-party widgets.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/html/problems/preload-preconnect.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 Preload and preconnect</div>
+<div class="text-xs text-slate-400 mt-1">Load resources before the browser knows</div>
+</a>
+<a href="/courses/html/problems/loading-lazy.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 Lazy-load with loading="lazy"</div>
+<div class="text-xs text-slate-400 mt-1">Works on iframes too</div>
+</a>
+<a href="/courses/html/problems/meta-charset.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 The meta charset attribute</div>
+<div class="text-xs text-slate-400 mt-1">Why UTF-8 must be the first tag</div>
+</a>
+<a href="/courses/html/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All HTML problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/html/problems/index.html" class="back-link">← All HTML problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · HTML <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-orange-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
