@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>The tabindex Attribute — Why tabindex="1" Is Almost Always Wrong (2026)</title>
+<meta name="description" content="The HTML tabindex attribute explained: the three valid values, why positive values break keyboard navigation, and the two you actually need.">
+<meta name="keywords" content="html tabindex, tabindex 1, tabindex -1, tabindex 0, keyboard navigation, focus management html">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="The tabindex Attribute — Why tabindex=&quot;1&quot; Is Almost Always Wrong">
+<meta property="og:description" content="The three valid values, why positive values break keyboard navigation.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/html/problems/tabindex.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The tabindex Attribute">
+<meta name="twitter:description" content="Why tabindex=&quot;1&quot; is almost always wrong.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/html/problems/tabindex.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "The tabindex Attribute — Why tabindex="1" Is Almost Always Wrong",
+"description": "The three valid values of tabindex and why positive values break keyboard navigation.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-02",
+"dateModified": "2026-11-02",
+"proficiencyLevel": "Intermediate",
+"dependencies": "HTML5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What does tabindex do?","acceptedAnswer":{"@type":"Answer","text":"tabindex controls whether an element is focusable and where it appears in the Tab key order. Three valid values: tabindex='0' makes any element focusable and adds it to the natural tab order; tabindex='-1' makes an element focusable programmatically (via element.focus()) but not via Tab; tabindex with a positive number (1, 2, 3...) forces a custom tab order, which almost always breaks things. Native interactive elements (button, a, input) are already focusable — you do not need tabindex on them."}},
+{"@type":"Question","name":"Why is tabindex='1' bad?","acceptedAnswer":{"@type":"Answer","text":"tabindex with a positive value removes the element from the natural tab order and creates a custom order. Users pressing Tab jump to the tabindex='1' element first, then tabindex='2', regardless of visual position. Screen reader users, keyboard-only users, and switch access users all expect the natural order: the page flows top to bottom, left to right. Positive tabindex values break this expectation and create confusion. The WebAIM Million study finds tabindex='1' on a page in 20% of top-100 sites — every one is an accessibility bug."}},
+{"@type":"Question","name":"When should I use tabindex='0'?","acceptedAnswer":{"@type":"Answer","text":"Use tabindex='0' when you have made a non-interactive element into an interactive one with ARIA — for example, a div with role='button' that responds to click and Enter. Adding tabindex='0' makes it focusable via Tab. But the better fix is to use a real button element, which is already focusable and handles Enter, Space, and focus styles. Use tabindex='0' only when a native element truly doesn't fit, and never as a shortcut for adding interactivity to divs."}},
+{"@type":"Question","name":"When should I use tabindex='-1'?","acceptedAnswer":{"@type":"Answer","text":"Use tabindex='-1' when you need to focus an element programmatically but not via Tab. Common cases: a modal dialog that receives focus when it opens (call dialog.focus() in the open handler), an error message that is scrolled into view and focused after a failed validation, a section that is the target of an anchor link where you want to announce it to screen readers. tabindex='-1' is safe — it doesn't affect the tab order, it just allows programmatic focus."}},
+{"@type":"Question","name":"Do I need tabindex on buttons and links?","acceptedAnswer":{"@type":"Answer","text":"No. button, a with href, input, select, textarea, and other native interactive elements are focusable by default. Adding tabindex='0' to a button is redundant. Adding tabindex='-1' to a button removes it from the tab order — that is almost never what you want. If a button is not focusable, the problem is elsewhere (display: none, visibility: hidden, disabled, or inside an inert container). Fix the cause, not with tabindex."}},
+{"@type":"Question","name":"How do I test keyboard navigation?","acceptedAnswer":{"@type":"Answer","text":"Press Tab to move forward, Shift+Tab to move backward, Enter to activate buttons, Space to activate buttons and check checkboxes, Escape to close dialogs. Watch where focus lands — it should follow the visual order of the page, top to bottom, left to right. Focus should be visible — a visible outline or focus ring. If you can't tab to a visible control, or if tab order jumps around unexpectedly, tabindex or CSS is wrong. Test with a screen reader too — NVDA, JAWS, or VoiceOver."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-html.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e34c26; border-bottom-color: #e34c26; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e34c26 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">HTML · tabindex</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/html/index.html" style="color:#7ee8fc;">HTML</a> ›
+<a href="/courses/html/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">tabindex</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">📄 Concept · 3 min read</div>
+<h1>The tabindex attribute.<br><span class="py-accent">Two values you need. One you don't.</span></h1>
+<p class="lead">
+<code>tabindex="1"</code> looks like a quick fix for "make this div focusable" or "move focus here first." It's not. It breaks the natural tab order, confuses keyboard users, and hides the real problem — usually that you're using the wrong element. This page covers the three valid values, what each actually does, and why the only two you need are <code>0</code> and <code>-1</code>.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>tabindex="0"</code> to make a non-interactive element focusable via Tab (rare — prefer a real <code>&lt;button&gt;</code>). Use <code>tabindex="-1"</code> to focus an element programmatically without affecting the tab order (modals, error messages). Never use positive values (<code>1</code>, <code>2</code>, ...) — they override the natural order and always break accessibility. Native interactive elements are already focusable; they need no tabindex.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The three values</h2>
+<p class="section-sub">What each actually does.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>tabindex="0"</code></h4>
+<p>Focusable via Tab, in the natural order. For non-interactive elements you've given an ARIA role. Rare — real buttons are better.</p>
+</div>
+<div class="concept-card">
+<h4><code>tabindex="-1"</code></h4>
+<p>Focusable programmatically via <code>element.focus()</code>, but <em>not</em> via Tab. For modals, error messages, skip links.</p>
+</div>
+<div class="concept-card">
+<h4><code>tabindex="1"</code> or higher</h4>
+<p>Forced custom tab order. Takes the element out of the natural order. Almost always an accessibility bug.</p>
+</div>
+<div class="concept-card">
+<h4>No tabindex</h4>
+<p>Native interactive elements (<code>&lt;button&gt;</code>, <code>&lt;a href&gt;</code>, <code>&lt;input&gt;</code>) are already focusable. No attribute needed.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">The same form, with and without positive tabindex.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">bad-tabindex.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Tab order</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">&lt;form&gt;
+&lt;label for="name"&gt;Name&lt;/label&gt;
+&lt;input id="name" type="text" tabindex="3"&gt;
+
+&lt;label for="email"&gt;Email&lt;/label&gt;
+&lt;input id="email" type="email" tabindex="1"&gt;
+
+&lt;label for="password"&gt;Password&lt;/label&gt;
+&lt;input id="password" type="password" tabindex="2"&gt;
+
+&lt;button type="submit"&gt;Submit&lt;/button&gt;
+&lt;/form&gt;</pre>
+<script type="text/plain" id="raw-code-sol1"><form>
+<label for="name">Name</label>
+<input id="name" type="text" tabindex="3">
+
+<label for="email">Email</label>
+<input id="email" type="email" tabindex="1">
+
+<label for="password">Password</label>
+<input id="password" type="password" tabindex="2">
+
+<button type="submit">Submit</button>
+</form></script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Tab order with positive tabindex:
+1. Email (tabindex="1")
+2. Password (tabindex="2")
+3. Name (tabindex="3")
+4. Submit (natural — no tabindex)
+
+But visual order is:
+1. Name
+2. Email
+3. Password
+4. Submit
+
+❌ Tab jumps: Name → Email → Password → Name → Email...
+❌ Sighted keyboard users are confused.
+❌ Screen reader users hear fields in wrong order.
+❌ Autofill flows to the wrong field.</pre>
+</div>
+</div>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">good-tabindex.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Tab order</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">&lt;form&gt;
+&lt;label for="name"&gt;Name&lt;/label&gt;
+&lt;input id="name" type="text"&gt;
+
+&lt;label for="email"&gt;Email&lt;/label&gt;
+&lt;input id="email" type="email"&gt;
+
+&lt;label for="password"&gt;Password&lt;/label&gt;
+&lt;input id="password" type="password"&gt;
+
+&lt;button type="submit"&gt;Submit&lt;/button&gt;
+&lt;/form&gt;</pre>
+<script type="text/plain" id="raw-code-sol2"><form>
+<label for="name">Name</label>
+<input id="name" type="text">
+
+<label for="email">Email</label>
+<input id="email" type="email">
+
+<label for="password">Password</label>
+<input id="password" type="password">
+
+<button type="submit">Submit</button>
+</form></script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Tab order (natural):
+1. Name
+2. Email
+3. Password
+4. Submit
+
+✅ Tab order matches visual order.
+✅ Keyboard users navigate predictably.
+✅ Screen readers announce fields in order.
+✅ No tabindex needed — native elements.
+
+Rule: if the DOM order matches visual order,
+you don't need tabindex. If it doesn't,
+fix the DOM order, not the tab order.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The two valid uses</h2>
+<p class="section-sub">Both are for focus management, not navigation.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">valid-tabindex.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">&lt;!-- tabindex="-1" on a modal dialog --&gt;
+&lt;div role="dialog" aria-modal="true"
+aria-labelledby="dialog-title"
+tabindex="-1"&gt;
+&lt;h2 id="dialog-title"&gt;Confirm delete&lt;/h2&gt;
+&lt;button&gt;Cancel&lt;/button&gt;
+&lt;button&gt;Delete&lt;/button&gt;
+&lt;/div&gt;
+
+&lt;!-- tabindex="-1" on an error message --&gt;
+&lt;div role="alert" tabindex="-1" id="form-error"&gt;
+Please fix the errors below.
+&lt;/div>
+
+&lt;!-- tabindex="0" on a custom div button (avoid!) --&gt;
+&lt;div role="button" tabindex="0"
+onclick="..." onkeydown="..."&gt;
+Custom Button
+&lt;/div&gt;
+
+&lt;!-- Better: use a real button --&gt;
+&lt;button&gt;Real Button&lt;/button&gt;</pre>
+<script type="text/plain" id="raw-code-sol3"><!-- tabindex="-1" on a modal dialog -->
+<div role="dialog" aria-modal="true"
+aria-labelledby="dialog-title"
+tabindex="-1">
+<h2 id="dialog-title">Confirm delete</h2>
+<button>Cancel</button>
+<button>Delete</button>
+</div>
+
+<!-- tabindex="-1" on an error message -->
+<div role="alert" tabindex="-1" id="form-error">
+Please fix the errors below.
+</div>
+
+<!-- tabindex="0" on a custom div button (avoid!) -->
+<div role="button" tabindex="0"
+onclick="..." onkeydown="...">
+Custom Button
+</div>
+
+<!-- Better: use a real button -->
+<button>Real Button</button></script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>tabindex="-1" uses:
+
+Modal dialog: dialog.focus() when opened.
+Tab still cycles inside the dialog,
+but the container itself isn't in the
+tab order. Screen reader announces it.
+
+Error message: formError.focus() after failed
+submit. Screen reader announces the
+alert. Tab skips the alert otherwise.
+
+tabindex="0" uses:
+
+Custom button: Only when a real button won't fit.
+Must handle: click, Enter, Space,
+focus styles, disabled state.
+Real button does all of this for free.
+
+Rule: use the native element. Add tabindex
+only when a native element won't work.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use positive tabindex to fix visual ordering.</strong> If the DOM order doesn't match what you want to be the tab order, the fix is the DOM order — not <code>tabindex="1"</code>. Reorder the elements in the markup. Use CSS to position them visually if you need a different visual layout. When CSS <code>order</code> on flex/grid moves things, the tab order stays in DOM order — that's a real accessibility problem, but the fix is to keep DOM order and visual order aligned, not to patch it with tabindex. Positive tabindex is a symptom, not a fix.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The tabindex mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>tabindex="1"</code> or higher</div>
+<p>Breaks natural order. Fix: remove it. Reorder the DOM if needed.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. <code>tabindex="0"</code> on a button or link</div>
+<p>Redundant — they're already focusable. Fix: remove it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. <code>tabindex="-1"</code> on a link</div>
+<p>Removes it from tab order. Fix: only use <code>-1</code> for programmatic focus targets.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using tabindex to make a div clickable</div>
+<p>You also need keyboard handling, focus styles, ARIA role. Fix: use <code>&lt;button&gt;</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. No focus visible on tabindex="0"</div>
+<p>Keyboard users can't see where focus is. Fix: add a visible <code>:focus</code> style.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. tabindex on hidden elements</div>
+<p>display: none is not focusable regardless of tabindex. Fix: fix the visibility issue.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Removing outline without replacement</div>
+<p><code>outline: none</code> on <code>:focus</code> — keyboard users get lost. Fix: replace with a visible focus style.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. tabindex on &lt;body&gt;</div>
+<p>A legacy pattern that breaks focus. Fix: never put tabindex on body.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">What does tabindex do?</summary>
+<p class="mt-2 text-sm text-slate-300">tabindex controls whether an element is focusable and where it appears in the Tab key order. Three valid values: tabindex='0' makes any element focusable and adds it to the natural tab order; tabindex='-1' makes an element focusable programmatically (via element.focus()) but not via Tab; tabindex with a positive number (1, 2, 3...) forces a custom tab order, which almost always breaks things. Native interactive elements (button, a, input) are already focusable — you do not need tabindex on them.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Why is tabindex='1' bad?</summary>
+<p class="mt-2 text-sm text-slate-300">tabindex with a positive value removes the element from the natural tab order and creates a custom order. Users pressing Tab jump to the tabindex='1' element first, then tabindex='2', regardless of visual position. Screen reader users, keyboard-only users, and switch access users all expect the natural order: the page flows top to bottom, left to right. Positive tabindex values break this expectation and create confusion. The WebAIM Million study finds tabindex='1' on a page in 20% of top-100 sites — every one is an accessibility bug.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">When should I use tabindex='0'?</summary>
+<p class="mt-2 text-sm text-slate-300">Use tabindex='0' when you have made a non-interactive element into an interactive one with ARIA — for example, a div with role='button' that responds to click and Enter. Adding tabindex='0' makes it focusable via Tab. But the better fix is to use a real button element, which is already focusable and handles Enter, Space, and focus styles. Use tabindex='0' only when a native element truly doesn't fit.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">When should I use tabindex='-1'?</summary>
+<p class="mt-2 text-sm text-slate-300">Use tabindex='-1' when you need to focus an element programmatically but not via Tab. Common cases: a modal dialog that receives focus when it opens (call dialog.focus() in the open handler), an error message that is scrolled into view and focused after a failed validation, a section that is the target of an anchor link where you want to announce it to screen readers. tabindex='-1' is safe — it doesn't affect the tab order, it just allows programmatic focus.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Do I need tabindex on buttons and links?</summary>
+<p class="mt-2 text-sm text-slate-300">No. button, a with href, input, select, textarea, and other native interactive elements are focusable by default. Adding tabindex='0' to a button is redundant. Adding tabindex='-1' to a button removes it from the tab order — that is almost never what you want. If a button is not focusable, the problem is elsewhere (display: none, visibility: hidden, disabled, or inside an inert container). Fix the cause, not with tabindex.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">How do I test keyboard navigation?</summary>
+<p class="mt-2 text-sm text-slate-300">Press Tab to move forward, Shift+Tab to move backward, Enter to activate buttons, Space to activate buttons and check checkboxes, Escape to close dialogs. Watch where focus lands — it should follow the visual order of the page, top to bottom, left to right. Focus should be visible — a visible outline or focus ring. If you can't tab to a visible control, or if tab order jumps around unexpectedly, tabindex or CSS is wrong. Test with a screen reader too — NVDA, JAWS, or VoiceOver.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/html/problems/aria-label.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 When to use aria-label</div>
+<div class="text-xs text-slate-400 mt-1">The rule: native HTML first</div>
+</a>
+<a href="/courses/html/problems/button-vs-link.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 &lt;button&gt; vs &lt;a&gt;</div>
+<div class="text-xs text-slate-400 mt-1">Navigation vs action — using the wrong one breaks keyboard users</div>
+</a>
+<a href="/courses/html/problems/semantic-html.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 What is semantic HTML?</div>
+<div class="text-xs text-slate-400 mt-1">Why &lt;header&gt; beats &lt;div&gt;</div>
+</a>
+<a href="/courses/html/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All HTML problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/html/problems/index.html" class="back-link">← All HTML problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · HTML <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-orange-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
