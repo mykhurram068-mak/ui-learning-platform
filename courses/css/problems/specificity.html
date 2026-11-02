@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>CSS Specificity Explained — How the Cascade Decides (2026)</title>
+<meta name="description" content="CSS specificity explained: the four levels, how to calculate it, why !important is almost always wrong, and the modern tools that avoid the specificity war.">
+<meta name="keywords" content="css specificity, css cascade, specificity calculator, important css, css selector priority, css specificity conflict">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="CSS Specificity Explained — How the Cascade Decides">
+<meta property="og:description" content="The four levels, how to calculate it, why !important is almost always wrong.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/specificity.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CSS Specificity Explained">
+<meta name="twitter:description" content="The four levels and why !important is almost always wrong.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/specificity.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "CSS Specificity Explained — How the Cascade Decides",
+"description": "The four levels of CSS specificity and how to avoid the specificity war.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-02",
+"dateModified": "2026-11-02",
+"proficiencyLevel": "Intermediate",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How does CSS specificity work?","acceptedAnswer":{"@type":"Answer","text":"Specificity is a four-part score that determines which CSS rule wins when multiple rules target the same element. From highest to lowest: (1) inline styles — style attribute on the element; (2) IDs — #id; (3) classes, attributes, and pseudo-classes — .class, [attr], :hover; (4) elements and pseudo-elements — div, ::before. Each level is scored independently; a single ID beats any number of classes. When scores are equal, source order decides — the later rule wins. When in doubt, check a specificity calculator or use browser DevTools to see which rule applied."}},
+{"@type":"Question","name":"What is the specificity of a class vs an ID?","acceptedAnswer":{"@type":"Answer","text":"An ID is one level higher than a class — always. Specificity is (a,b,c,d): a = inline, b = IDs, c = classes, d = elements. A class has score 0,0,1,0. An ID has score 0,1,0,0. An ID wins regardless of how many classes target the same element. Ten classes (0,0,10,0) still lose to one ID (0,1,0,0). This is why IDs in CSS are discouraged — they create high-specificity rules that are hard to override without !important. Prefer classes and data attributes."}},
+{"@type":"Question","name":"Why is !important bad?","acceptedAnswer":{"@type":"Answer","text":"!important overrides specificity entirely — it doesn't matter what the selector is. That sounds useful, but it creates a new problem: to override an !important rule, you need another !important rule with equal or higher specificity, and then the source order decides. Pages accumulate !important declarations until nobody can predict which styles apply. Fix: use !important only for utility classes (like .text-red { color: red !important } in Tailwind) or for overriding third-party CSS you can't edit. For everything else, use specificity correctly and skip !important."}},
+{"@type":"Question","name":"What is the difference between specificity and inheritance?","acceptedAnswer":{"@type":"Answer","text":"Specificity decides which rule wins when multiple rules target the same element directly. Inheritance is about child elements receiving values from their parent when no rule targets them directly. Inherited values have the lowest priority — any direct rule beats an inherited value, regardless of specificity. Not all properties inherit (margin, padding, border don't; color, font, line-height do). Use inherit, initial, or unset keywords to control this explicitly."}},
+{"@type":"Question","name":"How do I avoid the specificity war?","acceptedAnswer":{"@type":"Answer","text":"Four practices. (1) Use classes, not IDs — classes have consistent low specificity. (2) Keep selectors short — .card-title beats .page .section .card .title. (3) Use CSS custom properties (variables) instead of fighting specificity — set the variable at a parent, override at the child. (4) Use @layer to control order explicitly — later layers win regardless of specificity. Modern CSS has tools that make specificity wars rare. The war happens when you don't use them."}},
+{"@type":"Question","name":"What is the order of CSS specificity levels?","acceptedAnswer":{"@type":"Answer","text":"Highest to lowest: (1) !important declarations — skip unless necessary; (2) inline styles (style attribute); (3) ID selectors (#id); (4) class selectors, attribute selectors, pseudo-classes (.class, [type], :hover); (5) element selectors, pseudo-elements (div, ::before); (6) universal selector (*), combinators (+, >, ~), and :where() — all zero specificity. Lower levels are additive: a rule with one class and one element is (0,0,1,1). But a single item in a higher level always beats any number in lower levels."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · specificity</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Specificity</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>CSS specificity.<br><span class="py-accent">Four levels. One winner.</span></h1>
+<p class="lead">
+Specificity is the score that decides which CSS rule wins when multiple rules target the same element. It's the reason your <code>.button</code> rule "doesn't work" — an <code>#header</code> rule with an ID is winning. It's also the reason <code>!important</code> exists, and the reason <code>!important</code> is a trap. This page covers the four levels, how to calculate, and the modern tools that make the specificity war rare.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Specificity has four levels, from highest to lowest: inline styles, IDs, classes/attributes/pseudo-classes, elements/pseudo-elements. A single item in a higher level beats any number in a lower level — one ID beats ten classes. When scores tie, source order decides (later wins). Use classes, not IDs. Keep selectors short. Avoid <code>!important</code> except for utility overrides. Use <code>@layer</code> for explicit control.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The four levels</h2>
+<p class="section-sub">From highest to lowest.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Inline styles</h4>
+<p><code><div style="color: red"></code>. Score (1,0,0,0). Beats every rule except <code>!important</code>.</p>
+</div>
+<div class="concept-card">
+<h4>IDs</h4>
+<p><code>#header</code>. Score (0,1,0,0). Beats any number of classes.</p>
+</div>
+<div class="concept-card">
+<h4>Classes, attributes, pseudo-classes</h4>
+<p><code>.button</code>, <code>[type="text"]</code>, <code>:hover</code>. Score (0,0,1,0). The workhorse level.</p>
+</div>
+<div class="concept-card">
+<h4>Elements, pseudo-elements</h4>
+<p><code>div</code>, <code>::before</code>. Score (0,0,0,1). Lowest specificity. Use for base styles.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">The most common specificity conflict.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">losing-rule.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">#header .button {
+color: blue;
+}
+
+.button {
+color: red; /* your "fix" — doesn't apply */
+}</pre>
+<script type="text/plain" id="raw-code-sol1">#header .button {
+color: blue;
+}
+
+.button {
+color: red; /* your "fix" — doesn't apply */
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Specificity:
+#header .button → (0,1,1,0) = wins
+.button → (0,0,1,0) = loses
+
+❌ #header .button has 1 ID → wins.
+❌ .button has 0 IDs → loses.
+❌ The button stays blue, not red.
+❌ Adding more classes won't help.
+
+Add .button.special? → (0,0,2,0) — still loses to (0,1,1,0).
+Only another ID would win: #header .button.special → (0,1,2,0).
+
+This is the specificity war.</pre>
+</div>
+</div>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">winning-rule.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why it works</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">/* Use classes for all component styles */
+.header .button {
+color: blue;
+}
+
+/* And when you need to override, use the same
+level — same number of classes, later wins. */
+.button {
+color: red;
+}
+
+/* OR bump specificity with a modifier class: /
+.button--danger {
+color: red;
+}</pre>
+<script type="text/plain" id="raw-code-sol2">/ Use classes for all component styles */
+.header .button {
+color: blue;
+}
+
+/* And when you need to override, use the same
+level — same number of classes, later wins. */
+.button {
+color: red;
+}
+
+/* OR bump specificity with a modifier class: */
+.button--danger {
+color: red;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Specificity:
+.header .button → (0,0,2,0)
+.button → (0,0,1,0) — still loses
+.button--danger → (0,0,1,0) — also loses
+
+Fix 1: same or higher class count:
+.header .button--danger → (0,0,2,0) → ties, later wins
+
+Fix 2: reorder — put .button rules before .header .button.
+
+Fix 3: use @layer to control order explicitly.
+@layer base, components, utilities;
+base wins first, utilities win last.
+
+✅ No IDs. No !important. Predictable cascade.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ @layer — the modern fix</h2>
+<p class="section-sub">Control order without touching specificity.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">layers.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">What happens</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">@layer base, components, utilities;
+
+@layer base {
+.button {
+color: blue;
+padding: 0.5rem 1rem;
+}
+}
+
+@layer components {
+.button {
+background: white;
+border: 1px solid #ccc;
+}
+}
+
+@layer utilities {
+.text-red {
+color: red !important;
+}
+}</pre>
+<script type="text/plain" id="raw-code-sol3">@layer base, components, utilities;
+
+@layer base {
+.button {
+color: blue;
+padding: 0.5rem 1rem;
+}
+}
+
+@layer components {
+.button {
+background: white;
+border: 1px solid #ccc;
+}
+}
+
+@layer utilities {
+.text-red {
+color: red !important;
+}
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Layer order: base, components, utilities.
+Later layers win regardless of specificity.
+
+If .button is in @layer base → blue wins.
+If .button is in @layer components → components wins.
+If .text-red is in @layer utilities → utility wins.
+
+✅ Same selector in different layers → the
+later layer wins.
+✅ No specificity math needed.
+✅ Perfect for design systems and component
+libraries.
+✅ !important inside @layer utilities is standard
+(this is how Tailwind works internally).
+
+This is the modern answer to "how do I avoid
+specificity wars." Use @layer to define intent.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>!important</code> to fix specificity.</strong> It always works at first — the rule applies, the visual changes. But every <code>!important</code> demands another <code>!important</code> to override it. Pages accumulate them until nobody can predict which styles apply. The fix is not a stronger override — it's using the right selector at the right level. Use classes not IDs. Keep selectors short. Use <code>@layer</code> for intentional ordering. Reserve <code>!important</code> for utility classes (where it's part of the pattern) or third-party overrides you can't edit.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The specificity mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using IDs in CSS</div>
+<p>High specificity that's hard to override. Fix: use classes for styling; IDs only for anchors and JS hooks.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Reaching for <code>!important</code></div>
+<p>Spreads and demands more <code>!important</code>. Fix: fix the selector, not the override.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Adding specificity instead of reducing it</div>
+<p><code>.header .nav .link</code> wins because it's deeper. Fix: use short selectors + <code>@layer</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Assuming <code>.class</code> beats <code>element.class</code></div>
+<p>Both have 1 class — source order decides. Fix: understand the score, not the visual length.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Inline styles with JS</div>
+<p>Beats everything except <code>!important</code> — hard to override in CSS. Fix: use classes toggled by JS.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Inline <code>style="..."</code></div>
+<p>Same problem — hidden specificity. Fix: move to a class.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. <code>:where()</code> for lowering specificity</div>
+<p>Good tool, misunderstood. Fix: <code>:where(.a) .b</code> has the same specificity as <code>.b</code> alone.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not checking DevTools</div>
+<p>Wasting time guessing. Fix: DevTools shows the winning rule and strikes through the losing ones.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How does CSS specificity work?</summary>
+<p class="mt-2 text-sm text-slate-300">Specificity is a four-part score that determines which CSS rule wins when multiple rules target the same element. From highest to lowest: (1) inline styles; (2) IDs; (3) classes, attributes, and pseudo-classes; (4) elements and pseudo-elements. Each level is scored independently; a single ID beats any number of classes. When scores are equal, source order decides — the later rule wins.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the specificity of a class vs an ID?</summary>
+<p class="mt-2 text-sm text-slate-300">An ID is one level higher than a class — always. Specificity is (a,b,c,d): a = inline, b = IDs, c = classes, d = elements. A class has score 0,0,1,0. An ID has score 0,1,0,0. An ID wins regardless of how many classes target the same element. This is why IDs in CSS are discouraged — they create high-specificity rules that are hard to override without !important.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is !important bad?</summary>
+<p class="mt-2 text-sm text-slate-300">!important overrides specificity entirely — it doesn't matter what the selector is. That sounds useful, but it creates a new problem: to override an !important rule, you need another !important rule with equal or higher specificity, and then the source order decides. Pages accumulate !important declarations until nobody can predict which styles apply. Use !important only for utility classes or third-party CSS you can't edit.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between specificity and inheritance?</summary>
+<p class="mt-2 text-sm text-slate-300">Specificity decides which rule wins when multiple rules target the same element directly. Inheritance is about child elements receiving values from their parent when no rule targets them directly. Inherited values have the lowest priority — any direct rule beats an inherited value, regardless of specificity. Not all properties inherit (margin, padding, border don't; color, font, line-height do).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I avoid the specificity war?</summary>
+<p class="mt-2 text-sm text-slate-300">Four practices. (1) Use classes, not IDs. (2) Keep selectors short. (3) Use CSS custom properties instead of fighting specificity. (4) Use @layer to control order explicitly — later layers win regardless of specificity. Modern CSS has tools that make specificity wars rare.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the order of CSS specificity levels?</summary>
+<p class="mt-2 text-sm text-slate-300">Highest to lowest: (1) !important declarations; (2) inline styles; (3) ID selectors; (4) class selectors, attribute selectors, pseudo-classes; (5) element selectors, pseudo-elements; (6) universal selector and combinators — all zero specificity. Lower levels are additive: a rule with one class and one element is (0,0,1,1). But a single item in a higher level always beats any number in lower levels.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/box-model.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 The CSS box model</div>
+<div class="text-xs text-slate-400 mt-1">Content, padding, border, margin</div>
+</a>
+<a href="/courses/css/problems/centering.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 How to center a div</div>
+<div class="text-xs text-slate-400 mt-1">Four methods, one answer</div>
+</a>
+<a href="/courses/css/problems/flexbox-vs-grid.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 Flexbox vs grid</div>
+<div class="text-xs text-slate-400 mt-1">One-dimensional vs two-dimensional</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
