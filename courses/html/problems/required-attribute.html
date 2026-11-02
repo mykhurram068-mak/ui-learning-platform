@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>HTML required Attribute — How Browser Validation Works (2026)</title>
+<meta name="description" content="The HTML required attribute explained: browser-side validation without JavaScript, what it checks, what it doesn't, and how to combine it with pattern and minlength.">
+<meta name="keywords" content="html required attribute, required input, form validation html, html5 validation, required field, pattern attribute">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="HTML required Attribute — How Browser Validation Works">
+<meta property="og:description" content="Browser-side validation without JavaScript — and where it falls short.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/html/problems/required-attribute.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="HTML required Attribute">
+<meta name="twitter:description" content="Browser validation without JavaScript.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/html/problems/required-attribute.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "HTML required Attribute — How Browser Validation Works",
+"description": "The required attribute explained with what it checks, what it doesn't, and how to combine it with pattern and minlength.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-02",
+"dateModified": "2026-11-02",
+"proficiencyLevel": "Beginner",
+"dependencies": "HTML5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What does the required attribute do?","acceptedAnswer":{"@type":"Answer","text":"The required attribute on an input, select, or textarea tells the browser the field must be filled before the form can be submitted. When the user clicks submit with an empty required field, the browser blocks the submission and shows a native validation message. No JavaScript needed. The check is real — the form does not submit until every required field has a value. The message text is browser-provided and cannot be fully styled, only customized via setCustomValidity in JS."}},
+{"@type":"Question","name":"Does required work with checkboxes and radio buttons?","acceptedAnswer":{"@type":"Answer","text":"Yes. On a checkbox, required means the box must be checked. On a radio group, required on any one radio in the group makes the whole group required — one option must be selected. The attribute is on one radio, but the browser checks the whole group by name. On a select, required means an option with a non-empty value must be chosen. The first option should have value='' and be disabled so the user has to pick a real one."}},
+{"@type":"Question","name":"Can I style the required error message?","acceptedAnswer":{"@type":"Answer","text":"Not directly. The native validation bubble is browser-controlled and cannot be styled with CSS. You can customize the text using setCustomValidity, but the bubble itself — its position, color, font — is up to the browser. If you need a styled error message, use the constraint validation API: check input.validity.valueMissing, set a custom error element, and style that. The required attribute still does the check; you just present the error yourself."}},
+{"@type":"Question","name":"Does required validate email format?","acceptedAnswer":{"@type":"Answer","text":"No. required only checks that the field has a value — any value. To validate format, combine it with type='email' (which enforces an @ and a domain), or use the pattern attribute for a custom regex. For email, type='email' required is enough for basic format validation. For stricter rules, use pattern with a specific regex. The required attribute is a presence check, not a format check."}},
+{"@type":"Question","name":"Why is my required field still submitting empty?","acceptedAnswer":{"@type":"Answer","text":"Three common causes. (1) The form has novalidate on it — this disables native validation entirely. Fix: remove novalidate. (2) The input is inside a form that uses JavaScript submission with e.preventDefault() — the native check is bypassed. Fix: call form.checkValidity() in your handler before submitting. (3) The input has an empty string as its value from a script (input.value = ''), and the browser considers it filled. Fix: clear with input.value = null or remove the attribute. The required check fires on submit, not on every keystroke."}},
+{"@type":"Question","name":"Should I rely on required alone for validation?","acceptedAnswer":{"@type":"Answer","text":"No — the browser check is a UX convenience, not a security measure. Users can disable JavaScript, submit forms via API directly, or bypass the browser entirely with curl. Always validate on the server. The required attribute improves the experience (immediate feedback, no round-trip) but is not a substitute for server-side validation. Use required on the client, and validate the same rules on the server. The two layers are complementary, not alternatives."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-html.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e34c26; border-bottom-color: #e34c26; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e34c26 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">HTML · required attribute</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/html/index.html" style="color:#7ee8fc;">HTML</a> ›
+<a href="/courses/html/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Required attribute</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">📄 Concept · 3 min read</div>
+<h1>The required attribute.<br><span class="py-accent">Validation without JavaScript.</span></h1>
+<p class="lead">
+One attribute and the browser enforces the check for you. When a form is submitted, the browser validates every field with <code>required</code> and blocks submission if any are empty. No JavaScript, no library, no server round-trip. This page covers what it does, what it doesn't, and the pattern/minlength combo that covers the rest of the validation you'd otherwise write by hand.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Add <code>required</code> to any &lt;input&gt;, &lt;select&gt;, or &lt;textarea&gt;. The browser blocks form submission until it has a value. Combine with <code>type="email"</code> for email format, <code>minlength</code> / <code>maxlength</code> for length, and <code>pattern</code> for a custom regex. The attribute is a UX check, not a security check — always validate on the server too.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ How it works</h2>
+<p class="section-sub">The native check, on submit only.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Fires on submit</h4>
+<p>The check runs when the form is submitted, not on every keystroke. Blur and change don't trigger the required error.</p>
+</div>
+<div class="concept-card">
+<h4>Blocks submission</h4>
+<p>The form never navigates. The browser scrolls to the first invalid field and shows a native bubble.</p>
+</div>
+<div class="concept-card">
+<h4>Works with select and radio</h4>
+<p><code>&lt;select required&gt;</code> requires a non-empty option. <code>&lt;input type="radio" required&gt;</code> requires one in the group to be checked.</p>
+</div>
+<div class="concept-card">
+<h4>novalidate disables it</h4>
+<p>Adding <code>novalidate</code> to the form turns off native validation entirely. Use it only when you validate in JS.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">The same form, with and without validation.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">without-required.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">&lt;form action="/submit" method="POST"&gt;
+&lt;label for="email"&gt;Email&lt;/label&gt;
+&lt;input id="email" name="email" type="email"&gt;
+
+&lt;button type="submit"&gt;Subscribe&lt;/button&gt;
+&lt;/form&gt;</pre>
+<script type="text/plain" id="raw-code-sol1">&lt;form action="/submit" method="POST"&gt;
+&lt;label for="email"&gt;Email&lt;/label&gt;
+&lt;input id="email" name="email" type="email"&gt;
+
+&lt;button type="submit"&gt;Subscribe&lt;/button&gt;
+&lt;/form&gt;</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>❌ Empty email submits successfully.
+❌ Server receives email="" and must reject it.
+❌ Extra round-trip, worse UX.</pre>
+</div>
+</div>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">with-required.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">&lt;form action="/submit" method="POST"&gt;
+&lt;label for="email"&gt;Email&lt;/label&gt;
+&lt;input id="email" name="email" type="email" required&gt;
+
+&lt;button type="submit"&gt;Subscribe&lt;/button&gt;
+&lt;/form&gt;</pre>
+<script type="text/plain" id="raw-code-sol2">&lt;form action="/submit" method="POST"&gt;
+&lt;label for="email"&gt;Email&lt;/label&gt;
+&lt;input id="email" name="email" type="email" required&gt;
+
+&lt;button type="submit"&gt;Subscribe&lt;/button&gt;
+&lt;/form&gt;</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>✅ Empty email blocks submission.
+✅ Browser shows "Please fill out this field".
+✅ Focus moves to the email field automatically.
+✅ No server round-trip needed.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Combining with other validators</h2>
+<p class="section-sub"><code>required</code> checks presence. Add more attributes for format.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">full-validation.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Markup</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">What each checks</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">&lt;form action="/signup" method="POST"&gt;
+<!-- Email: presence + format -->
+&lt;input name="email" type="email" required&gt;
+
+<!-- Password: presence + minimum length -->
+&lt;input name="password" type="password" required minlength="8"&gt;
+
+<!-- Username: presence + custom pattern -->
+&lt;input name="username" type="text" required
+pattern="[a-zA-Z0-9_]{3,20}"
+title="3–20 characters: letters, numbers, underscore"&gt;
+
+<!-- Age: presence + range -->
+&lt;input name="age" type="number" required min="18" max="120"&gt;
+
+<!-- Terms: checkbox must be checked -->
+&lt;input name="terms" type="checkbox" required&gt;
+
+<!-- Country: must pick a non-empty option -->
+&lt;select name="country" required&gt;
+&lt;option value=""&gt;Choose…&lt;/option>
+&lt;option value="us"&gt;United States&lt;/option&gt;
+&lt;option value="uk"&gt;United Kingdom&lt;/option&gt;
+&lt;/select&gt;
+
+&lt;button type="submit"&gt;Sign up&lt;/button&gt;
+&lt;/form&gt;</pre>
+<script type="text/plain" id="raw-code-sol3">&lt;form action="/signup" method="POST"&gt;
+<!-- Email: presence + format -->
+&lt;input name="email" type="email" required&gt;
+
+<!-- Password: presence + minimum length -->
+&lt;input name="password" type="password" required minlength="8"&gt;
+
+<!-- Username: presence + custom pattern -->
+&lt;input name="username" type="text" required
+pattern="[a-zA-Z0-9_]{3,20}"
+title="3–20 characters: letters, numbers, underscore"&gt;
+
+<!-- Age: presence + range -->
+&lt;input name="age" type="number" required min="18" max="120"&gt;
+
+<!-- Terms: checkbox must be checked -->
+&lt;input name="terms" type="checkbox" required&gt;
+
+<!-- Country: must pick a non-empty option -->
+&lt;select name="country" required&gt;
+&lt;option value=""&gt;Choose…&lt;/option>
+&lt;option value="us"&gt;United States&lt;/option&gt;
+&lt;option value="uk"&gt;United Kingdom&lt;/option&gt;
+&lt;/select&gt;
+
+&lt;button type="submit"&gt;Sign up&lt;/button&gt;
+&lt;/form&gt;</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>required → must have a value
+type="email" → must look like email (user@domain)
+minlength="8" → at least 8 characters
+pattern="..." → must match the regex
+min="18" max="120" → number in range
+type="checkbox" + required → must be checked
+select + required → must pick a non-empty option
+
+⚠️ title is the message shown when pattern fails.
+Without title, the browser shows a generic message.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't trust <code>required</code> alone for security.</strong> Users can disable JavaScript, submit forms via API directly, use <code>curl</code>, or tamper with the page. The <code>required</code> attribute is a UX check — it prevents typos and gives immediate feedback. It is not a validation or security boundary. Always validate the same rules on the server. The two layers are complementary: the browser check improves UX, the server check is what actually protects the data.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The required-attribute mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>novalidate</code> on the form</div>
+<p>Disables native validation. Fix: remove <code>novalidate</code> unless you validate in JS.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Forgetting <code>name</code></div>
+<p>The field is required but its value isn't sent. Fix: add <code>name</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Required on the first select option</div>
+<p><code>&lt;option value=""&gt;Choose…&lt;/option&gt;</code> with no <code>disabled</code> allows it. Fix: add <code>disabled</code> and <code>selected</code> to the placeholder option.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Pattern without title</div>
+<p>The error message is generic "match the requested format". Fix: add <code>title</code> with the expected format.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Required on a hidden input</div>
+<p>Hidden inputs can be empty but required blocks the form invisibly. Fix: don't add <code>required</code> to hidden inputs, or set a default value.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Expecting <code>required</code> on a submit button to work</div>
+<p>Buttons don't take <code>required</code> — it's only for form controls. Fix: it's a no-op, remove it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Bypassing with JS form submission</div>
+<p>Calling <code>form.submit()</code> skips validation. Fix: use <code>form.requestSubmit()</code> instead — it fires the same checks.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Hiding the native bubble</div>
+<p>CSS can't style the bubble. Fix: use <code>setCustomValidity</code> for custom text, or the constraint validation API for fully custom UI.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">What does the required attribute do?</summary>
+<p class="mt-2 text-sm text-slate-300">The required attribute on an input, select, or textarea tells the browser the field must be filled before the form can be submitted. When the user clicks submit with an empty required field, the browser blocks the submission and shows a native validation message. No JavaScript needed. The check is real — the form does not submit until every required field has a value. The message text is browser-provided and cannot be fully styled, only customized via setCustomValidity in JS.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Does required work with checkboxes and radio buttons?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. On a checkbox, required means the box must be checked. On a radio group, required on any one radio in the group makes the whole group required — one option must be selected. The attribute is on one radio, but the browser checks the whole group by name. On a select, required means an option with a non-empty value must be chosen. The first option should have value="" and be disabled so the user has to pick a real one.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Can I style the required error message?</summary>
+<p class="mt-2 text-sm text-slate-300">Not directly. The native validation bubble is browser-controlled and cannot be styled with CSS. You can customize the text using setCustomValidity, but the bubble itself — its position, color, font — is up to the browser. If you need a styled error message, use the constraint validation API: check input.validity.valueMissing, set a custom error element, and style that. The required attribute still does the check; you just present the error yourself.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Does required validate email format?</summary>
+<p class="mt-2 text-sm text-slate-300">No. required only checks that the field has a value — any value. To validate format, combine it with type="email" (which enforces an @ and a domain), or use the pattern attribute for a custom regex. For email, type="email" required is enough for basic format validation. For stricter rules, use pattern with a specific regex. The required attribute is a presence check, not a format check.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Why is my required field still submitting empty?</summary>
+<p class="mt-2 text-sm text-slate-300">Three common causes. (1) The form has novalidate on it — this disables native validation entirely. Fix: remove novalidate. (2) The input is inside a form that uses JavaScript submission with e.preventDefault() — the native check is bypassed. Fix: call form.checkValidity() in your handler before submitting. (3) The input has an empty string as its value from a script (input.value = ''), and the browser considers it filled. Fix: clear with input.value = null or remove the attribute. The required check fires on submit, not on every keystroke.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-orange-400 font-medium text-sm">Should I rely on required alone for validation?</summary>
+<p class="mt-2 text-sm text-slate-300">No — the browser check is a UX convenience, not a security measure. Users can disable JavaScript, submit forms via API directly, or bypass the browser entirely with curl. Always validate on the server. The required attribute improves the experience (immediate feedback, no round-trip) but is not a substitute for server-side validation. Use required on the client, and validate the same rules on the server. The two layers are complementary, not alternatives.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/html/problems/form-not-submitting.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 Why does my form not submit?</div>
+<div class="text-xs text-slate-400 mt-1">Three causes — missing name, wrong button type, preventDefault</div>
+</a>
+<a href="/courses/html/problems/label-for.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 Why use <label for>?</div>
+<div class="text-xs text-slate-400 mt-1">Click the label, focus the input</div>
+</a>
+<a href="/courses/html/problems/input-types.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📄 The 20 HTML input types</div>
+<div class="text-xs text-slate-400 mt-1">Email, tel, number, date, file</div>
+</a>
+<a href="/courses/html/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-orange-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All HTML problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/html/problems/index.html" class="back-link">← All HTML problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · HTML <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-orange-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
