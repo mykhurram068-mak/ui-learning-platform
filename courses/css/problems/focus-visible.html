@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>:focus-visible vs :focus — Keyboard-Only Focus Styles (2026)</title>
+<meta name="description" content="CSS :focus-visible explained: keyboard-only focus styles, why removing focus outlines is bad, and the modern pattern for accessible focus rings.">
+<meta name="keywords" content="css focus-visible, focus vs focus-visible, remove focus outline, keyboard focus css, accessible focus, css focus ring">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content=":focus-visible vs :focus — Keyboard-Only Focus Styles">
+<meta property="og:description" content="Keyboard-only focus styles, and why removing focus outlines is bad.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/focus-visible.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content=":focus-visible vs :focus">
+<meta name="twitter:description" content="Keyboard-only focus styles.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/focus-visible.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": ":focus-visible vs :focus — Keyboard-Only Focus Styles",
+"description": "Keyboard-only focus styles, and why removing focus outlines is bad.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Intermediate",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is :focus-visible?","acceptedAnswer":{"@type":"Answer","text":"focus-visible is a CSS pseudo-class that matches when an element has focus AND the user is interacting via keyboard (or another input that benefits from visible focus). It does not match on mouse clicks. This solves a long-standing UX problem: users want focus outlines when tabbing (keyboard navigation), but not when clicking (mouse interaction). With :focus-visible, you can show the outline for keyboard users and hide it for mouse users — without compromising accessibility. Supported in all modern browsers since 2022."}},
+{"@type":"Question","name":"What is the difference between :focus and :focus-visible?","acceptedAnswer":{"@type":"Answer","text":"focus matches whenever an element has focus — mouse click, keyboard tab, or JavaScript focus() call. focus-visible matches only when the focus is 'user-visible' — typically keyboard interaction. The key difference: click a button, both :focus and :focus-visible might match (depending on the browser's heuristic — usually :focus matches, :focus-visible does not). Tab to a button, both match. This lets you show focus styles for keyboard users without the harsh outline appearing when a mouse user clicks a button."}},
+{"@type":"Question","name":"Why is removing the focus outline bad?","acceptedAnswer":{"@type":"Answer","text":"It breaks keyboard navigation. Users who navigate by Tab need to see where focus is — the outline is their cursor. outline: none (or :focus { outline: 0 }) removes the only visual indicator, so keyboard users have no idea which element is focused. This is a WCAG 2.4.7 failure (Focus Visible). The fix is not to remove the outline — it's to replace it with a better one. Use :focus-visible with a custom outline: 2px solid #2965f1; outline-offset: 2px. This gives keyboard users a clear, on-brand focus ring, and mouse users don't see it."}},
+{"@type":"Question","name":"Does :focus-visible work on all elements?","acceptedAnswer":{"@type":"Answer","text":"focus-visible works on any element that can receive focus — buttons, links, inputs, select, textarea, elements with tabindex. It's most useful on interactive elements that are clicked as well as tabbed to (buttons, links, form controls). For elements that only receive focus via keyboard (like a skip link that's hidden until focused), you can style :focus directly — but focus-visible is still more precise and is the modern best practice. There's no downside to using focus-visible over focus for interactive elements."}},
+{"@type":"Question","name":"Why does focus-visible not show on my element?","acceptedAnswer":{"@type":"Answer","text":"Three common causes. (1) The element is not focusable — a div without tabindex, or a button with tabindex: -1. Fix: use a natively focusable element, or add tabindex='0'. (2) The focus came from a mouse click — focus-visible intentionally hides in this case. Fix: not a bug — test with Tab. (3) Another rule overrides focus-visible — check specificity. Fix: use !important sparingly, or increase specificity with a more specific selector. Also check that the element actually receives focus — some elements (like custom divs with ARIA roles) need tabindex to be focusable at all."}},
+{"@type":"Question","name":"Can I combine :focus-visible with :focus?","acceptedAnswer":{"@type":"Answer","text":"Yes, but it's usually unnecessary. For most cases, use :focus-visible alone: it covers keyboard focus (the case where users need the outline) and doesn't fire on mouse clicks (the case where they don't). If you want a different style for keyboard vs mouse focus, you can use both: :focus for a subtle style, :focus-visible for a prominent outline. But for a single style that works well for accessibility, :focus-visible alone is the answer. The main pitfall: don't write :focus { outline: none } and rely only on :focus-visible — that leaves mouse clicks with no visible focus at all, and some browsers still fire :focus. Use only :focus-visible, or style both."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · focus-visible</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">:focus-visible</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>:focus-visible.<br><span class="py-accent">Keyboard focus without the mouse.</span></h1>
+<p class="lead">
+For years, developers did one of two things: left the ugly default focus outline on every element (keyboard users loved it, mouse users hated it), or set <code>outline: none</code> everywhere (mouse users loved it, keyboard users couldn't navigate). <code>:focus-visible</code> solves both — it shows focus styles only when the user is navigating by keyboard. One pseudo-class, one best practice, one accessibility problem solved.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>:focus-visible</code> instead of <code>:focus</code> for interactive elements. Style it with <code>outline: 2px solid #2965f1; outline-offset: 2px</code> — a visible, on-brand focus ring that only appears for keyboard users. Never write <code>outline: none</code> without a replacement — it breaks keyboard navigation. <code>:focus-visible</code> is supported in all modern browsers since 2022. If you must support older browsers, use <code>:focus</code> as a fallback.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">The old way and the fix.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">focus-none.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">/* ❌ The accessibility failure /
+button,
+a,
+input {
+outline: none; / removes focus indicator */
+}
+
+/* No replacement — keyboard users see nothing. /</pre>
+<script type="text/plain" id="raw-code-sol1">/ The accessibility failure /
+button,
+a,
+input {
+outline: none; / removes focus indicator */
+}
+
+/* No replacement — keyboard users see nothing. */</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What happens:
+
+1. Keyboard user presses Tab.
+2. Focus moves to the next focusable element.
+3. Nothing changes visually — no outline,
+no indicator, no feedback.
+4. User doesn't know where focus is.
+5. User can't use the page.
+
+This is a WCAG 2.4.7 failure (Focus Visible).
+It's one of the most common accessibility bugs
+on the web, and one of the most easily fixed.
+
+Never write outline: none on focusable elements
+without providing a replacement.
+
+If a designer insists "the blue outline is ugly,"
+the answer is not to remove it — it's to
+replace it with a better one.</pre>
+</div>
+</div>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">focus-visible.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">/* ✅ The modern fix /
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+border-radius: 2px; / optional, rounds the outline */
+}
+
+/* Keyboard focus: visible outline /
+/ Mouse click: no outline */
+
+/* Modern single-line version with :where() /
+:where(button, a, input, select, textarea):focus-visible {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+}</pre>
+<script type="text/plain" id="raw-code-sol2">/ The modern fix /
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+border-radius: 2px; / optional, rounds the outline */
+}
+
+/* Keyboard focus: visible outline /
+/ Mouse click: no outline */
+
+/* Modern single-line version with :where() */
+:where(button, a, input, select, textarea):focus-visible {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Keyboard user tabs to a button:
+┌──────────────────────┐
+│ ┏━━━━━━━━━━━━━━━━━━┓ │ ← 2px blue outline
+│ ┃ Click me ┃ │ offset by 2px
+│ ┗━━━━━━━━━━━━━━━━━━┛ │
+└──────────────────────┘
+
+Mouse user clicks the button:
+┌──────────────────────┐
+│ ┌──────────────────┐ │ ← no outline
+│ │ Click me │ │ (but hover styles
+│ └──────────────────┘ │ may still apply)
+└──────────────────────┘
+
+✅ Keyboard users see where focus is.
+✅ Mouse users don't see the outline.
+✅ WCAG 2.4.7 satisfied.
+✅ Designers and users both happy.
+
+outline-offset: 2px pushes the outline 2px
+outside the element — makes it visible without
+being clipped by the border. For tight layouts,
+use 2px; for more breathing room, 3-4px.
+
+outline-color should match your brand.
+Use the primary accent — #2965f1 here.
+
+Don't use box-shadow instead — it can be clipped
+by overflow: hidden and doesn't follow the border
+radius the way outline does (since 2022).</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The fallback for older browsers</h2>
+<p class="section-sub">What to do if :focus-visible isn't supported.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">focus-fallback.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">/* Fallback — :focus works everywhere */
+button:focus,
+a:focus,
+input:focus {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+}
+
+/* Then override with :focus-visible for browsers
+that support it */
+@supports selector(:focus-visible) {
+button:focus,
+a:focus,
+input:focus {
+outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+}
+}</pre>
+<script type="text/plain" id="raw-code-sol3">/* Fallback — :focus works everywhere */
+button:focus,
+a:focus,
+input:focus {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+}
+
+/* Then override with :focus-visible for browsers
+that support it */
+@supports selector(:focus-visible) {
+button:focus,
+a:focus,
+input:focus {
+outline: none;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+}
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>How it works:
+
+Browser without :focus-visible support:
+Applies the first rule (button:focus).
+Skips the @supports block.
+→ Shows outline on both keyboard AND mouse focus.
+→ Safe fallback.
+
+Browser with :focus-visible support:
+Applies the first rule.
+Also applies the @supports block.
+→ :focus outline is set to none.
+→ :focus-visible outline is set.
+→ Shows outline only on keyboard focus.
+→ Modern behavior.
+
+✅ Same CSS works in both cases.
+✅ Accessibility preserved everywhere.
+✅ Progressive enhancement, no JS.
+
+@supports selector(:focus-visible) is a feature
+query — it checks whether the browser supports
+the :focus-visible pseudo-class.
+
+For most sites in 2026, all modern browsers
+support :focus-visible (Safari 15.4+, 2022).
+The fallback is for IE, older Safari, or very
+old Android browsers.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>outline: none</code> and expect <code>:focus-visible</code> to fix it.</strong> If you write <code>button:focus {'{ outline: none; }'}</code> and then <code>button:focus-visible {'{ outline: 2px solid #2965f1; }'}</code>, mouse clicks get no focus indicator (fine) and keyboard focus gets the outline (fine) — but the browser's default focus outline is still applied between the two rules for browsers that don't support <code>:focus-visible</code>. Worse, some browsers fire <code>:focus-visible</code> on mouse click too, so the outline appears when you don't want it. The correct pattern is: never write <code>outline: none</code>. Write only <code>:focus-visible</code> with an outline. Remove the default, replace with yours, done.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The focus-visible mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>outline: none</code> without replacement</div>
+<p>Breaks keyboard navigation — WCAG failure. Fix: <code>:focus-visible</code> with a clear outline.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using <code>:focus</code> everywhere</div>
+<p>Harsh outline on mouse clicks. Fix: <code>:focus-visible</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using <code>box-shadow</code> instead of <code>outline</code></div>
+<p>Clipped by overflow, doesn't follow border-radius. Fix: <code>outline</code> with <code>outline-offset</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Focusable elements without focus style</div>
+<p>Buttons, links, inputs — all need visible focus. Fix: cover all interactive elements.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Custom components without <code>tabindex</code></div>
+<p>Divs with ARIA roles don't get focus. Fix: add <code>tabindex="0"</code> or use native elements.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Forgetting <code>:focus-visible</code> on <code>select</code></div>
+<p>Dropdowns are focusable too. Fix: include them in the selector.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. outline-offset: 0</div>
+<p>The outline touches the element — hard to see on borders. Fix: <code>outline-offset: 2px</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Testing only with Tab</div>
+<p>Some bugs only show on mouse click. Fix: test both inputs, and with a screen reader.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is :focus-visible?</summary>
+<p class="mt-2 text-sm text-slate-300">focus-visible is a CSS pseudo-class that matches when an element has focus AND the user is interacting via keyboard. It does not match on mouse clicks. This solves the UX problem of users wanting focus outlines when tabbing but not when clicking. With :focus-visible, you can show the outline for keyboard users and hide it for mouse users — without compromising accessibility.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between :focus and :focus-visible?</summary>
+<p class="mt-2 text-sm text-slate-300">:focus matches whenever an element has focus — mouse click, keyboard tab, or JavaScript focus() call. :focus-visible matches only when the focus is 'user-visible' — typically keyboard interaction. Click a button, :focus matches, :focus-visible usually does not. Tab to a button, both match. This lets you show focus styles for keyboard users without the outline appearing when a mouse user clicks.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is removing the focus outline bad?</summary>
+<p class="mt-2 text-sm text-slate-300">It breaks keyboard navigation. Users who navigate by Tab need to see where focus is — the outline is their cursor. outline: none removes the only visual indicator, so keyboard users have no idea which element is focused. This is a WCAG 2.4.7 failure. The fix is not to remove the outline — it's to replace it with a better one using :focus-visible.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does :focus-visible work on all elements?</summary>
+<p class="mt-2 text-sm text-slate-300">focus-visible works on any element that can receive focus — buttons, links, inputs, select, textarea, elements with tabindex. It's most useful on interactive elements that are clicked as well as tabbed to. For elements that only receive focus via keyboard, you can style :focus directly — but focus-visible is still more precise.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does focus-visible not show on my element?</summary>
+<p class="mt-2 text-sm text-slate-300">Three common causes. (1) The element is not focusable. (2) The focus came from a mouse click — focus-visible intentionally hides in this case. (3) Another rule overrides focus-visible. Also check that the element actually receives focus — some elements need tabindex to be focusable at all.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I combine :focus-visible with :focus?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, but it's usually unnecessary. For most cases, use :focus-visible alone. If you want a different style for keyboard vs mouse focus, you can use both. The main pitfall: don't write :focus { outline: none } and rely only on :focus-visible — that leaves mouse clicks with no visible focus at all, and some browsers still fire :focus.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/hover-on-touch.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 :hover on touch doesn't work</div>
+<div class="text-xs text-slate-400 mt-1">The sticky-hover fix</div>
+</a>
+<a href="/courses/css/problems/pseudo-elements.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 What are pseudo-elements?</div>
+<div class="text-xs text-slate-400 mt-1">::before, ::after, and the content property</div>
+</a>
+<a href="/courses/css/problems/css-variables.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 How do CSS variables work?</div>
+<div class="text-xs text-slate-400 mt-1">Custom properties, cascade, theming</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
