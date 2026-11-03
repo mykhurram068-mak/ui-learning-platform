@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>rem vs em in CSS — What's the Difference? (2026)</title>
+<meta name="description" content="rem vs em explained: root-relative vs parent-relative units, when to use each, and the compounding problem with em. Direct answer with examples.">
+<meta name="keywords" content="rem vs em, css rem, css em, css units, rem em difference, css font size units">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="rem vs em in CSS — What's the Difference?">
+<meta property="og:description" content="Root-relative vs parent-relative — and the compounding problem with em.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/rem-vs-em.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="rem vs em in CSS">
+<meta name="twitter:description" content="Root-relative vs parent-relative.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/rem-vs-em.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "rem vs em in CSS — What's the Difference?",
+"description": "Root-relative vs parent-relative units and when to use each.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Beginner",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between rem and em?","acceptedAnswer":{"@type":"Answer","text":"rem is relative to the root element's font size — usually html { font-size: 16px }. 1rem = 16px everywhere, regardless of nesting. em is relative to the parent element's font size — 1em is the current font size of the parent, which could be anything. This is the key difference: rem is consistent across the page, em compounds with nesting. Use rem for font sizes, spacing, and layout — anything that should be consistent. Use em for component-relative sizing — a button whose padding scales with its font size, or a border that stays proportional to text."}},
+{"@type":"Question","name":"Why does em compound?","acceptedAnswer":{"@type":"Answer","text":"Because em is relative to the parent's font size, which is relative to its parent, which is relative to its parent — all the way up to the root. If body is font-size: 16px, and a div is font-size: 1.2em (19.2px), and a child is font-size: 1.2em (23.04px), and a grandchild is 1.2em (27.648px), each level multiplies. This is often called 'the em cascade' or 'em compounding.' It's not a bug — it's how em works. But it makes em hard to predict across a nested hierarchy. rem avoids this because it always refers to the root."}},
+{"@type":"Question","name":"When should I use rem?","acceptedAnswer":{"@type":"Answer","text":"Use rem for anything that should be consistent across the page: font sizes, spacing (padding, margin, gap), widths and heights, border-radius, box-shadow offsets. If you set html { font-size: 16px }, then 1rem = 16px, 2rem = 32px, everywhere. This consistency is what most designs want — a heading is 2rem regardless of where it appears. rem also respects user accessibility settings: if the user changes their browser's default font size, rem scales with it. This is why rem is the recommended unit for font sizes."}},
+{"@type":"Question","name":"When should I use em?","acceptedAnswer":{"@type":"Answer","text":"Use em when a size should scale with the parent's font size. Classic use cases: (1) Button padding — if the button font-size is 1rem, padding: 0.5em 1em gives 8px × 16px padding; if the font is 1.5rem, padding scales to 12px × 24px. (2) Border-radius that stays proportional to text. (3) Line-height (which is often unitless — that's relative to font size already). (4) Icon sizes that should match adjacent text. em is the right tool when the design intentionally couples two sizes. For everything else, use rem."}},
+{"@type":"Question","name":"Is 1rem always 16px?","acceptedAnswer":{"@type":"Answer","text":"No — 1rem is always equal to the root element's font size, which is usually 16px but can be anything. If you set html { font-size: 62.5% } (a common trick to make 1rem = 10px), then 1rem = 10px. If you set html { font-size: 20px }, then 1rem = 20px. The default in most browsers is 16px, but users can change it in their browser settings — this is a feature, not a bug. Using rem means your design scales with the user's preferred font size, which is good for accessibility."}},
+{"@type":"Question","name":"Should I use rem, em, or px?","acceptedAnswer":{"@type":"Answer","text":"Use rem for font sizes, spacing, and most layout dimensions. Use px only for things that should never scale: hairlines (1px borders), very fine details, or where you specifically need pixel precision. Use em for component-relative sizing (button padding that scales with font, icon sizes that match text). Never use px for font sizes — it breaks user font-size preferences. The modern default: rem for most things, em for component-internal proportions, px for hairlines and precise details. The important thing is consistency — pick a convention and apply it throughout the project."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · rem vs em</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">rem vs em</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>rem vs em.<br><span class="py-accent">Root-relative vs parent-relative.</span></h1>
+<p class="lead">
+<code>1rem</code> is always the same. <code>1em</code> is different depending on where you are in the DOM. That's the whole difference — and it matters more than it sounds. This page covers why <code>rem</code> is the default for font sizes and spacing, when <code>em</code> is the right choice, and the compounding problem that makes <code>em</code> hard to predict in nested layouts.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>rem</code> = root-relative. <code>1rem</code> is always the root font size (usually 16px), regardless of where the element is. <code>em</code> = parent-relative. <code>1em</code> is the parent's font size — so it changes with nesting. Use <code>rem</code> for font sizes, spacing, and layout — anything that should be consistent. Use <code>em</code> for component-relative sizing (button padding that scales with text). Never use <code>px</code> for font sizes — it breaks user preferences.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">The same nested elements, with rem and em.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">em-compounds.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">html {
+font-size: 16px;
+}
+
+.parent {
+font-size: 1.2em; /* 16 × 1.2 = 19.2px */
+}
+
+.child {
+font-size: 1.2em; /* 19.2 × 1.2 = 23.04px */
+}
+
+.grandchild {
+font-size: 1.2em; /* 23.04 × 1.2 = 27.648px */
+}</pre>
+<script type="text/plain" id="raw-code-sol1">html {
+font-size: 16px;
+}
+
+.parent {
+font-size: 1.2em; /* 16 × 1.2 = 19.2px */
+}
+
+.child {
+font-size: 1.2em; /* 19.2 × 1.2 = 23.04px */
+}
+
+.grandchild {
+font-size: 1.2em; /* 23.04 × 1.2 = 27.648px */
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Nesting depth vs font size:
+
+Depth 0 (html): 16px
+Depth 1 (.parent): 19.2px ← 1.2 × 16
+Depth 2 (.child): 23.04px ← 1.2 × 19.2
+Depth 3 (.grandchild): 27.65px ← 1.2 × 23.04
+
+Each level multiplies by 1.2.
+
+❌ The same CSS declaration produces
+different font sizes depending on depth.
+❌ "Why is my text getting bigger as I nest?"
+❌ You have to know every ancestor's font size.
+
+This is em compounding. It's not a bug —
+it's how em works. But it's hard to predict.</pre>
+</div>
+</div>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">rem-consistent.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">html {
+font-size: 16px;
+}
+
+.parent {
+font-size: 1.2rem; /* 16 × 1.2 = 19.2px */
+}
+
+.child {
+font-size: 1.2rem; /* 16 × 1.2 = 19.2px */
+}
+
+.grandchild {
+font-size: 1.2rem; /* 16 × 1.2 = 19.2px */
+}</pre>
+<script type="text/plain" id="raw-code-sol2">html {
+font-size: 16px;
+}
+
+.parent {
+font-size: 1.2rem; /* 16 × 1.2 = 19.2px */
+}
+
+.child {
+font-size: 1.2rem; /* 16 × 1.2 = 19.2px */
+}
+
+.grandchild {
+font-size: 1.2rem; /* 16 × 1.2 = 19.2px */
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Nesting depth vs font size:
+
+Depth 0 (html): 16px
+Depth 1 (.parent): 19.2px
+Depth 2 (.child): 19.2px
+Depth 3 (.grandchild): 19.2px
+
+Every level = 1.2rem = 1.2 × 16 = 19.2px.
+
+✅ The same CSS declaration produces
+the same size at every depth.
+✅ Predictable — 1.2rem is 19.2px, always.
+✅ Easy to reason about.
+✅ Matches what designers expect.
+
+This is why rem is the default unit for
+font sizes and spacing.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ When <code>em</code> is the right choice</h2>
+<p class="section-sub">Component-relative sizing.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">em-use-case.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why em</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">.button {
+font-size: 1rem;
+padding: 0.5em 1em; /* scales with font-size */
+border-radius: 0.25em;
+border: 1px solid currentColor;
+}
+
+.button--large {
+font-size: 1.5rem;
+/* padding and border-radius automatically scale
+to 0.75rem 1.5rem and 0.375rem */
+}
+
+/* Icon size matching text */
+.icon {
+width: 1em;
+height: 1em;
+vertical-align: -0.125em;
+}
+
+/* Responsive padding based on viewport /
+.container {
+padding: 2em; / scales if font-size is changed /
+}</pre>
+<script type="text/plain" id="raw-code-sol3">.button {
+font-size: 1rem;
+padding: 0.5em 1em; / scales with font-size */
+border-radius: 0.25em;
+border: 1px solid currentColor;
+}
+
+.button--large {
+font-size: 1.5rem;
+/* padding and border-radius automatically scale
+to 0.75rem 1.5rem and 0.375rem */
+}
+
+/* Icon size matching text */
+.icon {
+width: 1em;
+height: 1em;
+vertical-align: -0.125em;
+}
+
+/* Responsive padding based on viewport /
+.container {
+padding: 2em; / scales if font-size is changed */
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why em works for buttons:
+
+Button default (font-size: 1rem):
+padding: 0.5em 1em → 8px 16px
+border-radius: 0.25em → 4px
+
+Button large (font-size: 1.5rem):
+padding: 0.5em 1em → 12px 24px ← automatically!
+border-radius: 0.25em → 6px ← automatically!
+
+✅ Change font-size, everything scales.
+✅ One set of styles, multiple sizes.
+✅ The padding is proportional to the text.
+
+This is the correct use of em — component
+styles that intentionally scale with font size.
+
+If you used rem for the padding, the large
+button would look cramped — the text would
+be 1.5× but the padding would stay the same.
+
+Rule: em for component-internal proportions,
+rem for everything else.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>em</code> for font sizes in nested components.</strong> The compounding effect means a <code>font-size: 1.2em</code> on a deeply nested element can be 2× the size of the same declaration on a shallow one. This makes typography unpredictable — you set 1.2em, you get 23px in one place and 40px in another. Use <code>rem</code> for font sizes (consistent, root-relative, respects user settings), and reserve <code>em</code> for spacing inside a component (padding, border-radius) where you <em>want</em> the scaling. The rule of thumb: <code>rem</code> for layout, <code>em</code> for component internals.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The rem/em mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using em for font sizes everywhere</div>
+<p>Compounds with nesting. Fix: <code>rem</code> for font sizes.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Assuming 1rem is always 16px</div>
+<p>Depends on root font-size. Fix: check <code>html { font-size }</code> or user settings.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using px for font sizes</div>
+<p>Breaks user font-size preferences. Fix: <code>rem</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Setting html { font-size: 62.5% }</div>
+<p>Makes 1rem = 10px — but breaks user preferences and screen readers. Fix: leave html at default or 100%.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Mixing rem and em confusingly</div>
+<p>Same project uses both without a rule. Fix: pick a convention (rem for layout, em for internals).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Using em for vertical margin</div>
+<p>Compounds with nesting. Fix: <code>rem</code> for margin.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Forgetting line-height</div>
+<p>Unitless line-height is relative to font size — works with rem or em. Fix: <code>line-height: 1.5</code> (unitless).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Media query rem values</div>
+<p>rem in media queries uses the root font size, not the user's font size. Fix: understand this before using rem breakpoints.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between rem and em?</summary>
+<p class="mt-2 text-sm text-slate-300">rem is relative to the root element's font size — usually html { font-size: 16px }. 1rem = 16px everywhere, regardless of nesting. em is relative to the parent element's font size — 1em is the current font size of the parent, which could be anything. This is the key difference: rem is consistent across the page, em compounds with nesting.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does em compound?</summary>
+<p class="mt-2 text-sm text-slate-300">Because em is relative to the parent's font size, which is relative to its parent, which is relative to its parent — all the way up to the root. If body is font-size: 16px, and a div is font-size: 1.2em (19.2px), and a child is font-size: 1.2em (23.04px), and a grandchild is 1.2em (27.648px), each level multiplies. This is often called 'the em cascade' or 'em compounding.'</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use rem?</summary>
+<p class="mt-2 text-sm text-slate-300">Use rem for anything that should be consistent across the page: font sizes, spacing (padding, margin, gap), widths and heights, border-radius, box-shadow offsets. If you set html { font-size: 16px }, then 1rem = 16px, 2rem = 32px, everywhere. rem also respects user accessibility settings: if the user changes their browser's default font size, rem scales with it.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use em?</summary>
+<p class="mt-2 text-sm text-slate-300">Use em when a size should scale with the parent's font size. Classic use cases: (1) Button padding — if the button font-size is 1rem, padding: 0.5em 1em gives 8px × 16px padding; if the font is 1.5rem, padding scales to 12px × 24px. (2) Border-radius that stays proportional to text. (3) Icon sizes that should match adjacent text. em is the right tool when the design intentionally couples two sizes.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Is 1rem always 16px?</summary>
+<p class="mt-2 text-sm text-slate-300">No — 1rem is always equal to the root element's font size, which is usually 16px but can be anything. If you set html { font-size: 62.5% }, then 1rem = 10px. If you set html { font-size: 20px }, then 1rem = 20px. The default in most browsers is 16px, but users can change it in their browser settings — this is a feature, not a bug.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use rem, em, or px?</summary>
+<p class="mt-2 text-sm text-slate-300">Use rem for font sizes, spacing, and most layout dimensions. Use px only for things that should never scale: hairlines (1px borders), very fine details. Use em for component-relative sizing (button padding that scales with font, icon sizes that match text). Never use px for font sizes — it breaks user font-size preferences.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/media-queries.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 How do media queries work?</div>
+<div class="text-xs text-slate-400 mt-1">min-width vs max-width and mobile-first</div>
+</a>
+<a href="/courses/css/problems/clamp-font-size.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 Fluid text with clamp()</div>
+<div class="text-xs text-slate-400 mt-1">Font size that scales with viewport</div>
+</a>
+<a href="/courses/css/problems/box-model.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 The CSS box model</div>
+<div class="text-xs text-slate-400 mt-1">Content, padding, border, margin</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
