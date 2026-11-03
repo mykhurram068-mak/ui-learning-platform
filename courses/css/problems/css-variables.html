@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How Do CSS Variables Work? — Custom Properties Guide (2026)</title>
+<meta name="description" content="CSS variables explained: custom properties, the cascade, fallback values, and how to use them for theming. Direct answer with working examples.">
+<meta name="keywords" content="css variables, custom properties, css --var, css theming, css root variables, var fallback">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How Do CSS Variables Work? — Custom Properties Guide">
+<meta property="og:description" content="Custom properties, the cascade, fallback values, and theming.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/css-variables.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How Do CSS Variables Work?">
+<meta name="twitter:description" content="Custom properties, the cascade, and theming.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/css-variables.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How Do CSS Variables Work? — Custom Properties Guide",
+"description": "Custom properties, the cascade, fallback values, and theming.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Beginner",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What are CSS variables?","acceptedAnswer":{"@type":"Answer","text":"CSS variables — officially custom properties — are values you define once and reuse. They start with two dashes: --primary-color: #2965f1. You use them with var(): color: var(--primary-color). Unlike preprocessor variables (Sass, Less), CSS variables are part of the CSS spec — they cascade, they can be changed at runtime, and they work in DevTools. Define them on :root to make them available everywhere. Change the definition and every usage updates."}},
+{"@type":"Question","name":"What is the difference between CSS variables and Sass variables?","acceptedAnswer":{"@type":"Answer","text":"Sass variables ($`var) are compile-time — they're replaced with their values before the CSS is generated. Once compiled, they don't exist. CSS variables (--var) are runtime — they exist in the browser and can be changed via JavaScript, media queries, or the cascade. This makes CSS variables far more powerful for theming and dynamic styles. You can override a CSS variable inside a class, and only the elements in that class get the new value. You can't do that with Sass. Use Sass for build-time logic; use CSS variables for runtime theming."}},
+{"@type":"Question","name":"Where should I define CSS variables?","acceptedAnswer":{"@type":"Answer","text":"On :root for global values — the document root element, available to every element. Syntax: :root { --primary: #2965f1; --spacing: 1rem; }. For component-scoped values, define them on the component's own selector: .card { --card-padding: 1rem; }. The cascade then applies — an element inherits variables from its ancestors, and a variable set on .card only affects .card and its descendants. For theming, define default values on :root and override them in [data-theme='dark'] { ... }."}},
+{"@type":"Question","name":"How do I use var() with a fallback?","acceptedAnswer":{"@type":"Answer","text":"The var() function takes a second argument — the fallback value, used if the variable is not defined. Syntax: color: var(--primary, blue). If --primary is defined, use it; otherwise use blue. This is invaluable for third-party components and for progressive enhancement. You can chain fallbacks: var(--primary, var(--brand, blue)). Also useful during migration — set the variable but include a sensible fallback so the page still works if the CSS loads before the variable is defined (rare, but possible with edge cases like SSR without a stylesheet)."}},
+{"@type":"Question","name":"Can I change a CSS variable with JavaScript?","acceptedAnswer":{"@type":"Answer","text":"Yes — this is one of the biggest advantages over Sass. Use document.documentElement.style.setProperty('--primary', 'red') to change a variable on the root. Use element.style.setProperty('--local-var', 'value') to change it on a specific element. Every element using var(--primary) updates instantly. This is how dark mode toggles work without duplicating CSS: change one variable, everything updates. No need to re-render, no class toggling on every element — just one line of JS."}},
+{"@type":"Question","name":"Why doesn't my CSS variable work?","acceptedAnswer":{"@type":"Answer","text":"Four common causes. (1) Typo in the name — variables are case-sensitive, --color and --Color are different. (2) The variable is out of scope — you defined it on .header but are using it on .footer. Fix: define it on :root or a common ancestor. (3) Missing var() — you wrote color: --primary instead of color: var(--primary). (4) The value has invalid characters — if the variable holds a string with spaces, quote it: --font: 'My Font, sans-serif'. Also check DevTools — the computed value of the element shows whether the variable resolved."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · variables</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">CSS variables</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>CSS variables.<br><span class="py-accent">Define once, use everywhere.</span></h1>
+<p class="lead">
+CSS variables — officially called custom properties — let you define a value once and reference it anywhere. Change the definition and every usage updates. They're part of the CSS spec, not a preprocessor: they cascade, they can be changed at runtime with JavaScript, and they enable theming, dark mode, and component-level customization without duplicating CSS. This page covers syntax, scope, fallbacks, and the patterns that make them useful.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Define variables with two dashes on <code>:root</code> for global values: <code>:root {'{ --primary: #2965f1; }'}</code>. Use them with <code>var()</code>: <code>color: var(--primary);</code>. Add a fallback as the second argument: <code>var(--primary, blue)</code>. Change the definition to update every usage. Override on a component or theme to scope the change. Use JavaScript's <code>style.setProperty('--primary', 'red')</code> for runtime changes like dark mode toggles.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Define and use</h2>
+<p class="section-sub">The basic pattern.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">basic-vars.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">:root {
+--primary: #2965f1;
+--text: #1f2937;
+--bg: #ffffff;
+--spacing: 1rem;
+--radius: 8px;
+}
+
+.button {
+background: var(--primary);
+color: var(--bg);
+padding: var(--spacing);
+border-radius: var(--radius);
+}
+
+.card {
+background: var(--bg);
+color: var(--text);
+padding: var(--spacing);
+border-radius: var(--radius);
+border: 1px solid #e5e7eb;
+}</pre>
+<script type="text/plain" id="raw-code-sol1">:root {
+--primary: #2965f1;
+--text: #1f2937;
+--bg: #ffffff;
+--spacing: 1rem;
+--radius: 8px;
+}
+
+.button {
+background: var(--primary);
+color: var(--bg);
+padding: var(--spacing);
+border-radius: var(--radius);
+}
+
+.card {
+background: var(--bg);
+color: var(--text);
+padding: var(--spacing);
+border-radius: var(--radius);
+border: 1px solid #e5e7eb;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Change the variable, change every usage:
+
+:root {
+--primary: #2965f1; /* blue */
+}
+
+Change to:
+:root {
+--primary: #e34c26; /* orange */
+}
+
+Every .button background updates instantly.
+No search-and-replace, no class changes,
+no recompilation.
+
+✅ Same values, one source of truth.
+✅ Consistent spacing across components.
+✅ Rebrand by changing 5 lines.
+✅ Dark mode by overriding 5 variables.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Scoping and cascade</h2>
+<p class="section-sub">Variables cascade — override them anywhere.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">scoped-vars.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">:root {
+--primary: #2965f1;
+}
+
+.button {
+background: var(--primary);
+color: white;
+padding: 0.5rem 1rem;
+}
+
+/* Scope an override to a parent /
+.dark-section {
+--primary: #8b5cf6; / purple inside this section */
+background: #111827;
+padding: 2rem;
+}
+
+/* Set a default for a component */
+.card {
+--card-padding: 1rem;
+padding: var(--card-padding);
+}
+
+/* Override the component's own variable */
+.card--spacious {
+--card-padding: 2rem;
+}</pre>
+<script type="text/plain" id="raw-code-sol2">:root {
+--primary: #2965f1;
+}
+
+.button {
+background: var(--primary);
+color: white;
+padding: 0.5rem 1rem;
+}
+
+/* Scope an override to a parent /
+.dark-section {
+--primary: #8b5cf6; / purple inside this section */
+background: #111827;
+padding: 2rem;
+}
+
+/* Set a default for a component */
+.card {
+--card-padding: 1rem;
+padding: var(--card-padding);
+}
+
+/* Override the component's own variable */
+.card--spacious {
+--card-padding: 2rem;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>HTML:
+<div>
+<button class="button">Default</button> → blue
+</div>
+
+<div class="dark-section">
+<button class="button">Scoped</button> → purple
+</div>
+
+✅ Same .button class.
+✅ Different color because --primary is
+overridden at the parent.
+✅ Cascade applies — children inherit the
+variable from their ancestors.
+
+Component-level:
+.card → padding: 1rem
+.card--spacious → padding: 2rem
+Same .card base, modifier overrides one
+variable. This is the pattern for variants.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Dark mode with variables</h2>
+<p class="section-sub">One override, every component updates.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">dark-mode.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">:root {
+--bg: #ffffff;
+--text: #1f2937;
+--border: #e5e7eb;
+--primary: #2965f1;
+}
+
+[data-theme="dark"] {
+--bg: #0f172a;
+--text: #f1f5f9;
+--border: #334155;
+--primary: #60a5fa;
+}
+
+body {
+background: var(--bg);
+color: var(--text);
+}
+
+.card {
+background: var(--bg);
+border: 1px solid var(--border);
+padding: 1rem;
+border-radius: 8px;
+}
+
+.button {
+background: var(--primary);
+color: white;
+}
+
+/* JS toggles the theme: /
+/ document.documentElement.dataset.theme = 'dark' */</pre>
+<script type="text/plain" id="raw-code-sol3">:root {
+--bg: #ffffff;
+--text: #1f2937;
+--border: #e5e7eb;
+--primary: #2965f1;
+}
+
+[data-theme="dark"] {
+--bg: #0f172a;
+--text: #f1f5f9;
+--border: #334155;
+--primary: #60a5fa;
+}
+
+body {
+background: var(--bg);
+color: var(--text);
+}
+
+.card {
+background: var(--bg);
+border: 1px solid var(--border);
+padding: 1rem;
+border-radius: 8px;
+}
+
+.button {
+background: var(--primary);
+color: white;
+}
+
+/* JS toggles the theme: /
+/ document.documentElement.dataset.theme = 'dark' */</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Light mode:
+body { background: #ffffff; color: #1f2937; }
+.card { background: #ffffff; border: #e5e7eb; }
+.button { background: #2965f1; }
+
+Dark mode (JS adds data-theme="dark"):
+body { background: #0f172a; color: #f1f5f9; }
+.card { background: #0f172a; border: #334155; }
+.button { background: #60a5fa; }
+
+✅ Every component updates automatically.
+✅ No duplicated CSS — one override block.
+✅ No class toggling on every element.
+✅ Persists via localStorage + first-paint
+inline script.
+
+This is how dark mode is done in 2026.
+One attribute, one CSS block. Everything else
+uses var().
+
+Alternative: @media (prefers-color-scheme: dark)
+for system-preference-based theming.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>var()</code> without a fallback in third-party components.</strong> If your component uses <code>var(--primary)</code> and the page doesn't define <code>--primary</code>, the color falls back to <code>initial</code> — which is usually transparent or black, not what you want. Always include a fallback for third-party or reusable components: <code>color: var(--primary, #2965f1)</code>. For internal components on your own site, the fallback is optional — you control the CSS and the variable. But for anything reusable or embeddable, the fallback is the difference between "works everywhere" and "breaks when embedded."</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The CSS-variable mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using <code>color: --primary</code> without var()</div>
+<p>Doesn't work — <code>var()</code> is required. Fix: <code>var(--primary)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Case mismatch</div>
+<p><code>--color</code> vs <code>--Color</code> — different variables. Fix: consistent casing.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Wrong scope</div>
+<p>Defined on <code>.header</code>, used on <code>.footer</code>. Fix: define on <code>:root</code> or a common ancestor.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. No fallback for third-party</div>
+<p>Breaks when embedded on a page without the variable. Fix: <code>var(--primary, blue)</code>.</p>
+</div>
+<div class="mtitle">5. Trying to set properties via CSS variables</div>
+<p><code>var(--display)</code> can't change <code>display</code> behavior — it's a value, not a property. Fix: use the variable's value in a valid property.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Forgetting fallbacks for dark mode</div>
+<p>Light mode breaks if dark mode vars are the only ones. Fix: define defaults on <code>:root</code>, override in dark mode.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Naming collisions</div>
+<p>Two components both define <code>--primary</code> at different scopes. Fix: use component-prefixed names: <code>--card-primary</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Confusing CSS variables with Sass</div>
+<p>They work differently. Fix: understand CSS variables cascade at runtime; Sass vars are compile-time.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are CSS variables?</summary>
+<p class="mt-2 text-sm text-slate-300">CSS variables — officially custom properties — are values you define once and reuse. They start with two dashes: --primary-color: #2965f1. You use them with var(): color: var(--primary-color). Unlike preprocessor variables, CSS variables are part of the CSS spec — they cascade, they can be changed at runtime, and they work in DevTools. Define them on :root to make them available everywhere.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between CSS variables and Sass variables?</summary>
+<p class="mt-2 text-sm text-slate-300">Sass variables (`$var) are compile-time — they're replaced with their values before the CSS is generated. Once compiled, they don't exist. CSS variables (--var) are runtime — they exist in the browser and can be changed via JavaScript, media queries, or the cascade. This makes CSS variables far more powerful for theming and dynamic styles.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Where should I define CSS variables?</summary>
+<p class="mt-2 text-sm text-slate-300">On :root for global values — the document root element, available to every element. For component-scoped values, define them on the component's own selector: .card { --card-padding: 1rem; }. The cascade then applies — an element inherits variables from its ancestors. For theming, define default values on :root and override them in [data-theme='dark'] { ... }.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I use var() with a fallback?</summary>
+<p class="mt-2 text-sm text-slate-300">The var() function takes a second argument — the fallback value, used if the variable is not defined. Syntax: color: var(--primary, blue). If --primary is defined, use it; otherwise use blue. You can chain fallbacks: var(--primary, var(--brand, blue)). This is invaluable for third-party components.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I change a CSS variable with JavaScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes — this is one of the biggest advantages over Sass. Use document.documentElement.style.setProperty('--primary', 'red') to change a variable on the root. Use element.style.setProperty('--local-var', 'value') to change it on a specific element. Every element using var(--primary) updates instantly. This is how dark mode toggles work without duplicating CSS.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why doesn't my CSS variable work?</summary>
+<p class="mt-2 text-sm text-slate-300">Four common causes. (1) Typo in the name — variables are case-sensitive. (2) The variable is out of scope — you defined it on .header but are using it on .footer. (3) Missing var() — you wrote color: --primary instead of color: var(--primary). (4) The value has invalid characters. Also check DevTools — the computed value shows whether the variable resolved.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/media-queries.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 How do media queries work?</div>
+<div class="text-xs text-slate-400 mt-1">min-width vs max-width and mobile-first</div>
+</a>
+<a href="/courses/css/problems/specificity.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 CSS specificity</div>
+<div class="text-xs text-slate-400 mt-1">Four levels, one winner</div>
+</a>
+<a href="/courses/css/problems/rem-vs-em.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 rem vs em</div>
+<div class="text-xs text-slate-400 mt-1">Root-relative vs parent-relative</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
