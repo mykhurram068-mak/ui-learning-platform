@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>var vs let vs const in JavaScript — When to Use Each (2026)</title>
+<meta name="description" content="var vs let vs const explained: function scope vs block scope, temporal dead zone, and why const doesn't mean immutable. Direct answer with working examples.">
+<meta name="keywords" content="var let const, javascript var let const, block scope javascript, temporal dead zone, const object mutation, javascript variable declaration">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="var vs let vs const in JavaScript — When to Use Each">
+<meta property="og:description" content="Function scope vs block scope, and why const doesn't mean immutable.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/var-let-const.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="var vs let vs const in JavaScript">
+<meta name="twitter:description" content="Function scope vs block scope, and why const isn't immutable.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/var-let-const.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "var vs let vs const in JavaScript — When to Use Each",
+"description": "Function scope vs block scope, temporal dead zone, and const object mutation.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Beginner",
+"dependencies": "ES2015"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between var, let, and const?","acceptedAnswer":{"@type":"Answer","text":"Three differences. (1) Scope: var is function-scoped (or global), let and const are block-scoped — they exist only inside the nearest curly braces. (2) Reassignment: var and let can be reassigned, const cannot be reassigned to a new value. (3) Hoisting: all three are hoisted, but var is initialized to undefined, while let and const are in the temporal dead zone (TDZ) until their declaration. Using a let or const before declaration throws a ReferenceError. In modern code, use const by default, let when reassignment is needed, never var."}},
+{"@type":"Question","name":"Does const mean the value can't be changed?","acceptedAnswer":{"@type":"Answer","text":"No — const means the binding can't be reassigned, not that the value is immutable. A const primitive cannot be reassigned: const x = 5; x = 6 throws. But a const object can have its properties changed: const obj = { a: 1 }; obj.a = 2 works. A const array can be mutated: const arr = [1, 2]; arr.push(3) works. Only reassignment of the whole binding (obj = newObj) is forbidden. To make an object truly immutable, use Object.freeze() or treat it as read-only in code."}},
+{"@type":"Question","name":"Why does var behave differently in loops?","acceptedAnswer":{"@type":"Answer","text":"Because var is function-scoped, not block-scoped. A var declared inside a for loop is actually scoped to the function that contains the loop, not to the loop body. So every iteration shares the same variable. This is the classic 'closure in a loop' bug: for (var i = 0; i < 3; i++) { setTimeout(() => console.log(i), 0); } logs 3, 3, 3, not 0, 1, 2 — by the time the callbacks run, i is already 3. Fix: use let (block-scoped, each iteration gets its own i), or wrap the body in a function to create a new scope per iteration."}},
+{"@type":"Question","name":"What is the temporal dead zone?","acceptedAnswer":{"@type":"Answer","text":"The temporal dead zone (TDZ) is the period between entering a scope and the declaration of a let or const variable. During this period, accessing the variable throws a ReferenceError, even though the variable is technically hoisted. Example: console.log(x); let x = 5; throws. The variable exists (hoisted) but is not initialized (TDZ). This is intentional — it catches the bug of using a variable before declaring it. var doesn't have this — accessing a var before declaration returns undefined instead of throwing."}},
+{"@type":"Question","name":"Should I ever use var?","acceptedAnswer":{"@type":"Answer","text":"In modern code (ES2015+), no. Use const by default and let when you need to reassign. var has no advantages that let/const don't cover, and its function-scoping causes bugs (like the loop closure problem). The only reasons to use var are: (1) maintaining legacy code where var is already established, (2) working in environments where var is required (very old browsers, some code-golfing contexts). For anything new, use const and let. This isn't a style preference — var's behavior is genuinely more error-prone."}},
+{"@type":"Question","name":"Can I use let and const in older browsers?","acceptedAnswer":{"@type":"Answer","text":"let and const are supported in all modern browsers since 2015 (Chrome 49, Firefox 44, Safari 10, Edge 12). If you need to support IE11, you'll need a transpiler like Babel to convert let/const to var. In 2026, this is almost never needed — IE11 is end-of-life and has less than 0.1% market share. Use let and const freely; if you're targeting legacy environments, use a build step."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · var/let/const</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">var/let/const</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 4 min read</div>
+<h1>var vs let vs const.<br><span class="py-accent">Scope, reassignment, hoisting.</span></h1>
+<p class="lead">
+Three keywords that all declare variables. They differ in scope, in whether they can be reassigned, and in how they interact with hoisting. The short version: use <code>const</code> by default, <code>let</code> when you need to reassign, and never <code>var</code>. This page covers each difference with real examples, the classic loop bug, and the reason <code>const</code> doesn't mean immutable.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>var</code> is function-scoped, reassignable, hoisted to <code>undefined</code>. <code>let</code> is block-scoped, reassignable, hoisted to a temporal dead zone (accessing before declaration throws). <code>const</code> is block-scoped, not reassignable, also in the TDZ until declaration. Use <code>const</code> by default, <code>let</code> when you need to reassign. <code>const</code> doesn't mean immutable — object properties and array elements can still be changed.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The three differences</h2>
+<p class="section-sub">Scope, reassignment, hoisting.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Scope</h4>
+<p><code>var</code> = function or global. <code>let</code>/<code>const</code> = block (the nearest <code>{ }</code>).</p>
+</div>
+<div class="concept-card">
+<h4>Reassignment</h4>
+<p><code>var</code>/<code>let</code> = yes. <code>const</code> = no (binding can't be reassigned).</p>
+</div>
+<div class="concept-card">
+<h4>Hoisting</h4>
+<p><code>var</code> = hoisted to <code>undefined</code>. <code>let</code>/<code>const</code> = hoisted but in TDZ until declaration.</p>
+</div>
+<div class="concept-card">
+<h4>Default choice</h4>
+<p><code>const</code> first, <code>let</code> when needed, <code>var</code> never. This is the modern standard.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The classic loop bug</h2>
+<p class="section-sub">The most common "why doesn't this work?" with var.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">var-loop.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">for (var i = 0; i < 3; i++) {
+setTimeout(function () {
+console.log(i);
+}, 100);
+}
+
+// What does this log? 0, 1, 2?
+// Or 3, 3, 3?</pre>
+<script type="text/plain" id="raw-code-sol1">for (var i = 0; i < 3; i++) {
+setTimeout(function () {
+console.log(i);
+}, 100);
+}
+
+// What does this log? 0, 1, 2?
+// Or 3, 3, 3?</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Actual output:
+3
+3
+3
+
+Why: var is function-scoped. All three callbacks
+close over the SAME i variable — the one in the
+function scope. By the time the callbacks run
+(after the loop finishes), i is 3.
+
+❌ The callback doesn't capture the value of i
+at the moment of creation.
+❌ It captures the variable, which has since
+been mutated to 3.
+❌ This is the "closure in a loop" bug.
+
+Fix: use let. Each iteration gets its own i.</pre>
+</div>
+</div>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">let-loop.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">for (let i = 0; i < 3; i++) {
+setTimeout(function () {
+console.log(i);
+}, 100);
+}
+
+// Now: 0, 1, 2</pre>
+<script type="text/plain" id="raw-code-sol2">for (let i = 0; i < 3; i++) {
+setTimeout(function () {
+console.log(i);
+}, 100);
+}
+
+// Now: 0, 1, 2</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Actual output:
+0
+1
+2
+
+Why: let is block-scoped. Each iteration of
+the loop creates a new binding for i — a new
+variable in a new block. The callbacks each
+close over their own i.
+
+✅ 0, 1, 2 — the expected behavior.
+✅ No closure bug.
+✅ No workaround needed.
+
+This is why let exists. It fixes the loop bug
+that made var frustrating for 20 years.
+
+The fix without let (for legacy code):
+for (var i = 0; i < 3; i++) {
+(function (j) {
+setTimeout(function () {
+console.log(j);
+}, 100);
+})(i);
+}
+
+The IIFE creates a new scope per iteration —
+captures the value of i at call time. Works,
+but verbose. let is cleaner.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ const is not immutable</h2>
+<p class="section-sub">The binding can't change. The value can.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">const-mutation.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">What works</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// const with primitives — can't reassign
+const x = 5;
+x = 6;
+// ❌ TypeError: Assignment to constant variable
+
+// const with objects — can mutate properties
+const user = { name: 'Alice' };
+user.name = 'Bob'; // ✅ works
+user.email = 'bob@example.com'; // ✅ works
+user = { name: 'Charlie' }; // ❌ TypeError
+
+// const with arrays — can mutate elements
+const list = [1, 2, 3];
+list.push(4); // ✅ works
+list[0] = 10; // ✅ works
+list = [4, 5, 6]; // ❌ TypeError
+
+// To make an object truly immutable:
+const frozen = Object.freeze({ name: 'Alice' });
+frozen.name = 'Bob'; // ❌ silently fails (or throws in strict mode)</pre>
+<script type="text/plain" id="raw-code-sol3">// const with primitives — can't reassign
+const x = 5;
+x = 6;
+// TypeError: Assignment to constant variable
+
+// const with objects — can mutate properties
+const user = { name: 'Alice' };
+user.name = 'Bob'; // works
+user.email = 'bob@example.com'; // works
+user = { name: 'Charlie' }; // TypeError
+
+// const with arrays — can mutate elements
+const list = [1, 2, 3];
+list.push(4); // works
+list[0] = 10; // works
+list = [4, 5, 6]; // TypeError
+
+// To make an object truly immutable:
+const frozen = Object.freeze({ name: 'Alice' });
+frozen.name = 'Bob'; // silently fails (or throws in strict mode)</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What const actually prevents:
+
+❌ Reassigning the binding:
+user = newObject
+list = newArray
+
+✅ Mutating the value the binding points to:
+user.name = 'Bob'
+user.email = '...'
+list.push(4)
+list[0] = 10
+
+This is why const is the default for objects
+and arrays — you're saying "I won't rebind this
+variable," not "this is immutable."
+
+For real immutability:
+✅ Object.freeze() — shallow freeze
+✅ Spread to create new objects:
+const newUser = { ...user, name: 'Bob' }
+✅ Immutable libraries (Immer, Immutable.js)
+
+Most of the time, const + careful mutation is
+enough. Use Object.freeze() only when you need
+to enforce immutability for a specific reason.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>var</code> in new code.</strong> It has no advantages over <code>let</code> and <code>const</code>. Its function scoping causes the loop closure bug, its hoisting behavior (initialized to <code>undefined</code>) hides bugs, and its redeclaration behavior (you can declare the same variable twice in the same scope) is confusing. Modern JavaScript linting rules (<code>no-var</code> in ESLint) ban it. The only reasons to use <code>var</code> are maintaining legacy code or meeting a specific compatibility requirement — neither applies to new projects in 2026.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The var/let/const mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using <code>var</code> in loops with closures</div>
+<p>All callbacks share the same variable. Fix: use <code>let</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Expecting <code>const</code> to freeze objects</div>
+<p>The object is still mutable. Fix: use <code>Object.freeze()</code> or spread for immutability.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Accessing <code>let</code>/<code>const</code> before declaration</div>
+<p>Temporal dead zone — throws ReferenceError. Fix: declare before use.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Redeclaring with <code>let</code>/<code>const</code> in the same scope</div>
+<p>SyntaxError: Identifier has already been declared. Fix: use a new variable name.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. <code>var</code> inside a block</div>
+<p>Leaks out — var is function-scoped, not block-scoped. Fix: use <code>let</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Reassigning <code>const</code> object thinking it works</div>
+<p>Throws TypeError. Fix: use <code>let</code>, or spread to a new object.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Mixing <code>var</code> and <code>let</code> in the same scope</div>
+<p>Redeclaration error or silent shadowing. Fix: pick one — <code>const</code>/<code>let</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Global variables with <code>var</code></div>
+<p>Attach to <code>window</code>, cause collisions. Fix: use <code>const</code>/<code>let</code> in modules.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between var, let, and const?</summary>
+<p class="mt-2 text-sm text-slate-300">Three differences. (1) Scope: var is function-scoped, let and const are block-scoped. (2) Reassignment: var and let can be reassigned, const cannot. (3) Hoisting: all three are hoisted, but var is initialized to undefined, while let and const are in the temporal dead zone until their declaration. In modern code, use const by default, let when reassignment is needed, never var.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Does const mean the value can't be changed?</summary>
+<p class="mt-2 text-sm text-slate-300">No — const means the binding can't be reassigned, not that the value is immutable. A const primitive cannot be reassigned. But a const object can have its properties changed, and a const array can be mutated. Only reassignment of the whole binding (obj = newObj) is forbidden. To make an object truly immutable, use Object.freeze().</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why does var behave differently in loops?</summary>
+<p class="mt-2 text-sm text-slate-300">Because var is function-scoped, not block-scoped. A var declared inside a for loop is scoped to the function that contains the loop, not to the loop body. So every iteration shares the same variable. This is the classic 'closure in a loop' bug. Fix: use let (block-scoped), or wrap the body in a function to create a new scope per iteration.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the temporal dead zone?</summary>
+<p class="mt-2 text-sm text-slate-300">The temporal dead zone (TDZ) is the period between entering a scope and the declaration of a let or const variable. During this period, accessing the variable throws a ReferenceError, even though the variable is technically hoisted. This is intentional — it catches the bug of using a variable before declaring it. var doesn't have this — accessing a var before declaration returns undefined instead of throwing.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Should I ever use var?</summary>
+<p class="mt-2 text-sm text-slate-300">In modern code (ES2015+), no. Use const by default and let when you need to reassign. var has no advantages that let/const don't cover, and its function-scoping causes bugs. The only reasons to use var are: (1) maintaining legacy code, (2) working in environments where var is required. For anything new, use const and let.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Can I use let and const in older browsers?</summary>
+<p class="mt-2 text-sm text-slate-300">let and const are supported in all modern browsers since 2015. If you need to support IE11, you'll need a transpiler like Babel to convert let/const to var. In 2026, this is almost never needed — IE11 is end-of-life and has less than 0.1% market share.</p>
+</details>
+</div>
+</section>
+
+<!-- REVISED ENDING: One path CTA + one sibling link -->
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/closures.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🔒 What is a closure?</div>
+<div class="text-xs text-slate-400 mt-1">A function that remembers its outer variables — the pattern and the gotcha</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
