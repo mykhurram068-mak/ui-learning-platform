@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Fluid Text with CSS clamp() — Responsive Font Sizes (2026)</title>
+<meta name="description" content="CSS clamp() explained: fluid typography that scales with the viewport, without media queries. Formula, examples, and when to use it.">
+<meta name="keywords" content="css clamp, fluid typography, responsive font size, clamp font size, css clamp function, fluid text">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Fluid Text with CSS clamp() — Responsive Font Sizes">
+<meta property="og:description" content="Fluid typography that scales with the viewport, without media queries.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/clamp-font-size.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Fluid Text with CSS clamp()">
+<meta name="twitter:description" content="Fluid typography without media queries.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/clamp-font-size.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Fluid Text with CSS clamp() — Responsive Font Sizes",
+"description": "clamp() for fluid typography without media queries.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Intermediate",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How does CSS clamp() work?","acceptedAnswer":{"@type":"Answer","text":"clamp(min, preferred, max) returns the preferred value, constrained to the range [min, max]. font-size: clamp(1rem, 2.5vw, 2rem) means: at least 1rem, ideally 2.5% of the viewport width, at most 2rem. On a 400px viewport, 2.5vw = 10px, but clamp returns the 1rem minimum (16px) because 10px is below it. On a 1200px viewport, 2.5vw = 30px, but clamp returns the 2rem maximum (32px) because 30px is below it — wait, 30px < 32px, so it returns 30px. On a 1400px viewport, 2.5vw = 35px, but clamp returns the 2rem maximum (32px). The preferred value is used whenever it falls within [min, max]."}},
+{"@type":"Question","name":"What is the difference between clamp(), min(), and max()?","acceptedAnswer":{"@type":"Answer","text":"clamp(min, preferred, max) returns preferred, constrained to [min, max]. min(a, b) returns the smaller of a and b. max(a, b) returns the larger of a and b. So clamp(min, preferred, max) is equivalent to max(min, min(preferred, max)). The three functions compose: you can use min/max inside clamp, or clamp inside min/max. For font sizes, clamp is almost always what you want — you specify the range explicitly. min and max alone can't express 'scale this value but don't go below X or above Y.'"}},
+{"@type":"Question","name":"What are good clamp values for headings?","acceptedAnswer":{"@type":"Answer","text":"For body text: clamp(1rem, 0.95rem + 0.25vw, 1.125rem) — subtle scaling. For h1: clamp(2rem, 1.5rem + 2.5vw, 3.5rem). For h2: clamp(1.5rem, 1.25rem + 1.25vw, 2.5rem). The pattern: pick the min size for mobile, the max for large desktop, and let the preferred value interpolate. The 'preferred' often uses a mix of rem and vw: 1.5rem + 2.5vw. This avoids the two extremes — the rem ensures a baseline, the vw ensures scaling. Pure vw can produce text too small on mobile or too large on desktop; the rem+vw mix keeps it proportional."}},
+{"@type":"Question","name":"Does clamp() work for width, padding, and margin?","acceptedAnswer":{"@type":"Answer","text":"Yes — clamp() works on any property that accepts a length. Width: clamp(300px, 50vw, 800px). Padding: clamp(1rem, 3vw, 2rem). Margin: clamp(1rem, 5vw, 4rem). This is incredibly useful for container widths and spacing that should scale with the viewport. For widths, a common pattern is clamp(300px, 50vw, 800px) for a content container — never smaller than 300px, never wider than 800px, scaled to 50% of the viewport in between. For padding, use clamp to keep spacing generous on desktop but tight on mobile without media queries."}},
+{"@type":"Question","name":"Does clamp() hurt accessibility?","acceptedAnswer":{"@type":"Answer","text":"No — clamp() preserves user zoom and font-size preferences. Users who set their browser font size to 20px still get that as the base, and clamp scales from there. Users who zoom the page still see zoomed content. The one risk: if you use vw for text, users who zoom by widening the viewport see text grow — this is fine. The critical rule: always include a min value in rem or em, never pure vw. clamp(1rem, 2vw, 2rem) preserves minimum size regardless of viewport; clamp(1vw, 2vw, 2rem) can produce text that's too small on mobile. Use rem/em for the min."}},
+{"@type":"Question","name":"When should I NOT use clamp() for font size?","acceptedAnswer":{"@type":"Answer","text":"Three cases. (1) When you need precise control over each breakpoint — clamp is a smooth curve, media queries give you exact values at each breakpoint. Use media queries for editorial layouts where each breakpoint matters. (2) When the scaling would break the layout — fluid text that grows to 4rem on desktop may overflow a fixed-width card. Test with long words and tight containers. (3) When the design is intentionally static — a small logo, a badge, a caption. Fluid type everywhere is not the goal; use it for headings and body text where scaling improves the design."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · clamp()</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">clamp()</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>Fluid text with clamp().<br><span class="py-accent">No media queries needed.</span></h1>
+<p class="lead">
+Font size that scales smoothly with the viewport, between a minimum and a maximum, with one line of CSS. That's <code>clamp()</code>. It replaces the media-query-based approach where you set a different size at every breakpoint. The heading is 2rem on mobile, 3.5rem on desktop, and something in between at every viewport width in between. This page covers the formula, the patterns for headings, and the accessibility rules that make it safe.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>font-size: clamp(min, preferred, max)</code> for fluid text. The min and max should be in <code>rem</code> (never pure <code>vw</code>) to preserve accessibility. The preferred value is usually <code>rem + vw</code>: <code>clamp(2rem, 1.5rem + 2.5vw, 3.5rem)</code>. Works for <code>width</code>, <code>padding</code>, <code>margin</code> too. Pick min for mobile, max for desktop, let the preferred value interpolate. This is the modern approach — no breakpoints, smooth scaling.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ How clamp() works</h2>
+<p class="section-sub">Three values. One result.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>min</h4>
+<p>The floor. The value is never smaller than this. Use <code>rem</code> or <code>em</code> — never pure <code>vw</code>, or text gets too small.</p>
+</div>
+<div class="concept-card">
+<h4>preferred</h4>
+<p>The ideal value. Often a mix of <code>rem</code> and <code>vw</code>: <code>1.5rem + 2.5vw</code>. This is what scales with the viewport.</p>
+</div>
+<div class="concept-card">
+<h4>max</h4>
+<p>The ceiling. The value is never larger than this. Use <code>rem</code> — prevents text from getting too big on ultrawide screens.</p>
+</div>
+<div class="concept-card">
+<h4>How it resolves</h4>
+<p>If preferred is within [min, max], use preferred. If preferred is below min, use min. If preferred is above max, use max.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">Media queries vs clamp.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">media-query-font.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">/* ❌ The old way — media queries /
+h1 {
+font-size: 2rem; / mobile */
+}
+
+@media (min-width: 768px) {
+h1 { font-size: 2.5rem; } /* tablet */
+}
+
+@media (min-width: 1024px) {
+h1 { font-size: 3rem; } /* desktop */
+}
+
+@media (min-width: 1280px) {
+h1 { font-size: 3.5rem; } /* large desktop /
+}</pre>
+<script type="text/plain" id="raw-code-sol1">/ The old way — media queries /
+h1 {
+font-size: 2rem; / mobile */
+}
+
+@media (min-width: 768px) {
+h1 { font-size: 2.5rem; } /* tablet */
+}
+
+@media (min-width: 1024px) {
+h1 { font-size: 3rem; } /* desktop */
+}
+
+@media (min-width: 1280px) {
+h1 { font-size: 3.5rem; } /* large desktop */
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Result at every viewport width:
+
+Viewport Font size
+─────────────────────
+320px 2rem (32px)
+767px 2rem (32px) ← stuck
+768px 2.5rem (40px) ← jumps
+1023px 2.5rem (40px) ← stuck
+1024px 3rem (48px) ← jumps
+1279px 3rem (48px) ← stuck
+1280px 3.5rem (56px) ← jumps
+
+❌ Jumps at breakpoints.
+❌ 4 declarations to maintain.
+❌ Text is "stuck" at 4 sizes.
+❌ Each new breakpoint needs a new media query.
+❌ Changing one size means changing all four.</pre>
+</div>
+</div>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">clamp-font.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">/* ✅ The modern way — one line /
+h1 {
+font-size: clamp(2rem, 1.5rem + 2.5vw, 3.5rem);
+}</pre>
+<script type="text/plain" id="raw-code-sol2">/ The modern way — one line */
+h1 {
+font-size: clamp(2rem, 1.5rem + 2.5vw, 3.5rem);
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Result at every viewport width:
+
+Viewport Font size
+─────────────────────
+320px 2rem (32px) ← min
+400px 2rem (32px) ← min
+600px 2.19rem (35px) ← scaling
+768px 2.31rem (37px) ← scaling
+1024px 2.81rem (45px) ← scaling
+1280px 3.31rem (53px) ← scaling
+1440px 3.5rem (56px) ← max
+1920px 3.5rem (56px) ← max
+
+✅ Smooth scaling at every viewport width.
+✅ One declaration, no media queries.
+✅ Min ensures text is never too small.
+✅ Max ensures text is never too big.
+
+The preferred value 1.5rem + 2.5vw:
+1.5rem is a fixed baseline (24px at 16px root)
+2.5vw scales with the viewport
+
+Together they interpolate smoothly.
+The rem keeps the scaling anchored to
+the user's font size preferences.
+
+✅ Better accessibility than pure vw.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The formula</h2>
+<p class="section-sub">How to pick min, preferred, and max.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">typography-scale.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why these values</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">/* Body — subtle scaling */
+body {
+font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+}
+
+/* H2 — medium scaling */
+h2 {
+font-size: clamp(1.5rem, 1.25rem + 1.25vw, 2.5rem);
+}
+
+/* H1 — larger scaling */
+h1 {
+font-size: clamp(2rem, 1.5rem + 2.5vw, 3.5rem);
+}
+
+/* Display — biggest, for hero sections */
+.display {
+font-size: clamp(2.5rem, 1.5rem + 5vw, 5rem);
+}
+
+/* Spacing also benefits */
+.section {
+padding-block: clamp(2rem, 5vw, 4rem);
+}
+
+/* Containers /
+.container {
+width: clamp(300px, 90vw, 1200px);
+margin-inline: auto;
+}</pre>
+<script type="text/plain" id="raw-code-sol3">/ Body — subtle scaling */
+body {
+font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+}
+
+/* H2 — medium scaling */
+h2 {
+font-size: clamp(1.5rem, 1.25rem + 1.25vw, 2.5rem);
+}
+
+/* H1 — larger scaling */
+h1 {
+font-size: clamp(2rem, 1.5rem + 2.5vw, 3.5rem);
+}
+
+/* Display — biggest, for hero sections */
+.display {
+font-size: clamp(2.5rem, 1.5rem + 5vw, 5rem);
+}
+
+/* Spacing also benefits */
+.section {
+padding-block: clamp(2rem, 5vw, 4rem);
+}
+
+/* Containers */
+.container {
+width: clamp(300px, 90vw, 1200px);
+margin-inline: auto;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The pattern for every clamp():
+
+clamp(min-rem, base-rem + scale-vw, max-rem)
+
+How to pick the values:
+
+1. Decide the mobile size (this is min).
+2. Decide the desktop size (this is max).
+3. The preferred value should reach min at
+mobile and max at desktop.
+
+Examples:
+
+Body: 1rem mobile → 1.125rem desktop.
+clamp(1rem, 0.95rem + 0.25vw, 1.125rem)
+(subtle, almost imperceptible)
+
+H2: 1.5rem mobile → 2.5rem desktop.
+clamp(1.5rem, 1.25rem + 1.25vw, 2.5rem)
+
+H1: 2rem mobile → 3.5rem desktop.
+clamp(2rem, 1.5rem + 2.5vw, 3.5rem)
+
+Rule of thumb: for every 1rem of growth from
+mobile to desktop, add about 1vw to the
+preferred value. This gives smooth scaling
+without over- or under-shooting.
+
+✅ Never use pure vw for font-size.
+Always include a rem base.
+Pure vw breaks user font-size preferences
+and produces tiny text at small viewports.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use pure <code>vw</code> in <code>clamp()</code> for font sizes.</strong> <code>font-size: clamp(1rem, 3vw, 3rem)</code> is fine — 3vw scales but the rem bounds protect it. But <code>font-size: clamp(1vw, 3vw, 3rem)</code> means the minimum is 1vw — on a 320px phone, that's 3.2px. The text is unreadable, and users who set their browser font size to 20px see no effect on the clamp. The rule: the <code>min</code> and <code>max</code> must be in <code>rem</code> or <code>em</code>, never <code>vw</code>. The <code>preferred</code> value can (and usually should) mix <code>rem</code> and <code>vw</code>. This preserves accessibility — user font-size preferences still work, and text is never too small.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The clamp() mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Pure vw for min or max</div>
+<p><code>clamp(1vw, 3vw, 3rem)</code> — breaks accessibility. Fix: <code>rem</code> for min and max.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. <code>min > max</code></div>
+<p><code>clamp(3rem, 2vw, 2rem)</code> — invalid, clamps to min. Fix: min must be smaller than max.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Preferred value outside [min, max]</div>
+<p>The clamp is a no-op. Fix: ensure the preferred value can reach both bounds.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using clamp for very small text</div>
+<p>Below ~14px, scaling loses value. Fix: use <code>px</code> or fixed <code>rem</code> for captions.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Clamp on line-height</div>
+<p>Unitless line-height already scales. Fix: <code>line-height: 1.5</code>, not clamp.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Clamp on font-size without testing long words</div>
+<p>Large fluid text overflows small containers. Fix: test with <code>overflow-wrap: break-word</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Skipping min and max</div>
+<p><code>clamp(1rem, 5vw)</code> — only 2 values, invalid. Fix: 3 values, always.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Clamp everywhere</div>
+<p>Fluid type on every element. Fix: use clamp for headings and body; keep captions, badges fixed.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How does CSS clamp() work?</summary>
+<p class="mt-2 text-sm text-slate-300">clamp(min, preferred, max) returns the preferred value, constrained to the range [min, max]. font-size: clamp(1rem, 2.5vw, 2rem) means: at least 1rem, ideally 2.5% of the viewport width, at most 2rem. The preferred value is used whenever it falls within [min, max]. Below min → min. Above max → max.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between clamp(), min(), and max()?</summary>
+<p class="mt-2 text-sm text-slate-300">clamp(min, preferred, max) returns preferred, constrained to [min, max]. min(a, b) returns the smaller of a and b. max(a, b) returns the larger of a and b. So clamp(min, preferred, max) is equivalent to max(min, min(preferred, max)). For font sizes, clamp is almost always what you want — you specify the range explicitly.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What are good clamp values for headings?</summary>
+<p class="mt-2 text-sm text-slate-300">For body text: clamp(1rem, 0.95rem + 0.25vw, 1.125rem). For h1: clamp(2rem, 1.5rem + 2.5vw, 3.5rem). For h2: clamp(1.5rem, 1.25rem + 1.25vw, 2.5rem). The pattern: pick the min size for mobile, the max for large desktop, and let the preferred value interpolate. The 'preferred' often uses a mix of rem and vw: 1.5rem + 2.5vw.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does clamp() work for width, padding, and margin?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes — clamp() works on any property that accepts a length. Width: clamp(300px, 50vw, 800px). Padding: clamp(1rem, 3vw, 2rem). Margin: clamp(1rem, 5vw, 4rem). This is incredibly useful for container widths and spacing that should scale with the viewport.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does clamp() hurt accessibility?</summary>
+<p class="mt-2 text-sm text-slate-300">No — clamp() preserves user zoom and font-size preferences. The one risk: if you use vw for text, users who zoom by widening the viewport see text grow — this is fine. The critical rule: always include a min value in rem or em, never pure vw. clamp(1rem, 2vw, 2rem) preserves minimum size regardless of viewport.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I NOT use clamp() for font size?</summary>
+<p class="mt-2 text-sm text-slate-300">Three cases. (1) When you need precise control over each breakpoint. (2) When the scaling would break the layout — fluid text that grows to 4rem on desktop may overflow a fixed-width card. (3) When the design is intentionally static — a small logo, a badge, a caption.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/media-queries.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 How do media queries work?</div>
+<div class="text-xs text-slate-400 mt-1">min-width vs max-width and mobile-first</div>
+</a>
+<a href="/courses/css/problems/rem-vs-em.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 rem vs em</div>
+<div class="text-xs text-slate-400 mt-1">Root-relative vs parent-relative</div>
+</a>
+<a href="/courses/css/problems/aspect-ratio.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 CSS aspect-ratio</div>
+<div class="text-xs text-slate-400 mt-1">Fixed ratio boxes without hacks</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
