@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Why Doesn't :hover Work on Touch? — The Fix (2026)</title>
+<meta name="description" content="CSS :hover doesn't work on touch screens. Why, what to do instead, and the media query that detects hover capability. Direct answer with examples.">
+<meta name="keywords" content="css hover touch, hover not working mobile, hover none pointer, @media hover, touch hover css, sticky hover">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Why Doesn't :hover Work on Touch? — The Fix">
+<meta property="og:description" content="Why hover fails on touch, and the media query that detects it.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/hover-on-touch.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Why Doesn't :hover Work on Touch?">
+<meta name="twitter:description" content="Why hover fails on touch.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/hover-on-touch.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Why Doesn't :hover Work on Touch? — The Fix",
+"description": "Why :hover fails on touch and what to use instead.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Intermediate",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why doesn't :hover work on touch screens?","acceptedAnswer":{"@type":"Answer","text":"Because touch screens have no cursor. :hover fires when the mouse pointer enters an element — on touch, there's no pointer, so there's no hover. Some mobile browsers try to simulate hover by treating a tap as a hover, which produces the 'sticky hover' problem: the hover state fires on tap and stays until the next tap elsewhere. That's not useful — it's confusing. The correct answer: don't rely on :hover for critical interactions on touch. Use the media query @media (hover: hover) to apply hover styles only on devices that actually support hover."}},
+{"@type":"Question","name":"What is the @media (hover: hover) media query?","acceptedAnswer":{"@type":"Answer","text":"It matches devices that have hover capability — desktop, laptop, stylus. It does not match touch-only devices. Use it to wrap your :hover rules: @media (hover: hover) { .button:hover { ... } }. On phones, the hover styles simply don't apply, and touch users don't get the sticky-hover artifact. Combine with pointer: fine for devices with a precise pointer (mouse, stylus), or pointer: coarse for touch. The standard pattern is @media (hover: hover) and (pointer: fine) — the safest hover detection."}},
+{"@type":"Question","name":"What is the sticky hover problem?","acceptedAnswer":{"@type":"Answer","text":"On touch devices, some browsers simulate :hover by treating the first tap as hover and the second tap as click. The result: the user taps an element, and the hover styles stay applied until they tap somewhere else. The element looks 'stuck' in its hover state — a background color, a shadow, a text color change that shouldn't persist. It confuses users and makes the interface feel broken. Fix: wrap :hover rules in @media (hover: hover) so touch devices never apply them. Or use :active for touch feedback, which applies only while the tap is held."}},
+{"@type":"Question","name":"Should I use :active instead of :hover for touch?","acceptedAnswer":{"@type":"Answer","text":"For touch feedback, yes. :active applies while an element is being pressed — it fires on mousedown and mousedown, or touchstart and touchend. On touch, :active gives immediate feedback that the user is interacting. It's not a replacement for :hover on desktop (hover happens before click), but it's the right state for touch. Use both: @media (hover: hover) { .button:hover { ... } } for desktop hover, and .button:active { ... } for press feedback on all devices."}},
+{"@type":"Question","name":"How do I detect touch devices?","acceptedAnswer":{"@type":"Answer","text":"Don't use JavaScript user-agent sniffing — it's unreliable. Use CSS media queries: @media (hover: none) matches devices without hover, @media (pointer: coarse) matches touch, @media (pointer: fine) matches mouse and stylus. The most reliable pattern: @media (hover: hover) and (pointer: fine) for desktop-only styles. For CSS-only detection, these media queries are accurate — better than UA strings. Some devices (like tablets with a stylus) match both — the media queries reflect the actual capability, not the device type."}},
+{"@type":"Question","name":"Should I just remove :hover entirely for touch?","acceptedAnswer":{"@type":"Answer","text":"No — :hover is still useful on touch-capable devices with a mouse or stylus, and on desktop. The right approach: wrap :hover rules in @media (hover: hover) so they apply only where hover is a real interaction. Touch users get :active and tap feedback. Desktop users get hover. Both get the same tap/click feedback. This isn't 'removing' :hover — it's scoping it to the contexts where it works. The result is a UI that feels correct on every device."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · hover on touch</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">:hover on touch</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>:hover on touch doesn't work.<br><span class="py-accent">The sticky-hover fix.</span></h1>
+<p class="lead">
+You tested the site on desktop — hover works. You test on mobile — hover works once, then stays stuck. The button stays highlighted after you tap it. This is the sticky hover problem, and it's caused by browsers trying to simulate hover on touch. The fix: use <code>@media (hover: hover)</code> to apply hover styles only on devices that actually support it. This page covers why hover fails, the media query that detects it, and the patterns that feel right on both desktop and touch.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Wrap <code>:hover</code> rules in <code>@media (hover: hover) and (pointer: fine)</code> to apply them only on devices with a real pointer. Touch devices have no cursor — <code>:hover</code> either doesn't fire or fires sticky after a tap. Use <code>:active</code> for immediate tap feedback on all devices. Don't detect touch with user-agent sniffing — the media queries are accurate.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The problem</h2>
+<p class="section-sub">Sticky hover on touch devices.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">sticky-hover.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">What happens</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">.button {
+background: white;
+color: #2965f1;
+padding: 0.5rem 1rem;
+border: 1px solid #2965f1;
+}
+
+.button:hover {
+background: #2965f1;
+color: white;
+}</pre>
+<script type="text/plain" id="raw-code-sol1">.button {
+background: white;
+color: #2965f1;
+padding: 0.5rem 1rem;
+border: 1px solid #2965f1;
+}
+
+.button:hover {
+background: #2965f1;
+color: white;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Desktop:
+Mouse enters → blue background, white text.
+Mouse leaves → white background, blue text.
+✅ Works as expected.
+
+Touch:
+User taps button → browser fires :hover
+→ blue background, white text.
+User lifts finger → hover state stays.
+→ background is still blue.
+User taps elsewhere → hover clears.
+
+❌ The button looks "stuck" in the hover state.
+❌ User thinks the page is broken.
+❌ Multiple buttons look "active" at once.
+
+This is the sticky hover problem. The fix is
+to apply :hover only where it makes sense.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The fix — @media (hover: hover)</h2>
+<p class="section-sub">Only apply hover styles when hover is real.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">scoped-hover.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">.button {
+background: white;
+color: #2965f1;
+padding: 0.5rem 1rem;
+border: 1px solid #2965f1;
+}
+
+/* Hover only on devices with a real pointer */
+@media (hover: hover) and (pointer: fine) {
+.button:hover {
+background: #2965f1;
+color: white;
+}
+}
+
+/* Active state works everywhere */
+.button:active {
+transform: scale(0.98);
+}</pre>
+<script type="text/plain" id="raw-code-sol2">.button {
+background: white;
+color: #2965f1;
+padding: 0.5rem 1rem;
+border: 1px solid #2965f1;
+}
+
+/* Hover only on devices with a real pointer */
+@media (hover: hover) and (pointer: fine) {
+.button:hover {
+background: #2965f1;
+color: white;
+}
+}
+
+/* Active state works everywhere */
+.button:active {
+transform: scale(0.98);
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Desktop:
+✅ Hover → blue background.
+✅ Click → brief scale-down (active).
+✅ Mouse leaves → white again.
+
+Touch:
+✅ No hover state (media query blocks it).
+✅ Tap → brief scale-down (active).
+✅ After tap → white again, no stickiness.
+✅ No confusion, no "stuck" state.
+
+Tablet with stylus:
+✅ Stylus hover works (pointer: fine matches).
+✅ Finger tap works (active state).
+
+hybrid devices (touchscreen laptops):
+✅ Hover works with trackpad/mouse.
+✅ Active works with touch.
+✅ Each input gets the right feedback.
+
+This is the correct pattern for 2026.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The full pattern — hover + active + focus</h2>
+<p class="section-sub">Every state, every device.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">all-states.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why each</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">.button {
+background: white;
+color: #2965f1;
+padding: 0.5rem 1rem;
+border: 1px solid #2965f1;
+border-radius: 4px;
+cursor: pointer;
+transition: transform 0.1s ease;
+}
+
+/* 1. Hover — desktop only */
+@media (hover: hover) and (pointer: fine) {
+.button:hover {
+background: #2965f1;
+color: white;
+}
+}
+
+/* 2. Active — all devices (touch and mouse) */
+.button:active {
+transform: scale(0.98);
+}
+
+/* 3. Focus-visible — keyboard only */
+.button:focus-visible {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+}</pre>
+<script type="text/plain" id="raw-code-sol3">.button {
+background: white;
+color: #2965f1;
+padding: 0.5rem 1rem;
+border: 1px solid #2965f1;
+border-radius: 4px;
+cursor: pointer;
+transition: transform 0.1s ease;
+}
+
+/* 1. Hover — desktop only */
+@media (hover: hover) and (pointer: fine) {
+.button:hover {
+background: #2965f1;
+color: white;
+}
+}
+
+/* 2. Active — all devices (touch and mouse) */
+.button:active {
+transform: scale(0.98);
+}
+
+/* 3. Focus-visible — keyboard only */
+.button:focus-visible {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>:hover (desktop only) → mouse enters the element.
+:active (all devices) → press the element.
+:focus-visible (keyboard) → Tab to the element.
+
+Three states, three inputs:
+Desktop mouse → hover, then active, then none.
+Touch → active only.
+Keyboard → focus-visible only.
+
+✅ Every input gets feedback.
+✅ No sticky hover.
+✅ No missing keyboard focus.
+✅ Matches the native UI of each device.
+
+⚠️ :focus-visible is separate from :focus —
+it only fires on keyboard focus, not on
+mouse click. This is what makes it the right
+tool for focus outlines (see focus-visible.html).</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>@media (hover: none)</code> to remove hover styles.</strong> It works for mobile but breaks hybrid devices (touchscreen laptops, tablets with keyboards) where the user might have a real pointer. The pattern <code>@media (hover: hover) and (pointer: fine)</code> is stricter and more correct: it matches only devices that have both a hover-capable pointer AND a precise pointer. On a touchscreen laptop, <code>@media (hover: hover)</code> still matches when the mouse is connected — which is what you want. <code>@media (hover: none)</code> matches when the primary input is touch, but the user might switch to mouse — the styles are wrong. Always use the positive check, not the negative one.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The hover-on-touch mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using :hover without a media query</div>
+<p>Sticky hover on touch. Fix: wrap in <code>@media (hover: hover) and (pointer: fine)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using <code>@media (hover: none)</code> to remove</div>
+<p>Breaks hybrid devices. Fix: <code>@media (hover: hover)</code> to apply.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. JavaScript UA sniffing</div>
+<p>"Is this an iPhone?" — unreliable. Fix: CSS media queries for capability.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. No :active feedback</div>
+<p>Touch users get no click feedback. Fix: add <code>:active</code> styles.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. :hover on non-interactive elements</div>
+<p>Divs with hover that do nothing. Fix: only interactive elements get hover.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Hover-only reveal</div>
+<p>Content shown only on hover is inaccessible on touch. Fix: tap-toggle or always visible.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Forgetting <code>pointer: fine</code></div>
+<p><code>hover: hover</code> alone matches stylus + touch combos. Fix: add <code>pointer: fine</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. No :focus-visible</div>
+<p>Keyboard users can't see focus. Fix: add <code>:focus-visible</code> outline.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why doesn't :hover work on touch screens?</summary>
+<p class="mt-2 text-sm text-slate-300">Because touch screens have no cursor. :hover fires when the mouse pointer enters an element — on touch, there's no pointer, so there's no hover. Some mobile browsers try to simulate hover by treating a tap as a hover, which produces the 'sticky hover' problem: the hover state fires on tap and stays until the next tap elsewhere. The correct answer: use the media query @media (hover: hover) to apply hover styles only on devices that actually support hover.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the @media (hover: hover) media query?</summary>
+<p class="mt-2 text-sm text-slate-300">It matches devices that have hover capability — desktop, laptop, stylus. It does not match touch-only devices. Use it to wrap your :hover rules: @media (hover: hover) { .button:hover { ... } }. On phones, the hover styles simply don't apply, and touch users don't get the sticky-hover artifact. Combine with pointer: fine for devices with a precise pointer.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the sticky hover problem?</summary>
+<p class="mt-2 text-sm text-slate-300">On touch devices, some browsers simulate :hover by treating the first tap as hover and the second tap as click. The result: the user taps an element, and the hover styles stay applied until they tap somewhere else. The element looks 'stuck' in its hover state. Fix: wrap :hover rules in @media (hover: hover) so touch devices never apply them. Or use :active for touch feedback.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use :active instead of :hover for touch?</summary>
+<p class="mt-2 text-sm text-slate-300">For touch feedback, yes. :active applies while an element is being pressed — it fires on touchstart and touchend. On touch, :active gives immediate feedback that the user is interacting. It's not a replacement for :hover on desktop, but it's the right state for touch. Use both: @media (hover: hover) { .button:hover { ... } } for desktop hover, and .button:active { ... } for press feedback on all devices.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I detect touch devices?</summary>
+<p class="mt-2 text-sm text-slate-300">Don't use JavaScript user-agent sniffing — it's unreliable. Use CSS media queries: @media (hover: none) matches devices without hover, @media (pointer: coarse) matches touch, @media (pointer: fine) matches mouse and stylus. The most reliable pattern: @media (hover: hover) and (pointer: fine) for desktop-only styles.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I just remove :hover entirely for touch?</summary>
+<p class="mt-2 text-sm text-slate-300">No — :hover is still useful on touch-capable devices with a mouse or stylus, and on desktop. The right approach: wrap :hover rules in @media (hover: hover) so they apply only where hover is a real interaction. Touch users get :active and tap feedback. Desktop users get hover. Both get the same tap/click feedback.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/media-queries.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 How do media queries work?</div>
+<div class="text-xs text-slate-400 mt-1">min-width vs max-width and mobile-first</div>
+</a>
+<a href="/courses/css/problems/focus-visible.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 What is :focus-visible?</div>
+<div class="text-xs text-slate-400 mt-1">Keyboard-only focus styles</div>
+</a>
+<a href="/courses/css/problems/pseudo-elements.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 What are pseudo-elements?</div>
+<div class="text-xs text-slate-400 mt-1">::before, ::after, and the content property</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
