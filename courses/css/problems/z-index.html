@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How Does z-index Work? — Stacking Contexts Explained (2026)</title>
+<meta name="description" content="z-index explained: why z-index: 9999 doesn't win, what a stacking context is, and how to fix layering bugs. Direct answer with working examples.">
+<meta name="keywords" content="css z-index, z-index not working, stacking context, css layers, z-index 9999, position z-index">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How Does z-index Work? — Stacking Contexts Explained">
+<meta property="og:description" content="Why z-index: 9999 doesn't win — and how stacking contexts determine layering.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/z-index.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How Does z-index Work?">
+<meta name="twitter:description" content="Why z-index: 9999 doesn't win.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/z-index.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How Does z-index Work? — Stacking Contexts Explained",
+"description": "Why z-index: 9999 doesn't win — and how stacking contexts determine layering.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Intermediate",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How does z-index work?","acceptedAnswer":{"@type":"Answer","text":"z-index controls the stacking order of positioned elements. Higher z-index wins, but only within the same stacking context. A z-index of 9999 on an element inside a stacking context with z-index: 1 cannot go above an element in a parent stacking context with z-index: 2 — the parent's z-index wins, not the child's. This is why z-index 9999 'doesn't work' — the element is trapped inside a parent stacking context. The stacking context is created by any element with position: relative/absolute/fixed/sticky AND a non-auto z-index, plus several other properties. To fix, either raise the parent's z-index, or move the element out of the trapping context."}},
+{"@type":"Question","name":"Why doesn't z-index: 9999 work?","acceptedAnswer":{"@type":"Answer","text":"Because it's confined to its stacking context. A stacking context is a layer — its children cannot go higher than the layer itself, no matter their z-index. If the parent has z-index: 1, and a sibling of the parent has z-index: 2, then no child of the z-index: 1 parent can go above the z-index: 2 sibling, even with z-index: 9999. The child's z-index only competes with other children of the same parent. The fix is to raise the parent's z-index, or remove the parent's stacking context, or move the child out of that parent. Increasing the child's z-index makes no difference."}},
+{"@type":"Question","name":"What creates a stacking context?","acceptedAnswer":{"@type":"Answer","text":"Many things. The most common: (1) positioned element with z-index other than auto — position: relative/absolute/fixed/sticky plus z-index; (2) position: fixed or position: sticky (regardless of z-index); (3) opacity less than 1; (4) transform, filter, perspective, clip-path, mask — any of these; (5) isolation: isolate; (6) flex or grid item with z-index other than auto; (7) will-change with a stacking-context-creating property; (8) contain: layout, paint, or strict. Each creates a layer that contains its children — the children cannot escape, regardless of z-index."}},
+{"@type":"Question","name":"Does z-index work without position?","acceptedAnswer":{"@type":"Answer","text":"Only in some cases. z-index on a static positioned element (the default) is ignored — the element behaves as if z-index were auto. z-index works on position: relative, absolute, fixed, and sticky. It also works on flex items and grid items — a flex or grid item with z-index other than auto creates a stacking context, even without position. But the classic case — z-index on a plain div — does nothing. You need position (or flex/grid context) for z-index to take effect. This is why 'z-index doesn't work' is often a missing position: relative."}},
+{"@type":"Question","name":"What is the order of stacking?","acceptedAnswer":{"@type":"Answer","text":"Within a stacking context, from back to front: (1) the background and borders of the element forming the context; (2) child stacking contexts with negative z-index; (3) in-flow, non-positioned block-level descendants; (4) non-positioned floats; (5) in-flow, non-positioned inline-level descendants; (6) child stacking contexts with z-index: 0 or auto; (7) child stacking contexts with positive z-index. This is why background always paints behind content, and why a z-index: 0 element paints in front of inline text. The stacking order is fixed; z-index only reorders the last three layers."}},
+{"@type":"Question","name":"What is a stacking context in simple terms?","acceptedAnswer":{"@type":"Answer","text":"A stacking context is a group of elements that paint together as a unit. Within the group, z-index decides who's on top. Between groups, the parent group's z-index decides. Think of it as a stack of cards: each group is one card in the main stack, and its children are sub-cards within that card. You can reorder the sub-cards inside their card, but you can't slip one sub-card above another card — only the card's overall position in the main stack decides that. This is why a child element can never 'escape' its parent's z-index."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · z-index</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">z-index</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>How does z-index work?<br><span class="py-accent">Stacking contexts decide.</span></h1>
+<p class="lead">
+You set <code>z-index: 9999</code> on your modal. It's still behind the header. You set it higher — still behind. The number isn't the problem: your modal is trapped inside a stacking context whose z-index is lower than the header's parent. This page explains stacking contexts, why 9999 doesn't win, and the three ways to fix layering bugs.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>z-index</code> only competes with siblings inside the same stacking context. A child can never go above a parent's sibling — no matter how high its <code>z-index</code>. A stacking context is created by <code>position</code> + <code>z-index</code>, <code>opacity < 1</code>, <code>transform</code>, <code>filter</code>, <code>isolation: isolate</code>, and several other properties. To fix: raise the parent's z-index, remove the property creating the context, or move the element out of the trapping parent. Increasing the child's z-index makes no difference.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">Why z-index: 9999 loses.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">trapped-child.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why it loses</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">.container {
+position: relative;
+z-index: 1; /* creates a stacking context */
+}
+
+.modal {
+position: absolute;
+z-index: 9999; /* trapped inside .container */
+}
+
+.header {
+position: relative;
+z-index: 2; /* higher than .container /
+}</pre>
+<script type="text/plain" id="raw-code-sol1">.container {
+position: relative;
+z-index: 1; / creates a stacking context */
+}
+
+.modal {
+position: absolute;
+z-index: 9999; /* trapped inside .container */
+}
+
+.header {
+position: relative;
+z-index: 2; /* higher than .container */
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Stacking order:
+
+Layer 2: .header (z-index: 2) → on top
+Layer 1: .container (z-index: 1)
+└─ .modal (z-index: 9999) → inside layer 1
+
+The .modal's z-index: 9999 only competes
+with other children of .container.
+
+It cannot go above .header, because .header's
+layer (2) is above .container's layer (1).
+
+❌ Modal is behind the header.
+❌ Increasing z-index to 999999 does nothing.
+
+Fix: raise .container's z-index above .header's,
+or move .modal out of .container.</pre>
+</div>
+</div>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">fixed.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why it works</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">/* Move the modal out of the trapping parent */
+body > .modal {
+position: fixed;
+z-index: 9999;
+}
+
+/* Or use a portal (React) to move it to body /
+/ Or raise the parent's z-index: /
+.container {
+position: relative;
+z-index: 10; / now above .header (z-index: 2) */
+}
+
+.modal {
+position: absolute;
+z-index: 9999; /* still inside .container */
+}
+
+.header {
+position: relative;
+z-index: 2;
+}</pre>
+<script type="text/plain" id="raw-code-sol2">/* Move the modal out of the trapping parent */
+body > .modal {
+position: fixed;
+z-index: 9999;
+}
+
+/* Or use a portal (React) to move it to body /
+/ Or raise the parent's z-index: /
+.container {
+position: relative;
+z-index: 10; / now above .header (z-index: 2) */
+}
+
+.modal {
+position: absolute;
+z-index: 9999; /* still inside .container */
+}
+
+.header {
+position: relative;
+z-index: 2;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Fix 1: Move the modal to body level.
+→ Portal in React (createPortal)
+→ Or restructure HTML
+→ .modal is now a sibling of .header
+→ Both compete in the same stacking context
+→ z-index: 9999 wins.
+
+Fix 2: Raise the parent's z-index.
+→ .container from 1 to 10
+→ Now .container's layer is above .header's
+→ .modal inside it is above .header too
+→ Works, but requires knowing the sibling
+z-indices. Fragile.
+
+✅ Both fix the layering.
+✅ The portal approach is cleaner for modals.
+✅ Raising parent is fine for simpler layouts.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ What creates a stacking context</h2>
+<p class="section-sub">Any of these creates a new layer.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>position + z-index</h4>
+<p><code>position: relative/absolute/fixed/sticky</code> with <code>z-index</code> other than <code>auto</code>. The classic.</p>
+</div>
+<div class="concept-card">
+<h4>fixed / sticky</h4>
+<p><code>position: fixed</code> or <code>position: sticky</code> alone — no z-index needed. Always creates a context.</p>
+</div>
+<div class="concept-card">
+<h4>opacity < 1</h4>
+<p><code>opacity: 0.99</code> creates a context. Even <code>opacity: 0</code> does. Common surprise in animations.</p>
+</div>
+<div class="concept-card">
+<h4>transform / filter / clip-path</h4>
+<p>Any of these creates a context — even <code>transform: translateX(0)</code>. Common in animated elements.</p>
+</div>
+<div class="concept-card">
+<h4>isolation: isolate</h4>
+<p>Explicitly creates a stacking context without other side effects. Use when you need it.</p>
+</div>
+<div class="concept-card">
+<h4>flex / grid item with z-index</h4>
+<p>A flex or grid item with <code>z-index</code> other than <code>auto</code> creates a context — no position needed.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The z-index mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. z-index without position</div>
+<p>Ignored on static elements. Fix: add <code>position: relative</code> (or absolute/fixed/sticky).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. z-index: 9999 doesn't work</div>
+<p>The element is trapped in a lower stacking context. Fix: raise the parent, or move the child.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Not knowing about opacity/transform</div>
+<p>These create contexts, breaking z-index expectations. Fix: check the parent's <code>transform</code>, <code>opacity</code>, <code>filter</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Escalating the numbers</div>
+<p>9999, 99999, 999999 — going up in the child doesn't help. Fix: fix the parent's layer.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Mixing fixed and absolute carelessly</div>
+<p>Fixed creates a context; absolute doesn't unless z-indexed. Fix: understand each context's role.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Modal not at body level</div>
+<p>Trapped in its parent's z-index. Fix: portal (React) or move HTML.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Header and modal fight</div>
+<p>Header z-index higher than the container the modal is in. Fix: raise the modal's parent, or move modal to body.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. No DevTools inspection</div>
+<p>Guessing at layers. Fix: Chrome DevTools has a "layers" panel — use it to see stacking contexts.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How does z-index work?</summary>
+<p class="mt-2 text-sm text-slate-300">z-index controls the stacking order of positioned elements. Higher z-index wins, but only within the same stacking context. A z-index of 9999 on an element inside a stacking context with z-index: 1 cannot go above an element in a parent stacking context with z-index: 2 — the parent's z-index wins, not the child's. This is why z-index 9999 'doesn't work' — the element is trapped inside a parent stacking context.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why doesn't z-index: 9999 work?</summary>
+<p class="mt-2 text-sm text-slate-300">Because it's confined to its stacking context. A stacking context is a layer — its children cannot go higher than the layer itself, no matter their z-index. If the parent has z-index: 1, and a sibling of the parent has z-index: 2, then no child of the z-index: 1 parent can go above the z-index: 2 sibling, even with z-index: 9999. The child's z-index only competes with other children of the same parent.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What creates a stacking context?</summary>
+<p class="mt-2 text-sm text-slate-300">Many things. The most common: (1) positioned element with z-index other than auto; (2) position: fixed or position: sticky regardless of z-index; (3) opacity less than 1; (4) transform, filter, perspective, clip-path, mask; (5) isolation: isolate; (6) flex or grid item with z-index other than auto; (7) will-change with a stacking-context-creating property; (8) contain: layout, paint, or strict.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does z-index work without position?</summary>
+<p class="mt-2 text-sm text-slate-300">Only in some cases. z-index on a static positioned element is ignored. z-index works on position: relative, absolute, fixed, and sticky. It also works on flex items and grid items — a flex or grid item with z-index other than auto creates a stacking context, even without position. But the classic case — z-index on a plain div — does nothing.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the order of stacking?</summary>
+<p class="mt-2 text-sm text-slate-300">Within a stacking context, from back to front: (1) the background and borders of the element forming the context; (2) child stacking contexts with negative z-index; (3) in-flow, non-positioned block-level descendants; (4) non-positioned floats; (5) in-flow, non-positioned inline-level descendants; (6) child stacking contexts with z-index: 0 or auto; (7) child stacking contexts with positive z-index.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a stacking context in simple terms?</summary>
+<p class="mt-2 text-sm text-slate-300">A stacking context is a group of elements that paint together as a unit. Within the group, z-index decides who's on top. Between groups, the parent group's z-index decides. Think of it as a stack of cards: each group is one card in the main stack, and its children are sub-cards within that card. You can reorder the sub-cards inside their card, but you can't slip one sub-card above another card — only the card's overall position in the main stack decides that.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/position-sticky.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 position: sticky not working</div>
+<div class="text-xs text-slate-400 mt-1">The overflow ancestor and missing top</div>
+</a>
+<a href="/courses/css/problems/overflow-hidden-scroll.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 overflow: hidden vs scroll</div>
+<div class="text-xs text-slate-400 mt-1">Clipping, scrolling, and layout shift</div>
+</a>
+<a href="/courses/css/problems/display-none-vs-visibility.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 display: none vs visibility: hidden</div>
+<div class="text-xs text-slate-400 mt-1">Layout space, accessibility, animation</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
