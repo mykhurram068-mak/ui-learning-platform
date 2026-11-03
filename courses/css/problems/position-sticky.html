@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>position: sticky Not Working — 3 Causes and Fixes (2026)</title>
+<meta name="description" content="Why position: sticky doesn't work: the overflow ancestor, the missing top/left, and no parent height. Three causes, three fixes with working examples.">
+<meta name="keywords" content="position sticky not working, css position sticky, sticky header not working, overflow sticky, sticky scroll">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="position: sticky Not Working — 3 Causes and Fixes">
+<meta property="og:description" content="The overflow ancestor, the missing top, and no parent height.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/position-sticky.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="position: sticky Not Working">
+<meta name="twitter:description" content="Three causes, three fixes.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/position-sticky.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "position: sticky Not Working — 3 Causes and Fixes",
+"description": "The overflow ancestor, the missing top, and no parent height.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Intermediate",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why isn't position: sticky working?","acceptedAnswer":{"@type":"Answer","text":"Three causes. (1) Missing a top, bottom, left, or right offset — sticky requires a direction. Without top: 0, the element has no reference point to stick to. (2) An ancestor has overflow: hidden, overflow: auto, or overflow: scroll — sticky only works if no ancestor scrolls horizontally or vertically except the viewport. (3) The parent doesn't have enough height — sticky elements stop scrolling at the parent's edge, so a parent that's exactly as tall as its content leaves no room to stick. Fix each at the source."}},
+{"@type":"Question","name":"Does position: sticky need a top value?","acceptedAnswer":{"@type":"Answer","text":"Yes. sticky needs at least one of top, bottom, left, or right to define the threshold. top: 0 is the most common — the element sticks to the top of the viewport once it scrolls past. Without an offset, the element is sticky in theory but has nothing to stick against, so it behaves like position: relative. This is the most common cause of 'sticky doesn't work' — the developer set position: sticky but forgot the top. Always include an offset."}},
+{"@type":"Question","name":"Why does overflow: hidden break position: sticky?","acceptedAnswer":{"@type":"Answer","text":"sticky positions an element relative to the nearest scrolling ancestor. If an ancestor has overflow: hidden, overflow: auto, or overflow: scroll, that ancestor becomes the scrolling container — not the viewport. The sticky element sticks to that container's edges instead of the viewport's. If the container isn't tall enough to scroll, or doesn't scroll vertically, the element appears not to stick. Fix: remove overflow from all ancestors of the sticky element, or restructure so the sticky element sits outside the overflow container. This is the second most common cause."}},
+{"@type":"Question","name":"Does position: sticky work inside flexbox or grid?","acceptedAnswer":{"@type":"Answer","text":"Yes, but with a caveat. Sticky works on flex items and grid items — the item sticks relative to the scroll container. However, sticky positioning inside a flex container can be constrained by the flex item's height. If the flex item is stretched to match the parent's height (default align-items: stretch), the sticky element inside it has no room to move. Fix: set align-items: start on the flex container, or give the sticky element an explicit height. Same applies to grid items — if the item stretches to fill the row, sticky has no room."}},
+{"@type":"Question","name":"Why does position: sticky stop at the end of its parent?","acceptedAnswer":{"@type":"Answer","text":"Because sticky is constrained to its containing block — the nearest ancestor that isn't static positioned. The element sticks within the parent's bounds. Once the parent scrolls out of view, the sticky element goes with it. To make the element stick for the full page, the parent must be tall enough to contain the full scroll range. If you want a sticky sidebar next to a tall main content area, the sidebar's parent must be the flex container or grid that contains both — its height is the max of the two columns. This is why sticky sidebars work: the flex/grid parent is as tall as the tallest child."}},
+{"@type":"Question","name":"What is the difference between position: sticky and position: fixed?","acceptedAnswer":{"@type":"Answer","text":"fixed pins the element to the viewport — it stays in place regardless of scroll, always visible. sticky pins the element to the viewport only while scrolling within its parent's bounds — it becomes fixed at a threshold, then scrolls away with the parent. fixed removes the element from flow; sticky keeps it in flow. fixed is right for persistent navigation; sticky is right for table headers, in-page navigation, and elements that should scroll away eventually. sticky is more subtle — and more useful when it works."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · position sticky</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Position sticky</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>position: sticky doesn't work.<br><span class="py-accent">Three causes, three fixes.</span></h1>
+<p class="lead">
+You added <code>position: sticky</code> and <code>top: 0</code>. The element should stick to the top when scrolling. It doesn't. Or it sticks inside a tiny box and scrolls away immediately. Or nothing happens at all. There are three causes — the missing offset, an overflow ancestor, and a parent that isn't tall enough. This page covers each, with the exact fix.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Sticky needs three things. (1) An offset — <code>top</code>, <code>bottom</code>, <code>left</code>, or <code>right</code> — not just <code>position: sticky</code>. (2) No scrolling ancestor — no <code>overflow: hidden/auto/scroll</code> on any parent. (3) A parent tall enough to scroll past — <code>min-height</code> on the parent, or content that exceeds the viewport. Fix all three and sticky works. Skip any one and it behaves like <code>position: relative</code>.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Cause 1 — Missing the offset</h2>
+<p class="section-sub">position: sticky alone does nothing.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">no-offset.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">.sidebar {
+position: sticky;
+/* ❌ no top, no bottom, no left, no right /
+background: white;
+}</pre>
+<script type="text/plain" id="raw-code-sol1">.sidebar {
+position: sticky;
+/ no top, no bottom, no left, no right */
+background: white;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>❌ No offset — the element has no threshold.
+❌ Behaves like position: relative.
+❌ No sticking, no visual change.
+
+sticky needs at least one offset:
+top, bottom, left, or right
+
+The offset is the threshold — how close
+the element can get to the viewport edge
+before it starts sticking.
+
+Without it, sticky is a no-op.</pre>
+</div>
+</div>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">with-offset.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">.sidebar {
+position: sticky;
+top: 1rem; /* ✅ sticks 1rem from viewport top */
+background: white;
+padding: 1rem;
+}
+
+/* Or with a sticky header: /
+.header {
+position: sticky;
+top: 0;
+z-index: 10; / keep it above the page /
+background: white;
+}</pre>
+<script type="text/plain" id="raw-code-sol2">.sidebar {
+position: sticky;
+top: 1rem; / sticks 1rem from viewport top */
+background: white;
+padding: 1rem;
+}
+
+/* Or with a sticky header: /
+.header {
+position: sticky;
+top: 0;
+z-index: 10; / keep it above the page */
+background: white;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>✅ top: 1rem → sticks 16px from the top.
+✅ top: 0 → sticks flush with the viewport top.
+✅ z-index: 10 → stays above scrolling content.
+
+⚠️ Always set a background on the sticky element.
+Without one, the underlying content shows
+through and the element looks broken.
+
+⚠️ z-index needs a positioned context.
+position: sticky creates one — you're fine.
+But siblings without stacking context may
+paint over it. z-index: 10 is a safe default.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Cause 2 — An overflow ancestor</h2>
+<p class="section-sub">The trickiest cause: a parent scrolls.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">overflow-breaks.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">/* ❌ The parent has overflow: hidden */
+.page-wrapper {
+overflow: hidden;
+}
+
+.sticky-sidebar {
+position: sticky;
+top: 1rem;
+/* Doesn't stick to viewport — sticks to .page-wrapper,
+which doesn't scroll. So no visual effect. */
+}
+
+/* ✅ Fix 1: remove overflow from the ancestor /
+.page-wrapper {
+/ overflow: hidden — removed */
+}
+
+.sticky-sidebar {
+position: sticky;
+top: 1rem;
+}
+
+/* ✅ Fix 2: move sticky outside the overflow */
+.page-wrapper {
+overflow: hidden;
+}
+
+/* The sticky element is a sibling of the wrapper,
+not a child of it. /
+.sticky-header {
+position: sticky;
+top: 0;
+}</pre>
+<script type="text/plain" id="raw-code-sol3">/ The parent has overflow: hidden */
+.page-wrapper {
+overflow: hidden;
+}
+
+.sticky-sidebar {
+position: sticky;
+top: 1rem;
+/* Doesn't stick to viewport — sticks to .page-wrapper,
+which doesn't scroll. So no visual effect. */
+}
+
+/* Fix 1: remove overflow from the ancestor /
+.page-wrapper {
+/ overflow: hidden — removed */
+}
+
+.sticky-sidebar {
+position: sticky;
+top: 1rem;
+}
+
+/* Fix 2: move sticky outside the overflow */
+.page-wrapper {
+overflow: hidden;
+}
+
+/* The sticky element is a sibling of the wrapper,
+not a child of it. */
+.sticky-header {
+position: sticky;
+top: 0;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>sticky positions an element relative to its
+nearest scrolling ancestor.
+
+overflow: hidden / auto / scroll on a parent
+makes that parent the scrolling container.
+
+If that parent doesn't scroll (or doesn't
+scroll vertically), sticky has nowhere to stick.
+
+Common overflow ancestors:
+❌ A layout wrapper with overflow: hidden
+❌ A card with overflow: auto
+❌ A table cell with overflow: scroll
+❌ A parent with overflow-x: auto
+
+Fix:
+→ Remove overflow from the ancestor
+→ Or restructure so sticky element is a sibling
+of the overflow container
+
+This is the #1 reason sticky "doesn't work"
+after the missing-offset case.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't add <code>overflow: hidden</code> to a parent to "hide horizontal scroll."</strong> This is the most common cause of sticky not working — a developer adds <code>overflow-x: hidden</code> on body or a wrapper to hide an accidental horizontal scroll, and every sticky element on the page stops working. The overflow becomes the scrolling container, and sticky sticks to it instead of the viewport. Fix the underlying overflow (find the element that's too wide) rather than hiding it. If you must hide overflow, apply it as low in the DOM as possible — not on body or the layout wrapper.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Cause 3 — Parent isn't tall enough</h2>
+<p class="section-sub">Sticky stops at the parent's edge.</p>
+
+<div class="code-block" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">short-parent.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol4', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">/* ❌ The parent is only as tall as the sidebar /
+.sidebar-wrapper {
+/ height: auto — the sidebar's own height */
+}
+
+.sticky-sidebar {
+position: sticky;
+top: 1rem;
+/* No room to stick — the wrapper ends where
+the sidebar begins. */
+}
+
+/* ✅ Fix: parent taller than the sticky element /
+.content-layout {
+display: grid;
+grid-template-columns: 240px 1fr;
+align-items: start; / don't stretch the sidebar */
+}
+
+.sticky-sidebar {
+position: sticky;
+top: 1rem;
+}
+
+.content-layout .main {
+/* The main column is tall — this makes the
+grid parent tall. The sidebar sticks
+within the tall parent. /
+}</pre>
+<script type="text/plain" id="raw-code-sol4">/ The parent is only as tall as the sidebar /
+.sidebar-wrapper {
+/ height: auto — the sidebar's own height */
+}
+
+.sticky-sidebar {
+position: sticky;
+top: 1rem;
+/* No room to stick — the wrapper ends where
+the sidebar begins. */
+}
+
+/* Fix: parent taller than the sticky element /
+.content-layout {
+display: grid;
+grid-template-columns: 240px 1fr;
+align-items: start; / don't stretch the sidebar */
+}
+
+.sticky-sidebar {
+position: sticky;
+top: 1rem;
+}
+
+.content-layout .main {
+/* The main column is tall — this makes the
+grid parent tall. The sidebar sticks
+within the tall parent. */
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>sticky is constrained to its containing block —
+the nearest positioned ancestor.
+
+The sticky element sticks within the parent's
+bounds. If the parent is only as tall as the
+sticky element, there's no scroll range to
+stick within.
+
+Rules:
+✅ Parent must be taller than the sticky element.
+✅ For sticky sidebar: parent is the layout
+container, and it's as tall as the main content.
+✅ align-items: start on the grid/flex parent
+prevents the sidebar from stretching (which
+would collapse the parent back to the
+sidebar's height).
+
+⚠️ Don't set height: 100vh on the sticky element.
+That pins it to its own height, not the parent.
+
+⚠️ Don't set height: auto on the parent and
+expect sticky to stick — it'll only stick
+within the parent's natural height.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The position:sticky mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. No offset</div>
+<p><code>position: sticky</code> without <code>top</code>. Fix: add <code>top: 0</code> or the appropriate direction.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. overflow on an ancestor</div>
+<p><code>overflow: hidden</code> on a parent makes it the scroll container. Fix: remove it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Parent too short</div>
+<p>The sidebar's parent is only as tall as the sidebar. Fix: make the parent the full layout container.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. No background</div>
+<p>Content shows through. Fix: set a background on the sticky element.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. z-index not set</div>
+<p>Sticky element hides under siblings. Fix: add <code>z-index: 10</code> (or higher).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. align-items: stretch on the parent</div>
+<p>Flex/grid item stretches, collapsing the scroll range. Fix: <code>align-items: start</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Confusing with position: fixed</div>
+<p>fixed stays forever, sticky scrolls away. Fix: pick the right one for the effect.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Sticky inside overflow:auto on purpose</div>
+<p>It sticks to the inner scroll container, not the viewport. Fix: understand the containing block.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why isn't position: sticky working?</summary>
+<p class="mt-2 text-sm text-slate-300">Three causes. (1) Missing a top, bottom, left, or right offset — sticky requires a direction. (2) An ancestor has overflow: hidden, overflow: auto, or overflow: scroll — sticky only works if no ancestor scrolls horizontally or vertically except the viewport. (3) The parent doesn't have enough height — sticky elements stop scrolling at the parent's edge, so a parent that's exactly as tall as its content leaves no room to stick.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does position: sticky need a top value?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. sticky needs at least one of top, bottom, left, or right to define the threshold. top: 0 is the most common — the element sticks to the top of the viewport once it scrolls past. Without an offset, the element is sticky in theory but has nothing to stick against, so it behaves like position: relative. This is the most common cause of 'sticky doesn't work'.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does overflow: hidden break position: sticky?</summary>
+<p class="mt-2 text-sm text-slate-300">sticky positions an element relative to the nearest scrolling ancestor. If an ancestor has overflow: hidden, overflow: auto, or overflow: scroll, that ancestor becomes the scrolling container — not the viewport. The sticky element sticks to that container's edges instead of the viewport's. If the container isn't tall enough to scroll, or doesn't scroll vertically, the element appears not to stick.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does position: sticky work inside flexbox or grid?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, but with a caveat. Sticky works on flex items and grid items — the item sticks relative to the scroll container. However, sticky positioning inside a flex container can be constrained by the flex item's height. If the flex item is stretched to match the parent's height (default align-items: stretch), the sticky element inside it has no room to move. Fix: set align-items: start on the flex container.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does position: sticky stop at the end of its parent?</summary>
+<p class="mt-2 text-sm text-slate-300">Because sticky is constrained to its containing block — the nearest ancestor that isn't static positioned. The element sticks within the parent's bounds. Once the parent scrolls out of view, the sticky element goes with it. To make the element stick for the full page, the parent must be tall enough to contain the full scroll range.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between position: sticky and position: fixed?</summary>
+<p class="mt-2 text-sm text-slate-300">fixed pins the element to the viewport — it stays in place regardless of scroll, always visible. sticky pins the element to the viewport only while scrolling within its parent's bounds — it becomes fixed at a threshold, then scrolls away with the parent. fixed removes the element from flow; sticky keeps it in flow.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/z-index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 How does z-index work?</div>
+<div class="text-xs text-slate-400 mt-1">Stacking contexts and the position requirement</div>
+</a>
+<a href="/courses/css/problems/overflow-hidden-scroll.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 overflow: hidden vs scroll</div>
+<div class="text-xs text-slate-400 mt-1">Clipping, scrolling, and layout shift</div>
+</a>
+<a href="/courses/css/problems/centering.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 How to center a div</div>
+<div class="text-xs text-slate-400 mt-1">Four methods, one answer</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
