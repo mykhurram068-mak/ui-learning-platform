@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>What is a Closure in JavaScript? — Explained with Examples (2026)</title>
+<meta name="description" content="JavaScript closures explained: what they are, how they work, where they show up in real code, and the classic loop gotcha. Direct answer with working examples.">
+<meta name="keywords" content="javascript closure, what is a closure, closure example, javascript closure explained, closure loop bug, lexical scope">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="What is a Closure in JavaScript? — Explained with Examples">
+<meta property="og:description" content="What they are, how they work, and where they show up in real code.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/closures.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What is a Closure in JavaScript?">
+<meta name="twitter:description" content="What they are, and where they show up in real code.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/closures.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "What is a Closure in JavaScript? — Explained with Examples",
+"description": "Closures explained: what they are, how they work, and the classic loop gotcha.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Intermediate",
+"dependencies": "ES2015"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is a closure in JavaScript?","acceptedAnswer":{"@type":"Answer","text":"A closure is a function that remembers the variables from its outer scope, even after the outer function has returned. When you define a function inside another function, the inner function closes over (captures) the outer function's variables. Those variables stay alive as long as the inner function exists — even if the outer function has finished executing. This is how private state, callbacks, and factory functions work in JavaScript. Every function in JavaScript is technically a closure, but the term usually refers to the case where the inner function outlives its outer scope."}},
+{"@type":"Question","name":"Why do closures matter?","acceptedAnswer":{"@type":"Answer","text":"Three reasons. (1) Private state: a closure can hold variables that no outside code can access — the pattern behind the module pattern, the Revealing Module Pattern, and most modern state management libraries. (2) Callbacks: event handlers, setTimeout callbacks, and promise handlers all use closures to remember the variables they need. (3) Factory functions: a function that returns another function, each with its own captured state — like a counter or a rate limiter. Closures are how JavaScript implements lexical scope — without them, most of the language's patterns wouldn't work."}},
+{"@type":"Question","name":"What is the loop closure bug?","acceptedAnswer":{"@type":"Answer","text":"When you create closures inside a loop and use var for the loop variable, all the closures share the same variable. By the time they run, the variable has its final value. Example: for (var i = 0; i < 3; i++) { setTimeout(function () { console.log(i); }, 100); } — logs 3, 3, 3, not 0, 1, 2. Fix: use let instead of var. let creates a new variable per iteration, so each closure captures its own value. This is one of the most common closure gotchas, and one of the reasons let was added to JavaScript."}},
+{"@type":"Question","name":"How do I create private variables with closures?","acceptedAnswer":{"@type":"Answer","text":"Use a function that defines variables and returns functions that access them. Example: function createCounter() { let count = 0; return { increment: () => count++, decrement: () => count--, value: () => count }; }. The count variable is private — no outside code can access it directly, only through the returned methods. This is the classic module pattern, and it's how JavaScript implemented encapsulation before ES2015 classes and private fields. It's still used in functional programming, and in libraries where you want truly private state."}},
+{"@type":"Question","name":"Do closures cause memory leaks?","acceptedAnswer":{"@type":"Answer","text":"Closures can hold onto variables longer than necessary if you're not careful. A closure captures its entire outer scope, including variables it doesn't use. If a closure is attached to a long-lived object (like a DOM element or a global event listener), the captured variables stay in memory. Modern JavaScript engines optimize this — they only capture variables actually referenced by the closure. But circular references (closure holds an object that holds the closure) or unused event listeners can still leak. The fix: remove event listeners when you're done, use WeakMap/WeakSet for caches, and be aware of what your closures capture."}},
+{"@type":"Question","name":"What is the difference between closure and scope?","acceptedAnswer":{"@type":"Answer","text":"Scope is the set of variables that are accessible from a given point in the code. Closure is a function that captures variables from its outer scope and keeps them alive. Scope exists everywhere; closure is a specific case where a function remembers its scope. Every closure uses scope, but not every scope becomes a closure. A closure exists when a function outlives the scope in which it was defined — the inner function is exported, stored, or called later. If the inner function is called and discarded within the outer function, no closure persists."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · closures</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Closures</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 4 min read</div>
+<h1>What is a closure?<br><span class="py-accent">A function that remembers.</span></h1>
+<p class="lead">
+A closure is a function that captures variables from its outer scope and keeps them alive, even after the outer function has returned. It's the mechanism behind private state, callbacks, factory functions, and most of the language's patterns. Every function in JavaScript is technically a closure, but the term usually refers to the case where an inner function outlives its outer scope. This page covers how closures work, where they show up, and the loop bug everyone hits.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> A closure is a function plus the scope it was defined in. When you return an inner function from an outer function, the inner function remembers the outer function's variables — even after the outer function has finished. This lets you keep state private (nobody outside can access it), create factory functions (each with their own state), and use callbacks that remember variables from where they were defined. The classic gotcha: closures in a loop with <code>var</code> share the same variable. Fix: use <code>let</code>.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The pattern</h2>
+<p class="section-sub">An inner function that remembers its outer scope.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">closure-basic.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">What happens</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">function createGreeter(name) {
+const greeting = 'Hello';
+
+// Inner function — captures name and greeting
+return function () {
+return greeting + ', ' + name;
+};
+}
+
+const greetAlice = createGreeter('Alice');
+const greetBob = createGreeter('Bob');
+
+console.log(greetAlice()); // "Hello, Alice"
+console.log(greetBob()); // "Hello, Bob"
+
+// createGreeter has finished — but the returned
+// functions still have access to name and greeting.
+// That's a closure.</pre>
+<script type="text/plain" id="raw-code-sol1">function createGreeter(name) {
+const greeting = 'Hello';
+
+// Inner function — captures name and greeting
+return function () {
+return greeting + ', ' + name;
+};
+}
+
+const greetAlice = createGreeter('Alice');
+const greetBob = createGreeter('Bob');
+
+console.log(greetAlice()); // "Hello, Alice"
+console.log(greetBob()); // "Hello, Bob"
+
+// createGreeter has finished — but the returned
+// functions still have access to name and greeting.
+// That's a closure.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What happens step by step:
+
+1. createGreeter('Alice') is called.
+2. A new scope is created with name = 'Alice'
+and greeting = 'Hello'.
+3. The inner function is defined — it references
+name and greeting from the outer scope.
+4. The inner function is returned.
+5. createGreeter finishes — its scope would
+normally be garbage collected.
+6. But the inner function still holds a reference
+to the scope. So it stays alive.
+
+When you call greetAlice():
+→ The inner function runs.
+→ It looks up greeting and name.
+→ They're not in its own scope.
+→ It looks up to the outer scope (still alive).
+→ Returns "Hello, Alice".
+
+✅ Each call to createGreeter creates a new closure.
+✅ greetAlice and greetBob have separate state.
+✅ The captured variables are private — no outside
+code can access greeting or name directly.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The private counter</h2>
+<p class="section-sub">State you can change — but not access.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">closure-counter.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why it works</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">function createCounter() {
+let count = 0;
+
+return {
+increment() { count++; },
+decrement() { count--; },
+value() { return count; }
+};
+}
+
+const counter = createCounter();
+counter.increment();
+counter.increment();
+counter.increment();
+console.log(counter.value()); // 3
+
+counter.decrement();
+console.log(counter.value()); // 2
+
+// The count variable is private.
+// There's no counter.count property.
+// The only way to change it is via the methods.</pre>
+<script type="text/plain" id="raw-code-sol2">function createCounter() {
+let count = 0;
+
+return {
+increment() { count++; },
+decrement() { count--; },
+value() { return count; }
+};
+}
+
+const counter = createCounter();
+counter.increment();
+counter.increment();
+counter.increment();
+console.log(counter.value()); // 3
+
+counter.decrement();
+console.log(counter.value()); // 2
+
+// The count variable is private.
+// There's no counter.count property.
+// The only way to change it is via the methods.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What you can't do:
+
+❌ counter.count = 10;
+→ Doesn't affect the internal count.
+
+❌ console.log(counter.count);
+→ undefined.
+
+❌ Delete counter.count;
+→ No effect.
+
+✅ counter.increment();
+✅ counter.decrement();
+✅ counter.value();
+
+This is the module pattern — private state,
+public methods. It's how JavaScript implemented
+encapsulation before classes and private fields.
+
+The three inner functions all close over the
+same count variable. Each call to createCounter
+creates a new count — the three methods share it.
+
+If you call createCounter() twice, you get
+two independent counters, each with its own
+count. The closures don't interfere.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The loop gotcha</h2>
+<p class="section-sub">The one that trips up every JavaScript developer.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">closure-loop.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// ❌ The classic bug
+for (var i = 0; i < 3; i++) {
+setTimeout(function () {
+console.log(i); // 3, 3, 3 — not 0, 1, 2
+}, 100);
+}
+
+// ✅ The fix — use let
+for (let i = 0; i < 3; i++) {
+setTimeout(function () {
+console.log(i); // 0, 1, 2
+}, 100);
+}</pre>
+<script type="text/plain" id="raw-code-sol3">// The classic bug
+for (var i = 0; i < 3; i++) {
+setTimeout(function () {
+console.log(i); // 3, 3, 3 — not 0, 1, 2
+}, 100);
+}
+
+// The fix — use let
+for (let i = 0; i < 3; i++) {
+setTimeout(function () {
+console.log(i); // 0, 1, 2
+}, 100);
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>With var:
+
+Loop iteration 1 → callback closes over i
+Loop iteration 2 → callback closes over SAME i
+Loop iteration 3 → callback closes over SAME i
+After loop → i = 3
+100ms later:
+All three callbacks run
+All see i = 3
+Output: 3, 3, 3
+
+❌ All closures share the same i.
+❌ By the time they run, i is 3.
+
+With let:
+
+Loop iteration 1 → callback closes over own i = 0
+Loop iteration 2 → callback closes over own i = 1
+Loop iteration 3 → callback closes over own i = 2
+100ms later:
+Callbacks run in order
+Each sees its own i
+Output: 0, 1, 2
+
+✅ Each iteration gets a new binding.
+✅ Each closure captures a different value.
+
+let's block scope creates a new variable
+per iteration. This is why let exists.
+
+The var workaround (for legacy code):
+for (var i = 0; i < 3; i++) {
+(function (j) {
+setTimeout(function () { console.log(j); }, 100);
+})(i);
+}
+
+IIFE creates a new scope per iteration.
+Works, but verbose. let is cleaner.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use closures to store state that should be garbage collected.</strong> A closure keeps its captured variables alive as long as the closure itself is alive. If you attach a closure to a long-lived object — a global event listener, a DOM element, a module-level variable — the captured variables stay in memory even after you're done with them. This is a common source of memory leaks in single-page applications. The fix: remove event listeners when the component unmounts, use <code>WeakMap</code> for caches that should be garbage collected with their keys, and be aware of what your closures capture. Modern JavaScript engines optimize this — but they can't help with closures you're still holding.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The closure mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>var</code> in a loop with closures</div>
+<p>All callbacks share the same variable. Fix: use <code>let</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Expecting closures to capture the value at creation</div>
+<p>They capture the variable, not the value. Fix: use <code>let</code>, or capture the value explicitly.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Memory leaks from long-lived closures</div>
+<p>Event listeners keep variables alive. Fix: remove listeners on unmount.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Confusing closure with scope</div>
+<p>Scope is where variables exist. Closure is when a function remembers them after the outer scope ends.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Shadowing in nested closures</div>
+<p>Inner variable with the same name hides outer. Fix: rename or use different scopes.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Closures capturing the loop variable</div>
+<p><code>forEach</code> gives each callback its own value; <code>for</code> with <code>var</code> doesn't. Fix: use <code>let</code> or <code>forEach</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Not realizing every function is a closure</div>
+<p>Even top-level functions capture their module scope. Fix: understand it, don't fear it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Closures over <code>this</code></div>
+<p>Arrow functions and regular functions handle <code>this</code> differently in closures. Fix: use arrow functions for callbacks that need the outer <code>this</code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is a closure in JavaScript?</summary>
+<p class="mt-2 text-sm text-slate-300">A closure is a function that remembers the variables from its outer scope, even after the outer function has returned. When you define a function inside another function, the inner function closes over (captures) the outer function's variables. Those variables stay alive as long as the inner function exists — even if the outer function has finished executing.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why do closures matter?</summary>
+<p class="mt-2 text-sm text-slate-300">Three reasons. (1) Private state: a closure can hold variables that no outside code can access. (2) Callbacks: event handlers, setTimeout callbacks, and promise handlers all use closures. (3) Factory functions: a function that returns another function, each with its own captured state. Closures are how JavaScript implements lexical scope.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the loop closure bug?</summary>
+<p class="mt-2 text-sm text-slate-300">When you create closures inside a loop and use var for the loop variable, all the closures share the same variable. By the time they run, the variable has its final value. Example: for (var i = 0; i < 3; i++) { setTimeout(function () { console.log(i); }, 100); } — logs 3, 3, 3, not 0, 1, 2. Fix: use let instead of var.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How do I create private variables with closures?</summary>
+<p class="mt-2 text-sm text-slate-300">Use a function that defines variables and returns functions that access them. Example: function createCounter() { let count = 0; return { increment: () => count++, decrement: () => count--, value: () => count }; }. The count variable is private — no outside code can access it directly.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Do closures cause memory leaks?</summary>
+<p class="mt-2 text-sm text-slate-300">Closures can hold onto variables longer than necessary. A closure captures its entire outer scope, including variables it doesn't use. If a closure is attached to a long-lived object, the captured variables stay in memory. The fix: remove event listeners when done, use WeakMap/WeakSet for caches, and be aware of what your closures capture.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between closure and scope?</summary>
+<p class="mt-2 text-sm text-slate-300">Scope is the set of variables that are accessible from a given point in the code. Closure is a function that captures variables from its outer scope and keeps them alive. Scope exists everywhere; closure is a specific case where a function remembers its scope.</p>
+</details>
+</div>
+</section>
+
+<!-- REVISED ENDING: One path CTA + one sibling link -->
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/this-keyword.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎯 What is <code>this</code> in JavaScript?</div>
+<div class="text-xs text-slate-400 mt-1">The five different values of <code>this</code> depending on how a function is called</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
