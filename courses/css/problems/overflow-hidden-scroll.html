@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>overflow: hidden vs scroll vs auto — Which One (2026)</title>
+<meta name="description" content="CSS overflow explained: hidden clips content, scroll always shows scrollbars, auto shows them only when needed. Direct answer with examples and layout-shift fixes.">
+<meta name="keywords" content="css overflow, overflow hidden, overflow auto, overflow scroll, scrollbar layout shift, overflow x y">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="overflow: hidden vs scroll vs auto — Which One">
+<meta property="og:description" content="Clipping, scrolling, and the scrollbar layout shift.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/overflow-hidden-scroll.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="overflow: hidden vs scroll vs auto">
+<meta name="twitter:description" content="Clipping, scrolling, and layout shift.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/overflow-hidden-scroll.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "overflow: hidden vs scroll vs auto — Which One",
+"description": "CSS overflow values explained: hidden, scroll, auto, and the layout shift.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Beginner",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between overflow: hidden, scroll, and auto?","acceptedAnswer":{"@type":"Answer","text":"overflow: hidden clips content that overflows — no scrollbar, content is invisible. overflow: scroll always shows scrollbars, even when content fits. overflow: auto shows scrollbars only when content overflows. Use auto for most scrolling containers — it's the least surprising. Use hidden when you deliberately want to clip content (image containers, decorative shapes, hiding horizontal scroll). Use scroll only when you want to reserve space for the scrollbar consistently — usually for tables or fixed-height lists where the layout shouldn't shift."}},
+{"@type":"Question","name":"Why does overflow: hidden break position: sticky?","acceptedAnswer":{"@type":"Answer","text":"overflow: hidden creates a new scrolling container. Sticky positions relative to the nearest scrolling ancestor, which is now that container — not the viewport. If the container doesn't scroll vertically, sticky has nowhere to stick. This is the most common cause of 'my sticky header stopped working after I added overflow: hidden to a parent.' Fix: remove overflow from ancestors of sticky elements, or use display: flow-root instead (which contains floats without creating a scroll container). Or move the sticky element outside the overflow container in the DOM."}},
+{"@type":"Question","name":"What is the scrollbar layout shift?","acceptedAnswer":{"@type":"Answer","text":"When a page goes from no scrollbar to showing one (or the reverse), the content shifts horizontally by the width of the scrollbar — usually 15-17px on desktop. This is jarring and can cause misclicks. It happens when opening a modal that locks scroll, or navigating between pages where one is shorter. Fix: reserve space for the scrollbar always, using scrollbar-gutter: stable on the html element. This is supported in all modern browsers since 2024. Older fallback: padding-right: calc(100vw - 100%) on the container. The modern fix is one line."}},
+{"@type":"Question","name":"Can I style the scrollbar?","acceptedAnswer":{"@type":"Answer","text":"Partially. WebKit/Blink browsers (Chrome, Safari, Edge) support ::-webkit-scrollbar and related pseudo-elements — you can set width, color, radius. Firefox supports scrollbar-width (auto, thin, none) and scrollbar-color (thumb color, track color). There's no unified standard. The modern approach: use both — scrollbar-width and scrollbar-color for Firefox, ::-webkit-scrollbar for Chrome/Safari. Don't hide scrollbars entirely (scrollbar-width: none) unless you provide an alternative — keyboard users and users who rely on scrollbar position lose functionality. Prefer thin over none."}},
+{"@type":"Question","name":"Why does overflow: hidden still show a scrollbar?","acceptedAnswer":{"@type":"Answer","text":"Two causes. (1) overflow: hidden only applies to the element's own overflow. If the element is itself taller than the viewport, the page scrolls — that's body/html overflow, not the element's. (2) overflow: hidden on one axis (overflow-x: hidden) combined with visible on the other (overflow-y: visible) — browsers treat the pair as auto/auto when one axis is hidden. Fix: use overflow-x: hidden; overflow-y: auto for horizontal clip + vertical scroll, or use overflow: clip (newer, doesn't create a scroll container). Also check that no child is larger than the viewport — that can force page-level overflow regardless of the parent."}},
+{"@type":"Question","name":"Does overflow: hidden improve performance?","acceptedAnswer":{"@type":"Answer","text":"Slightly, sometimes. overflow: hidden creates a containing block for absolutely positioned children and a new block formatting context — the browser can optimize rendering for it. This is a minor effect, not a reason to add it. The main reasons to use overflow: hidden are visual (clipping content) and layout (preventing float collapse, hiding horizontal scroll). Don't add overflow: hidden for performance — the gain is negligible and the side effects (broken sticky, clipped shadows) are real."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · overflow</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">overflow</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>overflow: hidden vs scroll vs auto.<br><span class="py-accent">Clip, scroll, or both.</span></h1>
+<p class="lead">
+Three values, three behaviors. <code>hidden</code> clips content — no scrollbar. <code>scroll</code> always shows scrollbars, even when content fits. <code>auto</code> shows them only when needed. Each has a specific use, and each has side effects that surprise developers. This page covers the difference, the scrollbar layout shift, the two-axis gotcha, and why <code>overflow: hidden</code> breaks sticky.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>overflow: auto</code> for scrollable containers — the least surprising behavior. Use <code>overflow: hidden</code> when you deliberately want to clip content (image crops, rounded corners on images). Use <code>overflow: scroll</code> only when you want to reserve scrollbar space consistently. Add <code>scrollbar-gutter: stable</code> on <code>html</code> to prevent layout shift. Know that <code>overflow: hidden</code> breaks <code>position: sticky</code> on descendants and clips shadows.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The four values</h2>
+<p class="section-sub">Each one clips or scrolls differently.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>overflow: visible</code></h4>
+<p>Default. Content overflows the container and is visible outside it. No clipping, no scrollbar.</p>
+</div>
+<div class="concept-card">
+<h4><code>overflow: hidden</code></h4>
+<p>Content is clipped — no scrollbar, no way to see the overflow. Content is invisible outside the box.</p>
+</div>
+<div class="concept-card">
+<h4><code>overflow: scroll</code></h4>
+<p>Scrollbars are always shown, even if content fits. Layout space reserved. Consistent but often ugly.</p>
+</div>
+<div class="concept-card">
+<h4><code>overflow: auto</code></h4>
+<p>Scrollbars appear only when content overflows. Layout space may shift when they appear. <strong>Usually the right choice.</strong></p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">The same container, three overflow values.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">overflow-values.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">/* overflow: hidden — clip */
+.container-hidden {
+width: 300px;
+height: 200px;
+overflow: hidden;
+border: 1px solid #2965f1;
+}
+
+/* overflow: scroll — always show scrollbar */
+.container-scroll {
+width: 300px;
+height: 200px;
+overflow: scroll;
+border: 1px solid #2965f1;
+}
+
+/* overflow: auto — scrollbar when needed */
+.container-auto {
+width: 300px;
+height: 200px;
+overflow: auto;
+border: 1px solid #2965f1;
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Content: 400px tall, inside a 200px container.
+
+overflow: hidden
+┌─────────────────┐
+│ Content visible │
+│ Content visible │
+│ Content visible │
+│ ███████████████ │ ← clipped at 200px
+└─────────────────┘
+No scrollbar. Rest of content is invisible.
+
+overflow: scroll
+┌─────────────┬───┐
+│ Content │ ▲ │
+│ visible │ █ │ ← scrollbar always shown
+│ │ █ │
+└─────────────┴───┘
+Scrollbar always present, even if content fits.
+
+overflow: auto
+┌─────────────┬───┐
+│ Content │ ▲ │
+│ visible │ █ │ ← scrollbar when needed
+│ │ █ │
+└─────────────┴───┘
+Scrollbar shown only when content overflows.
+
+✅ auto is the least surprising.
+✅ hidden for deliberate clipping.
+✅ scroll for reserved-space patterns (rare).</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The two-axis gotcha</h2>
+<p class="section-sub">Mixing hidden with visible doesn't work.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">two-axis.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why it's weird</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">/* ❌ Doesn't work as expected */
+.container-bad {
+overflow-x: hidden;
+overflow-y: visible;
+/* The browser treats this as auto/auto —
+both axes become auto. Not what you wanted. */
+}
+
+/* ✅ Explicit — one hidden, one auto */
+.container-good {
+overflow-x: hidden;
+overflow-y: auto;
+}
+
+/* ✅ overflow: clip — newer, no scroll container */
+.container-clip {
+overflow: clip;
+/* Clips without creating a scroll container.
+Sticky still works on descendants. */
+}
+
+/* ✅ For horizontal-scroll carousels */
+.carousel {
+overflow-x: auto;
+overflow-y: hidden;
+white-space: nowrap;
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The spec rule:
+
+If one axis is visible and the other is anything
+else (hidden, scroll, auto), the browser treats
+BOTH as auto.
+
+❌ overflow-x: hidden; overflow-y: visible
+→ becomes auto / auto. Both axes scroll.
+
+✅ overflow-x: hidden; overflow-y: auto
+→ hidden on x, auto on y. As intended.
+
+✅ overflow: clip
+→ clips both axes, no scroll container.
+Sticky still works. Shadows still clip.
+
+⚠️ overflow: clip is newer (2022+). For older
+browsers, use overflow: hidden on the specific
+axis and accept the side effects.
+
+Common patterns:
+Horizontal carousel: overflow-x: auto, overflow-y: hidden.
+Modal that clips: overflow: hidden on the container.
+Sticky header with clip: overflow: clip on the wrapper.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The scrollbar layout shift</h2>
+<p class="section-sub">Reserve the scrollbar gutter, once.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">scrollbar-gutter.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why it matters</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">/* ✅ The modern fix — one line on html */
+html {
+scrollbar-gutter: stable;
+}
+
+/* ✅ Fallback for older browsers — reserve space */
+html {
+padding-right: calc(100vw - 100%);
+}
+
+/* ✅ Modern scrollbar styling (WebKit) */
+::-webkit-scrollbar {
+width: 10px;
+}
+::-webkit-scrollbar-track {
+background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+background: #94a3b8;
+border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+background: #64748b;
+}
+
+/* ✅ Modern scrollbar styling (Firefox) */
+html {
+scrollbar-width: thin;
+scrollbar-color: #94a3b8 #f1f5f9;
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The problem:
+
+Page A: short content → no scrollbar.
+Page B: long content → scrollbar, content shifts
+left by ~15px.
+
+User sees the whole page jump when navigating
+between pages. Misclicks, disorientation.
+
+The fix:
+
+scrollbar-gutter: stable on html
+→ reserves scrollbar space always.
+→ content position never shifts.
+→ one line, works everywhere since 2024.
+
+Older fallback:
+padding-right: calc(100vw - 100%)
+→ on html or the body wrapper.
+→ works in all browsers.
+→ slight layout differences on mobile,
+where scrollbars are overlay.
+
+Scrollbar styling:
+WebKit: ::-webkit-scrollbar (all Chrome/Safari/Edge)
+Firefox: scrollbar-width, scrollbar-color
+No single standard — use both.
+
+⚠️ Don't hide scrollbars entirely (scrollbar-width: none)
+unless you provide an alternative. Users who rely on
+scrollbar position lose functionality.
+scrollbar-width: thin is a better compromise.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't add <code>overflow: hidden</code> to hide horizontal scroll.</strong> It works — the horizontal scrollbar disappears — but it also breaks <code>position: sticky</code> on any descendant, clips box-shadows and dropdowns, and hides absolutely positioned children that extend past the edges. The problem is usually an element that's accidentally too wide — find it and fix it. If you must hide horizontal scroll, use <code>overflow-x: clip</code> (newer) which doesn't create a scroll container, or apply overflow at the narrowest possible container — not on <code>body</code> or the layout wrapper. Every "why doesn't sticky work?" bug starts with a stray <code>overflow: hidden</code>.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The overflow mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>overflow: hidden</code> to hide horizontal scroll</div>
+<p>Breaks sticky, clips shadows. Fix: find the wide element, or use <code>overflow-x: clip</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Mixing <code>hidden</code> with <code>visible</code></div>
+<p>Browsers treat both as auto. Fix: explicit <code>overflow-x: hidden; overflow-y: auto</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. No scrollbar-gutter</div>
+<p>Layout shifts between pages. Fix: <code>scrollbar-gutter: stable</code> on html.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. <code>overflow: scroll</code> "to be safe"</div>
+<p>Always shows scrollbars — ugly on non-scrolling content. Fix: <code>auto</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Hiding scrollbars entirely</div>
+<p><code>scrollbar-width: none</code> removes accessibility. Fix: <code>thin</code> or style them.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. overflow on the wrong ancestor</div>
+<p>Applied to <code>body</code>, breaks sticky everywhere. Fix: apply to the specific container.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Expecting overflow: hidden to fix float collapse</div>
+<p>It does — but flow-root is cleaner. Fix: <code>display: flow-root</code> on the parent.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Overflow on replaced elements</div>
+<p>
+  <code>&lt;video&gt;</code>, <code>&lt;iframe&gt;</code> — use <code>object-fit</code> instead. Fix: <code>object-fit: cover</code>.
+</p>
+
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between overflow: hidden, scroll, and auto?</summary>
+<p class="mt-2 text-sm text-slate-300">overflow: hidden clips content that overflows — no scrollbar, content is invisible. overflow: scroll always shows scrollbars, even when content fits. overflow: auto shows scrollbars only when content overflows. Use auto for most scrolling containers. Use hidden when you deliberately want to clip content. Use scroll only when you want to reserve space for the scrollbar consistently.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does overflow: hidden break position: sticky?</summary>
+<p class="mt-2 text-sm text-slate-300">overflow: hidden creates a new scrolling container. Sticky positions relative to the nearest scrolling ancestor, which is now that container — not the viewport. If the container doesn't scroll vertically, sticky has nowhere to stick. Fix: remove overflow from ancestors of sticky elements, or use display: flow-root instead, or move the sticky element outside the overflow container in the DOM.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the scrollbar layout shift?</summary>
+<p class="mt-2 text-sm text-slate-300">When a page goes from no scrollbar to showing one, the content shifts horizontally by the width of the scrollbar. It happens when opening a modal that locks scroll, or navigating between pages where one is shorter. Fix: reserve space for the scrollbar always, using scrollbar-gutter: stable on the html element.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I style the scrollbar?</summary>
+<p class="mt-2 text-sm text-slate-300">Partially. WebKit/Blink browsers support ::-webkit-scrollbar and related pseudo-elements. Firefox supports scrollbar-width and scrollbar-color. The modern approach: use both — scrollbar-width and scrollbar-color for Firefox, ::-webkit-scrollbar for Chrome/Safari. Don't hide scrollbars entirely unless you provide an alternative.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does overflow: hidden still show a scrollbar?</summary>
+<p class="mt-2 text-sm text-slate-300">Two causes. (1) overflow: hidden only applies to the element's own overflow — if the element is itself taller than the viewport, the page scrolls. (2) overflow-x: hidden combined with overflow-y: visible — browsers treat the pair as auto/auto when one axis is hidden. Fix: use overflow-x: hidden; overflow-y: auto for horizontal clip + vertical scroll, or use overflow: clip.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does overflow: hidden improve performance?</summary>
+<p class="mt-2 text-sm text-slate-300">Slightly, sometimes. overflow: hidden creates a containing block and a new block formatting context — the browser can optimize rendering for it. This is a minor effect, not a reason to add it. The main reasons to use overflow: hidden are visual (clipping content) and layout (preventing float collapse, hiding horizontal scroll).</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/position-sticky.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 position: sticky not working</div>
+<div class="text-xs text-slate-400 mt-1">The overflow ancestor and missing top</div>
+</a>
+<a href="/courses/css/problems/float-clearfix.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 How to clear floats</div>
+<div class="text-xs text-slate-400 mt-1">The clearfix, flow-root, and why float is legacy</div>
+</a>
+<a href="/courses/css/problems/box-model.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 The CSS box model</div>
+<div class="text-xs text-slate-400 mt-1">Content, padding, border, margin</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+</body>
+</html>
