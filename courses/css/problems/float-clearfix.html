@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Clear Floats in CSS — The Clearfix Pattern (2026)</title>
+<meta name="description" content="CSS float and clearfix explained: why floated parents collapse, the modern clearfix, display: flow-root, and why flexbox replaced float layout.">
+<meta name="keywords" content="css clearfix, clear float css, css float collapse, display flow-root, float layout, clearfix pattern">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Clear Floats in CSS — The Clearfix Pattern">
+<meta property="og:description" content="Why floated parents collapse, the modern clearfix, and display: flow-root.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/float-clearfix.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Clear Floats in CSS">
+<meta name="twitter:description" content="The clearfix pattern, flow-root, and why flexbox replaced float layout.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/float-clearfix.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Clear Floats in CSS — The Clearfix Pattern",
+"description": "Why floated parents collapse, the modern clearfix, and display: flow-root.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Intermediate",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why does my floated parent collapse?","acceptedAnswer":{"@type":"Answer","text":"Floated elements are removed from the normal flow — they don't push the parent's height. A parent with only floated children has height: 0 because there's no in-flow content to give it height. This is called 'float collapse.' The parent appears to have no height, so following elements overlap it, backgrounds disappear, and spacing breaks. The fix is called 'clearfix' — CSS that forces the parent to contain its floated children. Modern fixes: display: flow-root, or overflow: auto, or the traditional ::after clearfix. The cleanest is display: flow-root on the parent."}},
+{"@type":"Question","name":"What is the clearfix pattern?","acceptedAnswer":{"@type":"Answer","text":"The clearfix is a CSS rule that forces a parent to contain its floated children. The classic version uses a pseudo-element: .clearfix::after { content: ''; display: table; clear: both; }. The ::after pseudo-element becomes a child of the parent, and clear: both moves it below the floats. The parent then has a real last child, so its height includes the floats. This was the standard fix for 15 years. It still works, but display: flow-root on the parent is cleaner and doesn't require a pseudo-element."}},
+{"@type":"Question","name":"What is display: flow-root?","acceptedAnswer":{"@type":"Answer","text":"display: flow-root is the modern replacement for the clearfix hack. It creates a new block formatting context (BFC) on the element, which forces it to contain its floated children. No pseudo-elements needed, no overflow side effects. .container { display: flow-root; } — that's it. Supported in all modern browsers since 2017. This is the cleanest fix for float collapse. If you're writing new code that still uses floats for some reason, use display: flow-root on the parent."}},
+{"@type":"Question","name":"Why not just use overflow: hidden?","acceptedAnswer":{"@type":"Answer","text":"overflow: hidden does contain floats — it creates a block formatting context, same as flow-root. But it has side effects: it clips content that overflows (dropdowns, box-shadows, tooltips), and it breaks position: sticky on descendants. This is why flow-root was added — it contains floats without the clipping behavior. Use flow-root when you can. Use overflow: hidden only for legacy code where flow-root isn't an option."}},
+{"@type":"Question","name":"Should I still use float for layout?","acceptedAnswer":{"@type":"Answer","text":"No. Floats were the only layout tool for many years, but flexbox and grid replaced them for layout. Floats are still the right tool for their original purpose — wrapping text around an image (the 'float' behavior you see in magazines). Use float for that, and use flexbox/grid for layout. If you're maintaining a legacy codebase with float layouts, clearfix is still needed. But for new code: float for text wrapping around media, flexbox/grid for everything else. This is not stylistic — flexbox and grid are objectively better for layout."}},
+{"@type":"Question","name":"What is clear: both?","acceptedAnswer":{"@type":"Answer","text":"The clear property forces an element to be positioned below any preceding floated siblings. clear: left moves it below left-floated siblings, clear: right below right-floated, clear: both below both. It's the original float-clearing tool — the element after a float that says 'I don't want to sit next to these floats, put me below them.' In the clearfix pattern, the ::after pseudo-element uses clear: both to force itself below the parent's floated children, and the parent then takes the pseudo-element's height. Without clearfix, the parent doesn't contain the floats."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · float clearfix</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Float clearfix</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>How to clear floats.<br><span class="py-accent">The clearfix, explained.</span></h1>
+<p class="lead">
+Floated elements are removed from the normal flow — they don't push the parent's height. A parent with only floated children has height 0, so following content overlaps it, backgrounds disappear, and layout breaks. The fix is called clearfix. There are three patterns: the classic <code>::after</code> clearfix, <code>display: flow-root</code> (modern), and <code>overflow: auto</code> (with side effects). This page covers each, when to use float today, and why flexbox replaced float layout.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>display: flow-root</code> on the parent — it contains floats without side effects, supported in all modern browsers since 2017. Fall back to the <code>::after</code> clearfix for legacy browsers. <code>overflow: hidden</code> works but clips content and breaks sticky. Use float only for its original purpose — wrapping text around an image — not for layout. For layout, use flexbox or grid.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The problem</h2>
+<p class="section-sub">Floated children collapse the parent.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">collapsed-parent.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">.parent {
+background: #f5f5f5;
+border: 2px solid #2965f1;
+/* no clearfix, no overflow, no flow-root */
+}
+
+.child {
+float: left;
+width: 100px;
+height: 100px;
+background: #2965f1;
+}
+
+.sibling {
+background: #ffd700;
+padding: 1rem;
+}</pre>
+<script type="text/plain" id="raw-code-sol1">.parent {
+background: #f5f5f5;
+border: 2px solid #2965f1;
+/* no clearfix, no overflow, no flow-root */
+}
+
+.child {
+float: left;
+width: 100px;
+height: 100px;
+background: #2965f1;
+}
+
+.sibling {
+background: #ffd700;
+padding: 1rem;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Visual result:
+
+┌─────────────────────┐ ← parent border
+│ ┌────┐ │ (height: 0! no background)
+│ │ │ │
+│ │ │ ← floated │
+│ │ │ child │
+│ └────┘ │
+└─────────────────────┘
+
+┌─────────────────────┐ ← sibling overlaps parent
+│ Sibling content │
+└─────────────────────┘
+
+❌ Parent has height: 0 (border-only visible).
+❌ Parent's background doesn't paint behind the float.
+❌ Sibling overlaps the parent — no vertical space.
+❌ Everything after the float appears in the wrong place.
+
+Why: float takes the child out of normal flow.
+The parent has no in-flow content → height: 0.
+This is float collapse.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Fix 1 — display: flow-root</h2>
+<p class="section-sub">The modern, side-effect-free fix.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">flow-root.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">.parent {
+display: flow-root; /* ✅ contains the float */
+background: #f5f5f5;
+border: 2px solid #2965f1;
+}
+
+.child {
+float: left;
+width: 100px;
+height: 100px;
+background: #2965f1;
+}
+
+.sibling {
+background: #ffd700;
+padding: 1rem;
+}</pre>
+<script type="text/plain" id="raw-code-sol2">.parent {
+display: flow-root; /* contains the float */
+background: #f5f5f5;
+border: 2px solid #2965f1;
+}
+
+.child {
+float: left;
+width: 100px;
+height: 100px;
+background: #2965f1;
+}
+
+.sibling {
+background: #ffd700;
+padding: 1rem;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Visual result:
+
+┌─────────────────────┐ ← parent contains the float
+│ ┌────┐ │
+│ │ │ │
+│ │ │ ← floated │
+│ │ │ child │
+│ └────┘ │
+│ │ ← parent height = child
+└─────────────────────┘
+
+┌─────────────────────┐ ← sibling is below
+│ Sibling content │
+└─────────────────────┘
+
+✅ Parent has correct height.
+✅ Parent's background paints behind the float.
+✅ Sibling is below the parent, not overlapping.
+
+Why: flow-root creates a block formatting context
+(BFC), which contains floats. No pseudo-element,
+no overflow clipping, no side effects.
+
+Supported in all modern browsers since 2017.
+This is the recommended fix.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Fix 2 — the classic clearfix</h2>
+<p class="section-sub">For legacy code where flow-root isn't an option.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">clearfix.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">.clearfix::after {
+content: '';
+display: table;
+clear: both;
+}
+
+/* Usage */
+.parent {
+background: #f5f5f5;
+border: 2px solid #2965f1;
+}
+
+/* HTML: <div class="parent clearfix"> */
+
+.child {
+float: left;
+width: 100px;
+height: 100px;
+background: #2965f1;
+}</pre>
+<script type="text/plain" id="raw-code-sol3">.clearfix::after {
+content: '';
+display: table;
+clear: both;
+}
+
+/* Usage */
+.parent {
+background: #f5f5f5;
+border: 2px solid #2965f1;
+}
+
+/* HTML: <div class="parent clearfix"> */
+
+.child {
+float: left;
+width: 100px;
+height: 100px;
+background: #2965f1;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What happens:
+
+1. ::after creates a pseudo-element as the last
+child of .parent.
+2. display: table makes it a block-level element
+(table is chosen for legacy IE compatibility,
+block works in modern browsers).
+3. clear: both forces it below the floated children.
+4. The pseudo-element now sits below the floats.
+5. The parent's height includes the pseudo-element
+(which is below the floats).
+6. Parent height = float's height.
+
+✅ Parent contains the float.
+✅ No overflow clipping.
+✅ No pseudo-element required on the parent —
+it's generated by CSS.
+
+⚠️ Requires the .clearfix class on the parent.
+⚠️ Flow-root is cleaner — no class needed.
+
+This was the standard pattern from 2005–2017.
+Still works, still seen in legacy codebases.
+New code should use flow-root.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ What float is actually for</h2>
+<p class="section-sub">Text wrapping around an image.</p>
+
+<div class="code-block" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">float-text-wrap.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol4', 'js', this)">Why it works here</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">.article-image {
+float: left;
+width: 200px;
+margin-right: 1rem;
+margin-bottom: 0.5rem;
+border-radius: 8px;
+}
+
+.article p {
+/* Text flows around the image naturally */
+line-height: 1.6;
+}
+
+/* ✅ The text wraps around the image.
+This is what float was designed for —
+magazine-style layout for text + media. */</pre>
+<script type="text/plain" id="raw-code-sol4">.article-image {
+float: left;
+width: 200px;
+margin-right: 1rem;
+margin-bottom: 0.5rem;
+border-radius: 8px;
+}
+
+.article p {
+/* Text flows around the image naturally */
+line-height: 1.6;
+}
+
+/* The text wraps around the image.
+This is what float was designed for —
+magazine-style layout for text + media. */</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Visual result:
+
+┌───────────────────────────────────┐
+│ ┌──────┐ Lorem ipsum dolor sit │
+│ │ │ amet, consectetur... │
+│ │ IMG │ adipiscing elit. Sed │
+│ │ │ do eiusmod tempor... │
+│ └──────┘ incididunt ut labore... │
+│ │
+│ Ut enim ad minim veniam, quis... │
+└───────────────────────────────────┘
+
+✅ Text wraps around the image.
+✅ No layout system needed — float does this natively.
+✅ Full line width reclaimed after the float ends.
+
+This is float's original purpose — text wrapping.
+
+⚠️ Don't use float for layout in 2026.
+Use flexbox or grid.
+Float for text-media wrapping only.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use float for layout in 2026.</strong> Float was the only layout tool for a decade, but flexbox and grid replaced it. Floats cause the collapse problem, don't support vertical centering, don't handle equal-height columns naturally, and don't have gap or justify-content. If you're writing new CSS, use <code>display: flex</code> or <code>display: grid</code> for layout. Use <code>float</code> only for its original purpose: wrapping text around an image. This isn't stylistic — flexbox and grid are objectively better for every layout problem float was ever used for. The only reason to learn clearfix is to maintain legacy code.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The float mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Float without clearfix</div>
+<p>Parent collapses. Fix: <code>display: flow-root</code> on the parent.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using overflow: hidden for clearfix</div>
+<p>Clips content, breaks sticky. Fix: <code>flow-root</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Floats for layout</div>
+<p>Fragile, doesn't center vertically, no equal heights. Fix: flexbox or grid.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Forgetting clear: both on the pseudo-element</div>
+<p>The ::after doesn't clear. Fix: include <code>clear: both</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using float on flex items</div>
+<p>float is ignored on flex items. Fix: use flex properties.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Float with text-align</div>
+<p>Expecting float to center. Fix: <code>margin: 0 auto</code> for block centering.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Multiple floats without clearing</div>
+<p>Following elements overlap. Fix: <code>clear: both</code> or <code>flow-root</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not testing with images that are taller than text</div>
+<p>Text overflows the float. Fix: <code>clear: both</code> on the last paragraph, or <code>overflow: auto</code> on the container.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does my floated parent collapse?</summary>
+<p class="mt-2 text-sm text-slate-300">Floated elements are removed from the normal flow — they don't push the parent's height. A parent with only floated children has height: 0 because there's no in-flow content to give it height. This is called 'float collapse.' The parent appears to have no height, so following elements overlap it, backgrounds disappear, and spacing breaks. The fix is called 'clearfix.'</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the clearfix pattern?</summary>
+<p class="mt-2 text-sm text-slate-300">The clearfix is a CSS rule that forces a parent to contain its floated children. The classic version uses a pseudo-element: .clearfix::after { content: ''; display: table; clear: both; }. The ::after pseudo-element becomes a child of the parent, and clear: both moves it below the floats. The parent then has a real last child, so its height includes the floats.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is display: flow-root?</summary>
+<p class="mt-2 text-sm text-slate-300">display: flow-root is the modern replacement for the clearfix hack. It creates a new block formatting context (BFC) on the element, which forces it to contain its floated children. No pseudo-elements needed, no overflow side effects. Supported in all modern browsers since 2017. This is the cleanest fix for float collapse.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why not just use overflow: hidden?</summary>
+<p class="mt-2 text-sm text-slate-300">overflow: hidden does contain floats — it creates a block formatting context, same as flow-root. But it has side effects: it clips content that overflows (dropdowns, box-shadows, tooltips), and it breaks position: sticky on descendants. This is why flow-root was added — it contains floats without the clipping behavior. Use flow-root when you can.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I still use float for layout?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Floats were the only layout tool for many years, but flexbox and grid replaced them for layout. Floats are still the right tool for their original purpose — wrapping text around an image. Use float for that, and use flexbox/grid for layout. If you're maintaining a legacy codebase with float layouts, clearfix is still needed.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is clear: both?</summary>
+<p class="mt-2 text-sm text-slate-300">The clear property forces an element to be positioned below any preceding floated siblings. clear: left moves it below left-floated siblings, clear: right below right-floated, clear: both below both. In the clearfix pattern, the ::after pseudo-element uses clear: both to force itself below the parent's floated children.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/flexbox-vs-grid.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 Flexbox vs grid</div>
+<div class="text-xs text-slate-400 mt-1">One-dimensional vs two-dimensional</div>
+</a>
+<a href="/courses/css/problems/box-model.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 The CSS box model</div>
+<div class="text-xs text-slate-400 mt-1">Content, padding, border, margin</div>
+</a>
+<a href="/courses/css/problems/overflow-hidden-scroll.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 overflow: hidden vs scroll</div>
+<div class="text-xs text-slate-400 mt-1">Clipping, scrolling, and layout shift</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
