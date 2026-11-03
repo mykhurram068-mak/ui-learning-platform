@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>CSS scroll-snap — Carousels Without JavaScript (2026)</title>
+<meta name="description" content="CSS scroll-snap explained: pure CSS carousels, snap points, proximity vs mandatory, and accessibility. Direct answer with examples.">
+<meta name="keywords" content="css scroll-snap, css carousel, scroll snap type, snap points, css scroll snapping, swipe carousel">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="CSS scroll-snap — Carousels Without JavaScript">
+<meta property="og:description" content="Pure CSS carousels with snap points and proximity vs mandatory.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/scroll-snap.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="CSS scroll-snap">
+<meta name="twitter:description" content="Pure CSS carousels.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/scroll-snap.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "CSS scroll-snap — Carousels Without JavaScript",
+"description": "Pure CSS carousels with snap points and proximity vs mandatory.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Intermediate",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is CSS scroll-snap?","acceptedAnswer":{"@type":"Answer","text":"scroll-snap is a CSS feature that lets scrollable containers 'snap' to specific positions — a carousel that snaps to each slide, a full-page scroll that snaps to each section, a horizontal gallery that snaps to each image. Two properties make it work: scroll-snap-type on the container (defines the axis and behavior) and scroll-snap-align on the children (defines where they snap). No JavaScript required. Supported in all modern browsers since 2019. It replaces the old JS carousel libraries for many use cases."}},
+{"@type":"Question","name":"What is the difference between scroll-snap-type mandatory and proximity?","acceptedAnswer":{"@type":"Answer","text":"mandatory always snaps to the nearest snap point — the scroll position ends up exactly on a snap point, always. proximity snaps only if the scroll is close enough to a snap point — otherwise it scrolls freely. mandatory gives precise snapping but can trap users (they can't stop between slides). proximity is less aggressive, allowing free scroll when not near a snap. Use mandatory for carousels and full-page scroll; use proximity for image galleries where users might want to scroll freely. mandatory is more common, proximity is more flexible."}},
+{"@type":"Question","name":"How do I create a horizontal carousel with scroll-snap?","acceptedAnswer":{"@type":"Answer","text":"Three steps. (1) Container: display: flex; overflow-x: auto; scroll-snap-type: x mandatory. (2) Children: flex: 0 0 100%; scroll-snap-align: start. (3) Optional: scroll-behavior: smooth for animated scrolling. This gives a horizontal carousel where each slide takes the full width and snaps into place. No JavaScript. Add -webkit-overflow-scrolling: touch for iOS momentum (mostly automatic now). Hide the scrollbar with scrollbar-width: none for a cleaner look — but only if the carousel has visual affordances (arrows, dots) for navigation."}},
+{"@type":"Question","name":"Does scroll-snap work on touch devices?","acceptedAnswer":{"@type":"Answer","text":"Yes — it's designed for touch. Swiping on a carousel with scroll-snap-type: x mandatory snaps to the nearest slide. The behavior feels native on iOS and Android, and it's often better than a JavaScript carousel because it uses the browser's native scroll momentum and physics. The main caveat: on touch, users may expect to scroll freely — mandatory snap can feel restrictive if slides are narrower than the viewport. Use proximity for multi-slide carousels, mandatory for single-slide."}},
+{"@type":"Question","name":"Can I hide the scrollbar on a scroll-snap container?","advisedAnswer":{"@type":"Answer","text":"Yes, with scrollbar-width: none (Firefox) and ::-webkit-scrollbar { display: none } (WebKit). But hiding the scrollbar removes a visual cue that the content is scrollable — users may not realize there are more slides. If you hide the scrollbar, provide alternative cues: visible arrows, dot indicators, or a partial next slide showing at the edge. The best practice: hide the scrollbar only on horizontal carousels where the affordance is obvious (you can see the next slide partially). Never hide the vertical scrollbar on a page — users expect it."}},
+{"@type":"Question","name":"Does scroll-snap hurt accessibility?","acceptedAnswer":{"@type":"Answer","text":"It can, in two ways. (1) mandatory snap can trap users — they can't scroll past a slide if the browser insists on snapping. This affects users who use keyboard arrows or a screen reader navigation to scan content. (2) Hidden scrollbars remove the visual cue of scrollability. Fixes: use proximity instead of mandatory for carousels where users might want free scroll; always provide keyboard navigation (arrow keys work naturally with snap containers); never hide the scrollbar on vertical scrolling; provide visible navigation (arrows, dots, or paginated controls). Also respect prefers-reduced-motion for any smooth-scroll animations."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · scroll-snap</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">scroll-snap</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>CSS scroll-snap.<br><span class="py-accent">Carousels without JavaScript.</span></h1>
+<p class="lead">
+Two properties, no JavaScript, native scroll physics. <code>scroll-snap-type</code> on the container defines the axis and behavior. <code>scroll-snap-align</code> on the children defines where they snap. The result: a carousel that feels native on every device, uses the browser's scroll momentum, and requires no event listeners, no drag handling, no third-party library. This page covers the syntax, the mandatory vs proximity choice, and the accessibility patterns that make it safe.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> On the container: <code>overflow-x: auto; scroll-snap-type: x mandatory;</code>. On each child: <code>scroll-snap-align: start;</code>. That's it — a horizontal carousel with native snap. Use <code>mandatory</code> for carousels and full-page scroll; use <code>proximity</code> when you want free scroll near snap points. Hide the scrollbar only if you provide alternative navigation (arrows, dots). Never use <code>scroll-snap-type: y mandatory</code> on a normal page — it traps users who want to scroll freely.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The two properties</h2>
+<p class="section-sub">Container and children. That's all.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>scroll-snap-type</code> (container)</h4>
+<p>Defines the axis (<code>x</code>, <code>y</code>, <code>both</code>) and behavior (<code>mandatory</code>, <code>proximity</code>). Set on the scroll container.</p>
+</div>
+<div class="concept-card">
+<h4><code>scroll-snap-align</code> (children)</h4>
+<p>Where each child snaps: <code>start</code>, <code>center</code>, <code>end</code>. Set on each direct child of the container.</p>
+</div>
+<div class="concept-card">
+<h4><code>scroll-padding</code> (container)</h4>
+<p>Offset for the snap position — useful when there's a fixed header. <code>scroll-padding-top: 80px</code>.</p>
+</div>
+<div class="concept-card">
+<h4><code>scroll-behavior</code> (container)</h4>
+<p>Optional. <code>smooth</code> for animated scrolling on anchor links and programmatic scroll.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">A horizontal carousel in CSS.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">carousel.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">.carousel {
+display: flex;
+gap: 1rem;
+overflow-x: auto;
+scroll-snap-type: x mandatory;
+scroll-behavior: smooth;
+scrollbar-width: none; /* Firefox */
+}
+
+.carousel::-webkit-scrollbar {
+display: none; /* WebKit */
+}
+
+.slide {
+flex: 0 0 100%; /* each slide = full width /
+scroll-snap-align: start;
+height: 300px;
+background: #2965f1;
+border-radius: 8px;
+}</pre>
+<script type="text/plain" id="raw-code-sol1">.carousel {
+display: flex;
+gap: 1rem;
+overflow-x: auto;
+scroll-snap-type: x mandatory;
+scroll-behavior: smooth;
+scrollbar-width: none; / Firefox */
+}
+
+.carousel::-webkit-scrollbar {
+display: none; /* WebKit */
+}
+
+.slide {
+flex: 0 0 100%; /* each slide = full width */
+scroll-snap-align: start;
+height: 300px;
+background: #2965f1;
+border-radius: 8px;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>User swipes right:
+┌─────────────┐
+│ Slide 1 │ → snaps to start
+└─────────────┘
+Swipe more:
+┌─────────────┐
+│ Slide 2 │ → snaps to start
+└─────────────┘
+
+✅ Each slide is full width (flex: 0 0 100%).
+✅ scroll-snap-align: start makes each slide
+snap to the left edge of the container.
+✅ scroll-snap-type: x mandatory forces the
+browser to always land on a slide edge.
+✅ Native momentum on touch devices.
+✅ Works with mouse wheel, trackpad, keyboard arrows.
+
+gap: 1rem adds space between slides.
+flex: 0 0 100% means "don't shrink, don't grow,
+base size 100% of container". This is the
+correct flex shorthand — flex: 1 would let
+the slide grow, breaking the layout.
+
+scrollbar-width: none hides the scrollbar.
+::--webkit-scrollbar { display: none } does the same
+for Chrome/Safari/Edge.
+Hide only if you have alternative navigation.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Mandatory vs proximity</h2>
+<p class="section-sub">How aggressive is the snap.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">mandatory-vs-proximity.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">When to use each</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">/* mandatory — always snaps to a point */
+.carousel-mandatory {
+display: flex;
+overflow-x: auto;
+scroll-snap-type: x mandatory;
+}
+
+.carousel-mandatory .slide {
+flex: 0 0 100%;
+scroll-snap-align: start;
+}
+
+/* proximity — snaps only when close */
+.gallery-proximity {
+display: flex;
+gap: 1rem;
+overflow-x: auto;
+scroll-snap-type: x proximity;
+}
+
+.gallery-proximity img {
+flex: 0 0 300px;
+scroll-snap-align: center;
+}</pre>
+<script type="text/plain" id="raw-code-sol2">/* mandatory — always snaps to a point */
+.carousel-mandatory {
+display: flex;
+overflow-x: auto;
+scroll-snap-type: x mandatory;
+}
+
+.carousel-mandatory .slide {
+flex: 0 0 100%;
+scroll-snap-align: start;
+}
+
+/* proximity — snaps only when close */
+.gallery-proximity {
+display: flex;
+gap: 1rem;
+overflow-x: auto;
+scroll-snap-type: x proximity;
+}
+
+.gallery-proximity img {
+flex: 0 0 300px;
+scroll-snap-align: center;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>mandatory:
+✅ Every scroll ends exactly on a snap point.
+✅ Precise — always shows a full slide.
+❌ Can trap users — can't stop between slides.
+✅ Best for: full-width carousels, full-page scroll.
+
+proximity:
+✅ Snaps when close, scrolls freely otherwise.
+✅ Less aggressive — user feels in control.
+❌ May not snap at all if scroll is far from a point.
+✅ Best for: image galleries, mixed content,
+carousels where users might want partial scroll.
+
+Rule of thumb:
+If every slide is the full width of the container
+→ mandatory.
+If slides are varied widths or you want free scroll
+→ proximity.
+
+Edge case — tabnavigation:
+Users navigating with keyboard arrows (not Tab)
+can scroll past proximity snap points freely.
+With mandatory, they snap to each slide.
+This is usually what you want.
+
+⚠️ mandatory on a page with tall sections (y axis)
+can trap users who want to scroll freely.
+Only use scroll-snap-type: y mandatory on
+full-page scroll designs, not on content pages.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Accessibility — the non-negotiables</h2>
+<p class="section-sub">What makes a snap carousel usable for everyone.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">accessible-snap.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why each</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">.carousel {
+display: flex;
+overflow-x: auto;
+scroll-snap-type: x proximity;
+scroll-behavior: smooth;
+
+/* Respect reduced-motion */
+scroll-behavior: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+.carousel {
+scroll-behavior: smooth;
+}
+}
+
+/* Keyboard-visible focus for carousel controls */
+.carousel-nav:focus-visible {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+}
+
+/* Visible navigation arrows — alternative to scrollbar */
+.carousel-nav {
+position: absolute;
+top: 50%;
+transform: translateY(-50%);
+background: white;
+border: 1px solid #cbd5e1;
+border-radius: 50%;
+width: 40px;
+height: 40px;
+}</pre>
+<script type="text/plain" id="raw-code-sol3">.carousel {
+display: flex;
+overflow-x: auto;
+scroll-snap-type: x proximity;
+scroll-behavior: smooth;
+
+/* Respect reduced-motion */
+scroll-behavior: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+.carousel {
+scroll-behavior: smooth;
+}
+}
+
+/* Keyboard-visible focus for carousel controls */
+.carousel-nav:focus-visible {
+outline: 2px solid #2965f1;
+outline-offset: 2px;
+}
+
+/* Visible navigation arrows — alternative to scrollbar */
+.carousel-nav {
+position: absolute;
+top: 50%;
+transform: translateY(-50%);
+background: white;
+border: 1px solid #cbd5e1;
+border-radius: 50%;
+width: 40px;
+height: 40px;
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Accessibility checklist for snap carousels:
+
+✅ Prefer proximity over mandatory when possible.
+Mandatory can trap users between slides.
+
+✅ Respect prefers-reduced-motion:
+• smooth scroll only if user hasn't requested reduced motion.
+• remove any auto-play behavior entirely.
+
+✅ Provide keyboard navigation:
+• focus visible on all controls.
+• keyboard arrow keys work natively.
+
+✅ Provide non-scroll navigation:
+• visible arrows (prev/next).
+• dot indicators showing current slide.
+• "skip carousel" link if it's a big component.
+
+✅ Don't hide the scrollbar without alternatives.
+If hidden, arrows/dots must be visible.
+
+✅ Test with keyboard only, and with a screen reader.
+Tab through the carousel — does focus move correctly?
+Arrow keys — does the carousel respond?
+
+✅ Announce state changes:
+screen readers should know when the slide changes.
+(JS required for this — beyond scroll-snap's scope.)</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>scroll-snap-type: y mandatory</code> on a page with content sections.</strong> Full-page snap looks great in demos but traps users — they can't stop between sections to read, and they can't scroll to see part of a section. This is especially bad on mobile where users expect free scroll. Use <code>mandatory</code> snap only when each snap target is exactly the viewport (a slide deck, a full-page scroll design). For content pages, use no snap at all, or <code>proximity</code> at most. The rule: snap is for carousels and slide decks, not for normal reading.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The scroll-snap mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>scroll-snap-type</code> on children</div>
+<p>Must be on the container, not the slides. Fix: container has scroll-snap-type, children have scroll-snap-align.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Mandatory on a content page</div>
+<p>Traps users between sections. Fix: use proximity, or no snap.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Hidden scrollbar with no alternative</div>
+<p>Users don't know there's more content. Fix: add visible arrows or dots.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Forgetting <code>overflow-x: auto</code></div>
+<p>Snap needs a scroll container. Fix: <code>overflow-x: auto</code> on the container.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Slides without flex basis</div>
+<p>Slides shrink to their content. Fix: <code>flex: 0 0 100%</code> (or an explicit width).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. No gap between slides</div>
+<p>Adjacent slides visually merge. Fix: <code>gap</code> on the container.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Forgetting scroll-padding</div>
+<p>Snap points hide under fixed headers. Fix: <code>scroll-padding-top: 80px</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Ignoring prefers-reduced-motion</div>
+<p>Smooth scroll animates for users who requested none. Fix: wrap in <code>@media (prefers-reduced-motion: no-preference)</code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is CSS scroll-snap?</summary>
+<p class="mt-2 text-sm text-slate-300">scroll-snap is a CSS feature that lets scrollable containers 'snap' to specific positions — a carousel that snaps to each slide, a full-page scroll that snaps to each section. Two properties: scroll-snap-type on the container (axis and behavior) and scroll-snap-align on the children (where they snap). No JavaScript required. Supported in all modern browsers since 2019.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between scroll-snap-type mandatory and proximity?</summary>
+<p class="mt-2 text-sm text-slate-300">mandatory always snaps to the nearest snap point — the scroll position ends up exactly on a snap point, always. proximity snaps only if the scroll is close enough to a snap point — otherwise it scrolls freely. mandatory gives precise snapping but can trap users. proximity is less aggressive. Use mandatory for carousels and full-page scroll; use proximity for image galleries.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I create a horizontal carousel with scroll-snap?</summary>
+<p class="mt-2 text-sm text-slate-300">Three steps. (1) Container: display: flex; overflow-x: auto; scroll-snap-type: x mandatory. (2) Children: flex: 0 0 100%; scroll-snap-align: start. (3) Optional: scroll-behavior: smooth. This gives a horizontal carousel where each slide takes the full width and snaps into place. No JavaScript.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does scroll-snap work on touch devices?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes — it's designed for touch. Swiping on a carousel with scroll-snap-type: x mandatory snaps to the nearest slide. The behavior feels native on iOS and Android, and it's often better than a JavaScript carousel because it uses the browser's native scroll momentum and physics.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I hide the scrollbar on a scroll-snap container?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, with scrollbar-width: none (Firefox) and ::-webkit-scrollbar { display: none } (WebKit). But hiding the scrollbar removes a visual cue that the content is scrollable — users may not realize there are more slides. If you hide the scrollbar, provide alternative cues: visible arrows, dot indicators, or a partial next slide showing at the edge.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does scroll-snap hurt accessibility?</summary>
+<p class="mt-2 text-sm text-slate-300">It can, in two ways. (1) mandatory snap can trap users — they can't scroll past a slide if the browser insists on snapping. (2) Hidden scrollbars remove the visual cue of scrollability. Fixes: use proximity instead of mandatory for carousels where users might want free scroll; always provide keyboard navigation; never hide the scrollbar on vertical scrolling; provide visible navigation.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/overflow-hidden-scroll.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 overflow: hidden vs scroll</div>
+<div class="text-xs text-slate-400 mt-1">Clipping, scrolling, and layout shift</div>
+</a>
+<a href="/courses/css/problems/focus-visible.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 What is :focus-visible?</div>
+<div class="text-xs text-slate-400 mt-1">Keyboard-only focus styles</div>
+</a>
+<a href="/courses/css/problems/flexbox-vs-grid.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 Flexbox vs grid</div>
+<div class="text-xs text-slate-400 mt-1">One-dimensional vs two-dimensional</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
