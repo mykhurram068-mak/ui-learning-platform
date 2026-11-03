@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>CSS Margin Collapse — Why Your Spacing Is Wrong (2026)</title>
+<meta name="description" content="CSS margin collapse explained: adjacent siblings, parent-child, and empty elements. Why two 20px margins become 20px, not 40px. Fixes with padding and flexbox.">
+<meta name="keywords" content="css margin collapse, margin collapsing, css spacing, adjacent margins, parent child margin, empty element margin">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="CSS Margin Collapse — Why Your Spacing Is Wrong">
+<meta property="og:description" content="Two 20px margins become 20px, not 40px. The three causes and fixes.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/css/problems/margin-collapse.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta property="twitter:title" content="CSS Margin Collapse">
+<meta name="twitter:description" content="Two 20px margins become 20px, not 40px.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/css/problems/margin-collapse.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "CSS Margin Collapse — Why Your Spacing Is Wrong",
+"description": "Adjacent siblings, parent-child, and empty elements — the three cases of margin collapse.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-03",
+"dateModified": "2026-11-03",
+"proficiencyLevel": "Intermediate",
+"dependencies": "CSS3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is margin collapse in CSS?","acceptedAnswer":{"@type":"Answer","text":"When two vertical margins meet, they collapse into a single margin equal to the larger of the two. Two divs with margin-bottom: 20px and margin-top: 20px have 20px of space between them, not 40px. This is a spec behavior, not a bug — it's designed to prevent double spacing in articles. Margin collapse only applies to vertical margins in normal flow. It doesn't apply to horizontal margins, padding, borders, or flex/grid items. The larger margin wins; if one is negative, the result is the sum; if both are negative, the more negative wins."}},
+{"@type":"Question","name":"When does margin collapse happen?","acceptedAnswer":{"@type":"Answer","text":"Three cases. (1) Adjacent siblings — two block elements one after the other in the same parent. (2) Parent and first/last child — if the parent has no padding, border, or overflow, the child's margin collapses with the parent's, pulling the parent with it. (3) Empty elements — a block element with no content collapses its own top and bottom margins into one. All three happen only with vertical margins in normal flow. Horizontal margins never collapse."}},
+{"@type":"Question","name":"How do I stop margin collapse?","acceptedAnswer":{"@type":"Answer","text":"Four fixes. (1) Add padding or border to the parent — this creates a boundary that prevents collapse. (2) Add overflow: hidden (or auto, or scroll) to the parent — creates a block formatting context. (3) Use flexbox or grid — margins don't collapse between flex/grid items. (4) Use gap instead of margin for spacing inside a flex/grid container. In modern CSS, gap is the preferred fix — it's explicit, doesn't require clearing hacks, and works consistently."}},
+{"@type":"Question","name":"Does margin collapse happen in flexbox or grid?","acceptedAnswer":{"@type":"Answer","text":"No. Margins do not collapse between flex items or grid items. Each item's margin applies independently — two flex items with 20px margins have 40px of space between them, not 20px. This is one reason flexbox and grid are preferred for component-level spacing: the spacing is predictable and additive, unlike normal flow. However, the flex container itself still follows normal margin rules — its margins collapse with siblings. Only the items inside the container are exempt."}},
+{"@type":"Question","name":"Why does margin collapse make my parent margin look wrong?","acceptedAnswer":{"@type":"Answer","text":"Because the child's margin collapses with the parent's. If a parent has no padding or border, its first child's margin-top collapses with the parent's margin-top. The child pulls the parent down with it. Similarly, the last child's margin-bottom collapses with the parent's. Fix: add padding or border to the parent, or set overflow: hidden, or make it a flex container. This 'margin leak' is a common source of 'why is my parent inside the child's margin?' bugs."}},
+{"@type":"Question","name":"Should I use padding or margin for spacing?","acceptedAnswer":{"@type":"Answer","text":"Padding inside an element; margin between elements. But in modern CSS, use gap for spacing between siblings — it's what margin collapse is trying to solve, done right. gap: 1rem on a flex container gives 1rem between each pair of items, no collapse, no hacks. Between a block and its parent, use padding on the parent (no collapse) rather than margin on the child (collapse). For vertical rhythm in articles, use margin-bottom on paragraphs — the collapse between paragraphs is intentional and gives you even spacing."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-css.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #2965f1; border-bottom-color: #2965f1; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#2965f1 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">CSS · margin collapse</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/css/index.html" style="color:#7ee8fc;">CSS</a> ›
+<a href="/courses/css/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Margin collapse</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🎨 Concept · 3 min read</div>
+<h1>Why is my spacing wrong?<br><span class="py-accent">Margin collapse.</span></h1>
+<p class="lead">
+You set <code>margin-bottom: 20px</code> on the first paragraph and <code>margin-top: 20px</code> on the second. You expect 40px of space. You get 20px. Or — worse — you put a child inside a parent with <code>margin-top: 20px</code> and the whole parent moves down. That's margin collapse, and it surprises everyone the first time. This page covers the three cases and the four fixes.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Adjacent vertical margins collapse into one — the larger margin wins. Two 20px margins become 20px, not 40px. It happens in three cases: adjacent siblings, parent and first/last child, and empty elements. It applies only to vertical margins in normal flow — not horizontal margins, not flex/grid items. Fix with padding on the parent, <code>overflow: hidden</code>, or better — use <code>gap</code> in flexbox/grid instead of margin for spacing.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The three cases</h2>
+<p class="section-sub">When margins touch, they collapse.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Adjacent siblings</h4>
+<p><code><p>A</p><p>B</p></code> — A's <code>margin-bottom</code> and B's <code>margin-top</code> collapse to the larger one.</p>
+</div>
+<div class="concept-card">
+<h4>Parent and first child</h4>
+<p>Parent has no padding, border, or overflow. The child's <code>margin-top</code> collapses with the parent's, pulling the whole parent down.</p>
+</div>
+<div class="concept-card">
+<h4>Empty element</h4>
+<p>A <code><div></code> with no content collapses its own top and bottom margins into one.</p>
+</div>
+<div class="concept-card">
+<h4>Only vertical, only flow</h4>
+<p>Horizontal margins never collapse. Flex and grid items never collapse. Inline elements never collapse.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Case 1 — Adjacent siblings</h2>
+<p class="section-sub">Two paragraphs, one gap.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">adjacent.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">.para-a {
+margin-bottom: 20px;
+}
+
+.para-b {
+margin-top: 20px;
+}
+
+/* The visual gap between A and B is 20px,
+not 40px. The margins collapse to the
+larger of the two. */</pre>
+<script type="text/plain" id="raw-code-sol1">.para-a {
+margin-bottom: 20px;
+}
+
+.para-b {
+margin-top: 20px;
+}
+
+/* The visual gap between A and B is 20px,
+not 40px. The margins collapse to the
+larger of the two. */</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Visual result:
+┌────────────────────┐
+│ Paragraph A │
+└────────────────────┘
+↕ 20px (not 40px)
+┌────────────────────┐
+│ Paragraph B │
+└────────────────────┘
+
+Why? Because margin-bottom: 20px and
+margin-top: 20px are adjacent. The browser
+merges them into one 20px margin.
+
+If A had margin-bottom: 40px and B had
+margin-top: 20px, the gap would be 40px
+(the larger of the two).
+
+This is intentional — it keeps spacing
+consistent in flowing text. If you wanted
+40px, use padding: 20px on the parent, or
+use flexbox with gap.
+
+✅ Same result: 20px, not 40px.
+✅ Predictable — you just have to know the rule.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Case 2 — Parent and first child</h2>
+<p class="section-sub">The margin leak that surprises everyone.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">parent-child.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">.parent {
+background: lightgray;
+}
+
+.child {
+margin-top: 20px;
+background: white;
+padding: 10px;
+}
+
+/* The parent has no padding, border, or overflow.
+The child's margin-top collapses with the
+parent's margin-top — both are now 20px
+above the parent. The parent appears to
+be pushed down by 20px, even though the
+margin was set on the child. */</pre>
+<script type="text/plain" id="raw-code-sol2">.parent {
+background: lightgray;
+}
+
+.child {
+margin-top: 20px;
+background: white;
+padding: 10px;
+}
+
+/* The parent has no padding, border, or overflow.
+The child's margin-top collapses with the
+parent's margin-top — both are now 20px
+above the parent. The parent appears to
+be pushed down by 20px, even though the
+margin was set on the child. */</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Visual result (BAD):
+
+↕ 20px ← the parent's top has moved
+┌────────────────────┐
+│ ┌────────────────┐ │
+│ │ Child │ │
+│ └────────────────┘ │
+└────────────────────┘
+
+The parent's top edge has collapsed into
+the child's margin. The child's margin-top
+"leaked out" of the parent.
+
+Fix: add padding, border, or overflow
+to the parent — that creates a boundary
+that prevents collapse.
+
+.parent { padding: 1px; } /* fix 1 /
+.parent { border: 1px solid transparent; } / fix 2 /
+.parent { overflow: hidden; } / fix 3 /
+.parent { display: flex; } / fix 4 */
+
+After the fix, the child's margin stays
+inside the parent. The parent's top is
+where you expected it.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The modern fix — gap</h2>
+<p class="section-sub">Stop fighting margin collapse. Use gap.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">gap.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">/* ❌ The old way — margin collapse
+makes this unpredictable */
+.stack > * + * {
+margin-top: 1rem;
+}
+
+/* ✅ The modern way — gap
+between items, no collapse */
+.stack {
+display: flex;
+flex-direction: column;
+gap: 1rem;
+}
+
+/* Or with grid */
+.stack-grid {
+display: grid;
+gap: 1rem;
+}
+
+/* Same visual result, no collapse tricks. /</pre>
+<script type="text/plain" id="raw-code-sol3">/ The old way — margin collapse
+makes this unpredictable */
+.stack > * + * {
+margin-top: 1rem;
+}
+
+/* The modern way — gap
+between items, no collapse */
+.stack {
+display: flex;
+flex-direction: column;
+gap: 1rem;
+}
+
+/* Or with grid */
+.stack-grid {
+display: grid;
+gap: 1rem;
+}
+
+/* Same visual result, no collapse tricks. */</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>gap: 1rem in flexbox or grid:
+
+✅ Consistent 1rem between every pair of items.
+✅ No margin collapse — the items are flex/grid
+children, and margins don't collapse between
+them.
+✅ No first-child or last-child edge cases.
+✅ No parent-child leak.
+✅ Works with unknown number of items.
+✅ Same API in flexbox and grid.
+
+This is the fix. Use gap for spacing between
+siblings. Use padding for spacing inside a
+container. Use margin only for spacing
+between unrelated elements (e.g., a paragraph
+and an image in flowing text) — where the
+collapse is actually what you want.
+
+Modern CSS layout is gap-based, not margin-based.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't add <code>overflow: hidden</code> to a parent just to stop margin collapse.</strong> It works — overflow creates a block formatting context, which prevents the collapse. But it also breaks <code>position: sticky</code> on any descendant, clips <code>box-shadow</code> and dropdown menus that extend past the edges, and hides absolutely positioned children that overflow. Use <code>padding</code> on the parent or <code>display: flow-root</code> instead — they create the same containment without the side effects. Better yet, use <code>gap</code> in a flex/grid container and skip the whole problem.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The margin-collapse mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Expecting 40px from two 20px margins</div>
+<p>They collapse to 20px. Fix: use padding, or gap.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Child's margin leaking out of the parent</div>
+<p>Parent has no padding/border/overflow. Fix: add padding or <code>display: flow-root</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Adding <code>overflow: hidden</code> to "fix" it</div>
+<p>Breaks sticky, clips shadows, hides dropdowns. Fix: padding or flow-root.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using <code>margin: 0</code> everywhere</div>
+<p>Removes the collapse but also removes spacing. Fix: use gap or padding explicitly.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Negative margin collapse</div>
+<p>Negative margins collapse differently — the more negative wins. Fix: avoid negative margins for layout.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Padding on the wrong element</div>
+<p>Adding padding to the child doesn't stop the collapse. Fix: padding on the parent.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Empty div margins</div>
+<p>Collapse internally. Fix: give empty divs a purpose (role, content) or use CSS for spacing.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Expecting flexbox to collapse</div>
+<p>Flex items never collapse. Fix: use <code>gap</code> for consistent spacing.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is margin collapse in CSS?</summary>
+<p class="mt-2 text-sm text-slate-300">When two vertical margins meet, they collapse into a single margin equal to the larger of the two. Two divs with margin-bottom: 20px and margin-top: 20px have 20px of space between them, not 40px. This is a spec behavior, not a bug — it's designed to prevent double spacing in articles. Margin collapse only applies to vertical margins in normal flow. It doesn't apply to horizontal margins, padding, borders, or flex/grid items.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When does margin collapse happen?</summary>
+<p class="mt-2 text-sm text-slate-300">Three cases. (1) Adjacent siblings — two block elements one after the other in the same parent. (2) Parent and first/last child — if the parent has no padding, border, or overflow, the child's margin collapses with the parent's. (3) Empty elements — a block element with no content collapses its own top and bottom margins into one. All three happen only with vertical margins in normal flow.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I stop margin collapse?</summary>
+<p class="mt-2 text-sm text-slate-300">Four fixes. (1) Add padding or border to the parent. (2) Add overflow: hidden (or auto, or scroll) to the parent — but this breaks sticky and clips content. (3) Use flexbox or grid — margins don't collapse between flex/grid items. (4) Use gap instead of margin for spacing inside a flex/grid container. In modern CSS, gap is the preferred fix.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does margin collapse happen in flexbox or grid?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Margins do not collapse between flex items or grid items. Each item's margin applies independently — two flex items with 20px margins have 40px of space between them, not 20px. This is one reason flexbox and grid are preferred for component-level spacing: the spacing is predictable and additive, unlike normal flow. However, the flex container itself still follows normal margin rules.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does margin collapse make my parent margin look wrong?</summary>
+<p class="mt-2 text-sm text-slate-300">Because the child's margin collapses with the parent's. If a parent has no padding or border, its first child's margin-top collapses with the parent's margin-top. The child pulls the parent down with it. Fix: add padding or border to the parent, or set overflow: hidden, or use display: flow-root, or make it a flex container.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Should I use padding or margin for spacing?</summary>
+<p class="mt-2 text-sm text-slate-300">Padding inside an element; margin between elements. But in modern CSS, use gap for spacing between siblings — it's what margin collapse is trying to solve, done right. gap: 1rem on a flex container gives 1rem between each pair of items, no collapse, no hacks. For vertical rhythm in articles, use margin-bottom on paragraphs — the collapse between paragraphs is intentional and gives you even spacing.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Related</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+<a href="/courses/css/problems/box-model.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 The CSS box model</div>
+<div class="text-xs text-slate-400 mt-1">Content, padding, border, margin</div>
+</a>
+<a href="/courses/css/problems/flexbox-vs-grid.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 Flexbox vs grid</div>
+<div class="text-xs text-slate-400 mt-1">One-dimensional vs two-dimensional</div>
+</a>
+<a href="/courses/css/problems/position-sticky.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎨 position: sticky not working</div>
+<div class="text-xs text-slate-400 mt-1">The overflow ancestor and missing top</div>
+</a>
+<a href="/courses/css/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 All CSS problems</div>
+<div class="text-xs text-slate-400 mt-1">Browse the full list</div>
+</a>
+</div>
+</section>
+
+<a href="/courses/css/problems/index.html" class="back-link">← All CSS problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · CSS <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
