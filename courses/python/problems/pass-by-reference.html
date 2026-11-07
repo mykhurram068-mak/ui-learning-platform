@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Is Python Pass by Reference or Value? — Call by Sharing (2026)</title>
+<meta name="description" content="Python is neither pass-by-reference nor pass-by-value — it's call by sharing. Learn what that means, why mutable arguments change, and the mutable default argument trap.">
+<meta name="keywords" content="python pass by reference, python pass by value, python call by sharing, python mutable argument, python mutable default argument">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Is Python Pass by Reference or Value? — Call by Sharing">
+<meta property="og:description" content="Neither — it's call by sharing. And the mutable default argument trap.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/problems/pass-by-reference.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Is Python Pass by Reference or Value?">
+<meta name="twitter:description" content="Neither — it's call by sharing.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/problems/pass-by-reference.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Is Python Pass by Reference or Value? — Call by Sharing",
+"description": "Python is neither pass-by-reference nor pass-by-value — it's call by sharing.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Intermediate",
+"dependencies": "Python 3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Is Python pass by reference or pass by value?","acceptedAnswer":{"@type":"Answer","text":"Neither — Python uses call by sharing (also called pass by object reference). When you pass an argument to a function, the function receives a reference to the same object the caller has. It's not a copy (so mutations are visible to the caller), and it's not a reference to the caller's variable (so reassignment doesn't affect the caller). Inside the function, you can mutate the object (if it's mutable), but you can't rebind the caller's name. This is the behavior of Java, JavaScript, Ruby, and many other languages — it's not unique to Python."}},
+{"@type":"Question","name":"Why does modifying a list inside a function change the original?","acceptedAnswer":{"@type":"Answer","text":"Because the function received a reference to the same list object. Example: def add(items): items.append(4); my_list = [1, 2, 3]; add(my_list); print(my_list) — [1, 2, 3, 4]. The items parameter in the function is a new name bound to the same list object. Mutating it (via .append, [0] = x, etc.) affects the object both names point to. This is call by sharing: the reference is copied, not the object. The function can mutate through the reference, but can't rebind the caller's name."}},
+{"@type":"Question","name":"Why doesn't reassigning the parameter affect the caller?","acceptedAnswer":{"@type":"Answer","text":"Because the parameter is a new name, not a reference to the caller's variable. Example: def reassign(items): items = []; items.append(99); my_list = [1, 2, 3]; reassign(my_list); print(my_list) — [1, 2, 3]. Inside the function, items = [] rebinds the local name items to a new list. The caller's my_list still points to the original [1, 2, 3]. The function loses its reference to the original list and can no longer mutate it. This is the key difference from true pass-by-reference (C#, C++): in those languages, you can rebind the caller's variable."}},
+{"@type":"Question","name":"What is the mutable default argument trap?","acceptedAnswer":{"@type":"Answer","text":"Default arguments are evaluated once, at function definition time. A mutable default (like []) is created once and shared across all calls. Example: def bad(items=[]): items.append('x'); return items; bad() gives ['x'], bad() gives ['x', 'x'], bad() gives ['x', 'x', 'x']. The default list is the same across calls. Fix: use None as the default and create a new list inside: def good(items=None): if items is None: items = []; items.append('x'); return items. Or use a tuple (immutable): def good(items=()): items = list(items); items.append('x'); return items. The mutable default is the single most famous Python gotcha, and it's still everywhere in code reviews."}},
+{"@type":"Question","name":"How do I pass a list to a function and modify it safely?","acceptedAnswer":{"@type":"Answer","text":"Two approaches. (1) Mutate in place — the function accepts a list, modifies it, and the caller sees the change. Document this clearly: def append_all(items, values): for v in values: items.append(v). Caller knows the list is modified. (2) Return a new list — the function accepts a list, doesn't mutate it, and returns a new one: def with_appended(items, values): return items + list(values). This is functional — no side effects, easier to test, easier to reason about. Choose based on API design: in-place is efficient for large lists; functional is safer. Most modern Python code prefers the functional approach — return a new value, don't mutate the input."}},
+{"@type":"Question","name":"Are integers and strings affected by call by sharing?","acceptedAnswer":{"@type":"Answer","text":"They're affected but the effect is invisible, because they're immutable. When you pass an int to a function, the function receives a reference to the int. But ints can't be mutated — you can only rebind (x = x + 1). Rebinding inside the function doesn't affect the caller's variable. So integers and strings behave like pass-by-value from the caller's perspective. Only mutable objects (lists, dicts, sets, custom objects) show the call-by-sharing effect. This is why beginners often say 'Python is pass by value' — for immutables, it looks that way. But the mechanism is the same; only the visibility of mutation differs."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-python.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Python · pass by reference</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#7ee8fc;">Python</a> ›
+<a href="/courses/python/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Pass by reference</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Concept · 4 min read</div>
+<h1>Pass by reference or value?<br><span class="py-accent">Neither — it's call by sharing.</span></h1>
+<p class="lead">
+The most-asked Python concept question. The answer is that Python is neither pass-by-reference nor pass-by-value — it's <em>call by sharing</em>. When you pass an argument, the function receives a reference to the same object. It can mutate the object (if mutable), but it can't rebind the caller's variable. This explains both the "modifying a list changes the original" behavior and the "reassigning a parameter doesn't" behavior. This page covers the model, the four cases, and the mutable default argument trap that follows from it.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Call by sharing — the function gets a reference to the same object, not a copy and not the caller's variable. Mutating a mutable argument (list, dict, set) affects the caller. Reassigning the parameter does not. Ints and strings look like pass-by-value because they're immutable — mutation is impossible, only rebinding. The mutable default argument trap (<code>def fn(items=[])</code>) is a direct consequence: the default is shared across calls. Fix: <code>def fn(items=None): if items is None: items = []</code>.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The four cases</h2>
+<p class="section-sub">Mutable vs immutable, mutate vs rebind.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">four-cases.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"># Case 1: mutable argument, mutate inside — caller sees change
+def append_to(items):
+    items.append(4)
+
+my_list = [1, 2, 3]
+append_to(my_list)
+print(my_list)  # [1, 2, 3, 4]  — modified
+
+# Case 2: mutable argument, rebind inside — caller doesn't see change
+def rebind(items):
+    items = [99, 99]   # rebind local name, not the caller's
+    items.append(4)
+
+my_list = [1, 2, 3]
+rebind(my_list)
+print(my_list)  # [1, 2, 3]  — unchanged
+
+# Case 3: immutable argument, rebind inside — caller doesn't see change
+def increment(n):
+    n = n + 1
+    return n
+
+x = 5
+increment(x)
+print(x)  # 5  — unchanged
+# x = increment(x) would update it
+
+# Case 4: immutable argument, "mutate" is impossible
+def upper(s):
+    s.upper()   # creates a new string, discarded
+    return s.upper()
+
+name = 'alice'
+upper(name)
+print(name)  # 'alice'  — unchanged
+
+# The summary:
+# ┌─────────────────┬──────────┬──────────┐
+# │                 │ mutate   │ rebind   │
+# ├─────────────────┼──────────┼──────────┤
+# │ mutable arg     │ ✅ caller │ ❌ caller │
+# │ immutable arg   │    n/a   │ ❌ caller │
+# └─────────────────┴──────────┴──────────┘
+
+# Mutating affects the caller.
+# Rebinding never does.
+# That's call by sharing.</pre>
+<script type="text/plain" id="raw-code-sol1"># Case 1: mutable argument, mutate inside — caller sees change
+def append_to(items):
+    items.append(4)
+
+my_list = [1, 2, 3]
+append_to(my_list)
+print(my_list)  # [1, 2, 3, 4]  — modified
+
+# Case 2: mutable argument, rebind inside — caller doesn't see change
+def rebind(items):
+    items = [99, 99]   # rebind local name, not the caller's
+    items.append(4)
+
+my_list = [1, 2, 3]
+rebind(my_list)
+print(my_list)  # [1, 2, 3]  — unchanged
+
+# Case 3: immutable argument, rebind inside — caller doesn't see change
+def increment(n):
+    n = n + 1
+    return n
+
+x = 5
+increment(x)
+print(x)  # 5  — unchanged
+# x = increment(x) would update it
+
+# Case 4: immutable argument, "mutate" is impossible
+def upper(s):
+    s.upper()   # creates a new string, discarded
+    return s.upper()
+
+name = 'alice'
+upper(name)
+print(name)  # 'alice'  — unchanged
+
+# The summary:
+# ┌─────────────────┬──────────┬──────────┐
+# │                 │ mutate   │ rebind   │
+# ├─────────────────┼──────────┼──────────┤
+# │ mutable arg     │ caller   │ caller   │
+# │ immutable arg   │    n/a   │ caller   │
+# └─────────────────┴──────────┴──────────┘
+
+# Mutating affects the caller.
+# Rebinding never does.
+# That's call by sharing.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The mental model:
+
+  When you call f(x), Python passes a reference
+  to the object x is bound to. The function's
+  parameter is a new name bound to the same object.
+
+  Inside the function:
+  
+    param → same_object
+    
+    The caller's x also → same_object.
+  
+  Two names, one object. Like two people
+  pointing at the same house.
+
+Mutations:
+
+  If the object is mutable (list, dict, set):
+    param.append(4)   — modifies the object
+    The caller's x sees the change, because
+    x is still pointing at the same (now modified)
+    object.
+  
+  If the object is immutable (int, str, tuple):
+    Cannot mutate. Any "mutation" is really a
+    rebind (creating a new object). The caller's
+    x is unaffected.
+
+Rebinding:
+
+  param = something_else
+  
+  This rebinds the local name param to a new
+  object. The caller's x is still pointing at
+  the original object.
+  
+  param → new_object
+  x     → original_object
+  
+  Now two names point to two objects. Like
+  one person pointing at a new house; the
+  other still points at the old one.
+
+Why this is called "call by sharing":
+
+  The object is shared between the caller and
+  the function. The reference is passed (shared),
+  not the object (copied) or the variable (as in
+  true pass-by-reference).
+
+  Also called "pass by object reference" or
+  "pass by object sharing."
+
+  It's the same model as Java, JavaScript, Ruby,
+  C#, and many others. It's the standard
+  for object-oriented languages.
+  
+  It's different from true pass-by-reference
+  (C++ &, C# ref) where you can rebind the
+  caller's variable. And different from
+  pass-by-value (C) where a copy is made.
+
+  In call-by-sharing, you can mutate the object,
+  but you can't rebind the caller's variable.
+
+The misconception:
+
+  "Python is pass by reference" — no, you can't
+  rebind the caller's variable.
+  
+  "Python is pass by value" — no, mutations
+  are visible to the caller.
+  
+  "Python is pass by object reference" — yes,
+  but the name is rarely used; "call by sharing"
+  is the standard term.
+
+The practical rule:
+
+  If you want to modify the caller's object:
+    mutate it (list.append, dict.update, etc.)
+  
+  If you want to leave the caller's object alone:
+    make a copy first, or build a new object
+    and return it.
+  
+  If you want to update the caller's variable:
+    return the new value and let the caller
+    reassign: x = f(x).
+
+Three patterns for "modify a list":
+
+  ✅ Pattern 1 — mutate in place (caller sees change)
+     def append(item_list, value):
+         item_list.append(value)
+  
+  ✅ Pattern 2 — copy, modify, return (caller unchanged)
+     def with_appended(item_list, value):
+         return item_list + [value]
+  
+  ✅ Pattern 3 — copy, modify, return (explicit copy)
+     import copy
+     def with_appended(item_list, value):
+         result = copy.copy(item_list)
+         result.append(value)
+         return result
+  
+  Choose based on:
+    Pattern 1: efficient for large lists,
+               explicit mutation, good for builders
+    Pattern 2: functional, no side effects,
+               idiomatic for pipelines
+    Pattern 3: explicit, works for any mutable type
+
+  Modern Python tends toward pattern 2 for
+  readability. But pattern 1 is fine for
+  in-place operations (logging builders,
+  accumulators). The key is documentation —
+  the caller should know which pattern the
+  function uses.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The mutable default trap</h2>
+<p class="section-sub">The famous gotcha, explained by call by sharing.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">mutable-default.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"># ❌ The famous bug
+def bad(items=[]):
+    items.append('x')
+    return items
+
+print(bad())  # ['x']
+print(bad())  # ['x', 'x']
+print(bad())  # ['x', 'x', 'x']
+
+# Why: the default [] is created ONCE at function
+# definition time. Every call uses the same list.
+
+# ✅ Fix 1 — None + create inside
+def good1(items=None):
+    if items is None:
+        items = []
+    items.append('x')
+    return items
+
+print(good1())  # ['x']
+print(good1())  # ['x']  — new list each call
+
+# ✅ Fix 2 — immutable default (tuple)
+def good2(items=()):
+    items = list(items)   # convert to list
+    items.append('x')
+    return items
+
+print(good2())  # ['x']
+print(good2())  # ['x']
+
+# ✅ Fix 3 — required argument
+def good3(items):
+    items.append('x')
+    return items
+
+print(good3([]))  # ['x']
+print(good3([]))  # ['x']  — new list each call
+
+# Same trap with dicts:
+def bad_dict(config={}):
+    config['debug'] = True
+    return config
+
+print(bad_dict())  # {'debug': True}
+print(bad_dict())  # {'debug': True} — but same dict!
+
+# ✅ Fix
+def good_dict(config=None):
+    if config is None:
+        config = {}
+    config['debug'] = True
+    return config
+
+# Same trap with sets:
+def bad_set(items=set()):
+    items.add('x')
+    return items
+
+# ✅ Fix
+def good_set(items=None):
+    if items is None:
+        items = set()
+    items.add('x')
+    return items</pre>
+<script type="text/plain" id="raw-code-sol2"># The famous bug
+def bad(items=[]):
+    items.append('x')
+    return items
+
+print(bad())  # ['x']
+print(bad())  # ['x', 'x']
+print(bad())  # ['x', 'x', 'x']
+
+# Why: the default [] is created ONCE at function
+# definition time. Every call uses the same list.
+
+# Fix 1 — None + create inside
+def good1(items=None):
+    if items is None:
+        items = []
+    items.append('x')
+    return items
+
+print(good1())  # ['x']
+print(good1())  # ['x']  — new list each call
+
+# Fix 2 — immutable default (tuple)
+def good2(items=()):
+    items = list(items)   # convert to list
+    items.append('x')
+    return items
+
+print(good2())  # ['x']
+print(good2())  # ['x']
+
+# Fix 3 — required argument
+def good3(items):
+    items.append('x')
+    return items
+
+print(good3([]))  # ['x']
+print(good3([]))  # ['x']  — new list each call
+
+# Same trap with dicts:
+def bad_dict(config={}):
+    config['debug'] = True
+    return config
+
+print(bad_dict())  # {'debug': True}
+print(bad_dict())  # {'debug': True} — but same dict!
+
+# Fix
+def good_dict(config=None):
+    if config is None:
+        config = {}
+    config['debug'] = True
+    return config
+
+# Same trap with sets:
+def bad_set(items=set()):
+    items.add('x')
+    return items
+
+# Fix
+def good_set(items=None):
+    if items is None:
+        items = set()
+    items.add('x')
+    return items</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the trap exists:
+
+  def f(items=[]):
+      ...
+  
+  The [] is evaluated ONCE — when the def
+  statement runs. Not when the function is called.
+  
+  At definition time:
+    f's __defaults__ = ([],)  — a tuple with one list
+    The list is bound to the default argument.
+  
+  Every call to f() with no arguments uses that
+  same list. f() mutates it. f() again uses the
+  same (mutated) list.
+
+The fix:
+
+  ✅ def f(items=None):
+         if items is None:
+             items = []
+         ...
+  
+  None is the sentinel. On every call:
+    - items is None (no argument passed) → create fresh []
+    - items is not None (argument passed) → use it
+  
+  The default is None, which is immutable and
+  shared safely. The mutable container is created
+  fresh each time.
+
+Why None and not () or 0 or ''?
+
+  Use None because:
+  → It's the conventional "no value" sentinel
+  → It's unambiguous — no one passes None
+    meaning "empty list"
+  → It's immutable and shared safely
+  
+  Using () (empty tuple):
+    def f(items=()):
+        items = list(items)  # convert
+        ...
+  
+  This works too. But the `list(items)` call on
+  every invocation has a small cost. None +
+  `if is None` avoids that cost when the caller
+  passes a list.
+
+  Use () when you want "the default is empty"
+  to be a natural reading. Use None when you
+  want the default to be created only when needed.
+
+For dicts:
+  ✅ def f(config=None):
+         if config is None:
+             config = {}
+         ...
+  
+  Same pattern, same reasoning.
+
+For sets:
+  ✅ def f(items=None):
+         if items is None:
+             items = set()
+         ...
+
+Why this is the "famous bug":
+
+  → It's in every Python tutorial
+  → It's in every Python style guide
+  → It's still in every codebase that
+    wasn't reviewed
+  → It's caught by linters (pylint W0102,
+    flake8-bugbear B006)
+  → It's easy to fix (once you know)
+  → It's confusing when you first see it
+
+  If you have a Python codebase with more
+  than 1000 lines, grep for `=[]`, `={}`, `=set()`.
+  You'll find at least one. Fix them all.
+
+What about immutable defaults?
+
+  ✅ def f(x=0):     — fine
+  ✅ def f(s=''):    — fine
+  ✅ def f(t=()):    — fine (immutable)
+  ✅ def f(b=True):  — fine
+  ✅ def f(n=None):  — fine
+  
+  These are safe because they can't be mutated.
+  Rebinding them inside the function doesn't
+  affect the caller. The shared default is safe.
+
+  Only mutable defaults are dangerous.
+  The trap is specific to lists, dicts, sets,
+  and custom mutable objects.
+
+For a class field default:
+
+  This is a different trap:
+  
+  ❌ class Bag:
+         items = []  # shared across all instances
+  
+  The class-level [] is created once, at class
+  definition. Every instance shares it.
+  
+  ✅ class Bag:
+         def __init__(self):
+             self.items = []  # new list per instance
+  
+  Create mutable state in __init__, not as
+  class attributes.
+
+Same principle: anything evaluated once
+(class body, function defaults) is shared.
+Anything evaluated per call/instance (function
+body, __init__) is fresh.
+
+The pattern to know:
+
+  Mutable default?  → use None + is None check
+  Class attribute?  → set in __init__
+  Global state?     → avoid, or use a function
+
+If you're ever unsure: initialize inside,
+not as a default or class attribute.
+The cost is one line. The benefit is no
+surprise sharing.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The three patterns for mutating arguments</h2>
+<p class="section-sub">Choose one, document it.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">patterns.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">When to use</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"># Pattern 1: Mutate in place — caller sees the change
+def add_user(users, name):
+    """Add a user to the list. Modifies users in place."""
+    users.append(name)
+
+users = ['Alice']
+add_user(users, 'Bob')
+print(users)  # ['Alice', 'Bob']
+# Caller knows: users is modified
+
+# Pattern 2: Copy and return — caller's list unchanged
+def with_user(users, name):
+    """Return a new list with the user added. Does not modify input."""
+    return users + [name]
+
+users = ['Alice']
+new_users = with_user(users, 'Bob')
+print(users)      # ['Alice'] — unchanged
+print(new_users)  # ['Alice', 'Bob']
+
+# Pattern 3: Copy explicitly, modify, return
+def add_user_safe(users, name):
+    """Return a copy with the user added. Does not modify input."""
+    result = list(users)   # shallow copy
+    result.append(name)
+    return result
+
+# Which pattern to use:
+
+# ✅ Pattern 1 — for builder-like operations:
+#   - Adding to a log
+#   - Accumulating results
+#   - Sorting a list in place
+#   - Where the caller expects mutation
+#   Document the mutation in the docstring.
+
+# ✅ Pattern 2 — for functional-style code:
+#   - Data transformations
+#   - Anything returned from a function that
+#     shouldn't modify the input
+#   - Pipelines, comprehensions, chained calls
+
+# ✅ Pattern 3 — when you need to copy AND modify:
+#   - Long lists where copying is expensive
+#   - Non-trivial transformations
+#   - Explicit is better than implicit
+
+# ❌ What to avoid:
+def bad_pattern(items):
+    # Mutates AND returns — ambiguous
+    items.append('x')
+    return items
+
+# Is the caller supposed to use the return value?
+# Or rely on the side effect?
+# Either behavior is possible, and the wrong
+# assumption causes bugs.
+
+# ✅ Pick one:
+def mutate_only(items):
+    items.append('x')
+    # no return (returns None)
+
+def return_only(items):
+    return items + ['x']
+    # no mutation
+
+# For strings (immutable), only the return pattern works:
+def add_prefix(text, prefix):
+    return prefix + text
+    # Can't mutate a string — always returns new
+
+# For dicts, the same three patterns:
+def set_flag_inplace(config, flag):
+    config['debug'] = flag
+
+def with_flag(config, flag):
+    return {**config, 'debug': flag}
+
+# For custom objects, mutations are natural:
+class Config:
+    def __init__(self):
+        self.debug = False
+
+def enable_debug(config):
+    config.debug = True   # mutation visible to caller
+
+# The rules of thumb:
+#   1. In-place mutation for accumulators and builders.
+#   2. Return-new for pure functions and transformations.
+#   3. Never both — pick one and document.
+#   4. For mutable default arguments, use None + check.
+#   5. For class attributes, set in __init__.</pre>
+<script type="text/plain" id="raw-code-sol3"># Pattern 1: Mutate in place — caller sees the change
+def add_user(users, name):
+    """Add a user to the list. Modifies users in place."""
+    users.append(name)
+
+users = ['Alice']
+add_user(users, 'Bob')
+print(users)  # ['Alice', 'Bob']
+# Caller knows: users is modified
+
+# Pattern 2: Copy and return — caller's list unchanged
+def with_user(users, name):
+    """Return a new list with the user added. Does not modify input."""
+    return users + [name]
+
+users = ['Alice']
+new_users = with_user(users, 'Bob')
+print(users)      # ['Alice'] — unchanged
+print(new_users)  # ['Alice', 'Bob']
+
+# Pattern 3: Copy explicitly, modify, return
+def add_user_safe(users, name):
+    """Return a copy with the user added. Does not modify input."""
+    result = list(users)   # shallow copy
+    result.append(name)
+    return result
+
+# Which pattern to use:
+
+# Pattern 1 — for builder-like operations:
+#   - Adding to a log
+#   - Accumulating results
+#   - Sorting a list in place
+#   - Where the caller expects mutation
+#   Document the mutation in the docstring.
+
+# Pattern 2 — for functional-style code:
+#   - Data transformations
+#   - Anything returned from a function that
+#     shouldn't modify the input
+#   - Pipelines, comprehensions, chained calls
+
+# Pattern 3 — when you need to copy AND modify:
+#   - Long lists where copying is expensive
+#   - Non-trivial transformations
+#   - Explicit is better than implicit
+
+# What to avoid:
+def bad_pattern(items):
+    # Mutates AND returns — ambiguous
+    items.append('x')
+    return items
+
+# Is the caller supposed to use the return value?
+# Or rely on the side effect?
+# Either behavior is possible, and the wrong
+# assumption causes bugs.
+
+# Pick one:
+def mutate_only(items):
+    items.append('x')
+    # no return (returns None)
+
+def return_only(items):
+    return items + ['x']
+    # no mutation
+
+# For strings (immutable), only the return pattern works:
+def add_prefix(text, prefix):
+    return prefix + text
+    # Can't mutate a string — always returns new
+
+# For dicts, the same three patterns:
+def set_flag_inplace(config, flag):
+    config['debug'] = flag
+
+def with_flag(config, flag):
+    return {**config, 'debug': flag}
+
+# For custom objects, mutations are natural:
+class Config:
+    def __init__(self):
+        self.debug = False
+
+def enable_debug(config):
+    config.debug = True   # mutation visible to caller
+
+# The rules of thumb:
+#   1. In-place mutation for accumulators and builders.
+#   2. Return-new for pure functions and transformations.
+#   3. Never both — pick one and document.
+#   4. For mutable default arguments, use None + check.
+#   5. For class attributes, set in __init__.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Pattern 1: mutate in place
+
+  def add_user(users, name):
+      users.append(name)
+
+  ✅ Efficient for large lists
+  ✅ Natural for accumulators
+  ✅ Clear from the docstring
+
+  Used in:
+    - Logging (log.append(event))
+    - Builders (items.append(x))
+    - Sort (lst.sort())
+    - Accumulators (total += x)
+
+  The caller knows: the argument is modified.
+
+Pattern 2: copy and return
+
+  def with_user(users, name):
+      return users + [name]
+
+  ✅ No side effects
+  ✅ Easy to test
+  ✅ Composes well
+  ✅ Thread-safe (no shared mutation)
+
+  Used in:
+    - Data transformations (map, filter)
+    - Pipelines (result = step1(x) → step2(result))
+    - Immutable data structures
+    - Functional programming
+
+  The caller knows: the argument is unchanged.
+
+Pattern 3: copy explicitly, modify, return
+
+  def add_user_safe(users, name):
+      result = list(users)
+      result.append(name)
+      return result
+
+  ✅ Explicit (list(users) shows intent)
+  ✅ Works for any mutable type
+  ✅ Can optimize for specific types
+
+  Used in:
+    - Complex transformations
+    - When you want to be explicit
+    - When you need to preserve the original
+      but modify the copy
+
+  The caller knows: original is unchanged,
+  return value is the copy.
+
+The anti-pattern: mutate AND return
+
+  def bad(items):
+      items.append('x')
+      return items
+
+  ❌ Is the caller supposed to use the return?
+  ❌ Or rely on the mutation?
+  ❌ Both work, so both bugs are possible
+  ❌ Ambiguous API
+
+  The fix: pick one.
+    - Mutate, return None (document)
+    - Don't mutate, return new (document)
+
+Choosing a pattern for your API:
+
+  For a "log" or "accumulator":
+    Mutate in place.
+    The caller expects the log to grow.
+
+  For a "process data" function:
+    Return new, don't mutate.
+    The caller expects the input unchanged.
+
+  For a "builder" pattern:
+    Mutate in place, return self for chaining.
+    builder.add('a').add('b').build()
+
+  For a "transform" pattern:
+    Return new. Always.
+    transformer(data).filter().map().result()
+
+The one rule:
+  The docstring must match the behavior.
+  Either:
+    "Modifies the input list in place."
+    or
+    "Returns a new list. Does not modify input."
+
+  If the docstring says one thing and the code
+  does another, that's the bug.
+
+For functions that need both:
+
+  Some APIs support both:
+    def process(items, copy=False):
+        if copy:
+            items = list(items)
+        items.append('x')
+        return items
+
+  But this is confusing. The caller has to
+  know about the `copy` parameter and set it
+  correctly.
+  
+  The modern Python style: don't do this.
+  Two functions:
+    process_inplace(items)      — mutates
+    with_processed(items)       — returns new
+  
+  Or one function with a clear default:
+    def process(items):
+        return items + ['x']    # always new
+  
+  Callers who want in-place:
+    items[:] = process(items)
+  
+  This makes the mutation explicit at the
+  call site, not hidden behind a parameter.
+
+The mental model:
+
+  In-place: "this function modifies X"
+    Caller knows, docstring says, tests check.
+  
+  Return-new: "this function gives you a new value"
+    Caller knows, docstring says, tests check.
+  
+  Both: "I don't know what this function does"
+    The bug is built into the API.
+
+Pick one. Document it. Test it.
+Never both.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use a mutable default argument.</strong> <code>def f(items=[])</code> is the most famous Python bug. The <code>[]</code> is evaluated once, at function definition, and shared across every call. The fix is one line: <code>def f(items=None): if items is None: items = []</code>. Or use an immutable default: <code>def f(items=()): items = list(items)</code>. Or make the argument required: <code>def f(items):</code>. All three work. What doesn't work is leaving <code>def f(items=[])</code> in your code. Grep for it. It's a linter rule (pylint W0102, flake8-bugbear B006) for a reason — this bug has been shipped to production thousands of times.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The call-by-sharing mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Assuming pass-by-value</div>
+<p>Mutations inside the function affect the caller. Fix: copy first, or document the mutation.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Assuming pass-by-reference</div>
+<p>Reassigning the parameter doesn't affect the caller. Fix: return the new value.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Mutable default argument</div>
+<p>The <code>[]</code> is shared across calls. Fix: <code>None</code> + <code>if is None</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Mutating a list and returning it</div>
+<p>Ambiguous API. Fix: mutate and return <code>None</code>, or return a new list without mutating.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Assuming strings are mutable</div>
+<p><code>s.upper()</code> returns new; doesn't modify. Fix: <code>s = s.upper()</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Modifying a list during iteration</div>
+<p>Skipped items, wrong values. Fix: iterate a copy, or build a new list.</p>
+</div>
+<div class="mtitle">7. Class attribute defaults shared</div>
+<p><code>class Bag: items = []</code> — shared. Fix: <code>self.items = []</code> in <code>__init__</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not copying before storing</div>
+<p>Holding a reference to a mutable object that might change. Fix: <code>list(items)</code> before storing.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Is Python pass by reference or pass by value?</summary>
+<p class="mt-2 text-sm text-slate-300">Neither — Python uses call by sharing. When you pass an argument, the function receives a reference to the same object. It can mutate the object (if mutable), but it can't rebind the caller's variable. This is the behavior of Java, JavaScript, Ruby, C#, and many other languages.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does modifying a list inside a function change the original?</summary>
+<p class="mt-2 text-sm text-slate-300">Because the function received a reference to the same list object. Example: def add(items): items.append(4); my_list = [1, 2, 3]; add(my_list); print(my_list) — [1, 2, 3, 4]. The items parameter in the function is a new name bound to the same list object. Mutating it affects the object both names point to.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why doesn't reassigning the parameter affect the caller?</summary>
+<p class="mt-2 text-sm text-slate-300">Because the parameter is a new name, not a reference to the caller's variable. Example: def reassign(items): items = []; my_list = [1, 2, 3]; reassign(my_list); print(my_list) — [1, 2, 3]. Inside the function, items = [] rebinds the local name items to a new list. The caller's my_list still points to the original [1, 2, 3].</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the mutable default argument trap?</summary>
+<p class="mt-2 text-sm text-slate-300">Default arguments are evaluated once, at function definition time. A mutable default (like []) is created once and shared across all calls. Example: def bad(items=[]): items.append('x'); return items; bad() gives ['x'], bad() gives ['x', 'x'], bad() gives ['x', 'x', 'x']. Fix: use None as the default and create a new list inside.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I pass a list to a function and modify it safely?</summary>
+<p class="mt-2 text-sm text-slate-300">Two approaches. (1) Mutate in place — the function accepts a list, modifies it, and the caller sees the change. Document this clearly. (2) Return a new list — the function accepts a list, doesn't mutate it, and returns a new one. Choose based on API design: in-place is efficient for large lists; functional is safer.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Are integers and strings affected by call by sharing?</summary>
+<p class="mt-2 text-sm text-slate-300">They're affected but the effect is invisible, because they're immutable. When you pass an int to a function, the function receives a reference to the int. But ints can't be mutated — you can only rebind. Rebinding inside the function doesn't affect the caller's variable. This is why beginners often say 'Python is pass by value' — for immutables, it looks that way.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from install to first project — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/python/problems/append-vs-extend.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">➕ append vs extend vs +=</div>
+<div class="text-xs text-slate-400 mt-1">Three operations that look similar and do very different things</div>
+</a>
+</section>
+
+<a href="/courses/python/problems/index.html" class="back-link">← All Python problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · Python <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
