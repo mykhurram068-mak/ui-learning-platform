@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>What is 'this' in JavaScript? — Every Case Explained (2026)</title>
+<meta name="description" content="JavaScript 'this' explained: the five different values depending on how a function is called — global, method, constructor, arrow, and explicit binding. Direct answer with examples.">
+<meta name="keywords" content="javascript this keyword, this in javascript, javascript this undefined, arrow function this, bind call apply, javascript this context">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="What is 'this' in JavaScript? — Every Case Explained">
+<meta property="og:description" content="The five different values of this depending on how a function is called.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/this-keyword.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What is 'this' in JavaScript?">
+<meta name="twitter:description" content="The five different values of this.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/this-keyword.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "What is 'this' in JavaScript? — Every Case Explained",
+"description": "The five different values of this depending on how a function is called.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Intermediate",
+"dependencies": "ES2015"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is 'this' in JavaScript?","acceptedAnswer":{"@type":"Answer","text":"'this' is a reference to the object that a function is being called on. Its value is determined at call time, not at definition time — and it changes based on how the function is called. There are five rules: (1) called as a method (obj.fn()) — this is obj; (2) called as a standalone function — this is undefined in strict mode or the global object in sloppy mode; (3) called with new — this is the new instance; (4) called with .call/.apply/.bind — this is the passed object; (5) arrow functions — this is inherited from the enclosing scope. The most common bug is losing this when passing a method as a callback."}},
+{"@type":"Question","name":"Why is 'this' undefined in my callback?","acceptedAnswer":{"@type":"Answer","text":"Because when you pass a method as a callback, the method is detached from its object. It's called as a standalone function, so this is undefined (in strict mode) or the global object (in sloppy mode). Example: const obj = { name: 'Alice', greet() { console.log(this.name); } }; setTimeout(obj.greet, 100); — logs undefined or the global window.name, not 'Alice'. Fixes: (1) bind: setTimeout(obj.greet.bind(obj), 100); (2) arrow wrapper: setTimeout(() => obj.greet(), 100); (3) arrow method in the object: greet: () => ... — but this captures the wrong scope. Binding is the standard fix."}},
+{"@type":"Question","name":"How does 'this' work in arrow functions?","acceptedAnswer":{"@type":"Answer","text":"Arrow functions don't have their own this — they inherit it from the enclosing lexical scope. Whatever this was where the arrow function was defined, that's what it is inside. This is great for callbacks inside methods: array.map(item => this.process(item)) works because the arrow captures the outer this. It's bad for object methods: const obj = { value: 1, get: () => this.value } — this inside get is the outer this (window or undefined), not obj. The rule: arrows for callbacks, regular functions for methods."}},
+{"@type":"Question","name":"What is the difference between call, apply, and bind?","acceptedAnswer":{"@type":"Answer","text":"All three set this explicitly. call(thisArg, arg1, arg2) invokes the function with this = thisArg and individual arguments. apply(thisArg, [arg1, arg2]) invokes with this = thisArg and an array of arguments. bind(thisArg, arg1) returns a new function with this = thisArg permanently bound — it doesn't invoke. Use call/apply when you want to invoke immediately with a specific this. Use bind when you want to store the function and call it later (as a callback, event handler, etc.). bind is the most common of the three."}},
+{"@type":"Question","name":"What is 'this' in a class method?","acceptedAnswer":{"@type":"Answer","text":"In a class method, this is the instance the method is called on. class Counter { count = 0; increment() { this.count++; } } — counter.increment() has this = counter. But if you pass counter.increment as a callback, this is lost (same as any method). Fix: class fields with arrow functions: increment = () => { this.count++; }. The arrow function captures this at construction time, so it's always the instance. This is the standard pattern in React class components, and the reason it's still common in modern code when passing methods around."}},
+{"@type":"Question","name":"What is 'this' in the global scope?","acceptedAnswer":{"@type":"Answer","text":"In the browser, this at the top level is window. In Node.js, it's module.exports (or {} in ES modules). In strict mode at the top level, it's still the global object — but inside a function in strict mode, this is undefined. The rules: sloppy mode function → global object; strict mode function → undefined; arrow function → inherits from enclosing scope; method → the object. In modern code (modules, strict mode, classes), the most common case is this === undefined, which is why 'Cannot read property of undefined' errors are so common when this is lost."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · this</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">this keyword</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 4 min read</div>
+<h1>What is <code>this</code>?<br><span class="py-accent">Five rules. One at a time.</span></h1>
+<p class="lead">
+<code>this</code> is the most confusing keyword in JavaScript, and the confusion comes from one fact: its value is determined by <em>how</em> a function is called, not <em>where</em> it's defined. The same function can have a different <code>this</code> in different contexts. This page covers all five cases, the most common bug (losing <code>this</code> in callbacks), and the rule for arrow functions.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>this</code> has five values. (1) Method call <code>obj.fn()</code> → <code>this</code> is <code>obj</code>. (2) Standalone call <code>fn()</code> → <code>this</code> is <code>undefined</code> (strict) or <code>window</code> (sloppy). (3) Constructor <code>new Fn()</code> → <code>this</code> is the new instance. (4) <code>.call/.apply/.bind</code> → <code>this</code> is what you pass. (5) Arrow function → <code>this</code> is inherited from enclosing scope. The most common bug: passing a method as a callback loses <code>this</code>. Fix: <code>.bind()</code> or an arrow wrapper.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The five rules</h2>
+<p class="section-sub">What this is, for each way a function can be called.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Method call</h4>
+<p><code>obj.method()</code> → <code>this</code> is <code>obj</code>. The most common case.</p>
+</div>
+<div class="concept-card">
+<h4>Standalone call</h4>
+<p><code>fn()</code> → <code>this</code> is <code>undefined</code> (strict mode) or <code>window</code> (sloppy).</p>
+</div>
+<div class="concept-card">
+<h4>Constructor</h4>
+<p><code>new Fn()</code> → <code>this</code> is the new instance. The object being constructed.</p>
+</div>
+<div class="concept-card">
+<h4>Explicit binding</h4>
+<p><code>fn.call(obj)</code>, <code>fn.apply(obj)</code>, <code>fn.bind(obj)</code> → <code>this</code> is <code>obj</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Arrow function</h4>
+<p>No own <code>this</code>. Inherits from the enclosing lexical scope. Set at definition time.</p>
+</div>
+<div class="concept-card">
+<h4>The bug</h4>
+<p>Passing a method as a callback detaches it from its object — <code>this</code> becomes <code>undefined</code>. Fix: <code>.bind()</code>.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The bug: losing <code>this</code> in callbacks</h2>
+<p class="section-sub">The most common <code>this</code> mistake in JavaScript.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">this-lost.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">const user = {
+name: 'Alice',
+greet() {
+console.log('Hello, ' + this.name);
+}
+};
+
+// ✅ Calling as a method
+user.greet(); // "Hello, Alice"
+
+// ❌ Passing as a callback
+setTimeout(user.greet, 100);
+// "Hello, undefined" — this is lost
+// (or throws in strict mode)
+
+// ❌ Assigning to a variable
+const greet = user.greet;
+greet(); // "Hello, undefined"</pre>
+<script type="text/plain" id="raw-code-sol1">const user = {
+name: 'Alice',
+greet() {
+console.log('Hello, ' + this.name);
+}
+};
+
+// Calling as a method
+user.greet(); // "Hello, Alice"
+
+// Passing as a callback
+setTimeout(user.greet, 100);
+// "Hello, undefined" — this is lost
+// (or throws in strict mode)
+
+// Assigning to a variable
+const greet = user.greet;
+greet(); // "Hello, undefined"</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why this happens:
+
+1. user.greet() → method call.
+this = user. Works.
+
+2. setTimeout(user.greet, 100)
+→ The function is passed by reference.
+→ setTimeout calls it as a standalone function.
+→ this is undefined (strict) or window (sloppy).
+→ this.name is undefined.
+
+3. const greet = user.greet
+→ The function is detached from user.
+→ greet() is a standalone call.
+→ Same problem.
+
+The function is the same. The this is different.
+Because this depends on HOW the function is called,
+not where it was defined.
+
+❌ this is undefined inside the callback.
+❌ this.name throws or returns undefined.
+❌ The user object is still there — but this isn't
+pointing to it anymore.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Three fixes</h2>
+<p class="section-sub">Bind, arrow wrapper, or arrow method.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">this-fixed.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">const user = {
+name: 'Alice',
+greet() {
+console.log('Hello, ' + this.name);
+}
+};
+
+// ✅ Fix 1: bind
+setTimeout(user.greet.bind(user), 100);
+// "Hello, Alice"
+
+// ✅ Fix 2: arrow wrapper
+setTimeout(() => user.greet(), 100);
+// "Hello, Alice"
+
+// ✅ Fix 3: arrow function as the method
+const user2 = {
+name: 'Alice',
+greet: function () {
+setTimeout(() => {
+console.log('Hello, ' + this.name);
+}, 100);
+}
+};
+user2.greet(); // "Hello, Alice"</pre>
+<script type="text/plain" id="raw-code-sol2">const user = {
+name: 'Alice',
+greet() {
+console.log('Hello, ' + this.name);
+}
+};
+
+// Fix 1: bind
+setTimeout(user.greet.bind(user), 100);
+// "Hello, Alice"
+
+// Fix 2: arrow wrapper
+setTimeout(() => user.greet(), 100);
+// "Hello, Alice"
+
+// Fix 3: arrow function as the method
+const user2 = {
+name: 'Alice',
+greet: function () {
+setTimeout(() => {
+console.log('Hello, ' + this.name);
+}, 100);
+}
+};
+user2.greet(); // "Hello, Alice"</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Fix 1: .bind(user)
+→ Returns a new function with this = user.
+→ setTimeout calls the bound function.
+→ this is always user. Works.
+
+Fix 2: () => user.greet()
+→ Arrow function wraps the method call.
+→ When the arrow runs, it calls user.greet()
+as a method. So this is user. Works.
+
+Fix 3: arrow inside the method
+→ The outer greet is a method (this = user2).
+→ The inner arrow captures this from greet.
+→ When the arrow runs, this is still user2.
+
+All three work.
+.bind() is the most explicit.
+Arrow wrapper is the most common.
+Arrow method is the cleanest for new code.
+
+Rule: if this is lost, either bind it,
+or wrap it in an arrow that preserves it.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Arrow functions don't have <code>this</code></h2>
+<p class="section-sub">They inherit it from the enclosing scope.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">arrow-this.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// ❌ Arrow function as a method
+const bad = {
+name: 'Alice',
+greet: () => {
+console.log(this.name); // undefined
+}
+};
+bad.greet(); // "undefined"
+
+// Why: the arrow captures this from the outer
+// scope (module or global), not from bad.
+
+// ✅ Regular function as a method
+const good = {
+name: 'Alice',
+greet() {
+console.log(this.name); // "Alice"
+}
+};
+good.greet();
+
+// ✅ Arrow function INSIDE a method
+const alsoGood = {
+name: 'Alice',
+greet() {
+setTimeout(() => {
+console.log(this.name); // "Alice"
+}, 100);
+}
+};
+alsoGood.greet();</pre>
+<script type="text/plain" id="raw-code-sol3">// Arrow function as a method
+const bad = {
+name: 'Alice',
+greet: () => {
+console.log(this.name); // undefined
+}
+};
+bad.greet(); // "undefined"
+
+// Why: the arrow captures this from the outer
+// scope (module or global), not from bad.
+
+// Regular function as a method
+const good = {
+name: 'Alice',
+greet() {
+console.log(this.name); // "Alice"
+}
+};
+good.greet();
+
+// Arrow function INSIDE a method
+const alsoGood = {
+name: 'Alice',
+greet() {
+setTimeout(() => {
+console.log(this.name); // "Alice"
+}, 100);
+}
+};
+alsoGood.greet();</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The rule:
+
+Arrow functions do not have their own this.
+They inherit this from the scope where they
+were DEFINED, not where they are called.
+
+❌ Arrow as a method:
+The arrow is defined in the module/global scope.
+this is captured from that scope — window or
+undefined. Not the object. Bug.
+
+✅ Regular function as a method:
+The regular function has its own this.
+Determined by how it's called — as a method,
+this is the object. Works.
+
+✅ Arrow inside a regular method:
+The outer regular function has this = object.
+The arrow captures that this.
+When the arrow runs later (in setTimeout),
+this is still the object. Works.
+
+Rule: arrow functions for callbacks, regular
+functions for methods.
+
+This is the single most common source of
+'why is this undefined?' bugs.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use arrow functions for object methods.</strong> They look shorter and cleaner, but they don't have their own <code>this</code> — they inherit it from the enclosing scope. For an object literal, the enclosing scope is the module or global scope, not the object. So <code>this.name</code> inside an arrow method is <code>window.name</code> or <code>undefined</code>, never the object's property. Use regular methods for objects and classes. Use arrow functions for callbacks — event handlers, <code>setTimeout</code>, <code>map</code>, <code>filter</code>, promise chains — where you want to preserve the outer <code>this</code>. This is a rule, not a style preference — the two kinds of functions behave differently.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The <code>this</code> mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Passing a method as a callback</div>
+<p><code>this</code> is lost. Fix: <code>.bind()</code> or arrow wrapper.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Arrow function as an object method</div>
+<p>No own <code>this</code>. Fix: use a regular method.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. <code>this</code> in a nested function</div>
+<p>The inner function has its own <code>this</code>. Fix: capture with <code>const self = this</code>, or use an arrow.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using <code>this</code> in strict mode functions</div>
+<p><code>this</code> is <code>undefined</code>. Fix: <code>.bind()</code>, arrow, or pass the object explicitly.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting <code>new</code> with a constructor</div>
+<p>Without <code>new</code>, <code>this</code> is the global object — pollutes global scope. Fix: always use <code>new</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Event handlers that need the element</div>
+<p><code>this</code> inside a handler is the element. Fix: use <code>event.currentTarget</code> or bind.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Arrow function in a class field (React)</div>
+<p>It captures the instance <code>this</code> — works, but only for the class instance, not subclasses. Fix: know the trade-off.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Assuming <code>this</code> is lexical</div>
+<p><code>this</code> is dynamic for regular functions. Fix: understand the five rules.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is 'this' in JavaScript?</summary>
+<p class="mt-2 text-sm text-slate-300">'this' is a reference to the object that a function is being called on. Its value is determined at call time, not at definition time. There are five rules: method call — this is the object; standalone call — this is undefined (strict) or global (sloppy); constructor — this is the new instance; .call/.apply/.bind — this is the passed object; arrow functions — this is inherited from the enclosing scope.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why is 'this' undefined in my callback?</summary>
+<p class="mt-2 text-sm text-slate-300">Because when you pass a method as a callback, the method is detached from its object. It's called as a standalone function, so this is undefined (strict) or the global object (sloppy). Fixes: bind: setTimeout(obj.greet.bind(obj), 100); arrow wrapper: setTimeout(() => obj.greet(), 100).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How does 'this' work in arrow functions?</summary>
+<p class="mt-2 text-sm text-slate-300">Arrow functions don't have their own this — they inherit it from the enclosing lexical scope. This is great for callbacks inside methods: array.map(item => this.process(item)) works. It's bad for object methods: const obj = { value: 1, get: () => this.value } — this inside get is the outer this, not obj. The rule: arrows for callbacks, regular functions for methods.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between call, apply, and bind?</summary>
+<p class="mt-2 text-sm text-slate-300">All three set this explicitly. call(thisArg, arg1, arg2) invokes with this = thisArg and individual arguments. apply(thisArg, [arg1, arg2]) invokes with this = thisArg and an array of arguments. bind(thisArg) returns a new function with this = thisArg permanently bound — it doesn't invoke. Use bind when you want to store the function and call it later.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is 'this' in a class method?</summary>
+<p class="mt-2 text-sm text-slate-300">In a class method, this is the instance the method is called on. But if you pass counter.increment as a callback, this is lost. Fix: class fields with arrow functions: increment = () => { this.count++; }. The arrow function captures this at construction time, so it's always the instance.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is 'this' in the global scope?</summary>
+<p class="mt-2 text-sm text-slate-300">In the browser, this at the top level is window. In Node.js, it's module.exports (or {} in ES modules). In strict mode at the top level, it's still the global object — but inside a function in strict mode, this is undefined. In modern code (modules, strict mode, classes), the most common case is this === undefined, which is why 'Cannot read property of undefined' errors are so common.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/hoisting.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⬆️ What is hoisting?</div>
+<div class="text-xs text-slate-400 mt-1">Why you can call a function before declaring it — and why let breaks that</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
