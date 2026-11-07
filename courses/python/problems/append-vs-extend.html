@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>append vs extend vs += in Python — What's the Difference? (2026)</title>
+<meta name="description" content="append vs extend vs += in Python explained: what each does, when to use each, and the gotchas that trip people up. Direct answer with working examples.">
+<meta name="keywords" content="python append vs extend, python list append, python list extend, python += list, python add to list">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="append vs extend vs += in Python — What's the Difference?">
+<meta property="og:description" content="What each does, when to use each, and the gotchas.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/problems/append-vs-extend.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="append vs extend vs += in Python">
+<meta name="twitter:description" content="What each does, when to use each.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/problems/append-vs-extend.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "append vs extend vs += in Python — What's the Difference?",
+"description": "append, extend, and += on lists — the difference and when to use each.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Beginner",
+"dependencies": "Python 3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between append and extend?","acceptedAnswer":{"@type":"Answer","text":"append adds its argument as a single element to the end of the list. If the argument is a list, that list becomes one element (nested). extend adds each element of its argument individually. If the argument is a list, all its items are added to the end. Example: [1, 2].append([3, 4]) → [1, 2, [3, 4]] (the [3, 4] is one element). [1, 2].extend([3, 4]) → [1, 2, 3, 4] (each item added). Rule of thumb: append for one item, extend for a collection of items."}},
+{"@type":"Question","name":"What does += do on a list?","acceptedAnswer":{"@type":"Answer","text":"list += other is equivalent to list.extend(other) — it adds each element of the iterable to the end. So [1, 2] += [3, 4] gives [1, 2, 3, 4]. The difference from extend is subtle: += requires the right side to be an iterable, while extend accepts any iterable too. Both mutate in place and return None. The common confusion: list += list is extend, not append. It does not add the second list as a nested element — it adds each item. If you want a nested element, use append."}},
+{"@type":"Question","name":"Does append return a new list?","acceptedAnswer":{"@type":"Answer","text":"No — append, extend, and += all mutate the original list in place and return None. This is a common mistake: result = my_list.append(x) gives result = None, not the appended list. The fix is to call append separately: my_list.append(x); result = my_list. Or use list concatenation to create a new list: result = my_list + [x]. The in-place methods are efficient (no copy), but they don't return the list. The None return is by design — it signals that the method modified the object rather than returning a new one."}},
+{"@type":"Question","name":"Can I use append to add multiple items at once?","acceptedAnswer":{"@type":"Answer","text":"Not directly — append takes exactly one argument. To add multiple items, use extend: my_list.extend([a, b, c]). Or use a loop: for x in [a, b, c]: my_list.append(x). Or use +=: my_list += [a, b, c]. The only case where append adds multiple items is when you append a list — but that adds the list as one nested element, not its items individually. Example: my_list.append([a, b, c]) gives [..., [a, b, c]] — one new element, not three. For adding items individually, extend or +=."}},
+{"@type":"Question","name":"What happens if I use extend with a string?","acceptedAnswer":{"@type":"Answer","text":"extend iterates the string character by character. So [1, 2].extend('abc') gives [1, 2, 'a', 'b', 'c'] — three items added. This is usually not what you want when adding a string to a list. To add the string as one element, use append: [1, 2].append('abc') gives [1, 2, 'abc']. Similarly, extend('hello') adds 'h', 'e', 'l', 'l', 'o'. The rule: extend treats any iterable (including strings) as a sequence to unpack. If you want a single element, use append."}},
+{"@type":"Question","name":"What about list + [x] vs append?","acceptedAnswer":{"@type":"Answer","text":"list + [x] creates a NEW list — it does not modify the original. my_list = [1, 2]; new = my_list + [3] gives new = [1, 2, 3], my_list is still [1, 2]. append mutates in place: my_list.append(3) modifies my_list directly. Use + when you want a new list (functional style, no side effects). Use append when you want to modify the existing list. The performance difference: + copies the whole list (O(n)), append is amortized O(1). For a single append, either works. For a loop of appends, use append — the copy-on-each-iteration from + is O(n²)."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-python.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Python · append vs extend</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#7ee8fc;">Python</a> ›
+<a href="/courses/python/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">append vs extend</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Concept · 3 min read</div>
+<h1>append vs extend vs <code>+=</code>.<br><span class="py-accent">One item. Or many.</span></h1>
+<p class="lead">
+Three ways to add to a list. They look similar. They do very different things. <code>append</code> adds one item — even if that item is a list, it becomes a nested element. <code>extend</code> adds each item of an iterable individually. <code>+=</code> is equivalent to <code>extend</code> — it's the same operation with different syntax. This page covers the difference, the string trap, the None return, and when each is the right tool.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>append(x)</code> adds <code>x</code> as one element. <code>extend(iterable)</code> adds each item of <code>iterable</code>. <code>+= iterable</code> is the same as <code>extend</code>. All three mutate in place and return <code>None</code>. All three are efficient for building lists. Use <code>append</code> for one item, <code>extend</code> or <code>+=</code> for a collection. Watch out for <code>extend('abc')</code> — it adds each character, not the string.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The three in action</h2>
+<p class="section-sub">Same list, three operations.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">operations.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">nums = [1, 2, 3]
+
+# append — add ONE item
+nums.append(4)
+print(nums)  # [1, 2, 3, 4]
+
+# append a list — adds the list as ONE element
+nums = [1, 2, 3]
+nums.append([4, 5])
+print(nums)  # [1, 2, 3, [4, 5]]
+
+# extend — add each item of an iterable
+nums = [1, 2, 3]
+nums.extend([4, 5])
+print(nums)  # [1, 2, 3, 4, 5]
+
+# extend with a tuple
+nums = [1, 2, 3]
+nums.extend((4, 5))
+print(nums)  # [1, 2, 3, 4, 5]
+
+# extend with a string — adds each character
+nums = [1, 2, 3]
+nums.extend('abc')
+print(nums)  # [1, 2, 3, 'a', 'b', 'c']
+
+# += is the same as extend
+nums = [1, 2, 3]
+nums += [4, 5]
+print(nums)  # [1, 2, 3, 4, 5]
+
+# None return
+nums = [1]
+result = nums.append(2)
+print(result)  # None
+print(nums)    # [1, 2]
+
+# vs + — creates a NEW list
+nums = [1, 2, 3]
+new_nums = nums + [4]
+print(nums)      # [1, 2, 3]  — unchanged
+print(new_nums)  # [1, 2, 3, 4]</pre>
+<script type="text/plain" id="raw-code-sol1">nums = [1, 2, 3]
+
+# append — add ONE item
+nums.append(4)
+print(nums)  # [1, 2, 3, 4]
+
+# append a list — adds the list as ONE element
+nums = [1, 2, 3]
+nums.append([4, 5])
+print(nums)  # [1, 2, 3, [4, 5]]
+
+# extend — add each item of an iterable
+nums = [1, 2, 3]
+nums.extend([4, 5])
+print(nums)  # [1, 2, 3, 4, 5]
+
+# extend with a tuple
+nums = [1, 2, 3]
+nums.extend((4, 5))
+print(nums)  # [1, 2, 3, 4, 5]
+
+# extend with a string — adds each character
+nums = [1, 2, 3]
+nums.extend('abc')
+print(nums)  # [1, 2, 3, 'a', 'b', 'c']
+
+# += is the same as extend
+nums = [1, 2, 3]
+nums += [4, 5]
+print(nums)  # [1, 2, 3, 4, 5]
+
+# None return
+nums = [1]
+result = nums.append(2)
+print(result)  # None
+print(nums)    # [1, 2]
+
+# vs + — creates a NEW list
+nums = [1, 2, 3]
+new_nums = nums + [4]
+print(nums)      # [1, 2, 3]  — unchanged
+print(new_nums)  # [1, 2, 3, 4]</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The difference:
+
+  [1, 2, 3].append([4, 5])
+  → [1, 2, 3, [4, 5]]
+  → 4 items: 1, 2, 3, and the list [4, 5]
+  → len is 4
+  
+  [1, 2, 3].extend([4, 5])
+  → [1, 2, 3, 4, 5]
+  → 5 items: 1, 2, 3, 4, 5
+  → len is 5
+
+The key insight:
+  append adds ONE thing — even if that thing is
+  a list, it's one thing.
+  extend adds each thing — if you give it a list,
+  each item in the list is added individually.
+
+The mental model:
+  append is like dropping a box into a shelf.
+    The box might contain many items, but it's
+    one box on the shelf.
+  
+  extend is like emptying a box onto the shelf.
+    Each item from the box goes onto the shelf
+    individually.
+
+Where the confusion comes from:
+  In JavaScript, array.push(arr) appends the
+  array as one element (like Python's append).
+  In Python, some people expect extend-like
+  behavior from append because they're used
+  to "adding items."
+
+  The naming is precise:
+    append → "add to the end" (as one element)
+    extend → "extend the list with each item"
+
+When to use each:
+
+✅ append — when adding ONE item:
+   - Adding a single value: nums.append(4)
+   - Adding a computed value: results.append(compute())
+   - Building a list one by one in a loop:
+     for x in data: results.append(transform(x))
+   - When the item is a container (list, dict,
+     tuple) and you want it as one element:
+     rows.append(row)  # row is one row
+
+✅ extend — when adding MANY items:
+   - Concatenating two lists: list1.extend(list2)
+   - Adding a range: list.extend(range(5))
+   - Adding a sequence of items: list.extend(items)
+   - Adding characters: chars.extend("hello")
+
+✅ += — same as extend, different syntax:
+   - list1 += list2
+   - Readability: `+=` is shorter, `extend` is
+     clearer about intent
+   - Performance: identical (both in-place)
+   - Prefer extend for clarity, += for brevity
+
+❌ + — creates a NEW list (not the same thing):
+   - new_list = list1 + list2  # new list
+   - list1 + list2 doesn't modify list1
+   - Use for: getting a new list from two
+   - Don't use for: building a list in a loop
+     (creates N intermediate lists, O(n²))
+
+The common bug:
+
+  # Expected: add each item
+  results = []
+  for x in data:
+      results.append(x * 2)   # ✅ correct
+  
+  # Wrong:
+  results = []
+  for x in data:
+      results += [x * 2]       # ✅ also works
+  
+  # But:
+  results = []
+  for x in data:
+      results = results + [x * 2]   # ❌ O(n²)!
+  
+  The last one creates a new list every iteration.
+  For 10,000 items, that's 50 million operations.
+  For 10 items, it's fine. For 10,000, it's slow.
+  
+  Fix: use append or +=.
+  
+  append is O(1) amortized (list over-allocates).
+  += is also O(1) amortized (calls extend).
+  + is O(n) per iteration (creates new list).</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The None return</h2>
+<p class="section-sub">Why append returns None.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">none-return.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"># ❌ The classic bug — expecting a return value
+nums = [1, 2, 3]
+result = nums.append(4)
+print(result)  # None — not [1, 2, 3, 4]!
+
+# Why: append mutates in place and returns None.
+# This is by design — Python's convention.
+
+# ✅ Correct — call append separately
+nums = [1, 2, 3]
+nums.append(4)
+print(nums)  # [1, 2, 3, 4]
+
+# ✅ Or use + for a new list
+nums = [1, 2, 3]
+result = nums + [4]
+print(result)  # [1, 2, 3, 4]
+
+# Same for extend
+nums = [1, 2, 3]
+result = nums.extend([4, 5])
+print(result)  # None
+
+# Same for +=
+nums = [1, 2, 3]
+# result = nums += [4]  # SyntaxError — += is a statement
+
+# Why the None return?
+
+# 1. Consistency
+#    All in-place methods return None:
+#      list.append, list.extend, list.sort,
+#      list.reverse, list.insert, list.remove,
+#      dict.update, dict.clear, set.add
+#    The None means "I modified the object,
+#    I didn't create a new one."
+
+# 2. Prevent the bug
+#    If append returned the list, you might write:
+#      result = original.append(x)
+#    expecting a new list, but you'd get the
+#    same list — modified. The None forces you
+#    to think about mutation vs new list.
+
+# 3. Idiomatic Python
+#    In-place mutation is a common pattern in
+#    Python. Returning None signals "look at
+#    the original."
+
+# The antipattern:
+#   result = []
+#   result.append(x).append(y)  # AttributeError: NoneType
+#   # None has no append
+#
+# Fix: chain on the list itself, not the return:
+#   result = []
+#   result.append(x)
+#   result.append(y)
+# Or:
+#   result.extend([x, y])
+
+# What DOES return?
+#   list.copy() → new list
+#   list + [x] → new list
+#   list[:] → new list
+#   sorted(list) → new list
+#   list.copy() → new list
+#
+# What DOESN'T?
+#   list.append() → None
+#   list.extend() → None
+#   list.sort() → None
+#   list.reverse() → None</pre>
+<script type="text/plain" id="raw-code-sol2"># The classic bug — expecting a return value
+nums = [1, 2, 3]
+result = nums.append(4)
+print(result)  # None — not [1, 2, 3, 4]!
+
+# Why: append mutates in place and returns None.
+# This is by design — Python's convention.
+
+# Correct — call append separately
+nums = [1, 2, 3]
+nums.append(4)
+print(nums)  # [1, 2, 3, 4]
+
+# Or use + for a new list
+nums = [1, 2, 3]
+result = nums + [4]
+print(result)  # [1, 2, 3, 4]
+
+# Same for extend
+nums = [1, 2, 3]
+result = nums.extend([4, 5])
+print(result)  # None
+
+# Same for +=
+nums = [1, 2, 3]
+# result = nums += [4]  # SyntaxError — += is a statement
+
+# Why the None return?
+
+# 1. Consistency
+#    All in-place methods return None:
+#      list.append, list.extend, list.sort,
+#      list.reverse, list.insert, list.remove,
+#      dict.update, dict.clear, set.add
+#    The None means "I modified the object,
+#    I didn't create a new one."
+
+# 2. Prevent the bug
+#    If append returned the list, you might write:
+#      result = original.append(x)
+#    expecting a new list, but you'd get the
+#    same list — modified. The None forces you
+#    to think about mutation vs new list.
+
+# 3. Idiomatic Python
+#    In-place mutation is a common pattern in
+#    Python. Returning None signals "look at
+#    the original."
+
+# The antipattern:
+#   result = []
+#   result.append(x).append(y)  # AttributeError: NoneType
+#   # None has no append
+#
+# Fix: chain on the list itself, not the return:
+#   result = []
+#   result.append(x)
+#   result.append(y)
+# Or:
+#   result.extend([x, y])
+
+# What DOES return?
+#   list.copy() -> new list
+#   list + [x] -> new list
+#   list[:] -> new list
+#   sorted(list) -> new list
+#   list.copy() -> new list
+#
+# What DOESN'T?
+#   list.append() -> None
+#   list.extend() -> None
+#   list.sort() -> None
+#   list.reverse() -> None</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why None is a feature, not a bug:
+
+The design pattern:
+
+  In-place mutators return None:
+    → append, extend, insert, remove, pop,
+      clear, sort, reverse
+    → dict.update, dict.clear, dict.pop
+    → set.add, set.remove, set.update
+  
+  New-object creators return the new object:
+    → list.copy(), list + [x], list[:]
+    → sorted(list), reversed(list) (iterator)
+    → copy.copy(obj), copy.deepcopy(obj)
+    → {**d1, **d2}, d1 | d2 (Python 3.9+)
+
+The convention:
+  None from a method means "look at the receiver,
+  not the return value."
+  A return value means "look at the return value,
+  the receiver is unchanged."
+
+This is how Python prevents the classic bug:
+
+  # In JavaScript:
+  const arr = [1, 2, 3];
+  const result = arr.push(4);  // returns length (4)
+  // arr is [1, 2, 3, 4]
+  // result is 4
+
+  # In Python:
+  nums = [1, 2, 3]
+  result = nums.append(4)  # returns None
+  # nums is [1, 2, 3, 4]
+  # result is None — you can't accidentally
+  # use the return as if it were the list
+
+The None return forces a decision:
+
+  ❌ result = nums.append(4)
+     # result is None. Probably a bug.
+     # What did you mean?
+  
+  ✅ nums.append(4)
+     # Modifies nums. No confusion.
+  
+  ✅ result = nums + [4]
+     # Creates a new list. nums is unchanged.
+
+The choice is explicit.
+No hidden semantics.
+
+Compare to dict.update:
+
+  d = {'a': 1}
+  result = d.update({'b': 2})  # None
+  # d is {'a': 1, 'b': 2}
+  # result is None
+  
+  # Or use | (Python 3.9+):
+  d = {'a': 1}
+  result = d | {'b': 2}  # {'a': 1, 'b': 2}
+  # d is {'a': 1}, result is new dict
+
+Same pattern: in-place → None, new → return.
+
+Chaining:
+
+  Since in-place methods return None, you can't
+  chain them:
+
+  ❌ nums.append(1).append(2)   # AttributeError
+  
+  ✅ nums.append(1)
+     nums.append(2)
+  
+  ✅ nums.extend([1, 2])
+  
+  For chaining, use fluent APIs:
+    Some libraries return self from mutators
+    (e.g., pandas DataFrames, some ORMs).
+    Python's built-in list doesn't — and that's
+    intentional. The standard library favors
+    clarity over chaining.
+
+The test:
+
+  If you're unsure whether a method returns
+  a new object or None, check:
+    → Does it mutate the receiver?  → returns None
+    → Does it create a new object?  → returns it
+
+  In-place: append, extend, sort, reverse,
+            update, add, clear, remove, insert
+  Return:   copy, sorted, reversed, slice,
+            +, |, |=
+
+The one exception: += on lists.
+
+  nums += [4, 5] returns None (it's a statement,
+  not an expression). But it mutates.
+  
+  This matches the pattern: mutation → None.
+  You can't write `result = nums += [4]`
+  because += is a statement in Python.
+
+The bigger picture:
+
+  Python's standard library follows a "clarity
+  over cleverness" principle. The None return
+  forces you to be explicit about whether you
+  want mutation or a new object.
+  
+  Some developers find this annoying.
+  Some find it protective.
+  
+  The alternative (returning self, like
+  pandas) enables fluent chains but makes it
+  easier to write `x = y.append(z)` and expect
+  a new list.
+  
+  Python chose the safer option.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Building lists efficiently</h2>
+<p class="section-sub">append vs + in loops.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">performance.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"># ✅ Building a list — append is O(1) amortized
+results = []
+for x in range(10000):
+    results.append(x * x)
+
+# ✅ extend is also O(k) for k items
+results = []
+for chunk in chunks:
+    results.extend(chunk)
+
+# ✅ List comprehension — idiomatic, fastest
+results = [x * x for x in range(10000)]
+
+# ❌ + in a loop is O(n²)
+results = []
+for x in range(10000):
+    results = results + [x * x]
+    # Each iteration creates a new list
+    # Total: 1 + 2 + 3 + ... + 10000 = 50M operations
+
+# Why += is fine (unlike +)
+results = []
+for x in range(10000):
+    results += [x * x]
+    # += mutates in place (same as extend)
+    # O(1) amortized per iteration
+
+# The comparison:
+
+# | Method         | Per iteration | Total for n  |
+# |----------------|---------------|--------------|
+# | append         | O(1) amortized| O(n)         |
+# | extend(chunk)  | O(k)          | O(n)         |
+# | += [item]      | O(1) amortized| O(n)         |
+# | = + [item]     | O(n)          | O(n²)        |
+# | comprehension  | —             | O(n) fastest |
+
+# When to use which:
+
+# ✅ List comprehension — when you have a transform
+results = [f(x) for x in data]
+
+# ✅ Generator + extend — when you have a generator
+results.extend(gen)
+
+# ✅ Append — when you need conditional logic
+results = []
+for x in data:
+    if should_include(x):
+        results.append(transform(x))
+
+# ✅ Extend — when you're accumulating collections
+all_items = []
+for group in groups:
+    all_items.extend(group)
+
+# ❌ results = results + [x] in a loop — never
+
+# The comprehension is faster because it's
+# optimized in C. For 10,000 items:
+#   append in loop:  ~1ms
+#   comprehension:   ~0.5ms
+# The difference is small, but comprehensions
+# also read more clearly.
+
+# When comprehensions don't fit:
+
+# 1. Multiple conditions:
+results = []
+for x in data:
+    if x > 0:
+        if x % 2 == 0:
+            results.append(x * 2)
+
+# 2. Side effects:
+results = []
+for x in data:
+    results.append(x)
+    log(f'Processed {x}')
+
+# 3. Early exit:
+results = []
+for x in data:
+    if x < 0:
+        break
+    results.append(x)</pre>
+<script type="text/plain" id="raw-code-sol3"># Building a list — append is O(1) amortized
+results = []
+for x in range(10000):
+    results.append(x * x)
+
+# extend is also O(k) for k items
+results = []
+for chunk in chunks:
+    results.extend(chunk)
+
+# List comprehension — idiomatic, fastest
+results = [x * x for x in range(10000)]
+
+# + in a loop is O(n²)
+results = []
+for x in range(10000):
+    results = results + [x * x]
+    # Each iteration creates a new list
+    # Total: 1 + 2 + 3 + ... + 10000 = 50M operations
+
+# Why += is fine (unlike +)
+results = []
+for x in range(10000):
+    results += [x * x]
+    # += mutates in place (same as extend)
+    # O(1) amortized per iteration
+
+# The comparison:
+
+# | Method         | Per iteration | Total for n  |
+# |----------------|---------------|--------------|
+# | append         | O(1) amortized| O(n)         |
+# | extend(chunk)  | O(k)          | O(n)         |
+# | += [item]      | O(1) amortized| O(n)         |
+# | = + [item]     | O(n)          | O(n²)        |
+# | comprehension  | —             | O(n) fastest |
+
+# When to use which:
+
+# List comprehension — when you have a transform
+results = [f(x) for x in data]
+
+# Generator + extend — when you have a generator
+results.extend(gen)
+
+# Append — when you need conditional logic
+results = []
+for x in data:
+    if should_include(x):
+        results.append(transform(x))
+
+# Extend — when you're accumulating collections
+all_items = []
+for group in groups:
+    all_items.extend(group)
+
+# results = results + [x] in a loop — never
+
+# The comprehension is faster because it's
+# optimized in C. For 10,000 items:
+#   append in loop:  ~1ms
+#   comprehension:   ~0.5ms
+# The difference is small, but comprehensions
+# also read more clearly.
+
+# When comprehensions don't fit:
+
+# 1. Multiple conditions:
+results = []
+for x in data:
+    if x > 0:
+        if x % 2 == 0:
+            results.append(x * 2)
+
+# 2. Side effects:
+results = []
+for x in data:
+    results.append(x)
+    log(f'Processed {x}')
+
+# 3. Early exit:
+results = []
+for x in data:
+    if x < 0:
+        break
+    results.append(x)</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why append is O(1) amortized:
+
+  CPython's list uses over-allocation.
+  When the list grows beyond capacity:
+    → Allocates more space (typically ~1.125x)
+    → Copies existing items
+    → Capacity doubles-ish
+  
+  Most appends fit in the pre-allocated space
+  → O(1) per append
+  → Occasionally a resize copies → O(n)
+  → Amortized over many appends → O(1)
+
+  For 10,000 appends:
+    ~13 resizes (2^13 > 10,000)
+    Total resize work: ~20,000 element copies
+    Average per append: ~2 element copies
+    → Still O(1) amortized
+
+Why + is O(n):
+
+  list1 + list2 creates a new list.
+  → Allocates for len(list1) + len(list2)
+  → Copies all items from list1
+  → Copies all items from list2
+  → O(n1 + n2) per call
+  
+  In a loop of n iterations:
+    Iteration 1: + 1 item → copy 1 item
+    Iteration 2: + 1 item → copy 2 items
+    Iteration 3: + 1 item → copy 3 items
+    ...
+    Iteration n: + 1 item → copy n items
+    Total: 1 + 2 + 3 + ... + n = n(n+1)/2 = O(n²)
+
+  For n = 10,000: ~50,000,000 element copies.
+  At ~1ns per copy: ~50ms.
+  For n = 100,000: ~5,000,000,000 copies.
+  ~5 seconds.
+  
+  The O(n²) becomes unusable at scale.
+
+The fix is one character:
+
+  ❌ result = result + [x]  → O(n) per iteration
+  ✅ result += [x]          → O(1) per iteration
+  ✅ result.append(x)       → O(1) per iteration
+
+  The += is in-place; the + creates a new list.
+  Same difference as list += vs list = list +.
+
+Why comprehension is faster than append:
+
+  [f(x) for x in data]
+  
+  → Compiles to a specialized bytecode
+  → The compiler knows the result will be a list
+  → Pre-allocates based on the iterable's length
+    (if the iterable has __len__)
+  → No method call overhead per append
+  
+  vs.
+  
+  result = []
+  for x in data:
+      result.append(f(x))
+  
+  → LOAD_METHOD, CALL_METHOD for each append
+  → Dynamic type check on the result (is it a list?)
+  → The list starts empty, grows via resizing
+  
+  For small n, the difference is microseconds.
+  For large n, comprehension is ~2x faster.
+  Both are O(n) — the difference is constants.
+
+When to use what:
+
+  For 90% of list-building:
+    → Use a comprehension
+    → Clearest, fastest, most idiomatic
+
+  When the logic is complex:
+    → Use append in a loop
+    → Multiple conditions, side effects, breaks
+
+  When accumulating collections:
+    → Use extend
+    → Flattening, merging, chunking
+
+  Never:
+    → result = result + [x] in a loop
+    → This is the O(n²) bug that shows up at scale
+
+The one case for +:
+
+  Creating a new list from two lists:
+    combined = list1 + list2
+  
+  ✅ Clear intent
+  ✅ O(n) once
+  ✅ Both inputs unchanged
+
+  Even here, you could use:
+    combined = list(list1)
+    combined.extend(list2)
+  
+  Both work. The + is shorter. For one-time
+  combination, use +. For building in a loop,
+  use append/extend.
+
+The rule:
+  + for one-time concatenation.
+  append/extend for accumulating in a loop.
+  Comprehension for transforming data.
+  Choose based on context, not on avoiding one.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>extend</code> on a string unless you want characters.</strong> <code>list.extend('hello')</code> adds <code>'h'</code>, <code>'e'</code>, <code>'l'</code>, <code>'l'</code>, <code>'o'</code> — five items, not one. Same for any string argument. If you want to add a string as a single element, use <code>append</code>: <code>list.append('hello')</code>. The same trap applies to tuples, sets, and any iterable — <code>extend</code> iterates them. This is one of the most common bugs when someone means "add this string to the list" and accidentally uses <code>extend</code>. The fix is one word: use <code>append</code>.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The append/extend mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>result = list.append(x)</code></div>
+<p>Returns <code>None</code>. Fix: <code>list.append(x); result = list</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. <code>extend</code> when you mean <code>append</code></div>
+<p>Adds each item individually. Fix: <code>append</code> for one item.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. <code>append</code> when you mean <code>extend</code></div>
+<p>Adds the list as one nested element. Fix: <code>extend</code> for a collection.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. <code>extend('string')</code></div>
+<p>Adds each character. Fix: <code>append('string')</code> for the whole string.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. <code>list = list + [x]</code> in a loop</div>
+<p>O(n²) — creates a new list each iteration. Fix: <code>append</code> or <code>+=</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Chaining <code>.append()</code></div>
+<p>Returns <code>None</code>, so chaining fails. Fix: separate statements.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. <code>+=</code> on a tuple</div>
+<p>Creates a new tuple (tuples aren't mutable). Fix: use a list for in-place ops.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. <code>extend</code> on a dict</div>
+<p>Iterates keys, not items. Fix: <code>extend(d.items())</code> or <code>append(d)</code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between append and extend?</summary>
+<p class="mt-2 text-sm text-slate-300">append adds its argument as a single element to the end of the list. If the argument is a list, that list becomes one element (nested). extend adds each element of its argument individually. Example: [1, 2].append([3, 4]) → [1, 2, [3, 4]]. [1, 2].extend([3, 4]) → [1, 2, 3, 4]. Rule: append for one item, extend for a collection.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does += do on a list?</summary>
+<p class="mt-2 text-sm text-slate-300">list += other is equivalent to list.extend(other) — it adds each element of the iterable to the end. The difference from extend is subtle: += requires the right side to be an iterable, while extend accepts any iterable too. Both mutate in place and return None. The common confusion: list += list is extend, not append.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does append return a new list?</summary>
+<p class="mt-2 text-sm text-slate-300">No — append, extend, and += all mutate the original list in place and return None. This is a common mistake: result = my_list.append(x) gives result = None, not the appended list. The fix is to call append separately: my_list.append(x); result = my_list. Or use list concatenation to create a new list: result = my_list + [x].</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I use append to add multiple items at once?</summary>
+<p class="mt-2 text-sm text-slate-300">Not directly — append takes exactly one argument. To add multiple items, use extend: my_list.extend([a, b, c]). Or use a loop: for x in [a, b, c]: my_list.append(x). Or use +=: my_list += [a, b, c]. The only case where append adds multiple items is when you append a list — but that adds the list as one nested element, not its items individually.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What happens if I use extend with a string?</summary>
+<p class="mt-2 text-sm text-slate-300">extend iterates the string character by character. So [1, 2].extend('abc') gives [1, 2, 'a', 'b', 'c'] — three items added. To add the string as one element, use append: [1, 2].append('abc') gives [1, 2, 'abc'].</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What about list + [x] vs append?</summary>
+<p class="mt-2 text-sm text-slate-300">list + [x] creates a NEW list — it does not modify the original. append mutates in place. Use + when you want a new list (functional style). Use append when you want to modify the existing list. For a single append, either works. For a loop of appends, use append — the copy-on-each-iteration from + is O(n²).</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from install to first project — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/python/problems/slicing.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">✂️ Python slicing explained</div>
+<div class="text-xs text-slate-400 mt-1"><code>a[start:stop:step]</code> — indices point between elements, and that fixes 90% of off-by-one bugs</div>
+</a>
+</section>
+
+<a href="/courses/python/problems/index.html" class="back-link">← All Python problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · Python <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
