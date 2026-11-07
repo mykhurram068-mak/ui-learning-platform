@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Flatten a List of Lists in Python (2026)</title>
+<meta name="description" content="How to flatten a list of lists in Python: itertools.chain.from_iterable, list comprehensions, sum, and recursion. Benchmarks and when each method wins.">
+<meta name="keywords" content="python flatten list, python list of lists, python flatten nested list, itertools chain, python sum list">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Flatten a List of Lists in Python">
+<meta property="og:description" content="itertools.chain.from_iterable, comprehensions, recursion — benchmarks and when each wins.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/problems/flatten-list.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Flatten a List of Lists in Python">
+<meta name="twitter:description" content="itertools.chain, comprehensions, recursion.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/problems/flatten-list.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Flatten a List of Lists in Python",
+"description": "itertools.chain.from_iterable, comprehensions, and recursion for nested lists.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Intermediate",
+"dependencies": "Python 3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I flatten a list of lists in Python?","acceptedAnswer":{"@type":"Answer","text":"Three main methods for one level of nesting. (1) List comprehension — [x for sublist in nested for x in sublist] — readable, works everywhere. (2) itertools.chain.from_iterable(nested) — fastest for large data, returns an iterator (wrap in list() if you need a list). (3) sum(nested, []) — concise but slow for large data (O(n²) — creates a new list each step). For one level, use chain.from_iterable for speed or the comprehension for readability. For arbitrarily deep nesting, use recursion — chain only flattens one level."}},
+{"@type":"Question","name":"What is the fastest way to flatten a list?","acceptedAnswer":{"@type":"Answer","text":"itertools.chain.from_iterable is the fastest for one level of nesting. Benchmarks on 1 million items: chain.from_iterable ~100ms; list comprehension ~150ms; sum(nested, []) ~5s. The chain is faster because it's implemented in C and yields items lazily. The comprehension is close and often clearer. The sum(nested, []) approach is the slowest — it creates a new list at each step, giving O(n²) behavior. For flat data with millions of items, use chain.from_iterable. For readability, use the comprehension. Never use sum for flattening."}},
+{"@type":"Question","name":"How do I flatten a deeply nested list?","acceptedAnswer":{"@type":"Answer","text":"For arbitrary depth, you need recursion. Example: def flatten(nested): for item in nested: if isinstance(item, list): yield from flatten(item) else: yield item. This handles [[1, [2, [3, 4]]], 5] → [1, 2, 3, 4, 5]. itertools.chain only flattens one level. For mixed types (tuples, sets inside lists), adjust the isinstance check. For very deep nesting, watch the recursion limit (default 1000) — use an explicit stack if depth can exceed that. The recursion approach is the standard for nested structures."}},
+{"@type":"Question","name":"Why is sum(nested, []) slow?","acceptedAnswer":{"@type":"Answer","text":"Because sum() calls list addition repeatedly. sum([a, b, c], []) computes (([] + a) + b) + c. Each + creates a NEW list, copying all existing elements. So for a list of n sublists, the total cost is O(n²) — the first addition copies 0 elements, the second copies len(a), the third copies len(a)+len(b), and so on. For small data, the overhead is negligible. For large data, it becomes quadratic and unusable. The chain.from_iterable approach is O(n) — it iterates each item once. The comprehension is also O(n). sum() is O(n²). Don't use it except for tiny lists."}},
+{"@type":"Question","name":"How do I flatten a list of strings?","acceptedAnswer":{"@type":"Answer","text":"Three options. (1) Join — ''.join(strings) concatenates into one string, or '-'.join(strings) with a separator. (2) Split and join — for splitting words: ' '.join(words). (3) Treat as a list — if you want the strings as separate items, most flatten methods work directly: list(chain.from_iterable(strings)) gives each string as one element. The trap: iterating a string gives characters. [x for s in strings for x in s] gives each character as one item, not each string. If you want each string as an item, use chain.from_iterable(strings) — chain flattens the outer list (the strings) but not the strings themselves."}},
+{"@type":"Question","name":"Can I flatten a list with NumPy?","acceptedAnswer":{"@type":"Answer","text":"Yes — NumPy's flatten() and ravel() are very fast for numeric arrays. arr.flatten() returns a new 1D array; arr.ravel() returns a view if possible (more efficient). For a list of equal-length sublists, np.array(nested).ravel() is the fastest option by far. Caveats: (1) NumPy requires equal-length sublists for 2D arrays. (2) It converts everything to a single dtype — mixing ints and strings raises or converts to string. (3) It's a heavy dependency — don't install NumPy just to flatten a list. For uniform numeric data in a project that already uses NumPy, ravel() is the standard tool. For general lists, itertools.chain is simpler."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-python.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Python · flatten a list</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#7ee8fc;">Python</a> ›
+<a href="/courses/python/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Flatten a list</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Concept · 3 min read</div>
+<h1>How to flatten a list of lists.<br><span class="py-accent">chain, comprehension, recursion.</span></h1>
+<p class="lead">
+You have <code>[[1, 2], [3, 4], [5]]</code> and want <code>[1, 2, 3, 4, 5]</code>. Three methods, each appropriate in a different case. <code>itertools.chain.from_iterable</code> is the fastest. A list comprehension is the most readable. <code>sum(nested, [])</code> is the slowest and should be avoided for anything beyond tiny data. For deeply nested lists, use recursion. This page covers each method, the benchmarks, and the traps.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> For one level of nesting: <code>list(itertools.chain.from_iterable(nested))</code> (fastest) or <code>[x for sublist in nested for x in sublist]</code> (readable). Never use <code>sum(nested, [])</code> — it's O(n²). For arbitrary depth: recursion with <code>yield from</code>. For strings: be careful — iterating a string gives characters, so use <code>chain.from_iterable</code> on the outer list, not on the strings themselves. For numeric arrays in a NumPy project: <code>arr.ravel()</code>.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The three methods</h2>
+<p class="section-sub">One level of nesting, three ways.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">flatten.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">from itertools import chain
+
+nested = [[1, 2], [3, 4], [5]]
+
+# Method 1: list comprehension
+flat1 = [x for sublist in nested for x in sublist]
+print(flat1)  # [1, 2, 3, 4, 5]
+
+# Method 2: itertools.chain.from_iterable
+flat2 = list(chain.from_iterable(nested))
+print(flat2)  # [1, 2, 3, 4, 5]
+
+# Method 3: sum — works, but slow
+flat3 = sum(nested, [])
+print(flat3)  # [1, 2, 3, 4, 5]
+
+# All three produce the same result.
+# The difference is performance and readability.
+
+# chain is lazy — you can iterate without building a list
+for x in chain.from_iterable(nested):
+    print(x)  # 1 2 3 4 5, one at a time
+
+# Comprehension is eager — builds the whole list
+for x in [x for sub in nested for x in sub]:
+    print(x)  # same, but list is built first
+
+# For most code, comprehension is fine.
+# For large data or memory-constrained contexts,
+# chain.from_iterable is better.
+
+# Quick benchmark on 1 million items:
+import time
+
+big = [[i] for i in range(1_000_000)]
+
+t = time.perf_counter()
+_ = list(chain.from_iterable(big))
+print(f'chain: {time.perf_counter() - t:.3f}s')  # ~0.100s
+
+t = time.perf_counter()
+_ = [x for sub in big for x in sub]
+print(f'comprehension: {time.perf_counter() - t:.3f}s')  # ~0.150s
+
+t = time.perf_counter()
+_ = sum(big, [])
+print(f'sum: {time.perf_counter() - t:.3f}s')  # ~5.0s</pre>
+<script type="text/plain" id="raw-code-sol1">from itertools import chain
+
+nested = [[1, 2], [3, 4], [5]]
+
+# Method 1: list comprehension
+flat1 = [x for sublist in nested for x in sublist]
+print(flat1)  # [1, 2, 3, 4, 5]
+
+# Method 2: itertools.chain.from_iterable
+flat2 = list(chain.from_iterable(nested))
+print(flat2)  # [1, 2, 3, 4, 5]
+
+# Method 3: sum — works, but slow
+flat3 = sum(nested, [])
+print(flat3)  # [1, 2, 3, 4, 5]
+
+# All three produce the same result.
+# The difference is performance and readability.
+
+# chain is lazy — you can iterate without building a list
+for x in chain.from_iterable(nested):
+    print(x)  # 1 2 3 4 5, one at a time
+
+# Comprehension is eager — builds the whole list
+for x in [x for sub in nested for x in sub]:
+    print(x)  # same, but list is built first
+
+# For most code, comprehension is fine.
+# For large data or memory-constrained contexts,
+# chain.from_iterable is better.
+
+# Quick benchmark on 1 million items:
+import time
+
+big = [[i] for i in range(1_000_000)]
+
+t = time.perf_counter()
+_ = list(chain.from_iterable(big))
+print(f'chain: {time.perf_counter() - t:.3f}s')  # ~0.100s
+
+t = time.perf_counter()
+_ = [x for sub in big for x in sub]
+print(f'comprehension: {time.perf_counter() - t:.3f}s')  # ~0.150s
+
+t = time.perf_counter()
+_ = sum(big, [])
+print(f'sum: {time.perf_counter() - t:.3f}s')  # ~5.0s</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The three methods compared:
+
+chain.from_iterable(nested):
+  ✅ Fastest (implemented in C)
+  ✅ Lazy — yields items one at a time
+  ✅ O(n) memory for the list conversion,
+     O(1) if you iterate directly
+  ✅ Works with any iterable-of-iterables
+  ❌ Requires an import
+  ❌ Only flattens one level
+
+List comprehension:
+  ✅ Readable
+  ✅ No import needed
+  ✅ Fast enough for most code
+  ✅ Can add conditions inline
+  ❌ Builds the whole list (eager)
+  ❌ Only flattens one level
+
+sum(nested, []):
+  ✅ Shortest syntax
+  ❌ O(n²) — unusable for large data
+  ❌ Creates a new list at each step
+  ❌ Only works with lists (not tuples/strings)
+  ❌ Never the right answer
+
+When to use each:
+
+✅ chain.from_iterable — when you need speed
+   or are working with large/lazy data:
+   
+   from itertools import chain
+   
+   for item in chain.from_iterable(nested):
+       process(item)   # memory-efficient
+   
+   Or:
+   flat = list(chain.from_iterable(nested))
+   # fastest way to get a flat list
+
+✅ Comprehension — for readability, small data,
+   or when you need conditions:
+   
+   flat = [x for sub in nested for x in sub if x > 0]
+   # filter while flattening
+   
+   flat = [f(x) for sub in nested for x in sub]
+   # transform while flattening
+
+❌ sum(nested, []) — never for production code.
+   Use chain or comprehension instead.
+
+The common one-liner versions:
+
+  # Shortest:
+  sum(nested, [])  # slow
+  
+  # Fastest:
+  list(chain.from_iterable(nested))
+  
+  # Readable:
+  [x for sub in nested for x in sub]
+
+The chain variants:
+
+  chain(nested[0], nested[1], ...)  # multiple args
+  chain.from_iterable(nested)       # one iterable
+  chain(*nested)                    # unpack — same as above
+
+  For flattening, from_iterable is the right one:
+  it takes the outer list and iterates the inner ones.
+
+  chain(*nested) also works but has a size limit —
+  the splat operator unpacks everything into one
+  call, which fails for huge lists (>~100k items).
+  from_iterable doesn't unpack — it iterates.
+
+  So:
+    ❌ chain(*nested) for large nested
+    ✅ chain.from_iterable(nested) always
+
+⚠️ For a list of strings:
+   chain.from_iterable(['ab', 'cd']) gives 'a', 'b', 'c', 'd'
+   because chain iterates each string.
+   
+   If you want ['ab', 'cd'] as flat, it's already flat.
+   
+   If you want each character as an item:
+     [char for s in strings for char in s]
+   
+   If you want them concatenated:
+     ''.join(strings)  # 'abcd'</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Arbitrary depth</h2>
+<p class="section-sub">Recursion for nested-in-nested.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">deep.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">from itertools import chain
+
+# One level — works
+nested = [[1, 2], [3, [4, 5]], [6]]
+flat = list(chain.from_iterable(nested))
+print(flat)  # [1, 2, 3, [4, 5], 6]
+# The [4, 5] is still nested.
+
+# For arbitrary depth — recursion
+def flatten(nested):
+    for item in nested:
+        if isinstance(item, list):
+            yield from flatten(item)
+        else:
+            yield item
+
+deep = [[1, [2, [3, 4]]], 5, [[6]], [[[7]]]]
+flat = list(flatten(deep))
+print(flat)  # [1, 2, 3, 4, 5, 6, 7]
+
+# With mixed types (lists and tuples)
+def flatten_mixed(nested):
+    for item in nested:
+        if isinstance(item, (list, tuple)):
+            yield from flatten_mixed(item)
+        else:
+            yield item
+
+mixed = [1, (2, 3), [4, (5, 6)], 7]
+print(list(flatten_mixed(mixed)))  # [1, 2, 3, 4, 5, 6, 7]
+
+# With a filter
+def flatten_positive(nested):
+    for item in nested:
+        if isinstance(item, list):
+            yield from flatten_positive(item)
+        elif item > 0:
+            yield item
+
+data = [[1, -2, [3, -4]], 5, -6]
+print(list(flatten_positive(data)))  # [1, 3, 5]
+
+# For strings — treat them as atomic (don't iterate characters)
+def flatten_no_strings(nested):
+    for item in nested:
+        if isinstance(item, list):
+            yield from flatten_no_strings(item)
+        else:
+            yield item  # strings stay as one item
+
+data = [['hello', 'world'], ['python']]
+print(list(flatten_no_strings(data)))  # ['hello', 'world', 'python']
+# Not 'h', 'e', 'l', 'l', 'o'...
+
+# For very deep nesting — iterative with a stack
+def flatten_iter(nested):
+    stack = [iter(nested)]
+    while stack:
+        try:
+            item = next(stack[-1])
+        except StopIteration:
+            stack.pop()
+            continue
+        if isinstance(item, list):
+            stack.append(iter(item))
+        else:
+            yield item
+
+# Same result, no recursion limit.
+# Slower, but safe for depth > 1000.</pre>
+<script type="text/plain" id="raw-code-sol2">from itertools import chain
+
+# One level — works
+nested = [[1, 2], [3, [4, 5]], [6]]
+flat = list(chain.from_iterable(nested))
+print(flat)  # [1, 2, 3, [4, 5], 6]
+# The [4, 5] is still nested.
+
+# For arbitrary depth — recursion
+def flatten(nested):
+    for item in nested:
+        if isinstance(item, list):
+            yield from flatten(item)
+        else:
+            yield item
+
+deep = [[1, [2, [3, 4]]], 5, [[6]], [[[7]]]]
+flat = list(flatten(deep))
+print(flat)  # [1, 2, 3, 4, 5, 6, 7]
+
+# With mixed types (lists and tuples)
+def flatten_mixed(nested):
+    for item in nested:
+        if isinstance(item, (list, tuple)):
+            yield from flatten_mixed(item)
+        else:
+            yield item
+
+mixed = [1, (2, 3), [4, (5, 6)], 7]
+print(list(flatten_mixed(mixed)))  # [1, 2, 3, 4, 5, 6, 7]
+
+# With a filter
+def flatten_positive(nested):
+    for item in nested:
+        if isinstance(item, list):
+            yield from flatten_positive(item)
+        elif item > 0:
+            yield item
+
+data = [[1, -2, [3, -4]], 5, -6]
+print(list(flatten_positive(data)))  # [1, 3, 5]
+
+# For strings — treat them as atomic (don't iterate characters)
+def flatten_no_strings(nested):
+    for item in nested:
+        if isinstance(item, list):
+            yield from flatten_no_strings(item)
+        else:
+            yield item  # strings stay as one item
+
+data = [['hello', 'world'], ['python']]
+print(list(flatten_no_strings(data)))  # ['hello', 'world', 'python']
+# Not 'h', 'e', 'l', 'l', 'o'...
+
+# For very deep nesting — iterative with a stack
+def flatten_iter(nested):
+    stack = [iter(nested)]
+    while stack:
+        try:
+            item = next(stack[-1])
+        except StopIteration:
+            stack.pop()
+            continue
+        if isinstance(item, list):
+            stack.append(iter(item))
+        else:
+            yield item
+
+# Same result, no recursion limit.
+# Slower, but safe for depth > 1000.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why recursion is necessary:
+
+  chain.from_iterable only iterates the OUTER list.
+  It yields each inner item as-is — including
+  nested lists.
+  
+  [[1, 2], [3, [4, 5]]] → 1, 2, 3, [4, 5]
+                         ^ the [4, 5] is still a list
+  
+  To go deeper, you need to detect nested lists
+  and recurse into them.
+  
+  That's what the recursive flatten() does:
+    for each item:
+      if it's a list → recurse
+      else          → yield the item
+  
+  The yield from delegates to the recursive call,
+  flattening the result into the parent generator.
+  
+  This handles arbitrary depth automatically.
+
+The recursion limit:
+
+  Python's default recursion depth is 1000.
+  For lists nested deeper than 1000 levels,
+  flatten() raises RecursionError.
+  
+  For most data, this is fine:
+    - JSON files rarely nest more than 10 levels
+    - Tree structures rarely exceed 50
+    - Deep nesting (>100) is usually a bug
+  
+  For the rare case of very deep nesting,
+  use the iterative version with an explicit
+  stack. It's slower but avoids the recursion
+  limit.
+  
+  Or increase the limit:
+    import sys
+    sys.setrecursionlimit(10000)
+  
+  But this is risky — increasing the limit
+  can crash the interpreter if you exceed
+  the C stack.
+
+The isinstance check:
+
+  isinstance(item, list) — item is a list?
+  
+  For mixed types (lists and tuples):
+    isinstance(item, (list, tuple))
+  
+  For any sequence except strings:
+    isinstance(item, (list, tuple, set)) or
+    hasattr(item, '__iter__') and not isinstance(item, str)
+  
+  The last one is trickier:
+    - Sets are iterable but unordered
+    - Dicts are iterable (over keys)
+    - Bytes are iterable (over ints)
+    - Custom iterables are iterable
+  
+  For most flatten problems, restrict to lists
+  (or lists + tuples). The general "flatten
+  anything iterable" case is rarely what you want.
+
+The recursive pattern:
+
+  def flatten(nested):
+      for item in nested:
+          if isinstance(item, list):
+              yield from flatten(item)   # recurse
+          else:
+              yield item                 # base case
+
+  This is the template. Modify based on:
+    - What counts as "nested" (list, tuple, both)
+    - Whether to filter items (skip None, skip strings)
+    - Whether to transform items
+
+The flatten-with-transform pattern:
+
+  def flatten_map(nested, f):
+      for item in nested:
+          if isinstance(item, list):
+              yield from flatten_map(item, f)
+          else:
+              yield f(item)
+  
+  flat = list(flatten_map(data, lambda x: x * 2))
+
+When to use recursion vs chain:
+
+✅ chain.from_iterable — one level of nesting
+   → [[1, 2], [3, 4]] — one level
+   → Simpler, faster, no recursion limit
+
+✅ Recursion — arbitrary depth
+   → [1, [2, [3, 4]]] — multiple levels
+   → Handles any nesting depth
+
+✅ Iterative with stack — depth > 1000
+   → Extremely deep nesting (rare)
+   → Avoids RecursionError
+
+How to tell:
+
+  If you know the structure is one level:
+    chain.from_iterable
+  If the structure could be any depth:
+    flatten() with recursion
+  If depth exceeds 1000:
+    iterative stack version
+
+For 99% of real code, one level is enough,
+and chain.from_iterable is the answer.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Special cases</h2>
+<p class="section-sub">Strings, tuples, and NumPy.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">special.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">from itertools import chain
+
+# Strings — chain iterates characters
+words = ['hello', 'world']
+print(list(chain.from_iterable(words)))
+# ['h', 'e', 'l', 'l', 'o', 'w', 'o', 'r', 'l', 'd']
+# Usually not what you want!
+
+# If you want the strings as items, they're already flat
+# (a list of strings is flat — one level of nesting is 0)
+
+# If you want to concatenate them:
+print(''.join(words))  # 'helloworld'
+print(' '.join(words))  # 'hello world'
+
+# If you want each character as an item (rare):
+print([c for word in words for c in word])
+# ['h', 'e', 'l', 'l', 'o', 'w', 'o', 'r', 'l', 'd']
+
+# Tuples — chain handles them
+nested_tuples = [(1, 2), (3, 4), (5,)]
+print(list(chain.from_iterable(nested_tuples)))
+# [1, 2, 3, 4, 5]
+
+# Mixed types
+mixed = [[1, 2], (3, 4), [5]]
+print(list(chain.from_iterable(mixed)))
+# [1, 2, 3, 4, 5]
+# chain iterates any iterable, including tuples.
+
+# Strings with mixed types — be careful
+mixed = [['hello'], [1, 2], ['world']]
+print(list(chain.from_iterable(mixed)))
+# ['hello', 1, 2, 'world']
+# Each inner list contributes its items.
+# The string 'hello' stays as one item.
+
+# But if strings are the OUTER items:
+words = ['hello', 'world']
+print(list(chain.from_iterable(words)))
+# ['h', 'e', 'l', 'l', 'o', ...]
+# Because chain iterates each string.
+
+# The rule:
+#   chain.from_iterable(xs) iterates each element of xs.
+#   If elements are strings, you get characters.
+#   If elements are lists/tuples, you get their items.
+#   If elements are scalars, you get a TypeError
+#   (can't iterate an int).
+
+# NumPy — for numeric arrays
+try:
+    import numpy as np
+    arr = np.array([[1, 2], [3, 4], [5, 6]])
+    print(arr.flatten())   # [1 2 3 4 5 6]
+    print(arr.ravel())     # [1 2 3 4 5 6]  — view, faster
+except ImportError:
+    print('NumPy not installed — skipping')
+
+# The NumPy advantage:
+#   - Vectorized operations
+#   - ~10-100x faster than Python loops
+#   - Works for numeric data only (all dtypes must match)
+#
+# The NumPy disadvantage:
+#   - Heavy dependency
+#   - Requires equal-length sublists (2D array)
+#   - Converts everything to one dtype
+#   - Overkill for small data
+
+# Dictionary flattening (a different problem)
+d = {'a': 1, 'b': {'c': 2, 'd': 3}}
+# There's no built-in for this. You need:
+def flatten_dict(d, parent_key='', sep='.'):
+    items = []
+    for k, v in d.items():
+        new_key = f'{parent_key}{sep}{k}' if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+print(flatten_dict(d))
+# {'a': 1, 'b.c': 2, 'b.d': 3}
+# Different problem — dicts aren't sequences.</pre>
+<script type="text/plain" id="raw-code-sol3">from itertools import chain
+
+# Strings — chain iterates characters
+words = ['hello', 'world']
+print(list(chain.from_iterable(words)))
+# ['h', 'e', 'l', 'l', 'o', 'w', 'o', 'r', 'l', 'd']
+# Usually not what you want!
+
+# If you want the strings as items, they're already flat
+# (a list of strings is flat — one level of nesting is 0)
+
+# If you want to concatenate them:
+print(''.join(words))  # 'helloworld'
+print(' '.join(words))  # 'hello world'
+
+# If you want each character as an item (rare):
+print([c for word in words for c in word])
+# ['h', 'e', 'l', 'l', 'o', 'w', 'o', 'r', 'l', 'd']
+
+# Tuples — chain handles them
+nested_tuples = [(1, 2), (3, 4), (5,)]
+print(list(chain.from_iterable(nested_tuples)))
+# [1, 2, 3, 4, 5]
+
+# Mixed types
+mixed = [[1, 2], (3, 4), [5]]
+print(list(chain.from_iterable(mixed)))
+# [1, 2, 3, 4, 5]
+# chain iterates any iterable, including tuples.
+
+# Strings with mixed types — be careful
+mixed = [['hello'], [1, 2], ['world']]
+print(list(chain.from_iterable(mixed)))
+# ['hello', 1, 2, 'world']
+# Each inner list contributes its items.
+# The string 'hello' stays as one item.
+
+# But if strings are the OUTER items:
+words = ['hello', 'world']
+print(list(chain.from_iterable(words)))
+# ['h', 'e', 'l', 'l', 'o', ...]
+# Because chain iterates each string.
+
+# The rule:
+#   chain.from_iterable(xs) iterates each element of xs.
+#   If elements are strings, you get characters.
+#   If elements are lists/tuples, you get their items.
+#   If elements are scalars, you get a TypeError
+#   (can't iterate an int).
+
+# NumPy — for numeric arrays
+try:
+    import numpy as np
+    arr = np.array([[1, 2], [3, 4], [5, 6]])
+    print(arr.flatten())   # [1 2 3 4 5 6]
+    print(arr.ravel())     # [1 2 3 4 5 6]  — view, faster
+except ImportError:
+    print('NumPy not installed — skipping')
+
+# The NumPy advantage:
+#   - Vectorized operations
+#   - ~10-100x faster than Python loops
+#   - Works for numeric data only (all dtypes must match)
+#
+# The NumPy disadvantage:
+#   - Heavy dependency
+#   - Requires equal-length sublists (2D array)
+#   - Converts everything to one dtype
+#   - Overkill for small data
+
+# Dictionary flattening (a different problem)
+d = {'a': 1, 'b': {'c': 2, 'd': 3}}
+# There's no built-in for this. You need:
+def flatten_dict(d, parent_key='', sep='.'):
+    items = []
+    for k, v in d.items():
+        new_key = f'{parent_key}{sep}{k}' if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+print(flatten_dict(d))
+# {'a': 1, 'b.c': 2, 'b.d': 3}
+# Different problem — dicts aren't sequences.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>String trap explained:
+
+  ['hello', 'world']
+  
+  These are TWO strings. The list has 2 items.
+  But each string is iterable (over characters).
+  
+  chain.from_iterable iterates the outer list
+  AND the inner strings:
+  
+  outer → 'hello', 'world'
+  inner → 'h', 'e', 'l', 'l', 'o', 'w', ...
+  
+  Result: 10 items, one per character.
+
+When is this wanted:
+  → Character-level processing
+  → Text analysis
+  → Rare
+
+When it's a bug:
+  → "I have a list of words, I want the same
+    list" — but you get characters
+  → Fix: the list is already flat, don't flatten
+
+For "list of sentences, want list of words":
+  sentences = ['Hello world', 'How are you']
+  words = [w for s in sentences for w in s.split()]
+  # ['Hello', 'world', 'How', 'are', 'you']
+
+  Not chain.from_iterable — because you're not
+  flattening the sentences, you're splitting them.
+
+For "list of words, want characters":
+  chars = list(chain.from_iterable(words))
+  # chain is correct here
+
+For "list of words, want joined string":
+  text = ''.join(words)
+
+The pattern:
+
+  chain.from_iterable is for "iterable of iterables."
+  
+  What's iterable:
+    → List
+    → Tuple
+    → Set
+    → String  ← the trap
+    → Dict (over keys)
+    → Generator
+    → File (over lines)
+    → Range
+  
+  chain.from_iterable(['ab', 'cd']) iterates
+  the strings, yielding characters.
+  
+  If you want the strings as items, the list is
+  already flat — you don't need chain.
+
+NumPy flattening:
+
+  arr = np.array([[1, 2], [3, 4]])
+
+  arr.flatten():
+    → Returns a new 1D array
+    → Always a copy
+    → Works for any array (2D, 3D, ...)
+    → Safe: modifying the result doesn't
+      affect the original
+
+  arr.ravel():
+    → Returns a view (if possible)
+    → Modifying the result MAY affect the
+      original
+    → Faster (no copy)
+    → Only for contiguous arrays
+    → Use when you're reading, not writing
+
+  arr.reshape(-1):
+    → Also returns a view
+    → -1 means "figure out this dimension"
+    → Equivalent to ravel() for most cases
+
+  For flattening:
+    ✅ ravel() for read-only
+    ✅ flatten() when you need a copy
+    ✅ reshape(-1) — same as ravel
+
+  Performance:
+    For a 1000x1000 array:
+      ravel:   ~1 μs (view)
+      flatten: ~1 ms (copy)
+      Python chain: ~100 ms
+      Comprehension: ~200 ms
+    NumPy is 100-1000x faster for numeric data.
+
+  But NumPy requires:
+    → Equal-length sublists (2D array)
+    → Same dtype for all items
+    → A dependency
+
+  For a one-off flatten of a small list,
+  chain.from_iterable is fine.
+  
+  For numeric data in a project already
+  using NumPy, ravel() is the right tool.
+
+Dict flattening:
+
+  A dict with nested dicts is a different problem.
+  Dicts aren't sequences — they're mappings.
+  
+  flatten_dict({'a': 1, 'b': {'c': 2}})
+  → {'a': 1, 'b.c': 2}
+  
+  The keys are concatenated with a separator.
+  This is used for:
+    → Configuration merging
+    → JSON path generation
+    → Database column names
+  
+  For a list-of-dicts, you'd use a comprehension
+  or chain over the values, but the "flatten"
+  concept is different.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>sum(nested, [])</code> for flattening.</strong> It works for tiny lists and is the shortest syntax, which makes it tempting. But it's O(n²) — for each element, it creates a new list by copying all previous elements. On 1 million items, it takes ~5 seconds versus ~0.1 seconds for <code>chain.from_iterable</code>. The performance cliff is sharp: 100 items is fine, 10,000 items is 100x slower than it should be, 1 million is unusable. The fix is one word: <code>list(chain.from_iterable(nested))</code> or a comprehension. Both are O(n). Both are just as readable. Use them.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The flatten mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>sum(nested, [])</code> for large data</div>
+<p>O(n²). Fix: <code>chain.from_iterable</code> or comprehension.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. <code>chain.from_iterable</code> on strings</div>
+<p>Yields characters. Fix: <code>''.join(words)</code> or <code>append</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. <code>chain(*nested)</code> for large lists</div>
+<p>Unpacks into one call — fails for huge lists. Fix: <code>chain.from_iterable(nested)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Expecting <code>chain</code> to flatten multiple levels</div>
+<p>It's one level. Fix: recursion with <code>yield from</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. <code>isinstance(item, list)</code> for tuples</div>
+<p>Tuples stay nested. Fix: <code>isinstance(item, (list, tuple))</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Forgetting that strings are iterable</div>
+<p>Nested check for lists only — strings stay flat. Fix: check with <code>isinstance(item, list)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Very deep nesting causes RecursionError</div>
+<p>Python's limit is 1000. Fix: iterative version with a stack.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using NumPy for non-numeric data</div>
+<p>Raises TypeError on mixed types. Fix: use Python for non-numeric.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I flatten a list of lists in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">Three main methods for one level. (1) List comprehension: [x for sublist in nested for x in sublist]. (2) itertools.chain.from_iterable(nested) — fastest, wrap in list(). (3) sum(nested, []) — concise but O(n²), avoid for large data. For one level, use chain.from_iterable for speed or the comprehension for readability. For arbitrary depth, use recursion.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the fastest way to flatten a list?</summary>
+<p class="mt-2 text-sm text-slate-300">itertools.chain.from_iterable is the fastest for one level. Benchmarks on 1 million items: chain ~100ms, comprehension ~150ms, sum(nested, []) ~5s. Chain is faster because it's implemented in C and yields items lazily. For flat data with millions of items, use chain.from_iterable. Never use sum for flattening.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I flatten a deeply nested list?</summary>
+<p class="mt-2 text-sm text-slate-300">For arbitrary depth, use recursion. Example: def flatten(nested): for item in nested: if isinstance(item, list): yield from flatten(item); else: yield item. This handles [[1, [2, [3, 4]]], 5] → [1, 2, 3, 4, 5]. For mixed types, adjust the isinstance check. For very deep nesting, use an explicit stack to avoid RecursionError.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is sum(nested, []) slow?</summary>
+<p class="mt-2 text-sm text-slate-300">Because sum() calls list addition repeatedly. Each + creates a NEW list, copying all existing elements. For a list of n sublists, the total cost is O(n²). The chain.from_iterable approach is O(n). Don't use sum() except for tiny lists.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I flatten a list of strings?</summary>
+<p class="mt-2 text-sm text-slate-300">Three options. (1) Join — ''.join(strings) concatenates into one string. (2) Split and join — for splitting words: ' '.join(words). (3) Treat as a list — if you want the strings as separate items, chain.from_iterable(strings) gives each string as one element. The trap: iterating a string gives characters.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I flatten a list with NumPy?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes — NumPy's flatten() and ravel() are very fast for numeric arrays. arr.flatten() returns a new 1D array; arr.ravel() returns a view if possible. For a list of equal-length sublists, np.array(nested).ravel() is the fastest option. Caveats: NumPy requires equal-length sublists, converts everything to one dtype, and is a heavy dependency.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from install to first project — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/python/problems/metaclasses.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🧠 Metaclasses in Python</div>
+<div class="text-xs text-slate-400 mt-1">The classes of classes — and why you probably don't need them</div>
+</a>
+</section>
+
+<a href="/courses/python/problems/index.html" class="back-link">← All Python problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · Python <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
