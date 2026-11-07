@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Shallow vs Deep Copy in Python — What's the Difference? (2026)</title>
+<meta name="description" content="Shallow vs deep copy in Python explained: how copy.copy() and copy.deepcopy() differ, when each is needed, and why assignment doesn't copy at all. Direct answer with examples.">
+<meta name="keywords" content="python shallow copy deep copy, python copy, python deepcopy, python assignment copy, python list copy, python nested list copy">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Shallow vs Deep Copy in Python — What's the Difference?">
+<meta property="og:description" content="How copy.copy() and copy.deepcopy() differ, and when each is needed.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/problems/copy.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Shallow vs Deep Copy in Python">
+<meta name="twitter:description" content="How copy.copy() and copy.deepcopy() differ.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/problems/copy.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Shallow vs Deep Copy in Python — What's the Difference?",
+"description": "How copy.copy() and copy.deepcopy() differ, and when each is needed.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Intermediate",
+"dependencies": "Python 3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between shallow and deep copy in Python?","acceptedAnswer":{"@type":"Answer","text":"A shallow copy creates a new container but shares the objects inside. A deep copy creates a new container AND recursively copies everything inside. Example: a list of lists. A shallow copy shares the inner lists — modifying one via the copy affects the original. A deep copy creates new inner lists — the two are fully independent. Use copy.copy() for shallow, copy.deepcopy() for deep. For flat containers of immutable items (list of ints, list of strings), a shallow copy is enough. For nested containers or containers of mutable objects, you usually need a deep copy."}},
+{"@type":"Question","name":"Does assignment (=) copy in Python?","acceptedAnswer":{"@type":"Answer","text":"No. Assignment creates a new reference to the same object, not a copy. a = [1, 2, 3]; b = a — a and b point to the same list. Modifying b modifies a. This is a common gotcha, especially for beginners. To copy, use copy.copy(a) or list(a) or a[:] for a shallow copy, or copy.deepcopy(a) for a deep copy. The confusion comes from languages where = copies the value; in Python, = binds a name to an object. The object itself is unchanged."}},
+{"@type":"Question","name":"What is the fastest way to copy a list?","acceptedAnswer":{"@type":"Answer","text":"Three ways, all creating shallow copies: (1) list(a) — calls the list constructor, which creates a new list from the iterable. (2) a[:] — full slice, creates a new list. (3) a.copy() — the list method, added in Python 3.3. All are equivalent in behavior, and roughly equivalent in speed — nanoseconds apart. For readability, list(a) is the most explicit. For typing, a[:] is the shortest. For modern code, a.copy() is the clearest intent. For nested lists or lists of mutable objects, none of these are enough — use copy.deepcopy(a)."}},
+{"@type":"Question","name":"Why does modifying a copied list change the original?","acceptedAnswer":{"@type":"Answer","text":"Because you made a shallow copy, and the inner items are shared. Example: original = [[1, 2], [3, 4]]; copied = list(original). The outer list is new, but the inner lists [1, 2] and [3, 4] are the same objects. copied[0].append(99) modifies the inner list in both. Fix: use copy.deepcopy(original), which recursively copies all nested objects. The same applies to a list of dictionaries, a dict of lists, or any nested mutable structure."}},
+{"@type":"Question","name":"Does copy.deepcopy handle circular references?","acceptedAnswer":{"@type":"Answer","text":"Yes. deepcopy tracks objects it has already copied and reuses the copies, so circular references (an object that references itself, directly or indirectly) are handled correctly. Example: a = []; a.append(a); copy.deepcopy(a) works — the deep copy also has a self-reference. Shallow copy also handles circular references (it doesn't recurse, so there's nothing to get stuck on), but the result is a shallow copy. deepcopy is the tool for circular or heavily nested structures."}},
+{"@type":"Question","name":"What is copy.copy vs the copy method on lists?","acceptedAnswer":{"@type":"Answer","text":"They do the same thing — both create a shallow copy. list.copy() is a method on list. copy.copy(obj) is a function that works on any object with a __copy__ method (or falls back to a shallow copy for built-ins). Use list.copy() when you know it's a list — clearer. Use copy.copy() when you have a generic object and want a shallow copy without knowing its type. For dicts, dict.copy() and copy.copy() are also equivalent. For sets, set.copy() exists. For custom classes, copy.copy() calls __copy__ if defined."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-python.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Python · shallow vs deep copy</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#7ee8fc;">Python</a> ›
+<a href="/courses/python/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Shallow vs deep copy</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Concept · 4 min read</div>
+<h1>Shallow vs deep copy.<br><span class="py-accent">How deep do you need to go?</span></h1>
+<p class="lead">
+Assignment doesn't copy in Python — it creates a new reference. To actually copy, you need <code>copy.copy()</code> (shallow) or <code>copy.deepcopy()</code> (deep). The difference matters most with nested structures. A shallow copy of a list of lists shares the inner lists — modifying one via the copy changes the original. A deep copy creates independent inner lists. This page covers the difference, when to use each, and the memory model that makes it all make sense.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>a = b</code> doesn't copy — it aliases. Use <code>list(a)</code>, <code>a[:]</code>, or <code>a.copy()</code> for a shallow copy (new container, shared items). Use <code>copy.deepcopy(a)</code> for a deep copy (new container, recursively new items). Shallow is fine for flat containers of immutable items. Deep is needed for nested containers or containers of mutable objects. Assignment, shallow, and deep are the three levels — most bugs come from assuming one when you have another.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The three levels</h2>
+<p class="section-sub">Assignment, shallow copy, deep copy.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">levels.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">import copy
+
+# Level 1: Assignment — no copy at all
+original = [1, 2, 3]
+assigned = original
+
+assigned.append(4)
+print(original)  # [1, 2, 3, 4]  — same object!
+print(original is assigned)  # True
+
+# Level 2: Shallow copy — new container, shared items
+original = [1, 2, 3]
+shallow = list(original)  # or original[:] or original.copy()
+
+shallow.append(4)
+print(original)  # [1, 2, 3]  — original unchanged
+print(shallow)   # [1, 2, 3, 4]
+print(original is shallow)  # False
+
+# Level 3: Deep copy — new container, recursively new items
+original = [[1, 2], [3, 4]]
+deep = copy.deepcopy(original)
+
+deep[0].append(99)
+print(original)  # [[1, 2], [3, 4]]  — inner lists unchanged
+print(deep)      # [[1, 2, 99], [3, 4]]
+print(original[0] is deep[0])  # False
+
+# The shallow copy trap with nested data:
+original = [[1, 2], [3, 4]]
+shallow = list(original)
+
+shallow[0].append(99)
+print(original)  # [[1, 2, 99], [3, 4]]  — modified!
+print(shallow)   # [[1, 2, 99], [3, 4]]
+print(original[0] is shallow[0])  # True — same inner list!</pre>
+<script type="text/plain" id="raw-code-sol1">import copy
+
+# Level 1: Assignment — no copy at all
+original = [1, 2, 3]
+assigned = original
+
+assigned.append(4)
+print(original)  # [1, 2, 3, 4]  — same object!
+print(original is assigned)  # True
+
+# Level 2: Shallow copy — new container, shared items
+original = [1, 2, 3]
+shallow = list(original)  # or original[:] or original.copy()
+
+shallow.append(4)
+print(original)  # [1, 2, 3]  — original unchanged
+print(shallow)   # [1, 2, 3, 4]
+print(original is shallow)  # False
+
+# Level 3: Deep copy — new container, recursively new items
+original = [[1, 2], [3, 4]]
+deep = copy.deepcopy(original)
+
+deep[0].append(99)
+print(original)  # [[1, 2], [3, 4]]  — inner lists unchanged
+print(deep)      # [[1, 2, 99], [3, 4]]
+print(original[0] is deep[0])  # False
+
+# The shallow copy trap with nested data:
+original = [[1, 2], [3, 4]]
+shallow = list(original)
+
+shallow[0].append(99)
+print(original)  # [[1, 2, 99], [3, 4]]  — modified!
+print(shallow)   # [[1, 2, 99], [3, 4]]
+print(original[0] is shallow[0])  # True — same inner list!</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The three levels:
+
+Assignment (b = a):
+  → New name, same object
+  → a and b are aliases
+  → Modifying one modifies the other
+  → id(a) == id(b)
+
+Shallow copy (b = copy.copy(a)):
+  → New outer container
+  → Same inner items (references shared)
+  → Modifying b's items via the container
+    may affect a (if items are mutable)
+  → id(a) != id(b)
+  → id(a[0]) == id(b[0])  — same inner object
+
+Deep copy (b = copy.deepcopy(a)):
+  → New outer container
+  → New inner items, recursively
+  → Modifying b never affects a
+  → id(a) != id(b)
+  → id(a[0]) != id(b[0])  — different inner objects
+
+Memory model:
+
+  original = [[1, 2], [3, 4]]
+
+  Assignment:
+    original ──┐
+               ├──→ [ [1, 2], [3, 4] ]
+    assigned ──┘
+    (both point to the same list object)
+
+  Shallow copy:
+    original ──→ [ A, B ]    where A = [1, 2], B = [3, 4]
+    shallow  ──→ [ A, B ]    (new list, same A and B)
+
+  Deep copy:
+    original ──→ [ A, B ]
+    deep     ──→ [ A', B' ]   (new list, new A' and B')
+
+Why "shallow" vs "deep":
+  Shallow goes one level — the outer container is new.
+  Deep goes all the way — every nested object is new.
+
+What gets deep-copied:
+  → Lists
+  → Dicts
+  → Sets
+  → Custom objects (via __deepcopy__ or __dict__)
+  → Tuples (if they contain mutable items)
+  → Everything, recursively
+
+What doesn't:
+  → Immutable objects (int, str, tuple of immutables)
+    — deepcopy returns the same object
+  → Modules, functions, classes
+    — deepcopy has no concept of "copy a module"
+  → File handles, sockets, locks
+    — deepcopy raises TypeError
+
+For a flat list of ints or strings:
+  shallow copy is enough.
+  deep copy works but is slower.
+  Use shallow.
+
+For a nested list, or a list of dicts, or
+a dict of lists:
+  shallow copy is usually NOT enough.
+  Use deepcopy.
+
+The rule:
+  If your structure has any mutable container
+  inside another container, you probably need
+  deepcopy.
+  If everything is immutable (ints, strings,
+  tuples of immutables), shallow copy is safe.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ When each breaks</h2>
+<p class="section-sub">The bugs, and why they happen.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">bugs.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">What happens</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">import copy
+
+# Bug 1: assignment, not copy
+original = [1, 2, 3]
+copy_wrong = original
+copy_wrong.append(4)
+print(original)  # [1, 2, 3, 4]  — bug!
+
+# Fix: use a real copy
+original = [1, 2, 3]
+copy_right = list(original)
+copy_right.append(4)
+print(original)  # [1, 2, 3]  — correct
+
+# Bug 2: shallow copy of nested data
+original = [[1, 2], [3, 4]]
+shallow = list(original)
+shallow[0].append(99)
+print(original)  # [[1, 2, 99], [3, 4]]  — bug!
+
+# Fix: use deepcopy
+original = [[1, 2], [3, 4]]
+deep = copy.deepcopy(original)
+deep[0].append(99)
+print(original)  # [[1, 2], [3, 4]]  — correct
+
+# Bug 3: shallow copy of dict with list values
+original = {'a': [1, 2], 'b': [3, 4]}
+shallow = dict(original)
+shallow['a'].append(99)
+print(original['a'])  # [1, 2, 99]  — bug!
+
+# Fix: deepcopy
+original = {'a': [1, 2], 'b': [3, 4]}
+deep = copy.deepcopy(original)
+deep['a'].append(99)
+print(original['a'])  # [1, 2]  — correct
+
+# Bug 4: shallow copy of a list of dicts
+original = [{'name': 'Alice'}, {'name': 'Bob'}]
+shallow = list(original)
+shallow[0]['name'] = 'Charlie'
+print(original[0])  # {'name': 'Charlie'}  — bug!
+
+# Fix: deepcopy
+original = [{'name': 'Alice'}, {'name': 'Bob'}]
+deep = copy.deepcopy(original)
+deep[0]['name'] = 'Charlie'
+print(original[0])  # {'name': 'Alice'}  — correct</pre>
+<script type="text/plain" id="raw-code-sol2">import copy
+
+# Bug 1: assignment, not copy
+original = [1, 2, 3]
+copy_wrong = original
+copy_wrong.append(4)
+print(original)  # [1, 2, 3, 4]  — bug!
+
+# Fix: use a real copy
+original = [1, 2, 3]
+copy_right = list(original)
+copy_right.append(4)
+print(original)  # [1, 2, 3]  — correct
+
+# Bug 2: shallow copy of nested data
+original = [[1, 2], [3, 4]]
+shallow = list(original)
+shallow[0].append(99)
+print(original)  # [[1, 2, 99], [3, 4]]  — bug!
+
+# Fix: use deepcopy
+original = [[1, 2], [3, 4]]
+deep = copy.deepcopy(original)
+deep[0].append(99)
+print(original)  # [[1, 2], [3, 4]]  — correct
+
+# Bug 3: shallow copy of dict with list values
+original = {'a': [1, 2], 'b': [3, 4]}
+shallow = dict(original)
+shallow['a'].append(99)
+print(original['a'])  # [1, 2, 99]  — bug!
+
+# Fix: deepcopy
+original = {'a': [1, 2], 'b': [3, 4]}
+deep = copy.deepcopy(original)
+deep['a'].append(99)
+print(original['a'])  # [1, 2]  — correct
+
+# Bug 4: shallow copy of a list of dicts
+original = [{'name': 'Alice'}, {'name': 'Bob'}]
+shallow = list(original)
+shallow[0]['name'] = 'Charlie'
+print(original[0])  # {'name': 'Charlie'}  — bug!
+
+# Fix: deepcopy
+original = [{'name': 'Alice'}, {'name': 'Bob'}]
+deep = copy.deepcopy(original)
+deep[0]['name'] = 'Charlie'
+print(original[0])  # {'name': 'Alice'}  — correct</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The four bugs:
+
+Bug 1: Not copying at all
+  original = [1, 2, 3]
+  copy = original    # same object
+  copy.append(4)     # modifies both
+
+  Fix: list(original), original[:], or original.copy()
+
+Bug 2: Shallow copy of nested list
+  original = [[1, 2], [3, 4]]
+  copy = list(original)   # new outer, same inner
+  copy[0].append(99)      # modifies original[0]
+
+  Fix: copy.deepcopy(original)
+
+Bug 3: Shallow copy of dict with list values
+  original = {'a': [1, 2]}
+  copy = dict(original)   # new dict, same list value
+  copy['a'].append(99)    # modifies original['a']
+
+  Fix: copy.deepcopy(original)
+
+Bug 4: Shallow copy of list of dicts
+  original = [{'name': 'Alice'}]
+  copy = list(original)   # new outer, same dict
+  copy[0]['name'] = 'X'   # modifies original[0]
+
+  Fix: copy.deepcopy(original)
+
+The pattern:
+
+  All four bugs are variations of the same mistake:
+  a mutable object is shared between the original
+  and the "copy."
+
+  Rule:
+    If your structure contains any mutable object
+    at any depth, use deepcopy.
+    If everything is immutable, shallow copy is safe.
+
+When shallow is enough:
+
+  ✅ List of ints: [1, 2, 3]
+  ✅ List of strings: ['a', 'b', 'c']
+  ✅ List of tuples of immutables: [(1, 2), (3, 4)]
+  ✅ Dict with string values: {'a': 'x', 'b': 'y'}
+  ✅ Dict with int values: {'a': 1, 'b': 2}
+  ✅ Set of strings: {'a', 'b'}
+
+  These are safe because:
+    - The items are immutable
+    - You can't mutate them through the copy
+    - The only mutations are to the outer container
+    - Shallow copy gives you a new outer container
+
+When shallow is NOT enough:
+
+  ❌ List of lists: [[1, 2], [3, 4]]
+  ❌ List of dicts: [{'a': 1}, {'b': 2}]
+  ❌ Dict of lists: {'a': [1, 2]}
+  ❌ Dict of dicts: {'a': {'x': 1}}
+  ❌ List of custom objects with mutable attrs
+  ❌ Any nested mutable structure
+
+The deepcopy cost:
+
+  deepcopy is slower than shallow.
+  It recurses through everything.
+  For a list of 1000 ints: shallow is microseconds,
+  deepcopy is milliseconds.
+  For deeply nested data: deepcopy can be much
+  slower.
+
+  Optimization: shallow copy when you can.
+  Use deepcopy only when the structure requires it.
+  If you're copying the same structure many times,
+  consider whether you need copies at all — often
+  a functional approach (don't mutate) is better.
+
+The functional alternative:
+
+  Instead of copying-then-mutating:
+    copy = deepcopy(original)
+    copy[0].append(99)
+  
+  Build a new structure:
+    new = [row + [99] if i == 0 else row
+           for i, row in enumerate(original)]
+  
+  This creates a new structure without modifying
+  the original. No deepcopy needed. The downside:
+  more code for complex transformations.
+
+  For simple cases (adding to one inner list),
+  deepcopy is clearer. For complex transformations,
+  the comprehension is better. Choose based on
+  readability, not on avoiding deepcopy at all costs.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Copy methods and recipes</h2>
+<p class="section-sub">Every built-in copy method.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">methods.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Notes</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">import copy
+
+# Lists — all shallow copies
+lst = [1, 2, 3]
+lst.copy()          # method (3.3+)
+list(lst)           # constructor
+lst[:]              # full slice
+copy.copy(lst)      # module function
+# All equivalent, all shallow.
+
+# Dicts — all shallow copies
+d = {'a': 1, 'b': 2}
+d.copy()
+dict(d)
+copy.copy(d)
+
+# Sets — all shallow copies
+s = {1, 2, 3}
+s.copy()
+set(s)
+copy.copy(s)
+
+# Tuples — immutable, so copy is the same tuple
+t = (1, 2, 3)
+copy.copy(t) is t          # True — no new object
+copy.deepcopy(t)           # Same tuple (all immutables)
+
+# Tuple with mutable contents
+t = ([1, 2], [3, 4])
+copy.copy(t) is t          # True — still same tuple
+copy.deepcopy(t)           # New tuple, new inner lists
+
+# Strings — immutable
+s = 'hello'
+copy.copy(s) is s          # True
+
+# Custom objects — shallow
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    def __repr__(self):
+        return f'Point({self.x}, {self.y})'
+
+p = Point(1, 2)
+p2 = copy.copy(p)
+p2.x = 100
+print(p)   # Point(1, 2) — original unchanged (shallow)
+print(p2)  # Point(100, 2)
+
+# Custom objects — deep
+p3 = copy.deepcopy(p)
+p3.x = 999
+print(p)   # Point(1, 2) — original unchanged (deep)
+
+# Custom objects with __dict__ — deepcopy works
+class Container:
+    def __init__(self):
+        self.items = [1, 2, 3]
+
+c = Container()
+c2 = copy.deepcopy(c)
+c2.items.append(99)
+print(c.items)   # [1, 2, 3] — unchanged
+print(c2.items)  # [1, 2, 3, 99]
+
+# Implementing __copy__ and __deepcopy__
+class SmartCopy:
+    def __init__(self, value):
+        self.value = value
+    def __copy__(self):
+        print('shallow copy called')
+        return SmartCopy(self.value)
+    def __deepcopy__(self, memo):
+        print('deep copy called')
+        return SmartCopy(copy.deepcopy(self.value, memo))
+
+sc = SmartCopy([1, 2])
+copy.copy(sc)     # 'shallow copy called'
+copy.deepcopy(sc) # 'deep copy called'</pre>
+<script type="text/plain" id="raw-code-sol3">import copy
+
+# Lists — all shallow copies
+lst = [1, 2, 3]
+lst.copy()          # method (3.3+)
+list(lst)           # constructor
+lst[:]              # full slice
+copy.copy(lst)      # module function
+# All equivalent, all shallow.
+
+# Dicts — all shallow copies
+d = {'a': 1, 'b': 2}
+d.copy()
+dict(d)
+copy.copy(d)
+
+# Sets — all shallow copies
+s = {1, 2, 3}
+s.copy()
+set(s)
+copy.copy(s)
+
+# Tuples — immutable, so copy is the same tuple
+t = (1, 2, 3)
+copy.copy(t) is t          # True — no new object
+copy.deepcopy(t)           # Same tuple (all immutables)
+
+# Tuple with mutable contents
+t = ([1, 2], [3, 4])
+copy.copy(t) is t          # True — still same tuple
+copy.deepcopy(t)           # New tuple, new inner lists
+
+# Strings — immutable
+s = 'hello'
+copy.copy(s) is s          # True
+
+# Custom objects — shallow
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    def __repr__(self):
+        return f'Point({self.x}, {self.y})'
+
+p = Point(1, 2)
+p2 = copy.copy(p)
+p2.x = 100
+print(p)   # Point(1, 2) — original unchanged (shallow)
+print(p2)  # Point(100, 2)
+
+# Custom objects — deep
+p3 = copy.deepcopy(p)
+p3.x = 999
+print(p)   # Point(1, 2) — original unchanged (deep)
+
+# Custom objects with __dict__ — deepcopy works
+class Container:
+    def __init__(self):
+        self.items = [1, 2, 3]
+
+c = Container()
+c2 = copy.deepcopy(c)
+c2.items.append(99)
+print(c.items)   # [1, 2, 3] — unchanged
+print(c2.items)  # [1, 2, 3, 99]
+
+# Implementing __copy__ and __deepcopy__
+class SmartCopy:
+    def __init__(self, value):
+        self.value = value
+    def __copy__(self):
+        print('shallow copy called')
+        return SmartCopy(self.value)
+    def __deepcopy__(self, memo):
+        print('deep copy called')
+        return SmartCopy(copy.deepcopy(self.value, memo))
+
+sc = SmartCopy([1, 2])
+copy.copy(sc)     # 'shallow copy called'
+copy.deepcopy(sc) # 'deep copy called'</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Built-in copy methods:
+
+Lists:  .copy()  list()  [:]  copy.copy()
+Dicts:  .copy()  dict()      copy.copy()
+Sets:   .copy()  set()       copy.copy()
+
+All create SHALLOW copies.
+All are roughly equal in speed.
+Choose for readability:
+  lst.copy()     — clearest intent
+  list(lst)      — most explicit
+  lst[:]         — shortest
+  copy.copy(lst) — generic
+
+Tuples:
+  Immutable, so "copy" is usually the same object.
+  copy.copy(t) is t  — True
+  copy.deepcopy(t)   — creates a new tuple only if
+                        contents are mutable
+
+Strings, ints, floats, booleans, None:
+  Immutable. copy returns the same object.
+  copy.copy(x) is x  — True
+
+Custom classes:
+  copy.copy(obj)   — shallow copy of __dict__
+                     calls __copy__ if defined
+  copy.deepcopy(obj) — deep copy of __dict__
+                        calls __deepcopy__ if defined
+
+Implementing __copy__ and __deepcopy__:
+
+  class MyClass:
+      def __init__(self, data):
+          self.data = data
+      
+      def __copy__(self):
+          # Return a new instance
+          # Shallow: share nested objects
+          return MyClass(self.data)
+      
+      def __deepcopy__(self, memo):
+          # Return a new instance
+          # Deep: recursively copy
+          return MyClass(copy.deepcopy(self.data, memo))
+
+  The memo dict is for tracking already-copied
+  objects (handles circular references).
+  Pass it to any deepcopy call inside __deepcopy__.
+
+When to implement __deepcopy__:
+
+  → Your object has resources that shouldn't be
+    duplicated (file handles, sockets)
+  → Your object has custom internal state that
+    can't be copied by __dict__ alone
+  → Your object is expensive to copy and you want
+    to optimize
+  → Your object has circular references that
+    deepcopy needs help with
+
+When NOT to implement:
+
+  → Default behavior is correct (most cases)
+  → You don't have nested mutable state
+  → Performance isn't a concern
+
+The default is usually fine.
+Implement custom copy methods only when
+you have a specific reason.
+
+Special cases:
+
+  ❌ File handles: deepcopy raises TypeError
+     (can't copy an open file)
+  
+  ❌ Sockets: deepcopy raises TypeError
+  
+  ❌ Locks (threading.Lock): can't be deep-copied
+  
+  ❌ Modules: deepcopy returns the same module
+
+  These are resource objects.
+  Copying doesn't make sense — you'd get two
+  handles to the same resource, with undefined
+  behavior.
+  
+  If your object holds these, implement
+  __deepcopy__ to control what gets copied.
+  Or refactor to keep resources outside the
+  copied structure.
+
+The cleanest pattern:
+
+  Keep mutable state separate from immutable
+  state when possible.
+  
+  ❌ class Config:
+         def __init__(self):
+             self.file = open('config.txt')  # resource
+             self.values = {}                 # state
+  
+  ✅ class Config:
+         def __init__(self, values=None):
+             self.values = values or {}
+         # File opened per-operation, not stored
+  
+  Then deepcopy(config) works — it copies values
+  (a dict, deep-copyable) and nothing else.
+  
+  The bug is often "I want to copy my object,"
+  when the real answer is "my object shouldn't hold
+  that resource."</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't assume <code>=</code> copies in Python.</strong> This is the single most common copy bug, and it shows up in every Python codebase. <code>a = b</code> creates a new name for the same object. If you mutate <code>b</code>, <code>a</code> changes. If you mutate <code>a</code>, <code>b</code> changes. The bug is subtle because simple tests pass — you have to actually mutate the object to notice. And by then, the mutation is in production. The fix is one line: <code>a = list(b)</code> for a shallow copy, <code>a = copy.deepcopy(b)</code> for a deep copy. Use it whenever you're about to mutate a container you received as an argument or returned from a function.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The copy mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Assuming <code>=</code> copies</div>
+<p>It aliases. Fix: <code>list(a)</code> or <code>copy.copy(a)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Shallow copy of nested data</div>
+<p>Inner objects are shared. Fix: <code>copy.deepcopy(a)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. <code>list(a)</code> on a list of dicts</div>
+<p>Dicts are shared. Fix: <code>copy.deepcopy(a)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Deep copying when shallow is enough</div>
+<p>Wasted performance. Fix: only deep copy if the structure requires it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Deep copying an object with resources</div>
+<p>File handles, locks — <code>deepcopy</code> raises. Fix: implement <code>__deepcopy__</code> or refactor.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Deep copying circular structures without <code>memo</code></div>
+<p>Infinite recursion if you implement <code>__deepcopy__</code> wrong. Fix: pass <code>memo</code> to nested deepcopies.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Modifying a dict while iterating its copy</div>
+<p>Depends on the copy. Fix: <code>list(d.keys())</code> or <code>d.copy()</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Expecting <code>dict.copy()</code> to deep-copy values</div>
+<p>It's shallow. Fix: <code>copy.deepcopy(d)</code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between shallow and deep copy in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">A shallow copy creates a new container but shares the objects inside. A deep copy creates a new container AND recursively copies everything inside. Use copy.copy() for shallow, copy.deepcopy() for deep. For flat containers of immutable items, a shallow copy is enough. For nested containers or containers of mutable objects, you need a deep copy.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does assignment (=) copy in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Assignment creates a new reference to the same object, not a copy. a = [1, 2, 3]; b = a — a and b point to the same list. Modifying b modifies a. To copy, use copy.copy(a) or list(a) or a[:] for a shallow copy, or copy.deepcopy(a) for a deep copy.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the fastest way to copy a list?</summary>
+<p class="mt-2 text-sm text-slate-300">Three ways, all creating shallow copies: (1) list(a) — calls the list constructor. (2) a[:] — full slice. (3) a.copy() — the list method. All are equivalent in behavior. For nested lists or lists of mutable objects, none of these are enough — use copy.deepcopy(a).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does modifying a copied list change the original?</summary>
+<p class="mt-2 text-sm text-slate-300">Because you made a shallow copy, and the inner items are shared. Example: original = [[1, 2], [3, 4]]; copied = list(original). The outer list is new, but the inner lists are the same objects. copied[0].append(99) modifies the inner list in both. Fix: use copy.deepcopy(original).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does copy.deepcopy handle circular references?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. deepcopy tracks objects it has already copied and reuses the copies, so circular references (an object that references itself, directly or indirectly) are handled correctly. Example: a = []; a.append(a); copy.deepcopy(a) works.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is copy.copy vs the copy method on lists?</summary>
+<p class="mt-2 text-sm text-slate-300">They do the same thing — both create a shallow copy. list.copy() is a method on list. copy.copy(obj) is a function that works on any object with a __copy__ method (or falls back to a shallow copy for built-ins). Use list.copy() when you know it's a list — clearer. Use copy.copy() for generic objects.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from install to first project — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/python/problems/pass-by-reference.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">↔️ Pass by reference or value?</div>
+<div class="text-xs text-slate-400 mt-1">Neither — it's call by sharing. And the mutable default argument trap</div>
+</a>
+</section>
+
+<a href="/courses/python/problems/index.html" class="back-link">← All Python problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · Python <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
