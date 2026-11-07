@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Event Delegation in JavaScript — One Listener for Many (2026)</title>
+<meta name="description" content="Event delegation explained: the pattern, how it works with event.target and closest(), and its performance implications. Direct answer with examples.">
+<meta name="keywords" content="event delegation, javascript event delegation, event.target, event.currentTarget, closest method, javascript event listener">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Event Delegation in JavaScript — One Listener for Many">
+<meta property="og:description" content="The pattern, event.target vs currentTarget, and closest().">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/event-delegation.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Event Delegation in JavaScript">
+<meta name="twitter:description" content="One listener for many elements.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/event-delegation.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Event Delegation in JavaScript — One Listener for Many",
+"description": "The event delegation pattern, event.target vs currentTarget, and closest().",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Intermediate",
+"dependencies": "ES2015"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is event delegation?","acceptedAnswer":{"@type":"Answer","text":"Event delegation is a pattern where you attach one event listener to a parent element instead of many listeners to individual children. When a child element is clicked, the event bubbles up to the parent, where the single listener handles it. You use event.target to identify which child was clicked. This works because events bubble — they start at the target and travel up the tree. The result: one listener handles events for any number of children, including ones added later."}},
+{"@type":"Question","name":"What is the difference between event.target and event.currentTarget?","acceptedAnswer":{"@type":"Answer","text":"event.target is the element that triggered the event — the actual clicked element, which could be deep inside a child. event.currentTarget is the element with the listener attached — the parent you attached it to. Example: clicking a span inside a button: target is the span, currentTarget is the button. For delegation, you usually want event.target (to know what was clicked), and event.currentTarget (or a fixed parent) to know where the listener lives. In simple handlers, they're the same. In delegation, they differ."}},
+{"@type":"Question","name":"What does closest() do?","acceptedAnswer":{"@type":"Answer","text":"closest(selector) walks up the DOM from the element (including itself) and returns the first ancestor that matches the selector, or null if none. It's the standard way to find the 'real' target in event delegation: if you delegated a click handler to a container with items inside, event.target might be a span or an icon deep inside the item. You use event.target.closest('.item') to find the actual item element, then act on it. Without closest, you'd have to walk up the DOM manually, checking classes at each level."}},
+{"@type":"Question","name":"Why use event delegation?","acceptedAnswer":{"@type":"Answer","text":"Three reasons. (1) Performance — one listener is cheaper than 100. For large lists (1000+ items), individual listeners have a real cost. (2) Dynamic content — listeners attached to the parent automatically handle new children added later. You don't need to re-attach listeners when the list changes. (3) Memory — fewer listeners mean less memory, especially for teardown (React unmount, SPA navigation). The trade-off: you have to use closest() to find the right target, which adds a small cost per event. For most lists, delegation wins."}},
+{"@type":"Question","name":"Does event delegation work for all events?","acceptedAnswer":{"@type":"Answer","text":"Not all — only events that bubble. click, mousedown, mouseup, keydown, keyup, input, change, submit — all bubble. But some events don't: focus and blur don't bubble (use focusin and focusout, which do). mouseenter and mouseleave don't bubble (use mouseover and mouseout). scroll doesn't bubble (use capture phase: addEventListener('scroll', fn, true), or attach directly). Resize doesn't bubble. When an event doesn't bubble, delegation doesn't work — you have to attach the listener directly to the element, or use the capture phase."}},
+{"@type":"Question","name":"What are the performance implications?","acceptedAnswer":{"@type":"Answer","text":"Delegation is usually faster for large lists, but not always. One listener on the parent is cheaper than 1000 listeners on children. But each event still fires the handler and runs closest(), which walks the DOM. For a list of 10 items, individual listeners might be simpler and just as fast. For 1000 items, delegation is clearly better. The break-even point is around 20-50 items — below that, either is fine; above that, delegate. Also consider: closest() walks up until it finds a match. If the target is deeply nested, closest is slower. Optimize only if you've measured."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · event delegation</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Event delegation</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 3 min read</div>
+<h1>Event delegation.<br><span class="py-accent">One listener for many.</span></h1>
+<p class="lead">
+Event delegation is the pattern of attaching one listener to a parent instead of many listeners to children. When a child is clicked, the event bubbles up, and the parent handles it. This works for static lists, dynamic lists, and lists that don't exist yet. The key tools: <code>event.target</code> (what was clicked), <code>event.currentTarget</code> (where the listener lives), and <code>closest()</code> (find the real target). This page covers the pattern, the difference between target and currentTarget, and when delegation wins.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Attach the listener to a parent container. Inside the handler, use <code>event.target.closest('.item')</code> to find the actual clicked item. Check if it exists (null if the click was outside any item). Act on it. This works for any number of items, including ones added later. Only use for events that bubble — <code>click</code>, <code>input</code>, <code>keydown</code>, etc. — not <code>focus</code>, <code>scroll</code>, or <code>mouseenter</code>. Delegation wins for lists of 20+ items; below that, individual listeners are fine.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">The same list, two patterns.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">delegation.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">// ❌ Individual listeners — doesn't work for new items
+const items = document.querySelectorAll('.item');
+
+items.forEach(item => {
+  item.addEventListener('click', () => {
+    console.log('Clicked:', item.textContent);
+  });
+});
+
+// Problem: adding a new item to the list
+// requires attaching a new listener. Forget it,
+// and the new item doesn't respond to clicks.
+
+// ✅ Event delegation — works for all items, current and future
+const list = document.querySelector('.list');
+
+list.addEventListener('click', (event) => {
+  // Find the actual item that was clicked
+  const item = event.target.closest('.item');
+
+  // Ignore clicks outside any item
+  if (!item) return;
+
+  console.log('Clicked:', item.textContent);
+});
+
+// Now: adding items to the list works automatically.
+// The new items respond to clicks without any extra code.
+
+const newItem = document.createElement('li');
+newItem.className = 'item';
+newItem.textContent = 'New item';
+list.appendChild(newItem);
+// ✅ This new item is clickable immediately.</pre>
+<script type="text/plain" id="raw-code-sol1">// Individual listeners — doesn't work for new items
+const items = document.querySelectorAll('.item');
+
+items.forEach(item => {
+  item.addEventListener('click', () => {
+    console.log('Clicked:', item.textContent);
+  });
+});
+
+// Problem: adding a new item to the list
+// requires attaching a new listener. Forget it,
+// and the new item doesn't respond to clicks.
+
+// Event delegation — works for all items, current and future
+const list = document.querySelector('.list');
+
+list.addEventListener('click', (event) => {
+  // Find the actual item that was clicked
+  const item = event.target.closest('.item');
+
+  // Ignore clicks outside any item
+  if (!item) return;
+
+  console.log('Clicked:', item.textContent);
+});
+
+// Now: adding items to the list works automatically.
+// The new items respond to clicks without any extra code.
+
+const newItem = document.createElement('li');
+newItem.className = 'item';
+newItem.textContent = 'New item';
+list.appendChild(newItem);
+// This new item is clickable immediately.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>How it works:
+
+1. One listener on .list, not on each .item.
+
+2. User clicks something inside .list.
+   → The event fires on the actual clicked element
+     (could be the .item itself, or a child).
+
+3. The event bubbles up to .list.
+
+4. The listener runs. event.target is the
+   actual clicked element.
+
+5. event.target.closest('.item') walks up
+   from the target to find the nearest
+   .item ancestor (including the target itself).
+
+6. If found, we know an item was clicked.
+   If null, the click was elsewhere in .list
+   (a header, a gap, etc.).
+
+7. Act on the item.
+
+The key line:
+
+  const item = event.target.closest('.item');
+
+Without closest, you'd need to check at each level:
+
+  let el = event.target;
+  while (el && !el.classList.contains('item')) {
+    el = el.parentElement;
+  }
+
+That's exactly what closest does — but built in,
+and faster.
+
+⚠️ Always check for null:
+   closest returns null if no ancestor matches.
+   The click might have been on the container itself,
+   not on any item.
+
+   if (!item) return;   // or handle the outside-click case
+
+⚠️ closest walks UP. It includes the element itself.
+   If event.target IS the .item, closest returns it.
+
+⚠️ closest is case-sensitive.
+   .closest('.Item') will not match .item.
+   Use consistent class names.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ target vs currentTarget</h2>
+<p class="section-sub">The distinction that trips people up.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">target-vs-current.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">// HTML:
+// <ul class="list">
+//   <li class="item">
+//     <span>Click me</span>
+//   </li>
+// </ul>
+
+const list = document.querySelector('.list');
+
+list.addEventListener('click', (event) => {
+  console.log('target:', event.target);
+  console.log('currentTarget:', event.currentTarget);
+  console.log('closest item:', event.target.closest('.item'));
+});
+
+// If user clicks the <span>:
+// target:        <span>Click me</span>  (the span)
+// currentTarget: <ul class="list">...</ul>  (the parent)
+// closest item:  <li class="item">...</li>  (the item)
+
+// If user clicks the <li> (not the span):
+// target:        <li class="item">...</li>
+// currentTarget: <ul class="list">...</ul>
+// closest item:  <li class="item">...</li>
+
+// If user clicks the <ul> (padding area):
+// target:        <ul class="list">...</ul>
+// currentTarget: <ul class="list">...</ul>
+// closest item:  null  (no .item ancestor)</pre>
+<script type="text/plain" id="raw-code-sol2">// HTML:
+// <ul class="list">
+//   <li class="item">
+//     <span>Click me</span>
+//   </li>
+// </ul>
+
+const list = document.querySelector('.list');
+
+list.addEventListener('click', (event) => {
+  console.log('target:', event.target);
+  console.log('currentTarget:', event.currentTarget);
+  console.log('closest item:', event.target.closest('.item'));
+});
+
+// If user clicks the <span>:
+// target:        <span>Click me</span>  (the span)
+// currentTarget: <ul class="list">...</ul>  (the parent)
+// closest item:  <li class="item">...</li>  (the item)
+
+// If user clicks the <li> (not the span):
+// target:        <li class="item">...</li>
+// currentTarget: <ul class="list">...</ul>
+// closest item:  <li class="item">...</li>
+
+// If user clicks the <ul> (padding area):
+// target:        <ul class="list">...</ul>
+// currentTarget: <ul class="list">...</ul>
+// closest item:  null  (no .item ancestor)</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The difference:
+
+event.target:
+  → The element that triggered the event
+  → The actual clicked element
+  → Can be any descendant of the listener
+
+event.currentTarget:
+  → The element the listener is attached to
+  → Always the parent in delegation
+  → Equal to `this` in the handler (for non-arrow functions)
+
+In delegation, you want:
+  event.target — to know what was clicked
+  closest() — to find the semantic element
+
+You rarely use currentTarget in delegation.
+You attach the listener to the container,
+and you already know what container that is.
+
+But currentTarget is useful:
+
+✅ In code that might be attached to different
+   containers — you can always find the parent.
+
+✅ When you're not sure where the listener is
+   attached (a helper function that accepts
+   a listener).
+
+✅ In event handler libraries, where the
+   listener is attached inside the library.
+
+For a plain delegation handler:
+
+list.addEventListener('click', (event) => {
+  const item = event.target.closest('.item');
+  if (!item) return;
+  // item is the actual clicked item
+});
+
+You don't need currentTarget.
+
+⚠️ `this` in the handler:
+   For regular functions, `this` === currentTarget.
+   For arrow functions, `this` is the outer scope.
+   Since delegation handlers are usually arrow
+   functions (to preserve context), use
+   event.currentTarget, not `this`.
+
+The rule: target = what fired. currentTarget = where the listener is.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Which events bubble</h2>
+<p class="section-sub">Delegation works for bubbling events only.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">bubbling.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Alternatives</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// ✅ Events that bubble — delegation works
+// click, dblclick, mousedown, mouseup, mousemove,
+// keydown, keyup, keypress, input, change, submit,
+// focusin, focusout, mouseover, mouseout,
+// touchstart, touchend, pointerdown, pointerup
+
+// ❌ Events that DON'T bubble — delegation doesn't work
+// focus, blur (use focusin, focusout instead)
+// mouseenter, mouseleave (use mouseover, mouseout instead)
+// scroll (no bubbling equivalent — attach directly)
+// resize (on window only — attach directly)
+// load, unload (element-specific — attach directly)
+
+// ✅ focus → use focusin (which bubbles)
+list.addEventListener('focusin', (event) => {
+  const input = event.target.closest('input');
+  if (input) console.log('Focused:', input.name);
+});
+
+// ✅ mouseenter → use mouseover (which bubbles)
+list.addEventListener('mouseover', (event) => {
+  const item = event.target.closest('.item');
+  if (item) item.classList.add('hover');
+});
+
+// ❌ scroll doesn't bubble — attach directly, or use capture
+// Option 1: attach directly to each scrollable element
+document.querySelectorAll('.scrollable').forEach(el => {
+  el.addEventListener('scroll', handleScroll);
+});
+
+// Option 2: capture phase — fires on the way down
+document.addEventListener('scroll', handleScroll, true);
+// Note: capture phase events fire for ALL scroll events,
+// not just those inside a specific container.</pre>
+<script type="text/plain" id="raw-code-sol3">// Events that bubble — delegation works
+// click, dblclick, mousedown, mouseup, mousemove,
+// keydown, keyup, keypress, input, change, submit,
+// focusin, focusout, mouseover, mouseout,
+// touchstart, touchend, pointerdown, pointerup
+
+// Events that DON'T bubble — delegation doesn't work
+// focus, blur (use focusin, focusout instead)
+// mouseenter, mouseleave (use mouseover, mouseout instead)
+// scroll (no bubbling equivalent — attach directly)
+// resize (on window only — attach directly)
+// load, unload (element-specific — attach directly)
+
+// focus → use focusin (which bubbles)
+list.addEventListener('focusin', (event) => {
+  const input = event.target.closest('input');
+  if (input) console.log('Focused:', input.name);
+});
+
+// mouseenter → use mouseover (which bubbles)
+list.addEventListener('mouseover', (event) => {
+  const item = event.target.closest('.item');
+  if (item) item.classList.add('hover');
+});
+
+// scroll doesn't bubble — attach directly, or use capture
+// Option 1: attach directly to each scrollable element
+document.querySelectorAll('.scrollable').forEach(el => {
+  el.addEventListener('scroll', handleScroll);
+});
+
+// Option 2: capture phase — fires on the way down
+document.addEventListener('scroll', handleScroll, true);
+// Note: capture phase events fire for ALL scroll events,
+// not just those inside a specific container.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The bubbling rule:
+
+An event bubbles if it has bubbles: true in its spec.
+Most UI events do. A few don't.
+
+Bubbling events (delegation works):
+
+  Mouse:
+    ✅ click, dblclick
+    ✅ mousedown, mouseup, mousemove
+    ✅ contextmenu (right-click)
+    ✅ mouseover, mouseout (the bubbling versions)
+    ❌ mouseenter, mouseleave (the non-bubbling versions)
+
+  Keyboard:
+    ✅ keydown, keyup, keypress
+
+  Form:
+    ✅ input, change, submit, reset
+    ✅ focusin, focusout (bubbling)
+    ❌ focus, blur (non-bubbling)
+
+  Touch / Pointer:
+    ✅ touchstart, touchend, touchmove
+    ✅ pointerdown, pointerup, pointermove
+
+  Other:
+    ❌ scroll (doesn't bubble)
+    ❌ resize (window only)
+    ❌ load, unload (element-specific)
+
+The pairs to know:
+  focus / blur         → don't bubble
+  focusin / focusout   → do bubble
+  mouseenter / mouseleave → don't bubble
+  mouseover / mouseout → do bubble
+
+The mental model:
+  focus/blur fire when the element itself gains
+  or loses focus. They don't bubble because
+  focus is element-specific.
+  focusin/focusout fire when the element OR
+  a descendant gains or loses focus. They bubble.
+
+  The same logic for mouseenter/mouseover:
+  mouseenter fires only when the mouse enters
+  the element itself (not children).
+  mouseover fires when entering the element or
+  any child, so it can bubble.
+
+For scroll: there's no bubbling equivalent.
+Scroll events fire on the scrolling element.
+To handle them from a parent, use capture phase
+(third argument true), or attach directly.
+
+⚠️ Capture phase events fire in the CAPTURE order
+   (top-down), before the target.
+   Not the same as delegation (which relies on
+   bubble order, bottom-up).
+   Use capture only when you must.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't forget to check for <code>null</code> after <code>closest()</code>.</strong> <code>event.target.closest('.item')</code> returns <code>null</code> if no ancestor matches — this happens when the click is on the container itself (padding, gaps between items) or on a non-item child. If you don't check, you'll try to call methods on <code>null</code> and throw <code>TypeError: Cannot read property ... of null</code>. The pattern is: <code>const item = event.target.closest('.item'); if (!item) return;</code>. This is the single most common event delegation bug. Add the guard first, always. It's one line and it prevents a whole class of runtime errors.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The event delegation mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Forgetting the <code>null</code> check</div>
+<p><code>closest()</code> can return <code>null</code>. Fix: <code>if (!item) return;</code> before acting.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using <code>event.target</code> directly</div>
+<p>It's the deepest clicked element, not the item. Fix: <code>event.target.closest('.item')</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Delegating non-bubbling events</div>
+<p><code>focus</code>, <code>blur</code>, <code>scroll</code> don't bubble. Fix: <code>focusin</code>, <code>focusout</code>, or direct listeners.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Delegating to <code>document</code> for everything</div>
+<p>Performance and specificity issues. Fix: delegate to the nearest common parent.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Closest with wrong selector</div>
+<p><code>.closest('.Item')</code> — case-sensitive. Fix: match the class name exactly.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Expecting delegation for shadow DOM</div>
+<p>Events don't cross shadow boundaries. Fix: delegate inside the shadow root.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using capture phase for delegation</div>
+<p>Events fire on the way down, not up. Fix: bubble phase (default).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Forgetting to remove the listener</div>
+<p>Memory leaks on SPA navigation. Fix: <code>removeEventListener</code> on unmount, or use an AbortController.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is event delegation?</summary>
+<p class="mt-2 text-sm text-slate-300">Event delegation is a pattern where you attach one event listener to a parent element instead of many listeners to individual children. When a child element is clicked, the event bubbles up to the parent, where the single listener handles it. You use event.target to identify which child was clicked. This works because events bubble.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between event.target and event.currentTarget?</summary>
+<p class="mt-2 text-sm text-slate-300">event.target is the element that triggered the event — the actual clicked element. event.currentTarget is the element with the listener attached — the parent you attached it to. For delegation, you usually want event.target (to know what was clicked). In simple handlers, they're the same. In delegation, they differ.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What does closest() do?</summary>
+<p class="mt-2 text-sm text-slate-300">closest(selector) walks up the DOM from the element (including itself) and returns the first ancestor that matches the selector, or null if none. It's the standard way to find the 'real' target in event delegation. Without closest, you'd have to walk up the DOM manually.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why use event delegation?</summary>
+<p class="mt-2 text-sm text-slate-300">Three reasons. (1) Performance — one listener is cheaper than 100. (2) Dynamic content — listeners attached to the parent automatically handle new children. (3) Memory — fewer listeners mean less memory. The trade-off: you have to use closest() to find the right target.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Does event delegation work for all events?</summary>
+<p class="mt-2 text-sm text-slate-300">Not all — only events that bubble. click, mousedown, keydown, input, change, submit all bubble. But focus and blur don't bubble (use focusin and focusout). mouseenter and mouseleave don't bubble (use mouseover and mouseout). scroll doesn't bubble (use capture phase or direct listeners).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What are the performance implications?</summary>
+<p class="mt-2 text-sm text-slate-300">Delegation is usually faster for large lists, but not always. One listener on the parent is cheaper than 1000 listeners on children. But each event still fires the handler and runs closest(). The break-even point is around 20-50 items. Above that, delegate. Optimize only if you've measured.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">You've reached the end of the JavaScript problems series. That's all 20 — from var/let/const to event delegation, covering the queries that matter most.</p>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
