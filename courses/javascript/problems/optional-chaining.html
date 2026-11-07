@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Optional Chaining (?.) in JavaScript — Safe Property Access (2026)</title>
+<meta name="description" content="Optional chaining (?.) explained: safe property access, nullish coalescing, and why it's not a substitute for validation. Direct answer with examples.">
+<meta name="keywords" content="javascript optional chaining, optional chaining explained, nullish coalescing, javascript safe navigation, question mark dot">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Optional Chaining (?.) in JavaScript — Safe Property Access">
+<meta property="og:description" content="Safe property access — and why it's not a substitute for validation.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/optional-chaining.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Optional Chaining (?.) in JavaScript">
+<meta name="twitter:description" content="Safe property access.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/optional-chaining.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Optional Chaining (?.) in JavaScript — Safe Property Access",
+"description": "Safe property access with ?. and ??, and why it's not a substitute for validation.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Beginner",
+"dependencies": "ES2020"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is optional chaining in JavaScript?","acceptedAnswer":{"@type":"Answer","text":"Optional chaining (?.) is a syntax for safely accessing nested properties. If any intermediate value is null or undefined, the expression short-circuits and returns undefined instead of throwing. Example: user?.address?.city returns undefined if user or address is missing, instead of throwing 'Cannot read property city of undefined.' It works on properties, methods, and array indices: obj?.prop, obj?.method(), arr?.[0]. It was added in ES2020 and is supported in all modern browsers and Node.js 14+."}},
+{"@type":"Question","name":"What is the difference between ?. and ?[]?","acceptedAnswer":{"@type":"Answer","text":"?. is for property access — user?.name. ?.[] is for indexed access — arr?.[0] or obj?.[key]. They work the same way: if the left side is null or undefined, the expression returns undefined instead of throwing. Use ?. for named properties, ?.[] for dynamic keys and array indices. You can chain them: obj?.items?.[0]?.name. The syntax is different but the short-circuit behavior is identical."}},
+{"@type":"Question","name":"Does optional chaining work on method calls?","acceptedAnswer":{"@type":"Answer","text":"Yes, but with a caveat. obj?.method() calls method if obj exists, otherwise returns undefined. But this doesn't check if method exists — if obj exists but method is undefined, calling obj.method() still throws 'obj.method is not a function.' To safely call a method that might not exist, use obj?.method?.(). The double optional chaining checks both obj and method. This is a common gotcha: people write obj?.method() thinking it protects against missing methods, but it only protects against missing obj."}},
+{"@type":"Question","name":"What is the difference between ?. and ??","acceptedAnswer":{"@type":"Answer","text":"They solve different problems. ?. is for safe property access — it short-circuits if the left side is null or undefined. ?? is for default values — it returns the right side if the left side is null or undefined. They're often used together: const name = user?.profile?.name ?? 'Anonymous'. The ?. safely accesses the nested property, and the ?? provides a fallback if the result is null or undefined. Use ?. for access, ?? for defaults."}},
+{"@type":"Question","name":"Should I use optional chaining everywhere?","acceptedAnswer":{"@type":"Answer","text":"No. Optional chaining hides bugs. If a property should exist and doesn't, ?. silently returns undefined instead of throwing — which means the bug surfaces later, in a different place, with a less clear error. Use ?. when the absence of the value is expected and legitimate (optional API fields, partially loaded data). Don't use ?. to paper over missing data that should be there — that's a validation problem, not an access problem. The rule: ?. for values that are genuinely optional, not for values you're not sure about."}},
+{"@type":"Question","name":"Does optional chaining work with delete?","acceptedAnswer":{"@type":"Answer","text":"No. delete obj?.prop is a syntax error. Optional chaining works for access, not for mutation. If you need to safely delete a property, check first: if (obj) delete obj.prop. The same applies to assignment — obj?.prop = 5 is a syntax error. Optional chaining is read-only. For writes, use an explicit check or a nullish guard. This is a deliberate design choice: the spec authors didn't want ?. to silently skip mutations, which would hide bugs."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · optional chaining</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Optional chaining</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 3 min read</div>
+<h1>Optional chaining (?.).<br><span class="py-accent">Safe access. Not validation.</span></h1>
+<p class="lead">
+<code>?.</code> is the safe-navigation operator. If the value on the left is <code>null</code> or <code>undefined</code>, the expression short-circuits to <code>undefined</code> instead of throwing. That's it — a safety check for one specific case. It's not a substitute for validation. If a property should exist and doesn't, <code>?.</code> hides the bug. This page covers the syntax, the method-call gotcha, and the rule for when to use it.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>user?.address?.city</code> to safely access nested properties that might be missing. Use <code>obj?.method?.()</code> to safely call methods that might not exist. Combine with <code>??</code> for defaults: <code>user?.name ?? 'Anonymous'</code>. Use <code>?.</code> only when the absence is expected and legitimate — not to hide bugs. <code>?.</code> doesn't work with <code>delete</code> or assignment. It's supported in all modern browsers and Node 14+.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">The same access, with and without <code>?.</code>.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">optional-chaining.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">const user = {
+name: 'Alice',
+address: {
+city: 'Lahore'
+}
+};
+
+const missingUser = null;
+
+// ❌ Without ?. — throws
+console.log(missingUser.address.city);
+// TypeError: Cannot read property 'address' of null
+
+// ✅ With ?. — returns undefined
+console.log(missingUser?.address?.city);
+// undefined
+
+// ✅ With ?. and ?? — returns a default
+console.log(missingUser?.address?.city ?? 'Unknown');
+// "Unknown"
+
+// ✅ Works on the existing user too
+console.log(user?.address?.city);
+// "Lahore"</pre>
+<script type="text/plain" id="raw-code-sol1">const user = {
+name: 'Alice',
+address: {
+city: 'Lahore'
+}
+};
+
+const missingUser = null;
+
+// Without ?. — throws
+console.log(missingUser.address.city);
+// TypeError: Cannot read property 'address' of null
+
+// With ?. — returns undefined
+console.log(missingUser?.address?.city);
+// undefined
+
+// With ?. and ?? — returns a default
+console.log(missingUser?.address?.city ?? 'Unknown');
+// "Unknown"
+
+// Works on the existing user too
+console.log(user?.address?.city);
+// "Lahore"</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>How ?. works:
+
+missingUser?.address
+→ missingUser is null → short-circuit
+→ returns undefined
+→ the rest of the chain is skipped
+
+missingUser?.address?.city
+→ same: undefined at the first ?.
+→ city is never accessed
+
+user?.address?.city
+→ user is not null → continue
+→ address is not null → continue
+→ city is accessed → "Lahore"
+
+The chain short-circuits at the first nullish value.
+Everything after that is skipped.
+
+✅ No TypeError.
+✅ No try/catch needed.
+✅ The expression evaluates to undefined.
+
+⚠️ This is not validation.
+If user SHOULD exist, ?. hides the bug.
+Use it only when the value is legitimately optional.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Method calls — the double <code>?.</code></h2>
+<p class="section-sub">The gotcha that trips people up.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">method-chaining.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">const obj = {
+method() {
+return 'called';
+}
+};
+
+const empty = {};
+
+// ✅ obj exists, method exists
+console.log(obj?.method?.()); // "called"
+
+// ✅ empty exists, method doesn't
+console.log(empty?.method?.()); // undefined
+
+// ❌ empty exists, method doesn't — but only one ?.
+console.log(empty?.method());
+// TypeError: empty.method is not a function
+
+// The difference:
+// empty?.method → checks if empty exists
+// empty?.method() → calls method — if method
+// doesn't exist, throws
+// empty?.method?.() → checks if method exists too</pre>
+<script type="text/plain" id="raw-code-sol2">const obj = {
+method() {
+return 'called';
+}
+};
+
+const empty = {};
+
+// obj exists, method exists
+console.log(obj?.method?.()); // "called"
+
+// empty exists, method doesn't
+console.log(empty?.method?.()); // undefined
+
+// empty exists, method doesn't — but only one ?.
+console.log(empty?.method());
+// TypeError: empty.method is not a function
+
+// The difference:
+// empty?.method → checks if empty exists
+// empty?.method() → calls method — if method
+// doesn't exist, throws
+// empty?.method?.() → checks if method exists too</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The rule for method calls:
+
+obj?.method()
+→ checks: does obj exist?
+→ if yes, calls obj.method()
+→ if obj.method is undefined, throws
+
+obj?.method?.()
+→ checks: does obj exist?
+→ if yes, checks: does obj.method exist?
+→ if yes, calls it
+→ otherwise returns undefined
+
+Common mistake:
+
+❌ const result = api?.getUser();
+→ if api exists but getUser doesn't,
+this throws.
+
+✅ const result = api?.getUser?.();
+→ safe for both missing api and missing method.
+
+For array access:
+arr?.[0] → safe if arr is nullish
+arr?.[0]?.name → safe for both
+
+For chained calls:
+user?.getAddress?.()?.city
+→ safe at every level.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ ?. with ?? — the default pattern</h2>
+<p class="section-sub">Safe access with a fallback.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">nullish-default.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">const user = {
+profile: {
+name: 'Alice',
+bio: null
+}
+};
+
+// Safe access + default
+const name = user?.profile?.name ?? 'Anonymous';
+// "Alice"
+
+const bio = user?.profile?.bio ?? 'No bio yet';
+// "No bio yet" (bio is null)
+
+const website = user?.profile?.website ?? 'No website';
+// "No website" (website is undefined)
+
+// Without ?. or ?? — throws or returns undefined:
+// user.profile.website → undefined
+// user.missing.profile → TypeError
+
+// The pattern:
+// ?. for access
+// ?? for default
+// ?? only triggers on null/undefined,
+// not on 0, '', false</pre>
+<script type="text/plain" id="raw-code-sol3">const user = {
+profile: {
+name: 'Alice',
+bio: null
+}
+};
+
+// Safe access + default
+const name = user?.profile?.name ?? 'Anonymous';
+// "Alice"
+
+const bio = user?.profile?.bio ?? 'No bio yet';
+// "No bio yet" (bio is null)
+
+const website = user?.profile?.website ?? 'No website';
+// "No website" (website is undefined)
+
+// Without ?. or ?? — throws or returns undefined:
+// user.profile.website → undefined
+// user.missing.profile → TypeError
+
+// The pattern:
+// ?. for access
+// ?? for default
+// ?? only triggers on null/undefined,
+// not on 0, '', false</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why ?? and not ||:
+
+const count = user?.stats?.count ?? 0;
+→ if count is 0, returns 0 (correct)
+→ if count is null/undefined, returns 0
+
+const count = user?.stats?.count || 0;
+→ if count is 0, returns 0 (wrong — 0 is falsy)
+→ returns 0 anyway, but for the wrong reason
+→ the logic is wrong even though the output
+happens to match in this case
+
+More visible case:
+
+const score = user?.score ?? 100;
+→ if score is 0, returns 0 (correct)
+→ if score is null, returns 100
+
+const score = user?.score || 100;
+→ if score is 0, returns 100 (WRONG)
+→ 0 is a valid score, but || treats it as
+"no value"
+
+Rule:
+?. for safe access
+?? for defaults
+|| only when you want to replace any falsy value
+(rare)</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>?.</code> to hide bugs.</strong> If a property should exist — an API response that always includes <code>user</code>, a config object that always has <code>apiUrl</code> — using <code>?.</code> silently returns <code>undefined</code> instead of throwing. The bug surfaces later, in a different place, with a less helpful error message. <code>?.</code> is for values that are genuinely optional: a middle name, a bio field, an address that the user may not have entered. For values that must exist, let the error throw — or validate explicitly. The error is a feature, not a bug. It tells you the data contract is broken.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The optional-chaining mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>obj?.method()</code> without the second <code>?.</code></div>
+<p>Throws if <code>method</code> doesn't exist. Fix: <code>obj?.method?.()</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using <code>?.</code> everywhere</div>
+<p>Hides bugs. Fix: only when the value is genuinely optional.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. <code>delete obj?.prop</code></div>
+<p>Syntax error. Fix: <code>if (obj) delete obj.prop</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. <code>obj?.prop = value</code></div>
+<p>Syntax error. Fix: explicit check, or <code>??=</code> for assignment.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Confusing <code>?.</code> with <code>??</code></div>
+<p>Different operators. Fix: <code>?.</code> for access, <code>??</code> for defaults.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. <code>?.</code> on a value that's guaranteed</div>
+<p>Redundant. Fix: direct access. The error is useful if it happens.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Not knowing browser support</div>
+<p>ES2020 — older browsers need transpilation. Fix: check target or use a build step.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. <code>?.</code> inside a chain with side effects</div>
+<p><code>obj?.a()?.b()</code> — if <code>a</code> has side effects, they may not run. Fix: explicit conditionals for complex logic.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is optional chaining in JavaScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Optional chaining (?.) is a syntax for safely accessing nested properties. If any intermediate value is null or undefined, the expression short-circuits and returns undefined instead of throwing. Example: user?.address?.city returns undefined if user or address is missing. It works on properties, methods, and array indices. Added in ES2020.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between ?. and ?.[]?</summary>
+<p class="mt-2 text-sm text-slate-300">?. is for property access — user?.name. ?.[] is for indexed access — arr?.[0] or obj?.[key]. They work the same way: if the left side is null or undefined, the expression returns undefined instead of throwing. Use ?. for named properties, ?.[] for dynamic keys and array indices.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Does optional chaining work on method calls?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, but with a caveat. obj?.method() calls method if obj exists, otherwise returns undefined. But this doesn't check if method exists — if obj exists but method is undefined, calling obj.method() still throws. To safely call a method that might not exist, use obj?.method?.(). The double optional chaining checks both obj and method.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between ?. and ??</summary>
+<p class="mt-2 text-sm text-slate-300">They solve different problems. ?. is for safe property access. ?? is for default values. They're often used together: const name = user?.profile?.name ?? 'Anonymous'. The ?. safely accesses the nested property, and the ?? provides a fallback if the result is null or undefined.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Should I use optional chaining everywhere?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Optional chaining hides bugs. If a property should exist and doesn't, ?. silently returns undefined instead of throwing — which means the bug surfaces later, in a different place. Use ?. when the absence of the value is expected and legitimate. Don't use ?. to paper over missing data that should be there.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Does optional chaining work with delete?</summary>
+<p class="mt-2 text-sm text-slate-300">No. delete obj?.prop is a syntax error. Optional chaining works for access, not for mutation. If you need to safely delete a property, check first: if (obj) delete obj.prop. The same applies to assignment — obj?.prop = 5 is a syntax error. Optional chaining is read-only.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/spread-rest.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📦 Spread vs rest</div>
+<div class="text-xs text-slate-400 mt-1">Same syntax, opposite purpose — when to use each</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
