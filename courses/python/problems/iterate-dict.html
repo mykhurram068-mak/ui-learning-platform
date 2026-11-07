@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Iterate a Dictionary in Python — keys, values, items (2026)</title>
+<meta name="description" content="How to iterate a Python dictionary: keys(), values(), items(), and the set-operation superpower of .keys(). Direct answer with working examples and gotchas.">
+<meta name="keywords" content="python iterate dictionary, python dict items, python keys values, python loop dict, iterate dict python, python dict iteration">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Iterate a Dictionary in Python — keys, values, items">
+<meta property="og:description" content="keys(), values(), items() — and the set-operation superpower.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/problems/iterate-dict.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Iterate a Dictionary in Python">
+<meta name="twitter:description" content="keys(), values(), items() and set operations.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/problems/iterate-dict.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Iterate a Dictionary in Python — keys, values, items",
+"description": "keys(), values(), items() — and the set-operation superpower of .keys().",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Beginner",
+"dependencies": "Python 3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I iterate over a dictionary in Python?","acceptedAnswer":{"@type":"Answer","text":"Three ways, each for a different need. (1) Iterate keys: for k in d: or for k in d.keys(): — iterating a dict yields keys. (2) Iterate values: for v in d.values(): — yields values only. (3) Iterate key-value pairs: for k, v in d.items(): — yields (key, value) tuples. The third is the most common when you need both. .items() returns a view object, not a list — it reflects changes to the dict and is lazy."}},
+{"@type":"Question","name":"What is the difference between keys(), values(), and items()?","acceptedAnswer":{"@type":"Answer","text":"All three return view objects (not lists) that reflect the current state of the dict. .keys() yields keys, .values() yields values, .items() yields (key, value) tuples. The views are dynamic — if you modify the dict, the view sees the change. They're lazy — no list is built. Convert to list if needed: list(d.keys()). Since Python 3, the return order is insertion order. Before Python 3, dict order was arbitrary; you'd use OrderedDict if order mattered."}},
+{"@type":"Question","name":"Why does iterating a dict give me keys, not items?","acceptedAnswer":{"@type":"Answer","text":"Because that's how dict.__iter__ is defined — it yields keys. The reasoning: iterating a dict should give you the 'identifiers' of the entries, and you can look up the value by key. This is consistent with how sets work (iteration gives members). To get items, use .items(). To get values, use .values(). The default (keys) is the most common operation — checking membership (if k in d), collecting keys, iterating sorted keys."}},
+{"@type":"Question","name":"Can I modify a dict while iterating?","acceptedAnswer":{"@type":"Answer","text":"No — you'll get RuntimeError: dictionary changed size during iteration. The fix: iterate over a copy (for k in list(d): or for k in d.copy():), or collect the keys to remove/modify first, then apply. Example: keys_to_remove = [k for k in d if should_remove(k)]; then for k in keys_to_remove: del d[k]. This is safe because you're not modifying the dict during the iteration. Modifying values is fine (d[k] = new_value) — only size changes are prohibited."}},
+{"@type":"Question","name":"What is the set-operation superpower of .keys()?","acceptedAnswer":{"@type":"Answer","text":"The keys() and items() views support set operations: &, |, -, ^. Example: d1.keys() & d2.keys() gives the common keys. d1.keys() | d2.keys() gives all keys. d1.keys() - d2.keys() gives keys only in d1. This works because dict keys must be hashable, so they're set-compatible. It's a fast, readable way to compare dicts. Example: common = user_perms.keys() & admin_perms.keys() — permissions the user has that are also admin permissions."}},
+{"@type":"Question","name":"What order are dict items returned in?","acceptedAnswer":{"@type":"Answer","text":"In Python 3.7+, insertion order. Before that, it was implementation-defined (in practice, usually insertion order for CPython, but not guaranteed). The dict preserves the order in which keys were added. Updating an existing key doesn't change its position. Deleting and re-adding a key moves it to the end. This makes dict iteration predictable and lets you use dicts as ordered data structures. For sorted iteration: for k in sorted(d): or for k, v in sorted(d.items(), key=lambda x: x[1]): — you sort the keys/items first."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-python.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Python · iterate dictionary</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#7ee8fc;">Python</a> ›
+<a href="/courses/python/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Iterate dictionary</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Concept · 3 min read</div>
+<h1>How to iterate a dict.<br><span class="py-accent">keys, values, or items.</span></h1>
+<p class="lead">
+Dicts are everywhere in Python — configs, caches, JSON data. To work with them, you need to iterate them. Three views: <code>.keys()</code>, <code>.values()</code>, <code>.items()</code>. Each returns a dynamic, lazy view — not a list. The most common mistake is modifying the dict while iterating (raises <code>RuntimeError</code>). The superpower most people miss: <code>.keys()</code> and <code>.items()</code> support set operations.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>for k in d:</code> or <code>for k in d.keys():</code> — keys. <code>for v in d.values():</code> — values. <code>for k, v in d.items():</code> — both. All views are lazy and reflect live changes. Don't modify the dict while iterating — collect keys first, then modify. Python 3.7+ preserves insertion order. Set operations work on keys: <code>d1.keys() &amp; d2.keys()</code> gives common keys.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The three views</h2>
+<p class="section-sub">Keys, values, or both.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">iterate.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">d = {'name': 'Alice', 'age': 30, 'city': 'Lahore'}
+
+# Iterate keys — two equivalent ways
+for k in d:
+    print(k)
+# name
+# age
+# city
+
+for k in d.keys():
+    print(k)
+# same output
+
+# Iterate values
+for v in d.values():
+    print(v)
+# Alice
+# 30
+# Lahore
+
+# Iterate items (key-value pairs) — most common
+for k, v in d.items():
+    print(f'{k}: {v}')
+# name: Alice
+# age: 30
+# city: Lahore
+
+# All three views are lazy — no list is built
+print(type(d.keys()))    # <class 'dict_keys'>
+print(type(d.values()))  # <class 'dict_values'>
+print(type(d.items()))   # <class 'dict_items'>
+
+# Convert to list if needed
+print(list(d.keys()))
+# ['name', 'age', 'city']
+
+# Views reflect live changes
+keys = d.keys()
+d['email'] = 'alice@example.com'
+print(list(keys))
+# ['name', 'age', 'city', 'email']  — 'email' appears</pre>
+<script type="text/plain" id="raw-code-sol1">d = {'name': 'Alice', 'age': 30, 'city': 'Lahore'}
+
+# Iterate keys — two equivalent ways
+for k in d:
+    print(k)
+# name
+# age
+# city
+
+for k in d.keys():
+    print(k)
+# same output
+
+# Iterate values
+for v in d.values():
+    print(v)
+# Alice
+# 30
+# Lahore
+
+# Iterate items (key-value pairs) — most common
+for k, v in d.items():
+    print(f'{k}: {v}')
+# name: Alice
+# age: 30
+# city: Lahore
+
+# All three views are lazy — no list is built
+print(type(d.keys()))    # <class 'dict_keys'>
+print(type(d.values()))  # <class 'dict_values'>
+print(type(d.items()))   # <class 'dict_items'>
+
+# Convert to list if needed
+print(list(d.keys()))
+# ['name', 'age', 'city']
+
+# Views reflect live changes
+keys = d.keys()
+d['email'] = 'alice@example.com'
+print(list(keys))
+# ['name', 'age', 'city', 'email']  — 'email' appears</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What each returns:
+
+d.keys()   → dict_keys view
+              yields keys
+              supports set operations (a & b, a | b, ...)
+              reflects live changes
+
+d.values() → dict_values view
+              yields values
+              NO set operations (values can be unhashable)
+              reflects live changes
+
+d.items()  → dict_items view
+              yields (key, value) tuples
+              supports set operations (on the tuples)
+              reflects live changes
+
+What each view supports:
+
+  keys()   values()   items()
+  -----    ------     ------
+  len      yes        yes       yes
+  in       yes        yes       yes
+  iter     yes        yes       yes
+  list()   yes        yes       yes
+  &        yes        no        yes
+  |        yes        no        yes
+  -        yes        no        yes
+  ^        yes        no        yes
+
+Why values() has no set operations:
+  Values can be unhashable (lists, dicts).
+  Set operations require hashable elements.
+  Keys and items (if keys are hashable)
+  satisfy the constraint.
+  So values() can't support set operations —
+  not every value is hashable.
+
+Why views are not lists:
+
+  ❌ d.keys()[0]   # TypeError — not subscriptable
+  ❌ d.keys().sort()  # AttributeError — no sort method
+
+  ✅ list(d.keys())[0]  # convert first
+  ✅ sorted(d.keys())  # sort by passing to sorted()
+  ✅ sorted(d.items(), key=lambda x: x[1])  # sort items
+
+Views are lazy — no list allocation, no memory overhead.
+For most code, that's exactly what you want.
+
+Dict iteration order:
+
+  Python 3.7+: insertion order.
+  d = {'b': 1, 'a': 2}
+  list(d)  # ['b', 'a']  (not alphabetical, not sorted)
+
+  To sort by key:
+    for k in sorted(d):
+  To sort by value:
+    for k, v in sorted(d.items(), key=lambda x: x[1]):
+
+The default iteration (unsorted) is fast — O(n).
+Sorted iteration is O(n log n).
+
+For plain iteration where order doesn't matter,
+just iterate. For display or output, sort.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The modification trap</h2>
+<p class="section-sub">What not to do, and the safe pattern.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">modify.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">d = {'a': 1, 'b': 2, 'c': 3}
+
+# ❌ Modifying during iteration
+try:
+    for k in d:
+        if d[k] < 2:
+            del d[k]
+except RuntimeError as e:
+    print(e)  # dictionary changed size during iteration
+
+# ✅ Safe pattern — collect, then modify
+to_remove = [k for k in d if d[k] < 2]
+for k in to_remove:
+    del d[k]
+print(d)  # {'b': 2, 'c': 3}
+
+# ✅ Or iterate over a copy
+d = {'a': 1, 'b': 2, 'c': 3}
+for k in list(d):
+    if d[k] < 2:
+        del d[k]
+print(d)  # {'b': 2, 'c': 3}
+
+# ✅ Or use dict comprehension (creates new dict)
+d = {'a': 1, 'b': 2, 'c': 3}
+d = {k: v for k, v in d.items() if v >= 2}
+print(d)  # {'b': 2, 'c': 3}
+
+# Modifying values is fine — only size changes fail
+d = {'a': 1, 'b': 2}
+for k in d:
+    d[k] = d[k] * 10
+print(d)  # {'a': 10, 'b': 20}  ✅ works
+
+# Adding new keys during iteration fails too
+d = {'a': 1}
+try:
+    for k in d:
+        d['new_' + k] = 0
+except RuntimeError as e:
+    print(e)  # dictionary changed size during iteration</pre>
+<script type="text/plain" id="raw-code-sol2">d = {'a': 1, 'b': 2, 'c': 3}
+
+# Modifying during iteration
+try:
+    for k in d:
+        if d[k] < 2:
+            del d[k]
+except RuntimeError as e:
+    print(e)  # dictionary changed size during iteration
+
+# Safe pattern — collect, then modify
+to_remove = [k for k in d if d[k] < 2]
+for k in to_remove:
+    del d[k]
+print(d)  # {'b': 2, 'c': 3}
+
+# Or iterate over a copy
+d = {'a': 1, 'b': 2, 'c': 3}
+for k in list(d):
+    if d[k] < 2:
+        del d[k]
+print(d)  # {'b': 2, 'c': 3}
+
+# Or use dict comprehension (creates new dict)
+d = {'a': 1, 'b': 2, 'c': 3}
+d = {k: v for k, v in d.items() if v >= 2}
+print(d)  # {'b': 2, 'c': 3}
+
+# Modifying values is fine — only size changes fail
+d = {'a': 1, 'b': 2}
+for k in d:
+    d[k] = d[k] * 10
+print(d)  # {'a': 10, 'b': 20}  works
+
+# Adding new keys during iteration fails too
+d = {'a': 1}
+try:
+    for k in d:
+        d['new_' + k] = 0
+except RuntimeError as e:
+    print(e)  # dictionary changed size during iteration</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The rule:
+
+You can MODIFY VALUES during iteration:
+  for k in d:
+      d[k] = d[k] * 2     ✅ works
+
+You CANNOT change SIZE during iteration:
+  for k in d:
+      d[k + '_new'] = 0   ❌ RuntimeError
+      del d[k]             ❌ RuntimeError
+      d.clear()            ❌ RuntimeError
+
+Why the restriction:
+
+The dict iterator traverses the underlying hash table.
+Changing the size changes the hash table —
+which invalidates the iterator's position.
+Python can't safely continue.
+
+Same logic as modifying a list while iterating:
+  for i in range(len(lst)):
+      del lst[i]   # breaks indexing
+
+The safe patterns:
+
+1. Collect keys, then modify
+   to_remove = [k for k in d if should_remove(k)]
+   for k in to_remove:
+       del d[k]
+
+   ✅ Iterate the collected list (not the dict)
+   ✅ Dict is untouched during iteration
+   ✅ Modification happens after
+
+2. Iterate a copy
+   for k in list(d):
+       del d[k]
+   
+   ✅ list(d) creates a snapshot
+   ✅ Iterate the list, modify the dict
+   ✅ Slightly more memory (a list of keys)
+   ✅ Works but less explicit than (1)
+
+3. Build a new dict
+   d = {k: v for k, v in d.items() if not should_remove(k)}
+   
+   ✅ No mutation at all
+   ✅ New dict, old one is garbage collected
+   ✅ Fastest for "remove all matching" operations
+   ✅ Idiomatic Python
+
+4. Iterate keys from a different dict
+   for k in other_dict:
+       del d[k]
+   
+   ✅ Not the same dict
+   ✅ No conflict
+
+Which pattern to use:
+
+✅ (3) for removing items based on value:
+   d = {k: v for k, v in d.items() if v >= 0}
+
+✅ (1) for removing items based on a condition
+   that involves calling a function or side effects:
+   to_remove = [k for k in d if should_remove(k)]
+   for k in to_remove:
+       del d[k]
+
+✅ (2) for simple in-place modifications:
+   for k in list(d):
+       if some_condition(k):
+           d[k] = new_value(d[k])
+
+The pattern:
+  If you need to CHANGE SIZE, don't iterate the dict.
+  Either iterate a copy, or build a new dict.
+
+The RuntimeError is actually helpful:
+
+  dict changed size during iteration
+
+  It tells you exactly what's wrong.
+  Without it, you'd get silent corruption —
+  skipped items, duplicated items, or crashes
+  much later.
+  
+  The error is a feature.
+
+Same pattern in Java, C#, and other languages:
+  modifying a collection while iterating it
+  is unsafe.
+  Python catches it early.
+  In C, you'd get undefined behavior.
+  Python is kinder.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The set-operation superpower</h2>
+<p class="section-sub">keys() and items() work like sets.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">set-ops.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">d1 = {'a': 1, 'b': 2, 'c': 3}
+d2 = {'b': 20, 'c': 30, 'd': 40}
+
+# Common keys — in both dicts
+common = d1.keys() & d2.keys()
+print(common)  # {'b', 'c'}
+
+# All keys — in either dict
+all_keys = d1.keys() | d2.keys()
+print(all_keys)  # {'a', 'b', 'c', 'd'}
+
+# Only in d1 — not in d2
+only_d1 = d1.keys() - d2.keys()
+print(only_d1)  # {'a'}
+
+# In exactly one — symmetric difference
+symmetric = d1.keys() ^ d2.keys()
+print(symmetric)  # {'a', 'd'}
+
+# Compare items too
+common_items = d1.items() & d2.items()
+print(common_items)  # set()  — no (key, value) pair is identical
+
+# Real-world: find conflicting config keys
+defaults = {'host': 'localhost', 'port': 8080, 'debug': False}
+user = {'port': 9090, 'debug': True}
+
+conflicts = defaults.keys() & user.keys()
+print(conflicts)  # {'port', 'debug'}
+
+# Real-world: find missing required keys
+required = {'name', 'email', 'age'}
+provided = {'name', 'email'}
+
+missing = required - provided
+print(missing)  # {'age'}
+
+# Real-world: user has these permissions,
+# admin has these — which are common?
+user_perms = {'read', 'write', 'delete'}
+admin_perms = {'read', 'write', 'delete', 'admin'}
+
+common_perms = user_perms & admin_perms
+print(common_perms)  # {'read', 'write', 'delete'}
+
+extra_for_user = user_perms - admin_perms
+print(extra_for_user)  # set()
+
+only_admin = admin_perms - user_perms
+print(only_admin)  # {'admin'}</pre>
+<script type="text/plain" id="raw-code-sol3">d1 = {'a': 1, 'b': 2, 'c': 3}
+d2 = {'b': 20, 'c': 30, 'd': 40}
+
+# Common keys — in both dicts
+common = d1.keys() & d2.keys()
+print(common)  # {'b', 'c'}
+
+# All keys — in either dict
+all_keys = d1.keys() | d2.keys()
+print(all_keys)  # {'a', 'b', 'c', 'd'}
+
+# Only in d1 — not in d2
+only_d1 = d1.keys() - d2.keys()
+print(only_d1)  # {'a'}
+
+# In exactly one — symmetric difference
+symmetric = d1.keys() ^ d2.keys()
+print(symmetric)  # {'a', 'd'}
+
+# Compare items too
+common_items = d1.items() & d2.items()
+print(common_items)  # set()  — no (key, value) pair is identical
+
+# Real-world: find conflicting config keys
+defaults = {'host': 'localhost', 'port': 8080, 'debug': False}
+user = {'port': 9090, 'debug': True}
+
+conflicts = defaults.keys() & user.keys()
+print(conflicts)  # {'port', 'debug'}
+
+# Real-world: find missing required keys
+required = {'name', 'email', 'age'}
+provided = {'name', 'email'}
+
+missing = required - provided
+print(missing)  # {'age'}
+
+# Real-world: user has these permissions,
+# admin has these — which are common?
+user_perms = {'read', 'write', 'delete'}
+admin_perms = {'read', 'write', 'delete', 'admin'}
+
+common_perms = user_perms & admin_perms
+print(common_perms)  # {'read', 'write', 'delete'}
+
+extra_for_user = user_perms - admin_perms
+print(extra_for_user)  # set()
+
+only_admin = admin_perms - user_perms
+print(only_admin)  # {'admin'}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The set operations available on .keys() and .items():
+
+  &   intersection — in both
+  |   union — in either
+  -   difference — in first but not second
+  ^   symmetric difference — in exactly one
+
+  Also: isdisjoint, issubset, issuperset
+  (as methods)
+
+These work because dict keys must be hashable.
+Hashable = can be in a set.
+So keys() returns something set-compatible.
+
+What this enables:
+
+1. Compare two configs
+   diffs = config1.keys() ^ config2.keys()
+   # keys that differ
+
+2. Check required keys
+   missing = required - provided
+   if missing:
+       raise ValueError(f'Missing: {missing}')
+
+3. Find conflicts
+   conflicts = defaults.keys() & user.keys()
+   # keys present in both
+
+4. Filter by allowed keys
+   allowed = {'name', 'age', 'email'}
+   filtered = {k: d[k] for k in d.keys() & allowed}
+
+5. Compute permissions
+   effective = user_perms | group_perms
+   # union of all permissions
+
+6. Find stale keys
+   stale = old_config.keys() - new_config.keys()
+   # keys that were removed
+
+The .items() set operations:
+
+  (k, v) pairs are hashable IF the key is hashable
+  AND the value is hashable.
+  
+  Example:
+    d1 = {'a': 1}
+    d2 = {'a': 1}
+    d1.items() & d2.items()  # {('a', 1)}
+    # Common (key, value) pairs
+    
+  For dicts with unhashable values (lists, dicts),
+  items() can't do set operations.
+  
+  d1 = {'a': [1, 2]}
+  d2 = {'a': [1, 2]}
+  d1.items() & d2.items()  # TypeError
+  
+  The values are lists — unhashable.
+  Keys alone still work:
+    d1.keys() & d2.keys()  # {'a'}
+
+The .values() exception:
+  values() does NOT support set operations.
+  Same reason: values can be unhashable.
+  
+  If you need to compare values as a set,
+  convert to a set manually:
+    set(d1.values()) & set(d2.values())
+  
+  But this only works if all values are hashable.
+  And it loses the association with keys.
+  
+  In practice, you rarely need to compare values
+  without keys. Use items() if you need both.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>.keys()</code> when you don't need it.</strong> <code>for k in d.keys()</code> is redundant — <code>for k in d</code> does the same thing. The idiom is to iterate the dict directly. <code>.keys()</code> is needed when you want the view object itself — for set operations (<code>d.keys() & other.keys()</code>), for <code>len(d.keys())</code> (which is the same as <code>len(d)</code>), or for passing to a function that expects a view. For plain iteration, skip <code>.keys()</code>. Same for <code>if k in d.keys()</code> — write <code>if k in d</code>.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The dict-iteration mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Modifying a dict while iterating</div>
+<p><code>RuntimeError</code>. Fix: collect keys first, or build a new dict.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. <code>for k, v in d:</code></div>
+<p>Unpacking error — iterating yields keys only. Fix: <code>for k, v in d.items():</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. <code>d.keys()[0]</code></div>
+<p>Not subscriptable. Fix: <code>list(d.keys())[0]</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. <code>d.items().sort()</code></div>
+<p>No sort method on views. Fix: <code>sorted(d.items())</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Assuming insertion order before Python 3.7</div>
+<p>Old dicts were unordered. Fix: use <code>OrderedDict</code> or upgrade.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. <code>for k in d.keys():</code></div>
+<p>Redundant. Fix: <code>for k in d:</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Comparing <code>values()</code> as sets</div>
+<p>TypeError on unhashable values. Fix: <code>items()</code> or convert manually.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Iterating in sorted order without sorting</div>
+<p>Dict order is insertion order, not sorted. Fix: <code>for k in sorted(d):</code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I iterate over a dictionary in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">Three ways. (1) Iterate keys: for k in d: or for k in d.keys(): — iterating a dict yields keys. (2) Iterate values: for v in d.values(): — yields values only. (3) Iterate key-value pairs: for k, v in d.items(): — yields (key, value) tuples. The third is the most common when you need both.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between keys(), values(), and items()?</summary>
+<p class="mt-2 text-sm text-slate-300">All three return view objects (not lists) that reflect the current state of the dict. .keys() yields keys, .values() yields values, .items() yields (key, value) tuples. The views are dynamic and lazy. Convert to list if needed: list(d.keys()). Since Python 3.7, the return order is insertion order.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does iterating a dict give me keys, not items?</summary>
+<p class="mt-2 text-sm text-slate-300">Because that's how dict.__iter__ is defined — it yields keys. The reasoning: iterating a dict should give you the 'identifiers' of the entries. This is consistent with how sets work. To get items, use .items(). To get values, use .values().</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I modify a dict while iterating?</summary>
+<p class="mt-2 text-sm text-slate-300">No — you'll get RuntimeError: dictionary changed size during iteration. The fix: iterate over a copy (for k in list(d):), or collect the keys to remove/modify first. Modifying values is fine (d[k] = new_value) — only size changes are prohibited.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the set-operation superpower of .keys()?</summary>
+<p class="mt-2 text-sm text-slate-300">The keys() and items() views support set operations: &amp;, |, -, ^. Example: d1.keys() &amp; d2.keys() gives the common keys. d1.keys() | d2.keys() gives all keys. d1.keys() - d2.keys() gives keys only in d1. This works because dict keys must be hashable.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What order are dict items returned in?</summary>
+<p class="mt-2 text-sm text-slate-300">In Python 3.7+, insertion order. Before that, it was implementation-defined. The dict preserves the order in which keys were added. Updating an existing key doesn't change its position. Deleting and re-adding a key moves it to the end. For sorted iteration: for k in sorted(d):</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from install to first project — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/python/problems/ternary.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚖️ Ternary operator</div>
+<div class="text-xs text-slate-400 mt-1"><code>a if condition else b</code> — Python's one-line conditional</div>
+</a>
+</section>
+
+<a href="/courses/python/problems/index.html" class="back-link">← All Python problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · Python <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
