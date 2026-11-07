@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>What Does if __name__ == "__main__" Do in Python? (2026)</title>
+<meta name="description" content="The if __name__ == '__main__' guard explained: why every Python script has it, what __name__ is, and what happens when you remove it. Direct answer with examples.">
+<meta name="keywords" content="if name main python, python __name__ == __main__, python main guard, python script entry point, python module vs script">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="What Does if __name__ == &quot;__main__&quot; Do in Python?">
+<meta property="og:description" content="Why every Python script has this line, and what happens when you remove it.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/problems/if-name-main.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What Does if __name__ == &quot;__main__&quot; Do?">
+<meta name="twitter:description" content="Why every Python script has this line.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/problems/if-name-main.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "What Does if __name__ == \"__main__\" Do in Python?",
+"description": "The main guard explained: what __name__ is, and what happens when you remove the guard.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Beginner",
+"dependencies": "Python 3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What does if __name__ == \"__main__\" do in Python?","acceptedAnswer":{"@type":"Answer","text":"It checks whether the file is being run as a script (not imported as a module). Python sets the special variable __name__ automatically. When you run a file directly (python script.py), __name__ is '__main__'. When you import the file (import script), __name__ is the module name ('script'). The guard means: 'only run this code if the file is the entry point — not when it's imported.' This lets you write a file that works as both a script and a module: the reusable functions can be imported, and the demo/test code only runs when you execute the file directly."}},
+{"@type":"Question","name":"What is __name__ in Python?","acceptedAnswer":{"@type":"Answer","text":"__name__ is a built-in variable that Python sets on every module. Its value depends on how the module is used. If you run the file as a script (python myfile.py), __name__ is '__main__'. If you import the file (import myfile), __name__ is 'myfile' (the module name, no .py extension). This applies to every module — __name__ is always set. The if __name__ == '__main__' check is the standard way to detect 'am I the entry point?'"}},
+{"@type":"Question","name":"Why does every Python script have this line?","acceptedAnswer":{"@type":"Answer","text":"It lets the file be both a script and a module. Without the guard, any top-level code runs on import — including print statements, file reads, API calls, and any other side effects. If someone else imports your file to use one function, they'd get the entire script running. The guard prevents this. The pattern: define functions and classes at the top level, put the script behavior inside if __name__ == '__main__':. Result: the functions can be imported without side effects, and the file can still be run directly."}},
+{"@type":"Question","name":"What happens if I remove the guard?","acceptedAnswer":{"@type":"Answer","text":"Any code at the top level of the file runs every time the file is imported. If your file has a demo function call or a print statement at the bottom, importing the file for its functions will run that code — usually as a bug. In the worst case, the file runs on import in unexpected contexts (a library imports it, a test imports it, an IDE imports it), causing duplicate side effects, API calls, or crashes. The guard is the fix. Remove it only for the most trivial scripts, and even then, add it once the file grows."}},
+{"@type":"Question","name":"Can I have code before the guard?","acceptedAnswer":{"@type":"Answer","text":"Yes, and you should — but only definitions. Functions, classes, imports, and constants at the top level are fine — they don't run their bodies when imported. The guard wraps the code that actually executes: calling functions, starting the script, creating objects, opening files, making network requests. The pattern: import statements, then function/class definitions, then if __name__ == '__main__': at the bottom. This ordering lets the module's functions be defined before the guard references them, and keeps side effects in one place."}},
+{"@type":"Question","name":"How do I run a script with __name__ == '__main__' from another Python file?","acceptedAnswer":{"@type":"Answer","text":"Two ways. (1) Run it as a script: python script.py — __name__ is '__main__', the guarded code runs. (2) Import it and call its main function: import script; script.main() — but this requires the script to define a main function, and the guard should call it: if __name__ == '__main__': main(). The second pattern is cleaner for testing — tests can import the module and call main() without triggering the guard. Many command-line tools use this pattern: a main() function, called from the guard, importable by tests."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-python.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Python · main guard</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#7ee8fc;">Python</a> ›
+<a href="/courses/python/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">if __name__ == "__main__"</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Concept · 3 min read</div>
+<h1><code>if __name__ == "__main__"</code>.<br><span class="py-accent">Script or module?</span></h1>
+<p class="lead">
+The line every Python script has, and almost no beginner understands. It's a guard: the code inside only runs when the file is executed directly, not when it's imported. That distinction matters — it lets you write a file that works as both a runnable script and a reusable module. This page covers what <code>__name__</code> is, what the guard prevents, and the pattern that keeps side effects in one place.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>__name__</code> is <code>'__main__'</code> when you run the file directly (<code>python script.py</code>), and the module name when it's imported (<code>import script</code> → <code>'script'</code>). The guard <code>if __name__ == "__main__":</code> runs its body only in the first case. Put function and class definitions at the top level, and the demo/test code inside the guard. Result: the file works as a script and can still be imported without side effects.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ What <code>__name__</code> is</h2>
+<p class="section-sub">The variable Python sets for every module.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">name-check.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"># Save as: mymodule.py
+
+print('__name__ is:', __name__)
+
+def greet(name):
+    return f'Hello, {name}'
+
+# When you run: python mymodule.py
+# __name__ is: __main__
+
+# When you run: python -c "import mymodule"
+# __name__ is: mymodule
+
+# When you run: from mymodule import greet
+# __name__ is: mymodule
+
+# So __name__ tells the file how it was used:
+#   '__main__'  → executed directly as a script
+#   'mymodule'  → imported as a module
+
+# The guard uses this:
+if __name__ == '__main__':
+    print('Running as a script')
+    print(greet('Alice'))
+# Only runs when executed directly.
+# Does not run on import.
+
+# Calling greet from another file:
+# from mymodule import greet
+# print(greet('Bob'))
+# Only 'Hello, Bob' prints.
+# No '__name__ is:' print, no 'Running as a script'.</pre>
+<script type="text/plain" id="raw-code-sol1"># Save as: mymodule.py
+
+print('__name__ is:', __name__)
+
+def greet(name):
+    return f'Hello, {name}'
+
+# When you run: python mymodule.py
+# __name__ is: __main__
+
+# When you run: python -c "import mymodule"
+# __name__ is: mymodule
+
+# When you run: from mymodule import greet
+# __name__ is: mymodule
+
+# So __name__ tells the file how it was used:
+#   '__main__'  → executed directly as a script
+#   'mymodule'  → imported as a module
+
+# The guard uses this:
+if __name__ == '__main__':
+    print('Running as a script')
+    print(greet('Alice'))
+# Only runs when executed directly.
+# Does not run on import.
+
+# Calling greet from another file:
+# from mymodule import greet
+# print(greet('Bob'))
+# Only 'Hello, Bob' prints.
+# No '__name__ is:' print, no 'Running as a script'.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Scenario 1: run as a script
+
+$ python mymodule.py
+__name__ is: __main__
+Running as a script
+Hello, Alice
+
+What happens:
+  → __name__ is set to '__main__'
+  → All top-level code runs
+  → The guard passes, its body runs
+
+Scenario 2: import the module
+
+$ python -c "import mymodule"
+__name__ is: mymodule
+
+What happens:
+  → __name__ is set to 'mymodule'
+  → All top-level code runs
+  → The guard does NOT pass
+  → 'Running as a script' does not print
+  → greet is defined and available
+
+Scenario 3: import a specific function
+
+$ python -c "from mymodule import greet; print(greet('Bob'))"
+__name__ is: mymodule
+Hello, Bob
+
+What happens:
+  → __name__ is set to 'mymodule'
+  → Top-level code runs (the print statement)
+  → The guard does NOT pass
+  → greet is called directly
+
+The difference is __name__.
+Set by Python at import time.
+Read by the guard.
+Same file, two behaviors.
+
+Without the guard:
+
+  print('__name__ is:', __name__)
+
+  def greet(name): ...
+
+  print('Running as a script')   # runs on import
+  print(greet('Alice'))           # runs on import
+
+  Import this file, and BOTH prints run.
+  'Running as a script' appears even
+  though you're not running it as a script.
+  That's the bug the guard prevents.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ What the guard prevents</h2>
+<p class="section-sub">The import side effect bug.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">without-guard.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why it's a bug</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"># ─── bad.py (no guard) ────────────────────────
+# Top-level: runs on import
+
+print('Loading bad.py...')
+data = [1, 2, 3]
+result = sum(data) * 1000
+print('Total:', result)
+
+def process(x):
+    return x * 2
+
+# If another file imports this for `process`:
+# from bad import process
+
+# Side effect: the print statements run,
+# the computation runs, and any I/O happens.
+# That's usually unwanted.
+
+# ─── good.py (with guard) ────────────────────
+# Top-level: definitions only
+
+def process(x):
+    return x * 2
+
+if __name__ == '__main__':
+    print('Loading good.py...')
+    data = [1, 2, 3]
+    result = sum(data) * 1000
+    print('Total:', result)
+
+# Import for `process`:
+# from good import process
+# Only `process` is defined.
+# No prints, no computation, no side effects.
+
+# Why this matters:
+
+# 1. Duplicate side effects
+#    A module that reads a file on import reads
+#    it every time any code imports the module.
+#    Multiple imports = multiple reads.
+
+# 2. Unwanted API calls
+#    If the module fetches data on import,
+#    importing it from a test or a script triggers
+#    a real network call.
+
+# 3. Test pollution
+#    Tests importing the module to test its functions
+#    run the demo code, printing output, writing files,
+#    or crashing if the demo expects specific conditions.
+
+# 4. Circular import surprises
+#    Import order matters with side effects.
+#    Without the guard, side effects fire during
+#    import, which happens during other imports,
+#    causing confusing failures.
+
+# The guard keeps top-level code to definitions,
+# and side effects to execution.</pre>
+<script type="text/plain" id="raw-code-sol2"># ─── bad.py (no guard) ────────────────────────
+# Top-level: runs on import
+
+print('Loading bad.py...')
+data = [1, 2, 3]
+result = sum(data) * 1000
+print('Total:', result)
+
+def process(x):
+    return x * 2
+
+# If another file imports this for `process`:
+# from bad import process
+
+# Side effect: the print statements run,
+# the computation runs, and any I/O happens.
+# That's usually unwanted.
+
+# ─── good.py (with guard) ────────────────────
+# Top-level: definitions only
+
+def process(x):
+    return x * 2
+
+if __name__ == '__main__':
+    print('Loading good.py...')
+    data = [1, 2, 3]
+    result = sum(data) * 1000
+    print('Total:', result)
+
+# Import for `process`:
+# from good import process
+# Only `process` is defined.
+# No prints, no computation, no side effects.
+
+# Why this matters:
+
+# 1. Duplicate side effects
+#    A module that reads a file on import reads
+#    it every time any code imports the module.
+#    Multiple imports = multiple reads.
+
+# 2. Unwanted API calls
+#    If the module fetches data on import,
+#    importing it from a test or a script triggers
+#    a real network call.
+
+# 3. Test pollution
+#    Tests importing the module to test its functions
+#    run the demo code, printing output, writing files,
+#    or crashing if the demo expects specific conditions.
+
+# 4. Circular import surprises
+#    Import order matters with side effects.
+#    Without the guard, side effects fire during
+#    import, which happens during other imports,
+#    causing confusing failures.
+
+# The guard keeps top-level code to definitions,
+# and side effects to execution.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The pattern:
+
+1. Imports
+   import os
+   from pathlib import Path
+
+2. Constants
+   DEFAULT_PATH = 'data.txt'
+   MAX_RETRIES = 3
+
+3. Functions and classes
+   def load(path): ...
+   class Config: ...
+   def main(): ...
+       """Entry point."""
+       ...
+
+4. Guard
+   if __name__ == '__main__':
+       main()
+
+Everything above the guard is definitions.
+Importing the module defines them, no side effects.
+
+Everything inside the guard is execution.
+Only runs when the file is the entry point.
+
+This structure is the Python standard.
+Almost every project follows it.
+Even scripts that are "just for me."
+
+Why bother for small scripts?
+Because scripts grow. Today it's 20 lines.
+Tomorrow it's 200, with tests, with a CLI,
+with another module importing it.
+The guard is free. Adding it later means
+moving code. Add it from day one.
+
+The main() function:
+
+  if __name__ == '__main__':
+      main()
+
+Instead of:
+
+  if __name__ == '__main__':
+      # 50 lines of code here
+
+The main() function:
+  → Names the entry point (self-documenting)
+  → Can be imported and called from tests
+  → Can be called by other tools (setuptools entry_points)
+  → Keeps the guard short
+
+Even for a 10-line script, main() is worth it.
+It's the difference between a script and
+a program.
+
+⚠️ __name__ is set at import time, not at call time.
+   You can't change it in code.
+   It's __main__ for the file being run,
+   and the module name for everything else.
+
+⚠️ The guard is a convention, not a feature.
+   Python doesn't enforce it.
+   But every project follows it.
+   Linters and code review will flag code
+   outside the guard that should be inside.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The main() pattern</h2>
+<p class="section-sub">The structure that scales.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">main-pattern.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"># ─── calculator.py ────────────────────────────
+
+import sys
+
+DEFAULT_PRECISION = 2
+
+def add(a, b):
+    return a + b
+
+def subtract(a, b):
+    return a - b
+
+def format_result(value, precision=DEFAULT_PRECISION):
+    return f'{value:.{precision}f}'
+
+def main():
+    """Command-line entry point."""
+    if len(sys.argv) < 3:
+        print('Usage: python calculator.py <a> <b>')
+        sys.exit(1)
+
+    a, b = int(sys.argv[1]), int(sys.argv[2])
+    print('add:', format_result(add(a, b)))
+    print('subtract:', format_result(subtract(a, b)))
+
+if __name__ == '__main__':
+    main()
+
+# ─── How it's used ──────────────────────────
+
+# As a script:
+# $ python calculator.py 5 3
+# add: 8.00
+# subtract: 2.00
+
+# As a module (another file):
+# from calculator import add, subtract
+# add(5, 3)      # 8
+# subtract(5, 3) # 2
+# No 'Usage:' message, no CLI parsing.
+
+# In tests:
+# from calculator import add, subtract
+# def test_add():
+#     assert add(2, 3) == 5
+# def test_subtract():
+#     assert subtract(5, 3) == 2
+
+# The test imports work because importing
+# doesn't run main() — only the guard does.
+# Tests can test the pure functions directly.
+
+# ─── What each piece does ───────────────────
+
+# import sys — top level, no side effects.
+# DEFAULT_PRECISION — constant, safe to import.
+# add, subtract — pure functions, safe to import.
+# format_result — pure function, safe to import.
+# main — function definition, safe to import.
+# if __name__ == '__main__' — guard.
+#     → runs main() only when executing the file.
+
+# Everything importable.
+# Nothing runs on import.
+# Clean separation.</pre>
+<script type="text/plain" id="raw-code-sol3"># ─── calculator.py ────────────────────────────
+
+import sys
+
+DEFAULT_PRECISION = 2
+
+def add(a, b):
+    return a + b
+
+def subtract(a, b):
+    return a - b
+
+def format_result(value, precision=DEFAULT_PRECISION):
+    return f'{value:.{precision}f}'
+
+def main():
+    """Command-line entry point."""
+    if len(sys.argv) < 3:
+        print('Usage: python calculator.py <a> <b>')
+        sys.exit(1)
+
+    a, b = int(sys.argv[1]), int(sys.argv[2])
+    print('add:', format_result(add(a, b)))
+    print('subtract:', format_result(subtract(a, b)))
+
+if __name__ == '__main__':
+    main()
+
+# ─── How it's used ──────────────────────────
+
+# As a script:
+# $ python calculator.py 5 3
+# add: 8.00
+# subtract: 2.00
+
+# As a module (another file):
+# from calculator import add, subtract
+# add(5, 3)      # 8
+# subtract(5, 3) # 2
+# No 'Usage:' message, no CLI parsing.
+
+# In tests:
+# from calculator import add, subtract
+# def test_add():
+#     assert add(2, 3) == 5
+# def test_subtract():
+#     assert subtract(5, 3) == 2
+
+# The test imports work because importing
+# doesn't run main() — only the guard does.
+# Tests can test the pure functions directly.
+
+# ─── What each piece does ───────────────────
+
+# import sys — top level, no side effects.
+# DEFAULT_PRECISION — constant, safe to import.
+# add, subtract — pure functions, safe to import.
+# format_result — pure function, safe to import.
+# main — function definition, safe to import.
+# if __name__ == '__main__' — guard.
+#     → runs main() only when executing the file.
+
+# Everything importable.
+# Nothing runs on import.
+# Clean separation.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why main() is a separate function:
+
+❌ Bad:
+   if __name__ == '__main__':
+       import sys
+       a = int(sys.argv[1])
+       b = int(sys.argv[2])
+       print(a + b)
+       print(a - b)
+   
+   The CLI logic is in the guard.
+   Can't test it. Can't call it from code.
+   The file is a script, not a module.
+
+✅ Good:
+   def main():
+       # CLI logic
+   
+   if __name__ == '__main__':
+       main()
+   
+   main() is a normal function.
+   Can be called from tests.
+   Can be called from other scripts.
+   Can be wrapped by setuptools entry_points.
+   Can be profiled.
+   Can be debugged.
+   
+   The guard is one line.
+
+This is the pattern:
+
+  ─── script.py ────────────────────────
+
+  # imports
+  import sys
+
+  # constants
+  DEFAULT_CONFIG = 'config.toml'
+
+  # functions
+  def load_config(path=DEFAULT_CONFIG): ...
+  def process(data): ...
+
+  # entry point
+  def main():
+      config = load_config()
+      data = ...
+      process(data)
+
+  # guard
+  if __name__ == '__main__':
+      main()
+
+# Why this pattern:
+
+  ✅ Testable — import functions, test them
+     directly. Import main, call it with
+     mocked arguments.
+
+  ✅ Reusable — another script can import
+     and call main() if it needs the same
+     behavior.
+
+  ✅ Discoverable — setuptools, pytest,
+     and IDEs recognize main() as the entry
+     point. Click, argparse, and other CLI
+     libraries integrate with it.
+
+  ✅ Documentable — docstring on main()
+     explains the program's purpose.
+
+  ✅ Debuggable — set a breakpoint on main(),
+     not on the guard.
+
+For a one-off script, main() is optional.
+For anything that will grow, or that anyone
+else will read, add it. The cost is one line.
+
+⚠️ Don't do work inside the guard beyond
+   calling main().
+   The guard should be one line.
+   Everything else goes in main().
+   
+   The guard is a signal, not a place for code.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't rely on <code>__name__ == '__main__'</code> as a feature — it's a convention.</strong> Python doesn't enforce it. You can write code outside the guard, and it will run on import, and nothing will stop you. But every project follows the guard, every linter flags code that should be inside it, and every Python developer expects it. Treat it as a rule, not an option. The one exception: interactive notebooks (Jupyter, Colab) where the cell is the "script" — the guard is unnecessary there, because there's no importing. Everywhere else, use the guard.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The main-guard mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Side effects at top level</div>
+<p>Code outside the guard runs on import. Fix: move to <code>main()</code>, call from the guard.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Long guard body</div>
+<p>50 lines inside <code>if __name__ == '__main__'</code>. Fix: put everything in <code>main()</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Tests that call top-level code</div>
+<p>Importing the module runs the demo. Fix: guard everything that isn't a definition.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Importing a script without a guard</div>
+<p>Triggers prints, computation, API calls. Fix: add the guard.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting the guard when adding a demo</div>
+<p>Demo runs on import. Fix: always guard demo/test code.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Assuming <code>__name__</code> is always <code>'__main__'</code></div>
+<p>Only when running the file directly. Fix: check the value.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using the guard in notebooks</div>
+<p>Unnecessary — cells aren't imported. Fix: skip in notebooks, use everywhere else.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Guard as a substitute for design</div>
+<p>Hiding bad import design behind the guard. Fix: keep top-level code to definitions.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does if __name__ == "__main__" do in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">It checks whether the file is being run as a script (not imported as a module). Python sets the special variable __name__ automatically. When you run a file directly (python script.py), __name__ is '__main__'. When you import the file (import script), __name__ is the module name ('script'). The guard means: 'only run this code if the file is the entry point — not when it's imported.'</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is __name__ in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">__name__ is a built-in variable that Python sets on every module. Its value depends on how the module is used. If you run the file as a script (python myfile.py), __name__ is '__main__'. If you import the file (import myfile), __name__ is 'myfile'. This applies to every module — __name__ is always set.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does every Python script have this line?</summary>
+<p class="mt-2 text-sm text-slate-300">It lets the file be both a script and a module. Without the guard, any top-level code runs on import — including print statements, file reads, API calls, and any other side effects. If someone else imports your file to use one function, they'd get the entire script running. The guard prevents this.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What happens if I remove the guard?</summary>
+<p class="mt-2 text-sm text-slate-300">Any code at the top level of the file runs every time the file is imported. If your file has a demo function call or a print statement at the bottom, importing the file for its functions will run that code — usually as a bug. In the worst case, the file runs on import in unexpected contexts, causing duplicate side effects, API calls, or crashes.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I have code before the guard?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, and you should — but only definitions. Functions, classes, imports, and constants at the top level are fine — they don't run their bodies when imported. The guard wraps the code that actually executes: calling functions, starting the script, creating objects. The pattern: import statements, then function/class definitions, then if __name__ == '__main__': at the bottom.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I run a script with __name__ == '__main__' from another Python file?</summary>
+<p class="mt-2 text-sm text-slate-300">Two ways. (1) Run it as a script: python script.py — __name__ is '__main__', the guarded code runs. (2) Import it and call its main function: import script; script.main() — but this requires the script to define a main function, and the guard should call it: if __name__ == '__main__': main(). The second pattern is cleaner for testing.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from install to first project — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/python/problems/merge-dicts.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📦 How to merge two dictionaries</div>
+<div class="text-xs text-slate-400 mt-1">The <code>|</code> operator, <code>{'**d1, **d2'}</code>, and the ChainMap precedence trap</div>
+</a>
+</section>
+
+<a href="/courses/python/problems/index.html" class="back-link">← All Python problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · Python <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
