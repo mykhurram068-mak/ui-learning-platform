@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>== vs === in JavaScript — What's the Difference? (2026)</title>
+<meta name="description" content="== vs === in JavaScript explained: loose equality with type coercion, strict equality without, and why you should almost always use ===. Direct answer with examples.">
+<meta name="keywords" content="javascript == vs ===, loose equality javascript, strict equality javascript, javascript type coercion, equality operator javascript">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="== vs === in JavaScript — What's the Difference?">
+<meta property="og:description" content="Loose equality with type coercion, strict equality without — and why === wins.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/equality.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="== vs === in JavaScript">
+<meta name="twitter:description" content="Loose equality vs strict equality.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/equality.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "== vs === in JavaScript — What's the Difference?",
+"description": "Loose equality with type coercion vs strict equality without.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Beginner",
+"dependencies": "ES2015"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between == and === in JavaScript?","acceptedAnswer":{"@type":"Answer","text":"== is loose equality — it compares values after converting them to a common type. '5' == 5 is true because the string is coerced to a number. === is strict equality — it compares both value and type, with no coercion. '5' === 5 is false. The rule: use === by default. It does what you expect, catches bugs earlier, and is what every style guide recommends. Use == only when you specifically need type coercion (almost never)."}},
+{"@type":"Question","name":"Why does 0 == '' return true?","acceptedAnswer":{"@type":"Answer","text":"Because == coerces both sides to a number. The empty string '' becomes 0, so 0 == 0 is true. This is the kind of surprising behavior that makes == dangerous. Other examples: null == undefined is true, but null === undefined is false. false == '0' is true. [] == false is true. These aren't bugs — they're the spec. But they cause real bugs in real code. Use === to avoid them entirely."}},
+{"@type":"Question","name":"Does === compare object references or values?","acceptedAnswer":{"@type":"Answer","text":"For objects, arrays, and functions, === compares references, not contents. Two objects with the same properties are not === unless they point to the same object in memory. const a = {x: 1}; const b = {x: 1}; a === b is false. a === a is true. This applies to both == and ===. To compare object contents, you need a deep equality check (JSON.stringify, or a library like lodash.isEqual). This is a common source of confusion — === is 'same reference' for objects, 'same value' for primitives."}},
+{"@type":"Question","name":"Is it ever okay to use ==?","acceptedAnswer":{"@type":"Answer","text":"One case: checking for null or undefined. value == null is true if value is null OR undefined — it's a shorthand for value === null || value === undefined. Some developers use this intentionally. It's the only == pattern that's widely accepted. But even this is debatable — some style guides ban == entirely and prefer the explicit two-check form. If you use value == null, know exactly why. Otherwise, use ===."}},
+{"@type":"Question","name":"Why do style guides say 'always use ==='?","acceptedAnswer":{"@type":"Answer","text":"Because == has too many edge cases to hold in your head. The coercion rules are complex: strings become numbers, booleans become numbers, null and undefined only equal each other, objects become '[object Object]'. Every one of these is a potential bug. === has no coercion — it either matches or it doesn't. The cost of === is one extra character. The cost of == is debugging time. ESLint's eqeqeq rule flags == by default, and most modern codebases enforce it. This isn't arbitrary — it's accumulated experience."}},
+{"@type":"Question","name":"What about NaN? Does === work?","acceptedAnswer":{"@type":"Answer","text":"No. NaN === NaN is false. This is a quirk of the IEEE 754 floating-point spec, not JavaScript-specific. To check for NaN, use Number.isNaN(value) (preferred) or the older isNaN(value) (which coerces first — less safe). Object.is(NaN, NaN) is also true. This is one of the few cases where === doesn't behave as 'same value' — NaN is the only value that isn't equal to itself."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · == vs ===</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">== vs ===</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 3 min read</div>
+<h1>== vs ===.<br><span class="py-accent">Coercion or not.</span></h1>
+<p class="lead">
+The two equality operators look almost identical. They behave very differently. <code>==</code> converts types before comparing — <code>'5' == 5</code> is true. <code>===</code> doesn't — <code>'5' === 5</code> is false. The rule is simple: use <code>===</code> by default. This page covers the coercion rules, the surprising cases, and the one situation where <code>==</code> is acceptable.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>===</code> (strict equality) for everything. It compares value and type without coercion, so <code>'5' === 5</code> is false. <code>==</code> (loose equality) coerces types first, so <code>'5' == 5</code> is true — and <code>0 == ''</code> is also true, which is almost never what you want. The one accepted use of <code>==</code> is <code>value == null</code> to check for both <code>null</code> and <code>undefined</code> in one comparison. Everything else: <code>===</code>.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The difference in one example</h2>
+<p class="section-sub">Same values, different result.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">equality-basic.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">console.log('5' == 5);   // ?
+console.log('5' === 5);  // ?
+
+console.log(0 == '');    // ?
+console.log(0 === '');   // ?
+
+console.log(null == undefined);   // ?
+console.log(null === undefined);  // ?
+
+console.log(false == '0');   // ?
+console.log(false === '0');  // ?</pre>
+<script type="text/plain" id="raw-code-sol1">console.log('5' == 5);   // ?
+console.log('5' === 5);  // ?
+
+console.log(0 == '');    // ?
+console.log(0 === '');   // ?
+
+console.log(null == undefined);   // ?
+console.log(null === undefined);  // ?
+
+console.log(false == '0');   // ?
+console.log(false === '0');  // ?</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Actual output:
+
+'5' == 5    → true   (string coerced to number)
+'5' === 5   → false  (different types)
+
+0 == ''     → true   ('' coerced to 0)
+0 === ''    → false  (different types)
+
+null == undefined   → true   (both "empty")
+null === undefined  → false  (different types)
+
+false == '0'  → true   ('0' coerced to 0, false to 0)
+false === '0' → false  (different types)
+
+✅ == coerces. === doesn't.
+✅ Every === is false for different types.
+✅ Every == can be true if coercion makes them equal.
+
+The last one is the most surprising: false == '0'
+is true because both sides become 0. This is the
+kind of result that makes == dangerous.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The coercion rules (simplified)</h2>
+<p class="section-sub">What == actually does.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">coercion.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">// When types differ, == converts to a common type:
+
+// String vs Number → string becomes number
+'5' == 5      // true   ('5' → 5)
+'5.5' == 5.5  // true   ('5.5' → 5.5)
+'abc' == 5    // false  ('abc' → NaN, NaN != 5)
+
+// Boolean vs anything → boolean becomes number
+true == 1     // true   (true → 1)
+false == 0    // true   (false → 0)
+true == '1'   // true   (true → 1, '1' → 1)
+
+// null and undefined → only equal each other
+null == undefined   // true
+null == 0           // false
+undefined == 0      // false
+
+// Object vs primitive → object becomes primitive
+[] == ''      // true   ([] → '')
+[] == 0       // true   ([] → '' → 0)
+[1] == 1      // true   ([1] → '1' → 1)
+{} == '[object Object]'  // true</pre>
+<script type="text/plain" id="raw-code-sol2">// When types differ, == converts to a common type:
+
+// String vs Number → string becomes number
+'5' == 5      // true   ('5' → 5)
+'5.5' == 5.5  // true   ('5.5' → 5.5)
+'abc' == 5    // false  ('abc' → NaN, NaN != 5)
+
+// Boolean vs anything → boolean becomes number
+true == 1     // true   (true → 1)
+false == 0    // true   (false → 0)
+true == '1'   // true   (true → 1, '1' → 1)
+
+// null and undefined → only equal each other
+null == undefined   // true
+null == 0           // false
+undefined == 0      // false
+
+// Object vs primitive → object becomes primitive
+[] == ''      // true   ([] → '')
+[] == 0       // true   ([] → '' → 0)
+[1] == 1      // true   ([1] → '1' → 1)
+{} == '[object Object]'  // true</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The spec rules for ==, in order:
+
+1. Same type → compare directly (like ===).
+2. null == undefined → true.
+3. Number vs String → String becomes Number.
+4. Boolean vs anything → Boolean becomes Number.
+5. Object vs primitive → Object becomes primitive
+   (via valueOf or toString).
+6. Otherwise → false.
+
+This is why [] == 0 is true:
+  [] becomes '' (empty string)
+  '' becomes 0 (number)
+  0 == 0 → true
+
+And {} == '[object Object]' is true:
+  {} becomes '[object Object]' (via toString)
+
+These rules are deterministic and specified.
+They are also almost never what you want.
+
+=== has one rule: same type AND same value.
+That's it. No coercion, no surprises.
+
+The complexity of == is why style guides
+recommend banning it entirely.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The one acceptable use of ==</h2>
+<p class="section-sub"><code>value == null</code> — checking both null and undefined.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">null-check.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why it works</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// The explicit way — two checks
+if (value === null || value === undefined) {
+  // ...
+}
+
+// The shorthand — one check with ==
+if (value == null) {
+  // true if value is null OR undefined
+  // false for 0, '', false, NaN
+}
+
+// This is the ONLY == pattern that's widely accepted.
+// It's intentional — you're explicitly using the
+// null == undefined rule.
+
+// But some style guides ban == entirely,
+// even this one. Both approaches work.
+// Know why you're using it.</pre>
+<script type="text/plain" id="raw-code-sol3">// The explicit way — two checks
+if (value === null || value === undefined) {
+  // ...
+}
+
+// The shorthand — one check with ==
+if (value == null) {
+  // true if value is null OR undefined
+  // false for 0, '', false, NaN
+}
+
+// This is the ONLY == pattern that's widely accepted.
+// It's intentional — you're explicitly using the
+// null == undefined rule.
+
+// But some style guides ban == entirely,
+// even this one. Both approaches work.
+// Know why you're using it.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>value == null:
+
+null      → true
+undefined → true
+0         → false
+''        → false
+false     → false
+NaN       → false
+{}        → false
+[]        → false
+
+This is useful for "is this value missing?"
+checks, where both null and undefined count
+as missing.
+
+It's the one place where == gives you
+something === can't — a combined check
+for both nullish values.
+
+Some developers use it. Some prefer the
+explicit two-check form. Neither is wrong.
+
+The rule: if you use ==, know exactly which
+coercion you're relying on. If you can't
+explain why it works, use ===.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>==</code> for numbers or strings from user input.</strong> This is where <code>==</code> causes the most real bugs. An input field returns a string. <code>input.value == 0</code> is true when the user types "0", but also when the value is empty (because <code>'' == 0</code>). <code>input.value === 0</code> is false for both — which is what you want, because the input is a string. Parse first (<code>Number(input.value)</code>), then compare with <code>===</code>. The same applies to API responses, URL parameters, and anything else that might not be the type you expect. <code>===</code> forces you to be explicit about types.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The equality mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using <code>==</code> everywhere</div>
+<p>Coercion causes surprising results. Fix: use <code>===</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Comparing user input with <code>==</code></div>
+<p>Input is a string; <code>==</code> coerces. Fix: parse first, compare with <code>===</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Expecting <code>===</code> to compare object contents</div>
+<p>It compares references. Fix: <code>JSON.stringify</code> or a deep-equal function.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Using <code>===</code> for NaN</div>
+<p><code>NaN === NaN</code> is false. Fix: <code>Number.isNaN()</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. <code>value == null</code> without knowing why</div>
+<p>It works, but only because of the null/undefined rule. Fix: understand it or use two checks.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. <code>'' == 0</code> and <code>'0' == false</code> in conditions</div>
+<p>Both are true — almost always a bug. Fix: <code>===</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. <code>[] == false</code> in filters</div>
+<p>An empty array is truthy in <code>if</code>, but <code>[] == false</code> is true. Fix: use <code>length</code> or <code>===</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not enforcing with a linter</div>
+<p>Style guides say <code>===</code> but code still uses <code>==</code>. Fix: ESLint <code>eqeqeq</code> rule.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between == and === in JavaScript?</summary>
+<p class="mt-2 text-sm text-slate-300">== is loose equality — it compares values after converting them to a common type. '5' == 5 is true because the string is coerced to a number. === is strict equality — it compares both value and type, with no coercion. '5' === 5 is false. The rule: use === by default. It does what you expect and catches bugs earlier.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why does 0 == '' return true?</summary>
+<p class="mt-2 text-sm text-slate-300">Because == coerces both sides to a number. The empty string '' becomes 0, so 0 == 0 is true. This is the kind of surprising behavior that makes == dangerous. Other examples: null == undefined is true, false == '0' is true, [] == false is true. Use === to avoid them.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Does === compare object references or values?</summary>
+<p class="mt-2 text-sm text-slate-300">For objects, arrays, and functions, === compares references, not contents. Two objects with the same properties are not === unless they point to the same object in memory. To compare object contents, use JSON.stringify or a deep equality check. This applies to both == and ===.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Is it ever okay to use ==?</summary>
+<p class="mt-2 text-sm text-slate-300">One case: checking for null or undefined. value == null is true if value is null OR undefined — a shorthand for the two-check version. Some developers use this intentionally. But even this is debatable. If you use value == null, know exactly why. Otherwise, use ===.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why do style guides say 'always use ==='?</summary>
+<p class="mt-2 text-sm text-slate-300">Because == has too many edge cases to hold in your head. Strings become numbers, booleans become numbers, null and undefined only equal each other, objects become '[object Object]'. Every one of these is a potential bug. === has no coercion — it either matches or it doesn't. ESLint's eqeqeq rule flags == by default.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What about NaN? Does === work?</summary>
+<p class="mt-2 text-sm text-slate-300">No. NaN === NaN is false. This is a quirk of the IEEE 754 floating-point spec, not JavaScript-specific. To check for NaN, use Number.isNaN(value) (preferred) or the older isNaN(value). Object.is(NaN, NaN) is also true.</p>
+</details>
+</div>
+</section>
+
+<!-- REVISED ENDING -->
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/null-vs-undefined.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🕳️ null vs undefined</div>
+<div class="text-xs text-slate-400 mt-1">Two "nothing" values — when to use which, and how to check for them</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
