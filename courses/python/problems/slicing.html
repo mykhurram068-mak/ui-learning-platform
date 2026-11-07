@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Python Slicing Explained — a[start:stop:step] (2026)</title>
+<meta name="description" content="Python slicing explained: the a[start:stop:step] syntax, why indices point between elements, negative indices, and the off-by-one fix. Direct answer with examples.">
+<meta name="keywords" content="python slicing, python slice notation, python list slice, python string slice, python slice start stop step, python negative index">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Python Slicing Explained — a[start:stop:step]">
+<meta property="og:description" content="The a[start:stop:step] syntax, why indices point between elements, negative indices.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/problems/slicing.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Python Slicing Explained">
+<meta name="twitter:description" content="The a[start:stop:step] syntax, explained.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/problems/slicing.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Python Slicing Explained — a[start:stop:step]",
+"description": "Python slice notation, negative indices, and the off-by-one fix.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Beginner",
+"dependencies": "Python 3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How does Python slicing work?","acceptedAnswer":{"@type":"Answer","text":"The syntax is a[start:stop:step]. It returns a new sequence from index start (inclusive) to stop (exclusive), with the given step. Example: [0, 1, 2, 3, 4][1:4] gives [1, 2, 3] — starts at index 1, stops before index 4. The key insight: indices point BETWEEN elements, not at them. So a[1:4] selects elements in positions 1, 2, 3 — the indices are the boundaries. This is why a[0:len(a)] returns the whole list, and why a[1:] means 'from index 1 to the end.' The stop index is exclusive because it points to the boundary after the last element."}},
+{"@type":"Question","name":"What does a[:] do?","acceptedAnswer":{"@type":"Answer","text":"a[:] returns a shallow copy of the entire sequence. It's equivalent to a[0:len(a)] — start from the beginning, stop at the end, step 1. It's a common idiom for copying a list: b = a[:] creates a new list with the same items. For strings, a[:] returns the same string (strings are immutable, so no copy is needed). For tuples, a[:] returns the same tuple (for the same reason). For lists, a[:] is a new list. This is the shortest shallow-copy syntax, though a.copy() is clearer for lists."}},
+{"@type":"Question","name":"What do negative indices mean in slices?","acceptedAnswer":{"@type":"Answer","text":"Negative indices count from the end. a[-1] is the last element, a[-2] is the second-to-last, etc. In slices, a[-3:] gives the last three elements, a[:-3] gives everything except the last three. The two can be combined: a[-3:-1] gives elements from third-to-last up to (not including) last — two elements. Negative indices are resolved by adding len(a): a[-3] is a[len(a) - 3]. The negative-index notation is just sugar for this calculation, making 'last n items' and 'all but last n' easier to write."}},
+{"@type":"Question","name":"What does the step parameter do?","acceptedAnswer":{"@type":"Answer","text":"The third value in a[start:stop:step] is the step — how many indices to advance per element. Default is 1. a[::2] takes every other element (0, 2, 4, ...). a[::3] takes every third. a[::-1] reverses the sequence (step -1, from end to start). The step can be negative, which iterates backwards. With a negative step, the default start is len(a) - 1 and the default stop is 'before the beginning' — so a[::-1] gives the reverse, and a[5:2:-1] gives elements at indices 5, 4, 3 (from 5 down to 3, exclusive of 2). Negative steps are the tool for reversing or iterating backwards."}},
+{"@type":"Question","name":"Does slicing modify the original list?","acceptedAnswer":{"@type":"Answer","text":"No — slicing returns a new sequence. a[1:3] returns a new list with the elements from index 1 to 2; the original a is unchanged. This applies to lists, strings, tuples, and other sequences. To modify the original, use slice assignment: a[1:3] = [10, 20] replaces the elements at indices 1 and 2 with the new values. Slice assignment is a different operation — it mutates the original, and it can change the length (a[1:3] = [1, 2, 3, 4] replaces 2 elements with 4, growing the list). Slicing without assignment is read-only; slicing with assignment is in-place mutation."}},
+{"@type":"Question","name":"Why is a[1:4] three elements, not four?","acceptedAnswer":{"@type":"Answer","text":"Because the stop index is exclusive — it points to the boundary AFTER the last element you want. a[1:4] selects elements at positions 1, 2, 3 — three elements. The 4 is the boundary after position 3. This is why a[0:len(a)] returns the whole sequence (the end is the boundary after the last element), and why a[1:] returns 'from index 1 to the end' (the end is implied as len(a)). The exclusive stop makes slices composable: a[0:3] + a[3:6] == a[0:6]. If both were exclusive, a[0:3] + a[3:6] would miss element 3. The exclusive-stop convention is one of Python's better design decisions — it eliminates a whole class of off-by-one bugs."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-python.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Python · slicing</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#7ee8fc;">Python</a> ›
+<a href="/courses/python/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Slicing</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Concept · 4 min read</div>
+<h1>Python slicing.<br><span class="py-accent">Indices point between elements.</span></h1>
+<p class="lead">
+The <code>a[start:stop:step]</code> syntax is elegant once you understand the mental model. The key insight: indices point <em>between</em> elements, not at them. The start index is the boundary before the first element you want; the stop index is the boundary after the last. That's why <code>a[1:4]</code> is three elements, not four. Once you see the boundaries, 90% of slicing confusion disappears.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>a[start:stop:step]</code> — start inclusive, stop exclusive, step defaults to 1. <code>a[1:4]</code> is elements 1, 2, 3. <code>a[:]</code> copies. <code>a[-3:]</code> is the last 3. <code>a[::2]</code> takes every other. <code>a[::-1]</code> reverses. Slicing returns a new sequence — it doesn't modify the original. Negative indices count from the end. Missing values default to the ends (or to 1 for step). Slice assignment (<code>a[1:3] = [...]</code>) mutates in place, but that's a different operation.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The mental model</h2>
+<p class="section-sub">Indices are boundaries, not elements.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">mental-model.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Explanation</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">a = ['A', 'B', 'C', 'D', 'E']
+#    0   1   2   3   4     ← element indices
+#   -5  -4  -3  -2  -1     ← negative indices
+
+#      ↑   ↑   ↑   ↑   ↑   ↑
+#      0   1   2   3   4   5   ← boundary indices
+#     -5  -4  -3  -2  -1       ← negative boundaries
+
+# The slice a[start:stop] selects elements between
+# boundary `start` and boundary `stop`.
+
+a[1:4]   # ['B', 'C', 'D']  — boundaries 1 to 4
+a[0:3]   # ['A', 'B', 'C']  — boundaries 0 to 3
+a[2:2]   # []               — empty (boundaries coincide)
+a[1:5]   # ['B', 'C', 'D', 'E']  — from boundary 1 to end
+
+# The full list is boundaries 0 to 5:
+a[0:5]   # ['A', 'B', 'C', 'D', 'E']
+
+# That's why len(a) is a valid stop — it's the
+# boundary after the last element.
+a[0:len(a)]  # same as a[:]
+
+# Negative boundaries:
+a[-3:]   # ['C', 'D', 'E']  — from boundary -3 to end
+a[:-2]   # ['A', 'B', 'C']  — from start to boundary -2
+a[-3:-1] # ['C', 'D']       — from -3 to -1
+
+# Defaults:
+#   start = 0 (or -len(a) for negative step)
+#   stop = len(a) (or -1 for negative step)
+#   step = 1
+
+a[:]     # all — defaults for both
+a[2:]    # from 2 to end
+a[:3]    # from start to 3
+a[:]     # all</pre>
+<script type="text/plain" id="raw-code-sol1">a = ['A', 'B', 'C', 'D', 'E']
+#    0   1   2   3   4     <- element indices
+#   -5  -4  -3  -2  -1     <- negative indices
+
+#      ^   ^   ^   ^   ^   ^
+#      0   1   2   3   4   5   <- boundary indices
+#     -5  -4  -3  -2  -1       <- negative boundaries
+
+# The slice a[start:stop] selects elements between
+# boundary start and boundary stop.
+
+a[1:4]   # ['B', 'C', 'D']  — boundaries 1 to 4
+a[0:3]   # ['A', 'B', 'C']  — boundaries 0 to 3
+a[2:2]   # []               — empty (boundaries coincide)
+a[1:5]   # ['B', 'C', 'D', 'E']  — from boundary 1 to end
+
+# The full list is boundaries 0 to 5:
+a[0:5]   # ['A', 'B', 'C', 'D', 'E']
+
+# That's why len(a) is a valid stop — it's the
+# boundary after the last element.
+a[0:len(a)]  # same as a[:]
+
+# Negative boundaries:
+a[-3:]   # ['C', 'D', 'E']  — from boundary -3 to end
+a[:-2]   # ['A', 'B', 'C']  — from start to boundary -2
+a[-3:-1] # ['C', 'D']       — from -3 to -1
+
+# Defaults:
+#   start = 0 (or -len(a) for negative step)
+#   stop = len(a) (or -1 for negative step)
+#   step = 1
+
+a[:]     # all — defaults for both
+a[2:]    # from 2 to end
+a[:3]    # from start to 3
+a[:]     # all</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The key insight: boundaries vs elements
+
+  Elements:    ['A', 'B', 'C', 'D', 'E']
+  Indices:      0    1    2    3    4
+
+  Boundaries: 0    1    2    3    4    5
+              |    |    |    |    |    |
+              [ A ][ B ][ C ][ D ][ E ]
+
+  A slice a[i:j] takes everything between
+  boundary i and boundary j.
+
+  a[1:4] takes elements between boundary 1
+  and boundary 4 → B, C, D (3 elements).
+
+  a[0:5] takes everything → A, B, C, D, E.
+
+  a[2:2] takes nothing (empty slice).
+
+Why this matters:
+
+  1. len(a) is a valid stop.
+     a[0:len(a)] == a[:] == whole list.
+     If indices pointed at elements, len(a)
+     would be out of range.
+
+  2. Slices compose cleanly.
+     a[0:3] + a[3:6] == a[0:6].
+     If stop were inclusive, a[3:6] would
+     start at element 3, but a[0:3] already
+     ended at element 3 — overlap!
+
+  3. Empty slices are natural.
+     a[i:i] is always empty.
+     Useful for insertion:
+       a[2:2] = [x, y]  # insert before index 2
+
+  4. Zero-based indexing is consistent.
+     a[0] is the first element (between 0 and 1).
+     a[0:1] is the first element (between 0 and 1).
+
+The off-by-one bug:
+
+  ❌ for i in range(len(a)):
+         a[i:i+3]   # misses some elements
+  ✅ for i in range(0, len(a), 3):
+         a[i:i+3]   # chunks of 3
+
+  ❌ a[1:4] == 4 elements?  # no, 3
+  ✅ a[1:4] == 3 elements (1, 2, 3)
+
+Once you see boundaries, the rest follows.
+
+Common slicing patterns:
+
+  a[:]         — copy (all)
+  a[1:]        — all except first
+  a[:5]        — first 5
+  a[-5:]       — last 5
+  a[2:5]       — indices 2, 3, 4
+  a[::2]       — every other (0, 2, 4, ...)
+  a[1::2]      — every other starting at 1 (1, 3, 5, ...)
+  a[::-1]      — reversed
+  a[-1]        — last element
+  a[-2:]       — last 2
+  a[:-2]       — all but last 2
+  a[1:-1]      — all but first and last
+
+The boundaries model explains all of these
+without special cases.
+
+⚠️ Slicing out of range:
+
+  a[10:20] returns [] (empty), not an error.
+  a[0:1000] returns the whole list (clamps to len).
+  
+  Out-of-range indices in slices don't raise —
+  they're clamped. This is different from a[10]
+  (single element access), which raises IndexError.
+
+  Why the difference:
+    Slicing is a range operation — it can
+    gracefully return fewer items than requested.
+    Indexing is a specific element access —
+    out-of-range means the element doesn't exist.
+  
+  This is by design, and it's a feature:
+    a[:1000] is "up to 1000 items" — works if
+    the list is shorter.
+    a[1000] is "the 1000th item" — fails if
+    the list is shorter.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Every slice variant</h2>
+<p class="section-sub">The patterns you'll actually use.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">slices.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# Basic slices
+a[2:5]      # [2, 3, 4]
+a[:3]       # [0, 1, 2]      first 3
+a[7:]       # [7, 8, 9]      last 3
+a[-3:]      # [7, 8, 9]      last 3 (same)
+a[:-3]      # [0, 1, ..., 6]  all but last 3
+a[2:-2]     # [2, 3, 4, 5, 6, 7]
+
+# Step
+a[::2]      # [0, 2, 4, 6, 8]     every other
+a[1::2]     # [1, 3, 5, 7, 9]     every other starting at 1
+a[::3]      # [0, 3, 6, 9]         every third
+a[2::3]     # [2, 5, 8]
+
+# Reverse
+a[::-1]     # [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+a[5:2:-1]   # [5, 4, 3]            from 5 down to 3
+a[5::-1]    # [5, 4, 3, 2, 1, 0]   from 5 to start, reversed
+a[:2:-1]    # [9, 8, 7, 6, 5, 4, 3]  from end to 3, reversed
+
+# Reverse without slicing
+list(reversed(a))  # [9, 8, 7, ..., 0]
+
+# Strings (same syntax, returns str)
+s = "Hello, World!"
+s[0:5]      # 'Hello'
+s[-6:]      # 'World!'
+s[::-1]     # '!dlroW ,olleH'
+s[::2]      # 'Hlo ol!'
+
+# Tuples (same syntax, returns tuple)
+t = (1, 2, 3, 4, 5)
+t[1:4]      # (2, 3, 4)
+t[::-1]     # (5, 4, 3, 2, 1)
+
+# Slicing is a copy
+a = [1, 2, 3, 4, 5]
+b = a[1:4]   # [2, 3, 4]
+b[0] = 99
+print(a)     # [1, 2, 3, 4, 5]  — unchanged
+print(b)     # [99, 3, 4]
+
+# Slice assignment (mutates)
+a = [1, 2, 3, 4, 5]
+a[1:4] = [10, 20, 30]
+print(a)     # [1, 10, 20, 30, 5]
+
+# Slice deletion
+a = [1, 2, 3, 4, 5]
+del a[1:3]
+print(a)     # [1, 4, 5]
+
+# Slice insertion (assign a longer slice)
+a = [1, 2, 3]
+a[1:1] = [10, 20]   # insert before index 1
+print(a)     # [1, 10, 20, 2, 3]
+
+# Slice replacement (assign a shorter slice)
+a = [1, 2, 3, 4, 5]
+a[1:4] = ['X']      # replace 3 elements with 1
+print(a)     # [1, 'X', 5]</pre>
+<script type="text/plain" id="raw-code-sol2">a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# Basic slices
+a[2:5]      # [2, 3, 4]
+a[:3]       # [0, 1, 2]      first 3
+a[7:]       # [7, 8, 9]      last 3
+a[-3:]      # [7, 8, 9]      last 3 (same)
+a[:-3]      # [0, 1, ..., 6]  all but last 3
+a[2:-2]     # [2, 3, 4, 5, 6, 7]
+
+# Step
+a[::2]      # [0, 2, 4, 6, 8]     every other
+a[1::2]     # [1, 3, 5, 7, 9]     every other starting at 1
+a[::3]      # [0, 3, 6, 9]         every third
+a[2::3]     # [2, 5, 8]
+
+# Reverse
+a[::-1]     # [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
+a[5:2:-1]   # [5, 4, 3]            from 5 down to 3
+a[5::-1]    # [5, 4, 3, 2, 1, 0]   from 5 to start, reversed
+a[:2:-1]    # [9, 8, 7, 6, 5, 4, 3]  from end to 3, reversed
+
+# Reverse without slicing
+list(reversed(a))  # [9, 8, 7, ..., 0]
+
+# Strings (same syntax, returns str)
+s = "Hello, World!"
+s[0:5]      # 'Hello'
+s[-6:]      # 'World!'
+s[::-1]     # '!dlroW ,olleH'
+s[::2]      # 'Hlo ol!'
+
+# Tuples (same syntax, returns tuple)
+t = (1, 2, 3, 4, 5)
+t[1:4]      # (2, 3, 4)
+t[::-1]     # (5, 4, 3, 2, 1)
+
+# Slicing is a copy
+a = [1, 2, 3, 4, 5]
+b = a[1:4]   # [2, 3, 4]
+b[0] = 99
+print(a)     # [1, 2, 3, 4, 5]  — unchanged
+print(b)     # [99, 3, 4]
+
+# Slice assignment (mutates)
+a = [1, 2, 3, 4, 5]
+a[1:4] = [10, 20, 30]
+print(a)     # [1, 10, 20, 30, 5]
+
+# Slice deletion
+a = [1, 2, 3, 4, 5]
+del a[1:3]
+print(a)     # [1, 4, 5]
+
+# Slice insertion (assign a longer slice)
+a = [1, 2, 3]
+a[1:1] = [10, 20]   # insert before index 1
+print(a)     # [1, 10, 20, 2, 3]
+
+# Slice replacement (assign a shorter slice)
+a = [1, 2, 3, 4, 5]
+a[1:4] = ['X']      # replace 3 elements with 1
+print(a)     # [1, 'X', 5]</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The slice object:
+
+  a[1:4] is equivalent to a[slice(1, 4)]
+  a[::2] is equivalent to a[slice(None, None, 2)]
+  a[::-1] is equivalent to a[slice(None, None, -1)]
+
+  slice(start, stop, step) is a built-in class.
+  It's immutable and hashable.
+  
+  You can create slices and reuse them:
+    first_three = slice(0, 3)
+    a[first_three]  # same as a[0:3]
+    b[first_three]  # same on a different sequence
+
+  Rarely needed, but useful for parameterized code.
+
+Common slice patterns by use case:
+
+  Copy a list:
+    b = a[:]  or  b = a.copy()  or  b = list(a)
+
+  Last n items:
+    a[-n:]
+
+  All but last n:
+    a[:-n]
+
+  First n:
+    a[:n]
+
+  All but first n:
+    a[n:]
+
+  Every other:
+    a[::2]
+
+  Reverse:
+    a[::-1]
+
+  Strip first and last:
+    a[1:-1]
+
+  Every nth starting at k:
+    a[k::n]
+
+  Delete a range:
+    del a[1:4]
+
+  Replace a range:
+    a[1:4] = [new_items]
+
+  Insert before index k:
+    a[k:k] = [new_items]
+
+  Extract sub-sequences:
+    a[i:j]  for arbitrary i, j
+
+Strings — the same syntax, returns str:
+
+  s[0:5]        # first 5 chars
+  s[-5:]        # last 5 chars
+  s[::2]        # every other char
+  s[::-1]       # reversed string
+
+  String slicing is extremely common:
+    s[:3] == 'abc' if s starts with 'abc'  # prefix check
+    s[-4:] == '.txt'                       # extension check
+    s[1:-1]                                # strip quotes
+
+Tuples — same syntax, returns tuple:
+
+  t[1:4]  # sub-tuple
+  t[::-1] # reversed tuple
+
+  Tuples are immutable, so slice assignment
+  doesn't apply (t[1:4] = [...] raises TypeError).
+
+Byte arrays — same syntax, returns bytearray:
+
+  b = bytearray(b'hello')
+  b[1:4]  # bytearray(b'ell')
+
+  Slice assignment works on bytearray (mutable).
+
+memoryview — slicing doesn't copy:
+
+  mv = memoryview(data)
+  mv[1:4]  # a memoryview, not a copy
+
+  For binary protocols, memoryview avoids copies.
+  Slicing a memoryview is O(1) — it shares the
+  underlying buffer.
+
+The copy vs view distinction:
+
+  ✅ Slicing a list → new list (copy)
+  ✅ Slicing a tuple → new tuple (copy)
+  ✅ Slicing a str → same string (immutable, no copy)
+  ✅ Slicing a bytearray → new bytearray (copy)
+  ✅ Slicing a memoryview → new memoryview (view)
+
+  The rule: slicing mutable sequences creates
+  a copy; slicing immutable sequences returns
+  the same object (or a new one, but no
+  meaningful copy).
+
+⚠️ Slice assignment changes length:
+
+  a = [1, 2, 3, 4, 5]
+  a[1:3] = [10]        # replace 2 with 1
+  # [1, 10, 4, 5]
+
+  a[1:3] = [10, 20, 30]  # replace 2 with 3
+  # [1, 10, 20, 30, 4, 5]
+
+  a[1:1] = [99]          # insert (replace 0 with 1)
+  # [1, 99, 2, 3, 4, 5]
+
+  a[1:4] = []            # delete range
+  # [1, 4, 5]
+
+  This is unique to slice assignment.
+  Single-element assignment (a[1] = x) doesn't
+  change length — it replaces one element.
+
+  The length of the assignment can differ from
+  the length of the slice being replaced.
+  The list adjusts. This is powerful but
+  surprising the first time.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The off-by-one patterns</h2>
+<p class="section-sub">What the boundaries model fixes.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">off-by-one.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"># The classic: "last n elements"
+a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# ❌ Wrong (if you think stop is inclusive)
+a[7:10]   # [7, 8, 9]  — actually works, but confusing
+a[7:9]    # [7, 8]     — misses 9
+
+# ✅ Right
+a[-3:]    # [7, 8, 9]
+a[7:]     # [7, 8, 9]
+
+# The rule: a[-n:] gives the last n
+# It works because -n is the boundary n from the end.
+
+# "all but first and last"
+a[1:-1]   # [1, 2, 3, 4, 5, 6, 7, 8]
+
+# "chunks of 3"
+for i in range(0, len(a), 3):
+    chunk = a[i:i+3]
+    print(chunk)
+# [0, 1, 2]
+# [3, 4, 5]
+# [6, 7, 8]
+# [9]
+# No off-by-one — the slice handles it.
+
+# "split in half"
+mid = len(a) // 2
+first_half = a[:mid]
+second_half = a[mid:]
+print(first_half)   # [0, 1, 2, 3, 4]
+print(second_half)  # [5, 6, 7, 8, 9]
+
+# "pair consecutive"
+pairs = list(zip(a[::2], a[1::2]))
+print(pairs)
+# [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)]
+# a[::2] is the evens, a[1::2] is the odds.
+# zip pairs them. No off-by-one.
+
+# "trim N from both ends"
+n = 2
+trimmed = a[n:-n]
+print(trimmed)   # [2, 3, 4, 5, 6, 7]
+
+# "the middle five"
+start = (len(a) - 5) // 2
+middle = a[start:start + 5]
+print(middle)    # [2, 3, 4, 5, 6]
+
+# "every third from index 1"
+a[1::3]   # [1, 4, 7]
+
+# "is it a palindrome?"
+s = 'racecar'
+is_palindrome = s == s[::-1]  # True</pre>
+<script type="text/plain" id="raw-code-sol3"># The classic: "last n elements"
+a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+# Wrong (if you think stop is inclusive)
+a[7:10]   # [7, 8, 9]  — actually works, but confusing
+a[7:9]    # [7, 8]     — misses 9
+
+# Right
+a[-3:]    # [7, 8, 9]
+a[7:]     # [7, 8, 9]
+
+# The rule: a[-n:] gives the last n
+# It works because -n is the boundary n from the end.
+
+# "all but first and last"
+a[1:-1]   # [1, 2, 3, 4, 5, 6, 7, 8]
+
+# "chunks of 3"
+for i in range(0, len(a), 3):
+    chunk = a[i:i+3]
+    print(chunk)
+# [0, 1, 2]
+# [3, 4, 5]
+# [6, 7, 8]
+# [9]
+# No off-by-one — the slice handles it.
+
+# "split in half"
+mid = len(a) // 2
+first_half = a[:mid]
+second_half = a[mid:]
+print(first_half)   # [0, 1, 2, 3, 4]
+print(second_half)  # [5, 6, 7, 8, 9]
+
+# "pair consecutive"
+pairs = list(zip(a[::2], a[1::2]))
+print(pairs)
+# [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)]
+# a[::2] is the evens, a[1::2] is the odds.
+# zip pairs them. No off-by-one.
+
+# "trim N from both ends"
+n = 2
+trimmed = a[n:-n]
+print(trimmed)   # [2, 3, 4, 5, 6, 7]
+
+# "the middle five"
+start = (len(a) - 5) // 2
+middle = a[start:start + 5]
+print(middle)    # [2, 3, 4, 5, 6]
+
+# "every third from index 1"
+a[1::3]   # [1, 4, 7]
+
+# "is it a palindrome?"
+s = 'racecar'
+is_palindrome = s == s[::-1]  # True</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The off-by-one fix — three rules:
+
+1. For "first n":
+     a[:n]
+   
+   The boundary n is after the nth element.
+   If n == len(a), a[:len(a)] is the whole
+   list. No error, no special case.
+
+2. For "last n":
+     a[-n:]
+   
+   The boundary -n is n from the end.
+   Works for any n <= len(a).
+   a[-len(a):] is the whole list.
+
+3. For "between n and m":
+     a[n:m]
+   
+   From boundary n to boundary m.
+   Number of elements: m - n.
+   
+   a[2:5] → 5 - 2 = 3 elements (indices 2, 3, 4)
+   a[0:len(a)] → len(a) elements (whole list)
+   a[2:2] → 0 elements (empty slice)
+
+The mental model in one sentence:
+
+  A slice selects elements between two boundaries.
+  Boundaries are between elements, so boundary i
+  is the position before element i and after
+  element i-1.
+
+The "number of elements" formula:
+
+  elements in a[i:j] = j - i (for i <= j)
+
+  elements in a[i:j:k] = ceil((j - i) / k)
+                        (for k > 0)
+
+  This is what makes slices predictable.
+  You can calculate the length without
+  constructing the slice.
+
+Common mistakes and fixes:
+
+❌ "I want the last 3" → a[len(a)-3:len(a)]
+✅ a[-3:]
+
+❌ "I want the first 5" → a[0:5]  (correct)
+   But confusing if you think 5 is inclusive.
+✅ a[:5]
+
+❌ "I want elements 2 through 5 inclusive"
+   → a[2:6]  (add 1 to the stop)
+✅ a[2:6]  — 6 is the boundary after element 5.
+   Or use a[2:5+1] to make the intent clear.
+
+❌ "I want to iterate from the end"
+   → for i in range(len(a)-1, -1, -1): a[i]
+✅ for x in reversed(a):
+   or for x in a[::-1]:
+   or for x in a[::-1]  (slice creates a copy)
+   
+   For iteration only, reversed(a) is efficient
+   (returns an iterator, no copy).
+
+❌ "I want every second element"
+   → a[0], a[2], a[4], ...
+✅ a[::2]
+
+❌ "I want the second half"
+   → a[len(a)//2:len(a)]
+✅ a[len(a)//2:]
+
+Slices and strings:
+
+  s = "hello world"
+  s[:5]         # 'hello'
+  s[-5:]        # 'world'
+  s[::2]        # 'hlowrd'
+  s[::-1]       # 'dlrow olleh'
+  
+  String slicing is the same model.
+  Boundaries work the same.
+  Common uses:
+    if s.startswith('hello'):  # or s[:5] == 'hello'
+    if s.endswith('.txt'):     # or s[-4:] == '.txt'
+    s[1:-1]                    # strip quotes
+    s[::-1]                    # reverse (palindrome check)
+
+The chain of boundaries:
+
+  a = [10, 20, 30, 40, 50]
+  #    0   1   2   3   4     element index
+  #   -5  -4  -3  -2  -1     negative index
+  # |    |    |    |    |    |
+  # 0    1    2    3    4    5   boundary index
+  # |    |    |    |    |    |
+  # [10 ][20 ][30 ][40 ][50]
+
+  Boundary 0: before element 0
+  Boundary 1: after element 0, before element 1
+  ...
+  Boundary 5: after element 4 (end of list)
+  
+  Negative boundaries:
+    -1 = 5 (end)
+    -2 = 4 (before last element)
+    -3 = 3
+    ...
+    -5 = 0 (start)
+    -6 = -1 (before start, invalid for slicing)
+  
+  a[i:j] takes elements between boundary i
+  and boundary j.
+  
+  This is the whole model.
+  Once you internalize it, slices become
+  intuitive.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't confuse slicing with indexing.</strong> <code>a[2]</code> returns the element at index 2. <code>a[2:3]</code> returns a list containing that element. <code>a[2:3]</code> is <code>[element]</code>, not <code>element</code>. This matters for two reasons. (1) Type: <code>a[2]</code> is whatever type the element is; <code>a[2:3]</code> is always a list. (2) Error behavior: <code>a[10]</code> raises IndexError if the list has fewer than 11 elements; <code>a[10:11]</code> returns <code>[]</code> (no error). Knowing which to use is important — for a single element, use <code>a[i]</code>; for a sub-sequence, use <code>a[i:j]</code>. The common bug: <code>result = a[i:i+1]</code> when you wanted <code>result = a[i]</code>. The slice returns a list of one; the index returns the element.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The slicing mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>a[i:j]</code> thinking stop is inclusive</div>
+<p>Gives <code>j - i</code> elements. Fix: add 1 to stop for inclusive.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. <code>a[i:i+1]</code> when you want <code>a[i]</code></div>
+<p>Returns a list, not an element. Fix: <code>a[i]</code> for one element.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. <code>a[:]</code> expecting a deep copy</div>
+<p>It's shallow. Fix: <code>copy.deepcopy(a)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Slice assignment thinking it replaces</div>
+<p>It can change length. Fix: <code>a[i:j] = list</code> resizes.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Negative step without matching start/stop</div>
+<p><code>a[1:5:-1]</code> is empty. Fix: <code>a[5:1:-1]</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Slicing a dict</div>
+<p>TypeError — dicts aren't sequences. Fix: <code>list(d)[i:j]</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Using <code>a[::-1]</code> for iteration</div>
+<p>Creates a copy. Fix: <code>reversed(a)</code> for iteration.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Slicing a generator</div>
+<p>TypeError — no __getitem__. Fix: <code>list(gen)[i:j]</code> or <code>itertools.islice</code>.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How does Python slicing work?</summary>
+<p class="mt-2 text-sm text-slate-300">The syntax is a[start:stop:step]. It returns a new sequence from index start (inclusive) to stop (exclusive), with the given step. Example: [0, 1, 2, 3, 4][1:4] gives [1, 2, 3] — starts at index 1, stops before index 4. The key insight: indices point between elements, not at them.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does a[:] do?</summary>
+<p class="mt-2 text-sm text-slate-300">a[:] returns a shallow copy of the entire sequence. It's equivalent to a[0:len(a)]. It's a common idiom for copying a list: b = a[:] creates a new list with the same items. For strings and tuples (immutable), a[:] returns the same object (no copy is needed).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What do negative indices mean in slices?</summary>
+<p class="mt-2 text-sm text-slate-300">Negative indices count from the end. a[-1] is the last element, a[-2] is the second-to-last. In slices, a[-3:] gives the last three elements, a[:-3] gives everything except the last three. The two can be combined: a[-3:-1] gives elements from third-to-last up to (not including) last — two elements.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does the step parameter do?</summary>
+<p class="mt-2 text-sm text-slate-300">The third value in a[start:stop:step] is the step — how many indices to advance per element. Default is 1. a[::2] takes every other element. a[::3] takes every third. a[::-1] reverses the sequence. The step can be negative, which iterates backwards.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does slicing modify the original list?</summary>
+<p class="mt-2 text-sm text-slate-300">No — slicing returns a new sequence. a[1:3] returns a new list with the elements from index 1 to 2; the original a is unchanged. To modify the original, use slice assignment: a[1:3] = [10, 20] replaces the elements at indices 1 and 2 with the new values.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is a[1:4] three elements, not four?</summary>
+<p class="mt-2 text-sm text-slate-300">Because the stop index is exclusive — it points to the boundary AFTER the last element you want. a[1:4] selects elements at positions 1, 2, 3 — three elements. The 4 is the boundary after position 3. This makes slices composable: a[0:3] + a[3:6] == a[0:6].</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from install to first project — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/python/problems/flatten-list.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📚 How to flatten a list of lists</div>
+<div class="text-xs text-slate-400 mt-1"><code>itertools.chain.from_iterable</code> and the three methods that actually win</div>
+</a>
+</section>
+
+<a href="/courses/python/problems/index.html" class="back-link">← All Python problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · Python <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
