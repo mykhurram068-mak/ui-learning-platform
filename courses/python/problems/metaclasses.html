@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Metaclasses in Python — What They Are and When to Use Them (2026)</title>
+<meta name="description" content="Metaclasses in Python explained: what they are, how they work, the real use cases, and why you probably don't need them. Direct answer with working examples.">
+<meta name="keywords" content="python metaclass, python metaclasses explained, python __metaclass__, type class python, python class of class">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Metaclasses in Python — What They Are and When to Use Them">
+<meta property="og:description" content="What they are, how they work, and why you probably don't need them.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/problems/metaclasses.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Metaclasses in Python">
+<meta name="twitter:description" content="What they are, and when to use them.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/problems/metaclasses.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Metaclasses in Python — What They Are and When to Use Them",
+"description": "Metaclasses explained: what they are, how they work, and why you probably don't need them.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Advanced",
+"dependencies": "Python 3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is a metaclass in Python?","acceptedAnswer":{"@type":"Answer","text":"A metaclass is the class of a class — the template that defines how a class behaves. Every class in Python is an instance of a metaclass. The default metaclass is type. When you write class Foo: pass, Python calls type('Foo', (), {...}) to create the class object. A custom metaclass lets you hook into class creation: you can modify attributes, add methods, register the class, or reject it based on rules. The classic quote: 'metaclasses are deeper magic than 99% of users should ever worry about. If you wonder whether you need them, you don't.' — Tim Peters, Python core developer."}},
+{"@type":"Question","name":"What is the difference between a class and a metaclass?","acceptedAnswer":{"@type":"Answer","text":"A class is a template for instances. A metaclass is a template for classes. class Foo: defines a class (instance of type). class Meta(type): defines a metaclass (subclass of type). When you say class Bar(metaclass=Meta): you're telling Python to use Meta to construct Bar, rather than type. The metaclass's __new__ or __init__ runs when Bar is defined — not when Bar() is called. So a metaclass can inspect or modify Bar at definition time, before any instance exists. It's a way to programmatically control what a class is."}},
+{"@type":"Question","name":"When should I use a metaclass?","acceptedAnswer":{"@type":"Answer","text":"Almost never. The valid cases are: (1) frameworks that need to register classes automatically (Django models, SQLAlchemy tables — each class registers itself in a global registry). (2) Enforcing invariants across many classes (every class must have a specific attribute or method). (3) Building a declarative API where class body syntax is the input to a DSL (ORM models, form definitions). (4) Replacing the class itself with an object that behaves differently (e.g., a logging wrapper). If you're not building a framework, you almost certainly don't need a metaclass. Use __init_subclass__, class decorators, or descriptors instead — they're simpler and cover most of the same cases."}},
+{"@type":"Question","name":"What is __init_subclass__ and how does it compare?","acceptedAnswer":{"@type":"Answer","text":"__init_subclass__ is a classmethod that runs when a subclass is defined. It's the modern, simpler alternative to metaclasses for many cases. Example: class Base: def __init_subclass__(cls, **kwargs): super().__init_subclass__(**kwargs); print(f'Subclass {cls.__name__} defined'). Every subclass of Base prints its name when defined. It covers the 'do something when a class is defined' case — which is 90% of what people use metaclasses for. Combined with __set_name__ on descriptors and class decorators, it eliminates the need for a metaclass in almost every scenario. If you're reaching for a metaclass, try __init_subclass__ first."}},
+{"@type":"Question","name":"What is the difference between type and a metaclass?","acceptedAnswer":{"@type":"Answer","text":"type is the default metaclass — every class that doesn't specify otherwise is an instance of type. A custom metaclass is a subclass of type. When you write class Meta(type): ..., Meta is a metaclass. When you write class Foo(metaclass=Meta): ..., Foo is an instance of Meta. In most cases, you don't need a custom metaclass — the default type handles class creation. You need a custom metaclass only when you want to change how class creation works: modify attributes, register classes, enforce rules. If you're just adding behavior to instances, use __init__ or __new__. If you're adding behavior to subclasses, use __init_subclass__. Only reach for metaclass= when those don't fit."}},
+{"@type":"Question","name":"Are metaclasses used in Django and SQLAlchemy?","acceptedAnswer":{"@type":"Answer","text":"Yes — both use metaclasses extensively. Django's ModelBase is a metaclass that runs when a model class is defined: it collects fields, sets up the manager, registers the model in apps. SQLAlchemy's DeclarativeMeta does similar work: it processes columns, sets up relationships, creates the Table object. This is the legitimate metaclass use case: a framework that takes class-body declarations and turns them into runtime configuration. The class body is essentially a DSL — the metaclass interprets it. Most users of these frameworks never write a metaclass themselves, but they benefit from one existing in the framework. This is why the 'you probably don't need metaclasses' advice is correct: the frameworks that need them already have them."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-python.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Python · metaclasses</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#7ee8fc;">Python</a> ›
+<a href="/courses/python/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Metaclasses</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Advanced · 4 min read</div>
+<h1>Metaclasses.<br><span class="py-accent">The class of a class.</span></h1>
+<p class="lead">
+A metaclass is the class of a class — the template that defines how a class behaves. Every class in Python is an instance of <code>type</code>. A custom metaclass lets you hook into class creation: modify attributes, add methods, register the class, or reject it based on rules. It's powerful. It's also almost never needed. This page covers what metaclasses are, the cases where they're the right tool, and why the standard advice is "if you wonder whether you need them, you don't."
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Every class is an instance of a metaclass. The default is <code>type</code>. You write <code>class Meta(type)</code> to define a custom one, then <code>class Foo(metaclass=Meta)</code> to use it. The metaclass runs when <code>Foo</code> is defined — not when <code>Foo()</code> is called. This is why frameworks like Django and SQLAlchemy use metaclasses: they process the class body into runtime config. For 99% of code, you don't need a metaclass. Use <code>__init_subclass__</code>, class decorators, or descriptors instead.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ What a metaclass is</h2>
+<p class="section-sub">Every class is an instance of something.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">basics.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"># Everything is an object. Even classes.
+class Foo:
+    pass
+
+# type(Foo) is the class of Foo
+print(type(Foo))   # <class 'type'>
+print(type(Foo) is type)  # True
+
+# The default metaclass is type.
+# When you write class Foo: ..., Python
+# calls type('Foo', (), {}) under the hood.
+Foo2 = type('Foo2', (), {})
+print(Foo2)  # <class '__main__.Foo2'>
+# Foo2 is equivalent to a class definition.
+
+# A custom metaclass subclasses type
+class Meta(type):
+    def __new__(mcs, name, bases, namespace):
+        print(f'Creating class: {name}')
+        return super().__new__(mcs, name, bases, namespace)
+
+# Using the metaclass
+class Foo(metaclass=Meta):
+    x = 10
+# Prints: Creating class: Foo
+
+# The metaclass ran when the class was DEFINED,
+# not when an instance was created.
+# No instance created yet.
+
+# An instance is still normal
+f = Foo()
+print(f.x)  # 10
+print(type(f))   # <class '__main__.Foo'>
+print(type(Foo)) # <class '__main__.Meta'>
+
+# The chain:
+#   f     → instance of Foo
+#   Foo   → instance of Meta
+#   Meta  → instance of type
+#   type  → instance of type (itself)
+
+print(isinstance(f, Foo))    # True
+print(isinstance(Foo, Meta)) # True
+print(isinstance(Meta, type)) # True</pre>
+<script type="text/plain" id="raw-code-sol1"># Everything is an object. Even classes.
+class Foo:
+    pass
+
+# type(Foo) is the class of Foo
+print(type(Foo))   # <class 'type'>
+print(type(Foo) is type)  # True
+
+# The default metaclass is type.
+# When you write class Foo: ..., Python
+# calls type('Foo', (), {}) under the hood.
+Foo2 = type('Foo2', (), {})
+print(Foo2)  # <class '__main__.Foo2'>
+# Foo2 is equivalent to a class definition.
+
+# A custom metaclass subclasses type
+class Meta(type):
+    def __new__(mcs, name, bases, namespace):
+        print(f'Creating class: {name}')
+        return super().__new__(mcs, name, bases, namespace)
+
+# Using the metaclass
+class Foo(metaclass=Meta):
+    x = 10
+# Prints: Creating class: Foo
+
+# The metaclass ran when the class was DEFINED,
+# not when an instance was created.
+# No instance created yet.
+
+# An instance is still normal
+f = Foo()
+print(f.x)  # 10
+print(type(f))   # <class '__main__.Foo'>
+print(type(Foo)) # <class '__main__.Meta'>
+
+# The chain:
+#   f     -> instance of Foo
+#   Foo   -> instance of Meta
+#   Meta  -> instance of type
+#   type  -> instance of type (itself)
+
+print(isinstance(f, Foo))    # True
+print(isinstance(Foo, Meta)) # True
+print(isinstance(Meta, type)) # True</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The class-instance chain:
+
+  Instance  →  Class     →  Metaclass  →  type
+  ─────────    ─────────    ──────────    ────
+  f            Foo          Meta          type
+  "a string"   str          type          type
+  42           int          type          type
+  [1, 2, 3]    list         type          type
+  {}           dict         type          type
+
+  Every instance has a type.
+  Every type has a type (the metaclass).
+  Every metaclass has a type (usually type).
+
+  type is self-referential — type(type) is type.
+
+What a metaclass controls:
+
+  When class Foo(metaclass=Meta) is defined:
+    1. Python computes the class body (the namespace).
+    2. Meta.__new__(Meta, 'Foo', bases, namespace) is called.
+    3. It returns the class object (which is Foo).
+    4. Meta.__init__(Foo, 'Foo', bases, namespace) is called.
+    5. Foo is bound in the enclosing scope.
+
+  Your metaclass can:
+    - Inspect and modify the namespace (add attrs, remove attrs)
+    - Validate (raise if a required attribute is missing)
+    - Register the class in a global list
+    - Replace the class with something else
+    - Set up descriptors, properties, or methods
+    - Do anything else you'd do with the class object
+
+  All of this happens once, at class definition time.
+  The metaclass doesn't affect instance creation,
+  attribute access, or method dispatch — unless
+  it adds behavior to the class it creates.
+
+The two metaclass methods:
+
+  __new__(mcs, name, bases, namespace):
+    → Called first
+    → Returns the class object
+    → Use for modifying the class before it exists
+    → Most common to override
+
+  __init__(cls, name, bases, namespace):
+    → Called after __new__
+    → Returns None
+    → Use for side effects (registration, validation)
+    → cls is the class object
+
+  The relationship:
+    cls = Meta.__new__(Meta, 'Foo', bases, ns)
+    Meta.__init__(cls, 'Foo', bases, ns)
+
+  This mirrors __new__ and __init__ on regular classes.
+  Same structure, different layer.
+
+Why the default metaclass is type:
+
+  type is special because it's both:
+    - A class (type(x) gives the type of x)
+    - A callable (type('Foo', (), {}) creates a class)
+
+  So type is the factory for classes. Every class
+  you define is created by type, unless you say
+  otherwise with metaclass=.
+
+  You can subclass type to override parts of that
+  factory. That's what a metaclass is.
+
+When the metaclass runs:
+
+  At class definition time. Not at instance
+  creation, not at import (well — import triggers
+  definition, so it runs at import).
+  
+  If the class is inside a function, the metaclass
+  runs when the function is called (which defines
+  the class).
+  
+  If the class is at module level, the metaclass
+  runs at module import.
+  
+  The metaclass is a one-shot transformation:
+  it shapes the class once, then the class behaves
+  normally for the rest of its life.
+
+The common misconception:
+
+  "A metaclass is a class that creates classes."
+  
+  Not quite. A metaclass IS a class. It's the class
+  OF a class. It creates the class object in the
+  same way a class creates instances.
+  
+  type creates classes. Meta subclasses type.
+  Meta is used to create Foo. So Foo is an
+  instance of Meta, not an instance of type.
+  
+  But Meta is an instance of type. Always.
+  You never subclass past type.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The valid use cases</h2>
+<p class="section-sub">The rare cases where metaclasses are correct.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">use-cases.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"># Use case 1: Automatic registration
+class Registry(type):
+    _classes = {}
+    def __new__(mcs, name, bases, namespace):
+        cls = super().__new__(mcs, name, bases, namespace)
+        if name != 'Base':
+            Registry._classes[name] = cls
+        return cls
+
+class Base(metaclass=Registry):
+    pass
+
+class User(Base):
+    pass
+
+class Order(Base):
+    pass
+
+print(Registry._classes)
+# {'User': <class 'User'>, 'Order': <class 'Order'>}
+# All subclasses are automatically registered.
+
+# Use case 2: Enforcing invariants
+class RequireMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        if name != 'Base' and 'required_method' not in namespace:
+            raise TypeError(f'{name} must define required_method')
+        return super().__new__(mcs, name, bases, namespace)
+
+class Base(metaclass=RequireMeta):
+    pass
+
+class Good(Base):
+    def required_method(self):
+        return 'ok'
+
+try:
+    class Bad(Base):
+        pass
+except TypeError as e:
+    print(e)  # Bad must define required_method
+
+# Use case 3: Framework DSL (simplified Django-style)
+class ModelMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        fields = {
+            k: v for k, v in namespace.items()
+            if isinstance(v, Field)
+        }
+        cls = super().__new__(mcs, name, bases, namespace)
+        cls._fields = fields
+        return cls
+
+class Field:
+    def __init__(self, name):
+        self.name = name
+
+class Model(metaclass=ModelMeta):
+    pass
+
+class User(Model):
+    id = Field('id')
+    name = Field('name')
+    email = Field('email')
+
+print(User._fields)
+# {'id': <Field>, 'name': <Field>, 'email': <Field>}
+# The metaclass collected the Field declarations.
+
+# Use case 4: Replace the class with a wrapper
+class LoggingMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        cls = super().__new__(mcs, name, bases, namespace)
+        # Wrap every method to log calls
+        for attr_name, attr in namespace.items():
+            if callable(attr) and not attr_name.startswith('_'):
+                setattr(cls, attr_name, mcs._wrap(attr, attr_name))
+        return cls
+    
+    @staticmethod
+    def _wrap(func, name):
+        def wrapper(*args, **kwargs):
+            print(f'Calling {name}')
+            return func(*args, **kwargs)
+        return wrapper
+
+class Service(metaclass=LoggingMeta):
+    def process(self, x):
+        return x * 2
+
+s = Service()
+print(s.process(5))
+# Calling process
+# 10</pre>
+<script type="text/plain" id="raw-code-sol2"># Use case 1: Automatic registration
+class Registry(type):
+    _classes = {}
+    def __new__(mcs, name, bases, namespace):
+        cls = super().__new__(mcs, name, bases, namespace)
+        if name != 'Base':
+            Registry._classes[name] = cls
+        return cls
+
+class Base(metaclass=Registry):
+    pass
+
+class User(Base):
+    pass
+
+class Order(Base):
+    pass
+
+print(Registry._classes)
+# {'User': <class 'User'>, 'Order': <class 'Order'>}
+# All subclasses are automatically registered.
+
+# Use case 2: Enforcing invariants
+class RequireMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        if name != 'Base' and 'required_method' not in namespace:
+            raise TypeError(f'{name} must define required_method')
+        return super().__new__(mcs, name, bases, namespace)
+
+class Base(metaclass=RequireMeta):
+    pass
+
+class Good(Base):
+    def required_method(self):
+        return 'ok'
+
+try:
+    class Bad(Base):
+        pass
+except TypeError as e:
+    print(e)  # Bad must define required_method
+
+# Use case 3: Framework DSL (simplified Django-style)
+class ModelMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        fields = {
+            k: v for k, v in namespace.items()
+            if isinstance(v, Field)
+        }
+        cls = super().__new__(mcs, name, bases, namespace)
+        cls._fields = fields
+        return cls
+
+class Field:
+    def __init__(self, name):
+        self.name = name
+
+class Model(metaclass=ModelMeta):
+    pass
+
+class User(Model):
+    id = Field('id')
+    name = Field('name')
+    email = Field('email')
+
+print(User._fields)
+# {'id': <Field>, 'name': <Field>, 'email': <Field>}
+# The metaclass collected the Field declarations.
+
+# Use case 4: Replace the class with a wrapper
+class LoggingMeta(type):
+    def __new__(mcs, name, bases, namespace):
+        cls = super().__new__(mcs, name, bases, namespace)
+        # Wrap every method to log calls
+        for attr_name, attr in namespace.items():
+            if callable(attr) and not attr_name.startswith('_'):
+                setattr(cls, attr_name, mcs._wrap(attr, attr_name))
+        return cls
+    
+    @staticmethod
+    def _wrap(func, name):
+        def wrapper(*args, **kwargs):
+            print(f'Calling {name}')
+            return func(*args, **kwargs)
+        return wrapper
+
+class Service(metaclass=LoggingMeta):
+    def process(self, x):
+        return x * 2
+
+s = Service()
+print(s.process(5))
+# Calling process
+# 10</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The four patterns:
+
+1. Registration
+   → The metaclass collects classes in a dict.
+   → Used by Django (models), SQLAlchemy (tables),
+     pytest (test discovery).
+   → Every subclass registers itself automatically.
+   → The framework uses the registry to look up
+     classes by name.
+   
+   Why not __init_subclass__?
+     __init_subclass__ works for the same case
+     and is simpler. The metaclass is used in
+     frameworks because it predates __init_subclass__
+     (which was added in Python 3.6) and because
+     they need fine-grained control during creation.
+
+2. Invariants / validation
+   → The metaclass raises if a required attribute
+     or method is missing.
+   → Used for base class contracts.
+   → Errors surface at class definition time,
+     not at instance creation — earlier is better.
+   
+   Why not __init_subclass__?
+     __init_subclass__ works here too. Use it
+     unless you need to modify the class during
+     creation (not after).
+
+3. DSL / declarative API
+   → The class body is treated as data.
+   → Fields, columns, validators are collected.
+   → Used by Django models, SQLAlchemy tables,
+     attrs, dataclasses (which uses __init_subclass__
+     internally now, but started with metaclasses).
+   
+   Why not __init_subclass__?
+     Same as above — works for most cases.
+     The metaclass is used when the class body
+     needs to be transformed before the class
+     object exists, not after.
+
+4. Method wrapping
+   → The metaclass wraps every method with
+     logging, caching, or timing.
+   → Used for AOP-style frameworks, RPC stubs,
+     API clients.
+   
+   Why not __init_subclass__?
+     Could work, but wrapping methods at
+     definition time is cleaner in a metaclass.
+     __init_subclass__ runs after the class
+     exists, so you'd need to modify it post-hoc.
+
+The common thread:
+
+  A metaclass is used when you need to modify
+  a class DURING creation — before the class
+  object exists, or as part of the creation
+  process itself.
+
+  For "do something after a class is defined,"
+  __init_subclass__ is usually the right tool.
+
+  For "do something to the class after it
+  exists," a class decorator is usually right.
+
+  For "do something to attribute access,"
+  a descriptor is usually right.
+
+  Only reach for metaclass= when none of those
+  cover your case.
+
+Frameworks that use metaclasses:
+
+  → Django: ModelBase
+  → SQLAlchemy: DeclarativeMeta
+  → Pydantic: ModelMetaclass (v1); v2 uses
+    a Rust extension for performance
+  → attrs: uses __init_subclass__ now
+  → dataclasses: uses __init_subclass__ now
+
+  Notice the trend: modern frameworks prefer
+  __init_subclass__ + decorators over metaclasses.
+  The frameworks that still use metaclasses are
+  older, or need the extra control.
+
+  If you're building a framework, ask:
+    → Do I need to modify the class during creation?  → metaclass
+    → Do I need to run code after creation?           → __init_subclass__
+    → Do I need to transform instances?               → __init__ / __new__
+
+  Most frameworks can be built with __init_subclass__
+  + decorators + descriptors. Metaclasses are
+  a last resort, not a first.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ What to use instead</h2>
+<p class="section-sub">The simpler alternatives.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">alternatives.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"># 1. __init_subclass__ — for "do something when a subclass is defined"
+class Base:
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        print(f'Subclass {cls.__name__} defined')
+        cls.registry = getattr(cls, 'registry', {})
+        cls.registry[cls.__name__] = cls
+
+class User(Base):
+    pass
+# Subclass User defined
+
+class Order(Base):
+    pass
+# Subclass Order defined
+
+print(User.registry)
+# {'User': <class 'User'>, 'Order': <class 'Order'>}
+
+# 2. Class decorator — for "modify the class after creation"
+def add_repr(cls):
+    def __repr__(self):
+        attrs = ', '.join(f'{k}={v!r}' for k, v in vars(self).items())
+        return f'{cls.__name__}({attrs})'
+    cls.__repr__ = __repr__
+    return cls
+
+@add_repr
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+print(Point(1, 2))  # Point(x=1, y=2)
+
+# 3. Descriptor — for "control attribute access"
+class Validated:
+    def __set_name__(self, owner, name):
+        self.name = name
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return obj.__dict__.get(self.name)
+    def __set__(self, obj, value):
+        if value < 0:
+            raise ValueError(f'{self.name} must be >= 0')
+        obj.__dict__[self.name] = value
+
+class Product:
+    price = Validated()
+    def __init__(self, price):
+        self.price = price
+
+p = Product(10)
+print(p.price)  # 10
+try:
+    Product(-5)
+except ValueError as e:
+    print(e)  # price must be >= 0
+
+# 4. Metaclass — the heavy hammer
+class Meta(type):
+    def __new__(mcs, name, bases, namespace):
+        print(f'Meta: creating {name}')
+        return super().__new__(mcs, name, bases, namespace)
+
+class Foo(metaclass=Meta):
+    pass
+# Meta: creating Foo
+
+# The four approaches compared:
+
+# __init_subclass__:
+#   → Simple, built-in
+#   → Runs when a subclass is defined
+#   → Can modify the subclass
+#   → Covers 90% of metaclass use cases
+#   → Use this first
+
+# Class decorator:
+#   → Simple, composable
+#   → Runs after the class exists
+#   → Can modify the class (add methods, wrap)
+#   → Covers 5% of the rest
+#   → Use when __init_subclass__ can't
+
+# Descriptor:
+#   → Controls per-instance attribute access
+#   → Used for properties, validators, lazy attributes
+#   → Different problem — doesn't replace metaclass
+#   → Use for attribute-level behavior
+
+# Metaclass:
+#   → Powerful, complex
+#   → Runs during class creation
+#   → Can replace the class entirely
+#   → Covers 5% of remaining cases
+#   → Use only when the simpler tools fail</pre>
+<script type="text/plain" id="raw-code-sol3"># 1. __init_subclass__ — for "do something when a subclass is defined"
+class Base:
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        print(f'Subclass {cls.__name__} defined')
+        cls.registry = getattr(cls, 'registry', {})
+        cls.registry[cls.__name__] = cls
+
+class User(Base):
+    pass
+# Subclass User defined
+
+class Order(Base):
+    pass
+# Subclass Order defined
+
+print(User.registry)
+# {'User': <class 'User'>, 'Order': <class 'Order'>}
+
+# 2. Class decorator — for "modify the class after creation"
+def add_repr(cls):
+    def __repr__(self):
+        attrs = ', '.join(f'{k}={v!r}' for k, v in vars(self).items())
+        return f'{cls.__name__}({attrs})'
+    cls.__repr__ = __repr__
+    return cls
+
+@add_repr
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+print(Point(1, 2))  # Point(x=1, y=2)
+
+# 3. Descriptor — for "control attribute access"
+class Validated:
+    def __set_name__(self, owner, name):
+        self.name = name
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            return self
+        return obj.__dict__.get(self.name)
+    def __set__(self, obj, value):
+        if value < 0:
+            raise ValueError(f'{self.name} must be >= 0')
+        obj.__dict__[self.name] = value
+
+class Product:
+    price = Validated()
+    def __init__(self, price):
+        self.price = price
+
+p = Product(10)
+print(p.price)  # 10
+try:
+    Product(-5)
+except ValueError as e:
+    print(e)  # price must be >= 0
+
+# 4. Metaclass — the heavy hammer
+class Meta(type):
+    def __new__(mcs, name, bases, namespace):
+        print(f'Meta: creating {name}')
+        return super().__new__(mcs, name, bases, namespace)
+
+class Foo(metaclass=Meta):
+    pass
+# Meta: creating Foo
+
+# The four approaches compared:
+
+# __init_subclass__:
+#   -> Simple, built-in
+#   -> Runs when a subclass is defined
+#   -> Can modify the subclass
+#   -> Covers 90% of metaclass use cases
+#   -> Use this first
+
+# Class decorator:
+#   -> Simple, composable
+#   -> Runs after the class exists
+#   -> Can modify the class (add methods, wrap)
+#   -> Covers 5% of the rest
+#   -> Use when __init_subclass__ can't
+
+# Descriptor:
+#   -> Controls per-instance attribute access
+#   -> Used for properties, validators, lazy attributes
+#   -> Different problem — doesn't replace metaclass
+#   -> Use for attribute-level behavior
+
+# Metaclass:
+#   -> Powerful, complex
+#   -> Runs during class creation
+#   -> Can replace the class entirely
+#   -> Covers 5% of remaining cases
+#   -> Use only when the simpler tools fail</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The decision tree:
+
+  I want to do something when a class is defined.
+    → __init_subclass__ (if you need to run code
+      on subclasses only) or __init__ (if it's
+      per-instance).
+  
+  I want to modify the class after it exists.
+    → Class decorator.
+  
+  I want to control attribute access.
+    → Descriptor (or @property).
+  
+  I want to validate a subclass at definition.
+    → __init_subclass__ with a check.
+  
+  I want to register subclasses automatically.
+    → __init_subclass__ with a registry dict.
+  
+  I want to change the class object into
+  something else (a wrapper, a proxy).
+    → Metaclass.
+  
+  I want to intercept class creation for
+  fine-grained control (Django models).
+    → Metaclass.
+  
+  None of the above?
+    → Metaclass, but only if you're sure.
+
+The Python philosophy:
+
+  "Metaclasses are deeper magic than 99% of
+  users should ever worry about. If you wonder
+  whether you need them, you don't (the people
+  who actually need them know with certainty
+  that they need them, and don't need an
+  explanation about why)."
+  
+  — Tim Peters, Python core developer
+  
+  This is the definitive answer. If you're
+  asking "should I use a metaclass?", the
+  answer is probably no. The people who genuinely
+  need them know, and they don't ask.
+
+The framework vs application rule:
+
+  Frameworks use metaclasses.
+    → Django, SQLAlchemy, Pydantic v1
+    → They need to run code during class
+      creation, before any instance exists
+    → They need to transform the class body
+      into runtime config
+    → They accept the complexity because it's
+      amortized across many users
+  
+  Applications don't.
+    → Your app has specific classes
+    → If you need behavior, write it explicitly
+    → __init_subclass__ + decorators + descriptors
+      cover almost everything
+    → The metaclass is more magic than you need
+
+  If you're building a framework:
+    → Consider a metaclass
+    → But __init_subclass__ might still work
+  
+  If you're building an application:
+    → Don't use a metaclass
+    → Use __init_subclass__ or decorators
+
+The refactor from metaclass to __init_subclass__:
+
+  If you're maintaining code that uses a metaclass
+  for something like registration or validation,
+  and it's not a framework, consider refactoring
+  to __init_subclass__.
+  
+  It's simpler, easier to debug, and just as
+  capable for most tasks.
+  
+  The metaclass may exist because the code was
+  written before Python 3.6 (which added
+  __init_subclass__). In modern code, prefer
+  the simpler tool.
+
+The one case where metaclass wins:
+
+  You need to modify the class BEFORE it exists
+  — during the __new__ call, before the class
+  object is created.
+  
+  __init_subclass__ runs AFTER the class exists.
+  Class decorators run AFTER.
+  Descriptors operate on instances, not the class.
+  
+  If you need to change the class during creation
+  (add/remove attributes before the type system
+  finalizes them, replace the class entirely,
+  wrap methods at the class level), a metaclass
+  is the only tool that runs at the right time.
+  
+  But this is rare. Most "modify the class" needs
+  can be done after creation just as well.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't reach for a metaclass when <code>__init_subclass__</code> will do.</strong> The two are functionally similar for the most common cases — registration, validation, and adding behavior to subclasses. <code>__init_subclass__</code> is simpler, easier to debug, and doesn't require re-reading the metaclass documentation every time. The rule: if your metaclass doesn't modify the class during creation (before the class object exists), you probably want <code>__init_subclass__</code>. Reach for the metaclass only when you need to intercept the creation process itself — modifying the namespace before the type is built, replacing the class with a wrapper, or hooking into framework-level class instantiation.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The metaclass mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Using a metaclass for registration</div>
+<p><code>__init_subclass__</code> does the same with less code. Fix: try <code>__init_subclass__</code> first.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Using a metaclass to add methods</div>
+<p>A class decorator does the same. Fix: use a decorator.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using a metaclass for validation</div>
+<p><code>__init_subclass__</code> or an <code>__init__</code> check works. Fix: use the simpler tool.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Forgetting <code>super().__new__</code></div>
+<p>The class won't be created. Fix: always call <code>super().__new__(mcs, name, bases, ns)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Confusing metaclass and inheritance</div>
+<p>A metaclass is not a base class. Fix: <code>class Foo(Base, metaclass=Meta)</code> — both are needed.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Multiple metaclasses conflict</div>
+<p>Can't combine <code>class Foo(metaclass=Meta1, metaclass=Meta2)</code>. Fix: one metaclass per class.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Metaclass for a framework edge case</div>
+<p>Over-engineering. Fix: use <code>__init_subclass__</code> unless the framework needs more.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not understanding MRO</div>
+<p>Metaclasses affect MRO. Fix: understand <code>type.__mro__</code> before writing a metaclass.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is a metaclass in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">A metaclass is the class of a class — the template that defines how a class behaves. Every class in Python is an instance of a metaclass. The default metaclass is type. A custom metaclass lets you hook into class creation: you can modify attributes, add methods, register the class, or reject it based on rules.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between a class and a metaclass?</summary>
+<p class="mt-2 text-sm text-slate-300">A class is a template for instances. A metaclass is a template for classes. class Foo: defines a class (instance of type). class Meta(type): defines a metaclass. When you say class Bar(metaclass=Meta): you're telling Python to use Meta to construct Bar, rather than type.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I use a metaclass?</summary>
+<p class="mt-2 text-sm text-slate-300">Almost never. The valid cases are: (1) frameworks that need to register classes automatically (Django models, SQLAlchemy tables). (2) Enforcing invariants across many classes. (3) Building a declarative API where class body syntax is the input to a DSL. If you're not building a framework, you almost certainly don't need a metaclass.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is __init_subclass__ and how does it compare?</summary>
+<p class="mt-2 text-sm text-slate-300">__init_subclass__ is a classmethod that runs when a subclass is defined. It's the modern, simpler alternative to metaclasses for many cases. Example: class Base: def __init_subclass__(cls): ... Every subclass of Base runs this method. It covers the 'do something when a class is defined' case — which is 90% of what people use metaclasses for.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between type and a metaclass?</summary>
+<p class="mt-2 text-sm text-slate-300">type is the default metaclass — every class that doesn't specify otherwise is an instance of type. A custom metaclass is a subclass of type. When you write class Foo(metaclass=Meta):, Foo is an instance of Meta. In most cases, you don't need a custom metaclass — the default type handles class creation.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Are metaclasses used in Django and SQLAlchemy?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes — both use metaclasses extensively. Django's ModelBase is a metaclass that runs when a model class is defined: it collects fields, sets up the manager, registers the model in apps. SQLAlchemy's DeclarativeMeta does similar work. This is the legitimate metaclass use case: a framework that takes class-body declarations and turns them into runtime configuration.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from install to first project — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">You've reached the end of the Python problems series. That's all 15 — from <code>yield</code> to metaclasses, covering the queries that matter most.</p>
+</section>
+
+<a href="/courses/python/problems/index.html" class="back-link">← All Python problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · Python <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
