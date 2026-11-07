@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How Does the JavaScript Event Loop Work? — Explained (2026)</title>
+<meta name="description" content="The JavaScript event loop explained: call stack, microtasks, macrotasks, and why setTimeout(0) doesn't run first. Direct answer with working examples.">
+<meta name="keywords" content="javascript event loop, event loop explained, microtask macrotask, settimeout 0, javascript async order, promise vs settimeout">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How Does the JavaScript Event Loop Work? — Explained">
+<meta property="og:description" content="Call stack, microtasks, macrotasks — and why setTimeout(0) doesn't run first.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/event-loop.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How Does the JavaScript Event Loop Work?">
+<meta name="twitter:description" content="Microtasks, macrotasks, and why setTimeout(0) runs last.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/event-loop.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How Does the JavaScript Event Loop Work? — Explained",
+"description": "Call stack, microtasks, macrotasks, and why setTimeout(0) doesn't run first.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Intermediate",
+"dependencies": "ES2015"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How does the JavaScript event loop work?","acceptedAnswer":{"@type":"Answer","text":"JavaScript is single-threaded — it runs one task at a time on the call stack. When an async operation completes (a timer, a promise, a network request), the callback goes into a queue. The event loop watches the call stack and the queue: when the stack is empty, it pulls the next item from the queue and pushes it onto the stack. There are two queues: the microtask queue (promises, queueMicrotask) and the macrotask queue (setTimeout, setInterval, I/O). The event loop drains the microtask queue completely before each macrotask. This is why Promise.then runs before setTimeout even when the timeout is 0."}},
+{"@type":"Question","name":"Why does setTimeout(0) not run first?","acceptedAnswer":{"@type":"Answer","text":"Because setTimeout(0) doesn't mean 'run now' — it means 'add to the macrotask queue, to run after the current task and all pending microtasks.' The current synchronous code runs first, then the microtask queue (promises), then the macrotask queue (setTimeout). So if you have console.log('a'); setTimeout(() => console.log('b'), 0); Promise.resolve().then(() => console.log('c')); console.log('d'), the output is: a, d, c, b. Synchronous first, then microtasks, then macrotasks. The 0 is a minimum delay, not a priority."}},
+{"@type":"Question","name":"What is the difference between microtask and macrotask?","acceptedAnswer":{"@type":"Answer","text":"Microtasks: Promise callbacks (.then, .catch, .finally), queueMicrotask, MutationObserver, and await continuations. Macrotasks: setTimeout, setInterval, setImmediate, I/O callbacks, UI rendering. The event loop drains ALL microtasks after each macrotask before moving to the next macrotask. This means a chain of promises runs to completion before the next setTimeout. If a microtask schedules another microtask, that new one runs in the same tick — which is how you can accidentally freeze the page with a promise loop. Microtasks have priority; macrotasks are scheduled for the next tick."}},
+{"@type":"Question","name":"What is the call stack?","acceptedAnswer":{"@type":"Answer","text":"The call stack is where JavaScript keeps track of function calls. When you call a function, it's pushed onto the stack. When it returns, it's popped off. The stack is LIFO (last in, first out). The event loop only picks up the next task when the stack is empty — which means a long-running synchronous function blocks everything else, including timers and user input. This is why heavy computation in JavaScript freezes the page: the stack is busy, the event loop can't move on, timers don't fire, the UI doesn't update. Async operations are the fix — they let you yield control back to the event loop."}},
+{"@type":"Question","name":"Does the event loop block on synchronous code?","acceptedAnswer":{"@type":"Answer","text":"Yes. JavaScript has only one call stack. If you write a synchronous loop that runs for 5 seconds, nothing else can run for 5 seconds — no timers, no UI updates, no user input. The event loop is stuck waiting for the stack to empty. This is why long-running computations need to be broken up: use setTimeout, requestIdleCallback, web workers, or async/await with yields. The rule: keep the call stack empty as often as possible. Any synchronous task over 50ms is a potential UX problem. The event loop is not a background thread — it's a scheduling mechanism that only works when the stack is empty."}},
+{"@type":"Question","name":"What is the relationship between async/await and the event loop?","acceptedAnswer":{"@type":"Answer","text":"await is syntactic sugar for promises. When you await a promise, the function pauses at that line, and the rest of the function is scheduled as a microtask to run when the promise resolves. The synchronous code after the await doesn't run immediately — it goes into the microtask queue. This means async/await doesn't make code concurrent — it makes code non-blocking. The event loop still runs one task at a time, but await lets you pause a function without blocking the stack. Under the hood, everything is still microtasks and macrotasks. async/await just makes the syntax readable."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · event loop</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Event loop</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 4 min read</div>
+<h1>How does the event loop work?<br><span class="py-accent">Why setTimeout(0) runs last.</span></h1>
+<p class="lead">
+JavaScript runs one thing at a time. The event loop is how it juggles asynchronous work without using threads. It watches the call stack and two queues — microtasks and macrotasks — and decides what runs next. The rule is simple but surprising: synchronous code first, then ALL microtasks, then one macrotask. That's why <code>Promise.then</code> always runs before <code>setTimeout(0)</code>. This page covers the mechanism, the two queues, and the async/await connection.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> JavaScript is single-threaded. Synchronous code runs on the call stack. When the stack is empty, the event loop pulls from the microtask queue (promises, <code>queueMicrotask</code>) until it's empty, then runs one macrotask (<code>setTimeout</code>, I/O). This is why <code>console.log('a'); Promise.resolve().then(() => console.log('b')); console.log('c')</code> prints <code>a, c, b</code>. Synchronous first, microtasks after, macrotasks last. <code>await</code> is the same mechanism — it pauses the function and schedules the rest as a microtask.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The two queues</h2>
+<p class="section-sub">Microtasks before macrotasks. Always.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Call stack</h4>
+<p>Synchronous code. Runs immediately. LIFO. The event loop only moves on when this is empty.</p>
+</div>
+<div class="concept-card">
+<h4>Microtask queue</h4>
+<p><code>Promise.then</code>, <code>queueMicrotask</code>, <code>await</code> continuations, <code>MutationObserver</code>. Drained completely after each task.</p>
+</div>
+<div class="concept-card">
+<h4>Macrotask queue</h4>
+<p><code>setTimeout</code>, <code>setInterval</code>, I/O, UI events. One per event loop tick.</p>
+</div>
+<div class="concept-card">
+<h4>The order</h4>
+<p>1. Run stack until empty. 2. Drain microtasks. 3. Run one macrotask. 4. Repeat.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The output order</h2>
+<p class="section-sub">The classic event loop question.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">order.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">console.log('1');
+
+setTimeout(() => console.log('2'), 0);
+
+Promise.resolve().then(() => console.log('3'));
+
+console.log('4');
+
+// What order does this print?</pre>
+<script type="text/plain" id="raw-code-sol1">console.log('1');
+
+setTimeout(() => console.log('2'), 0);
+
+Promise.resolve().then(() => console.log('3'));
+
+console.log('4');
+
+// What order does this print?</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Actual output:
+1
+4
+3
+2
+
+Why, step by step:
+
+1. console.log('1') runs — stack.
+2. setTimeout(...) schedules a macrotask.
+3. Promise.resolve().then(...) schedules a microtask.
+4. console.log('4') runs — stack.
+5. Stack empty. Event loop drains microtasks.
+6. Microtask runs: console.log('3').
+7. Microtask queue empty. Event loop runs
+one macrotask.
+8. Macrotask runs: console.log('2').
+
+The queue order:
+Stack: 1, 4
+Microtask: 3
+Macrotask: 2
+
+Result: 1, 4, 3, 2.
+
+❌ setTimeout(0) doesn't mean "run immediately."
+✅ It means "run after current stack and all microtasks."
+✅ Promises always beat timers.
+✅ This is not a bug — it's the design.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ await is a microtask</h2>
+<p class="section-sub">async/await uses the same queue.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">await-order.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">async function foo() {
+console.log('A');
+await Promise.resolve();
+console.log('B');
+}
+
+console.log('start');
+foo();
+console.log('end');
+
+// Output?
+// start, A, end, B</pre>
+<script type="text/plain" id="raw-code-sol2">async function foo() {
+console.log('A');
+await Promise.resolve();
+console.log('B');
+}
+
+console.log('start');
+foo();
+console.log('end');
+
+// Output?
+// start, A, end, B</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Actual output:
+start
+A
+end
+B
+
+Why:
+
+1. console.log('start') — stack.
+2. foo() is called.
+3. console.log('A') — stack. Still inside foo.
+4. await Promise.resolve() — foo pauses here.
+The rest of foo (console.log('B')) is
+scheduled as a microtask.
+5. foo returns control to the caller.
+6. console.log('end') — stack.
+7. Stack empty. Event loop drains microtasks.
+8. Microtask runs: console.log('B').
+
+So even though foo has an await, the code
+BEFORE the await runs synchronously, and the
+code AFTER runs as a microtask.
+
+✅ await pauses the function, not the stack.
+✅ Synchronous code before await runs immediately.
+✅ Code after await runs in the microtask queue.
+✅ Same order as .then().
+
+This is why async functions don't block:
+they yield control back to the event loop
+at every await.
+
+await = "pause here, continue as a microtask."</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Blocking the event loop</h2>
+<p class="section-sub">Why synchronous code freezes the page.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">blocking.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// ❌ This blocks everything for 5 seconds
+function heavy() {
+const start = Date.now();
+while (Date.now() - start < 5000) {
+// Spin, blocking the stack
+}
+console.log('done');
+}
+
+console.log('before');
+heavy();
+console.log('after');
+
+// Output: before, (5 seconds of freeze), done, after
+
+// ✅ Breaking up the work
+async function chunked() {
+const start = Date.now();
+while (Date.now() - start < 5000) {
+// Do a chunk of work
+await new Promise(r => setTimeout(r, 0));
+// Yield to the event loop
+}
+console.log('done');
+}</pre>
+<script type="text/plain" id="raw-code-sol3">// This blocks everything for 5 seconds
+function heavy() {
+const start = Date.now();
+while (Date.now() - start < 5000) {
+// Spin, blocking the stack
+}
+console.log('done');
+}
+
+console.log('before');
+heavy();
+console.log('after');
+
+// Output: before, (5 seconds of freeze), done, after
+
+// Breaking up the work
+async function chunked() {
+const start = Date.now();
+while (Date.now() - start < 5000) {
+// Do a chunk of work
+await new Promise(r => setTimeout(r, 0));
+// Yield to the event loop
+}
+console.log('done');
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What happens with the blocking version:
+
+1. console.log('before') — stack.
+2. heavy() is called. The while loop runs
+synchronously for 5 seconds. During this time:
+❌ No timer callbacks run.
+❌ No UI updates render.
+❌ No user input processed.
+❌ No promises resolve.
+The stack is full.
+3. After 5 seconds, heavy returns.
+4. console.log('after') — stack.
+
+Result: 'before' → 5-second freeze → 'done' → 'after'
+The page is completely unresponsive for 5 seconds.
+
+Why: the event loop only runs when the stack
+is empty. A long synchronous loop keeps the
+stack full. Nothing else can run.
+
+The fix: yield to the event loop periodically.
+Every setTimeout(0) or await gives the event
+loop a chance to run pending tasks. For heavy
+computation, consider a Web Worker — a separate
+thread that doesn't block the main stack.
+
+Rule of thumb: keep synchronous work under 50ms.
+If it exceeds 50ms, chunk it or offload it.
+
+The event loop is not multithreading.
+It's single-threaded scheduling with yielding.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't rely on <code>setTimeout(0)</code> for ordering.</strong> It doesn't mean "run next" — it means "run after the current stack and all microtasks." If you have multiple setTimeout(0) calls, they run in the order they were scheduled, but they all run after any pending promises. Use <code>setTimeout(0)</code> when you want to defer work to the next tick, not when you want to guarantee order. For guaranteed ordering, use promises or async/await. The event loop is deterministic but the priority is fixed: microtasks before macrotasks. Design around it, don't fight it.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The event-loop mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Expecting <code>setTimeout(0)</code> to run before promises</div>
+<p>Microtasks beat macrotasks. Fix: understand the queue order.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Blocking the stack with synchronous work</div>
+<p>Freezes timers, UI, and input. Fix: chunk with <code>await</code> or use a worker.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Assuming <code>await</code> blocks</div>
+<p>It pauses the function, not the stack. Fix: understand microtask scheduling.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Infinite promise loops</div>
+<p>Microtasks schedule more microtasks — the loop never yields. Fix: yield with <code>setTimeout(0)</code> periodically.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Timing-based bugs</div>
+<p>Relying on when timers fire. Fix: use promises or async/await for ordering.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Not understanding the call stack</div>
+<p>Confusing synchronous vs asynchronous execution. Fix: trace the stack mentally.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Ignoring microtask starvation</div>
+<p>A chain of promises can freeze the page. Fix: break chains with <code>setTimeout</code> if needed.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Expecting <code>async</code> to run in parallel</div>
+<p>It's concurrent, not parallel. Fix: use <code>Promise.all</code> for concurrency, workers for parallelism.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How does the JavaScript event loop work?</summary>
+<p class="mt-2 text-sm text-slate-300">JavaScript is single-threaded — it runs one task at a time on the call stack. When an async operation completes, the callback goes into a queue. The event loop watches the stack and the queue: when the stack is empty, it pulls the next item from the queue and pushes it onto the stack. There are two queues: microtask (promises) and macrotask (setTimeout). The event loop drains microtasks completely before each macrotask.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why does setTimeout(0) not run first?</summary>
+<p class="mt-2 text-sm text-slate-300">Because setTimeout(0) doesn't mean 'run now' — it means 'add to the macrotask queue, to run after the current task and all pending microtasks.' The current synchronous code runs first, then the microtask queue (promises), then the macrotask queue (setTimeout). So console.log('a'); setTimeout(() => console.log('b'), 0); Promise.resolve().then(() => console.log('c')); console.log('d') prints a, d, c, b.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between microtask and macrotask?</summary>
+<p class="mt-2 text-sm text-slate-300">Microtasks: Promise callbacks, queueMicrotask, MutationObserver, await continuations. Macrotasks: setTimeout, setInterval, I/O callbacks, UI rendering. The event loop drains ALL microtasks after each macrotask before moving to the next macrotask. Microtasks have priority; macrotasks are scheduled for the next tick.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the call stack?</summary>
+<p class="mt-2 text-sm text-slate-300">The call stack is where JavaScript keeps track of function calls. When you call a function, it's pushed onto the stack. When it returns, it's popped off. The event loop only picks up the next task when the stack is empty — which means a long-running synchronous function blocks everything else.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Does the event loop block on synchronous code?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. JavaScript has only one call stack. If you write a synchronous loop that runs for 5 seconds, nothing else can run for 5 seconds — no timers, no UI updates, no user input. This is why long-running computations need to be broken up: use setTimeout, requestIdleCallback, web workers, or async/await with yields.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the relationship between async/await and the event loop?</summary>
+<p class="mt-2 text-sm text-slate-300">await is syntactic sugar for promises. When you await a promise, the function pauses at that line, and the rest of the function is scheduled as a microtask to run when the promise resolves. The synchronous code after the await doesn't run immediately — it goes into the microtask queue. async/await doesn't make code concurrent — it makes code non-blocking.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/promises-async.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⏳ Promises vs async/await</div>
+<div class="text-xs text-slate-400 mt-1">When to use each, and why async/await is not a replacement for .then()</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
