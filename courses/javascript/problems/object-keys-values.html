@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Object.keys, values, entries in JavaScript — Complete Guide (2026)</title>
+<meta name="description" content="Object.keys, Object.values, and Object.entries explained: when to use each, how to iterate objects, and the difference between the three. Direct answer with working examples.">
+<meta name="keywords" content="object.keys, object.values, object.entries, javascript iterate object, object methods javascript, for in vs object.keys">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Object.keys, values, entries in JavaScript — Complete Guide">
+<meta property="og:description" content="When to use each, and how to iterate objects.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/object-keys-values.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Object.keys, values, entries in JavaScript">
+<meta name="twitter:description" content="When to use each, and how to iterate objects.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/object-keys-values.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Object.keys, values, entries in JavaScript — Complete Guide",
+"description": "The three object methods and how to iterate objects.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Beginner",
+"dependencies": "ES2017"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between Object.keys, Object.values, and Object.entries?","acceptedAnswer":{"@type":"Answer","text":"Three methods, three outputs. Object.keys(obj) returns an array of the property names. Object.values(obj) returns an array of the property values. Object.entries(obj) returns an array of [key, value] pairs. All three iterate own enumerable properties — not inherited ones. Use keys when you need the property names, values when you need the values, entries when you need both. The most common: entries for iteration, keys for checking existence, values for aggregation."}},
+{"@type":"Question","name":"What is the difference between Object.keys and for...in?","acceptedAnswer":{"@type":"Answer","text":"Object.keys returns own enumerable properties only. for...in iterates own AND inherited enumerable properties — including properties from the prototype chain. For plain objects, they give the same result. For objects created with a prototype, for...in can include inherited properties. The modern recommendation: use Object.keys (or values, entries) for reliable own-property iteration. Use for...in only when you specifically want inherited properties, which is rare. If you must use for...in, filter with hasOwnProperty: for (const key in obj) { if (obj.hasOwnProperty(key)) { ... } }."}},
+{"@type":"Question","name":"How do I iterate over an object's properties?","acceptedAnswer":{"@type":"Answer","text":"Three main ways. (1) Object.entries(obj).forEach(([key, value]) => ...) — modern, readable. (2) for (const [key, value] of Object.entries(obj)) — same, as a for...of loop. (3) Object.keys(obj).forEach(key => { const value = obj[key]; ... }) — when you need the key and access the value separately. For simple iteration, entries is the cleanest. If you need to break early, use a for...of loop — forEach can't break. If you need only values, Object.values(obj).forEach(value => ...)."}},
+{"@type":"Question","name":"Do these methods include inherited properties?","acceptedAnswer":{"@type":"Answer","text":"No. Object.keys, Object.values, and Object.entries iterate only own enumerable properties. Inherited properties (from the prototype chain) are excluded. This is different from for...in, which includes inherited enumerable properties. It's also different from JSON.stringify, which includes own enumerable properties but treats them as strings. The own-only behavior is usually what you want — you rarely want inherited properties in iteration."}},
+{"@type":"Question","name":"What order are the keys returned in?","acceptedAnswer":{"@type":"Answer","text":"The order is defined by the spec, and it's mostly consistent across engines. (1) Integer-like keys in ascending numeric order — '1' before '2' before '10'. (2) String keys in insertion order. (3) Symbol keys are excluded entirely. This matters for arrays-like objects and objects with numeric keys. For plain string-keyed objects, insertion order is preserved. If order matters and you have numeric keys, be explicit: convert to an array of entries and sort, rather than relying on the built-in order."}},
+{"@type":"Question","name":"Are these methods fast?","acceptedAnswer":{"@type":"Answer","text":"Yes — they're implemented natively and iterate in O(n). For typical objects (dozens to hundreds of keys), the cost is negligible. For very large objects (thousands of keys, called many times), measure. The main performance consideration is allocation — each call creates a new array. If you're iterating the same object repeatedly, cache the result: const entries = Object.entries(obj); entries.forEach(...). But don't micro-optimize unless you've measured a problem."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · object methods</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Object.keys / values / entries</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 3 min read</div>
+<h1>Object.keys, values, entries.<br><span class="py-accent">Three methods, three outputs.</span></h1>
+<p class="lead">
+Objects don't have a <code>forEach</code> like arrays do. To iterate them, you convert them into arrays first — with <code>Object.keys</code>, <code>Object.values</code>, or <code>Object.entries</code>. Each returns a different shape: property names, property values, or <code>[key, value]</code> pairs. This page covers when to use each, the difference from <code>for...in</code>, and the iteration patterns that come up in real code.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>Object.keys(obj)</code> → array of names. <code>Object.values(obj)</code> → array of values. <code>Object.entries(obj)</code> → array of <code>[key, value]</code> pairs. All three iterate own enumerable properties only — no inherited ones. Use <code>entries</code> for iteration (you usually need both), <code>keys</code> for checking existence, <code>values</code> for aggregation. Avoid <code>for...in</code> — it includes inherited properties.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The three methods</h2>
+<p class="section-sub">Same object, three shapes.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">object-methods.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">const user = {
+  name: 'Alice',
+  age: 30,
+  email: 'alice@example.com'
+};
+
+// Object.keys — array of names
+console.log(Object.keys(user));
+// ['name', 'age', 'email']
+
+// Object.values — array of values
+console.log(Object.values(user));
+// ['Alice', 30, 'alice@example.com']
+
+// Object.entries — array of [key, value] pairs
+console.log(Object.entries(user));
+// [['name', 'Alice'], ['age', 30], ['email', 'alice@example.com']]
+
+// Iterate with entries
+Object.entries(user).forEach(([key, value]) => {
+  console.log(`${key}: ${value}`);
+});
+// name: Alice
+// age: 30
+// email: alice@example.com
+
+// Iterate with for...of
+for (const [key, value] of Object.entries(user)) {
+  console.log(`${key} = ${value}`);
+}</pre>
+<script type="text/plain" id="raw-code-sol1">const user = {
+  name: 'Alice',
+  age: 30,
+  email: 'alice@example.com'
+};
+
+// Object.keys — array of names
+console.log(Object.keys(user));
+// ['name', 'age', 'email']
+
+// Object.values — array of values
+console.log(Object.values(user));
+// ['Alice', 30, 'alice@example.com']
+
+// Object.entries — array of [key, value] pairs
+console.log(Object.entries(user));
+// [['name', 'Alice'], ['age', 30], ['email', 'alice@example.com']]
+
+// Iterate with entries
+Object.entries(user).forEach(([key, value]) => {
+  console.log(`${key}: ${value}`);
+});
+// name: Alice
+// age: 30
+// email: alice@example.com
+
+// Iterate with for...of
+for (const [key, value] of Object.entries(user)) {
+  console.log(`${key} = ${value}`);
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Shape of each return value:
+
+Object.keys(obj)
+  → ['name', 'age', 'email']
+  → string[]
+
+Object.values(obj)
+  → ['Alice', 30, 'alice@example.com']
+  → any[]
+
+Object.entries(obj)
+  → [['name', 'Alice'], ['age', 30], ...]
+  → [string, any][]
+
+All three return ARRAYS.
+So you can chain array methods:
+
+const activeNames = Object.entries(users)
+  .filter(([, user]) => user.active)
+  .map(([id, user]) => user.name);
+
+This is the reason these methods exist.
+Objects don't have filter or map.
+Convert to an array of entries, then use
+array methods, then optionally convert back
+with Object.fromEntries(entries).
+
+Round-trip:
+
+  const entries = Object.entries(obj);
+  const back = Object.fromEntries(entries);
+  // same as obj
+
+Object.fromEntries(entries) is the inverse.
+Very useful when you've transformed the
+entries into a new shape.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ When to use which</h2>
+<p class="section-sub">Three common scenarios.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">use-cases.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">const users = {
+  u1: { name: 'Alice', active: true },
+  u2: { name: 'Bob', active: false },
+  u3: { name: 'Charlie', active: true }
+};
+
+// 1. Check existence — keys
+const hasUser = Object.keys(users).includes('u1');
+console.log(hasUser);   // true
+// Or better: use 'in' operator
+console.log('u1' in users);   // true
+console.log('u99' in users);  // false
+
+// 2. Aggregate values — values
+const allNames = Object.values(users).map(u => u.name);
+console.log(allNames);
+// ['Alice', 'Bob', 'Charlie']
+
+// 3. Filter and transform — entries
+const activeUsers = Object.entries(users)
+  .filter(([, user]) => user.active)
+  .map(([id, user]) => ({ id, name: user.name }));
+console.log(activeUsers);
+// [{ id: 'u1', name: 'Alice' }, { id: 'u3', name: 'Charlie' }]
+
+// 4. Transform keys or values — entries + fromEntries
+const uppercasedNames = Object.fromEntries(
+  Object.entries(users).map(([id, user]) => [
+    id,
+    { ...user, name: user.name.toUpperCase() }
+  ])
+);
+console.log(uppercasedNames);
+// { u1: {name: 'ALICE', ...}, u2: {...}, u3: {...} }</pre>
+<script type="text/plain" id="raw-code-sol2">const users = {
+  u1: { name: 'Alice', active: true },
+  u2: { name: 'Bob', active: false },
+  u3: { name: 'Charlie', active: true }
+};
+
+// 1. Check existence — keys
+const hasUser = Object.keys(users).includes('u1');
+console.log(hasUser);   // true
+// Or better: use 'in' operator
+console.log('u1' in users);   // true
+console.log('u99' in users);  // false
+
+// 2. Aggregate values — values
+const allNames = Object.values(users).map(u => u.name);
+console.log(allNames);
+// ['Alice', 'Bob', 'Charlie']
+
+// 3. Filter and transform — entries
+const activeUsers = Object.entries(users)
+  .filter(([, user]) => user.active)
+  .map(([id, user]) => ({ id, name: user.name }));
+console.log(activeUsers);
+// [{ id: 'u1', name: 'Alice' }, { id: 'u3', name: 'Charlie' }]
+
+// 4. Transform keys or values — entries + fromEntries
+const uppercasedNames = Object.fromEntries(
+  Object.entries(users).map(([id, user]) => [
+    id,
+    { ...user, name: user.name.toUpperCase() }
+  ])
+);
+console.log(uppercasedNames);
+// { u1: {name: 'ALICE', ...}, u2: {...}, u3: {...} }</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Which one to use:
+
+✅ Existence check:
+   'key' in obj  (fastest, handles all own + inherited)
+   obj.hasOwnProperty('key')  (own only)
+   Object.keys(obj).includes('key')  (works, slower)
+   
+   Prefer `in` for existence.
+   Only use Object.keys().includes() if you specifically
+   want to check own enumerable properties.
+
+✅ Get all values:
+   Object.values(obj)
+   
+   Use when you don't need the keys.
+   For example: summing all scores, mapping names.
+
+✅ Iterate with keys and values:
+   Object.entries(obj)
+   
+   Use when you need both.
+   The destructuring pattern [key, value] is idiomatic.
+
+✅ Transform:
+   Object.fromEntries(Object.entries(obj).map(...))
+   
+   Use when you need to change the shape of an object.
+   Very common in data pipelines.
+
+✅ Get all keys:
+   Object.keys(obj)
+   
+   Use when you need to do something with the keys
+   themselves — sort them, filter them, compare sets.
+
+The three methods return arrays.
+So you chain array methods on them.
+This is how you "iterate" an object in JS —
+you don't. You convert to an array, then iterate
+the array.
+
+⚠️ Order of keys:
+   Integer-like keys come first, in numeric order.
+   Then string keys, in insertion order.
+   Symbols are excluded entirely.
+   For plain objects with string keys, insertion
+   order is preserved.
+
+⚠️ These methods don't include inherited properties.
+   If you need them, use for...in with hasOwnProperty filter.
+   But you almost never need them.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ for...in vs Object.keys</h2>
+<p class="section-sub">The difference that matters.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">for-in-vs-keys.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// Create an object with an inherited property
+const parent = { inherited: 'yes' };
+const obj = Object.create(parent);
+obj.own = 'yes';
+
+// for...in includes inherited properties
+console.log('for...in:');
+for (const key in obj) {
+  console.log(' ', key);
+}
+// inherited
+// own
+
+// Object.keys — only own properties
+console.log('Object.keys:');
+Object.keys(obj).forEach(key => {
+  console.log(' ', key);
+});
+// own
+
+// Object.entries — only own properties
+console.log('Object.entries:');
+Object.entries(obj).forEach(([key, value]) => {
+  console.log(' ', key, value);
+});
+// own yes
+
+// If you must use for...in, filter with hasOwnProperty
+console.log('for...in with filter:');
+for (const key in obj) {
+  if (Object.prototype.hasOwnProperty.call(obj, key)) {
+    console.log(' ', key);
+  }
+}
+// own</pre>
+<script type="text/plain" id="raw-code-sol3">// Create an object with an inherited property
+const parent = { inherited: 'yes' };
+const obj = Object.create(parent);
+obj.own = 'yes';
+
+// for...in includes inherited properties
+console.log('for...in:');
+for (const key in obj) {
+  console.log(' ', key);
+}
+// inherited
+// own
+
+// Object.keys — only own properties
+console.log('Object.keys:');
+Object.keys(obj).forEach(key => {
+  console.log(' ', key);
+});
+// own
+
+// Object.entries — only own properties
+console.log('Object.entries:');
+Object.entries(obj).forEach(([key, value]) => {
+  console.log(' ', key, value);
+});
+// own yes
+
+// If you must use for...in, filter with hasOwnProperty
+console.log('for...in with filter:');
+for (const key in obj) {
+  if (Object.prototype.hasOwnProperty.call(obj, key)) {
+    console.log(' ', key);
+  }
+}
+// own</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The difference:
+
+for...in:
+  → iterates own AND inherited enumerable properties
+  → includes properties from the prototype chain
+  → works on any object
+  → can't be chained with array methods
+
+Object.keys / values / entries:
+  → iterate OWN enumerable properties only
+  → excludes inherited properties
+  → returns arrays
+  → chainable with array methods
+
+For plain objects created with {} or Object.assign,
+they give the same result — no inherited properties.
+The difference only matters when the object has a
+custom prototype, or was created with Object.create.
+
+The modern recommendation:
+  Use Object.entries (or keys / values) for iteration.
+  Use for...in only when you specifically want
+  inherited properties (rare).
+  If you must use for...in, always filter with
+  hasOwnProperty — otherwise you'll include
+  properties you didn't expect.
+
+The hasOwnProperty fix:
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      // process obj[key]
+    }
+  }
+
+Why Object.prototype.hasOwnProperty.call(obj, key)?
+  Some objects override hasOwnProperty.
+  Using the prototype's version directly is safe.
+  Or use Object.hasOwn(obj, key) — ES2022, cleaner.
+
+  Object.hasOwn(obj, key) is the modern replacement.
+  Use it in new code.
+
+⚠️ for...in also iterates array indices as strings.
+   for (const i in [1, 2, 3]) gives '0', '1', '2' (strings).
+   Never use for...in on arrays — use for...of or forEach.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>for...in</code> to iterate objects without <code>hasOwnProperty</code>.</strong> This is the classic prototype pollution bug — a library adds a property to <code>Object.prototype</code>, and suddenly every <code>for...in</code> loop iterates it. The result: unexpected properties in your data, crashes, or worse. The fix is simple: either use <code>Object.keys/values/entries</code> (which are immune by design), or add the <code>hasOwnProperty</code> filter. In modern code, prefer the Object methods — they're clearer and safer. <code>for...in</code> is a legacy pattern; <code>Object.entries</code> is the modern equivalent, and it's what you'd write anyway if you wanted to use array methods.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The object-method mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Expecting <code>Object.keys</code> to include inherited properties</div>
+<p>It doesn't — own only. Fix: use <code>for...in</code> with filter, or accept own-only.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. <code>for...in</code> without <code>hasOwnProperty</code></div>
+<p>Includes inherited properties. Fix: use <code>Object.entries</code> or add the filter.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Using <code>for...in</code> on arrays</div>
+<p>Iterates string indices. Fix: use <code>for...of</code> or <code>forEach</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Assuming key order is insertion order for all keys</div>
+<p>Integer-like keys come first in numeric order. Fix: sort explicitly if order matters.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting <code>Object.fromEntries</code> when transforming</div>
+<p>You get an array, not an object. Fix: wrap with <code>Object.fromEntries</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Calling <code>Object.entries</code> on <code>null</code> or <code>undefined</code></div>
+<p>Throws. Fix: guard with <code>obj && Object.entries(obj)</code> or <code>Object.entries(obj ?? {})</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Symbol keys</div>
+<p>Excluded from all three methods. Fix: use <code>Object.getOwnPropertySymbols</code> for symbols.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Non-enumerable properties</div>
+<p>Excluded from all three methods. Fix: use <code>Object.getOwnPropertyNames</code> for non-enumerable.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between Object.keys, Object.values, and Object.entries?</summary>
+<p class="mt-2 text-sm text-slate-300">Three methods, three outputs. Object.keys(obj) returns an array of the property names. Object.values(obj) returns an array of the property values. Object.entries(obj) returns an array of [key, value] pairs. All three iterate own enumerable properties only. Use keys when you need the names, values when you need the values, entries when you need both.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between Object.keys and for...in?</summary>
+<p class="mt-2 text-sm text-slate-300">Object.keys returns own enumerable properties only. for...in iterates own AND inherited enumerable properties — including properties from the prototype chain. For plain objects, they give the same result. For objects created with a prototype, for...in can include inherited properties. Use Object.keys for reliable own-property iteration.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How do I iterate over an object's properties?</summary>
+<p class="mt-2 text-sm text-slate-300">Three main ways. (1) Object.entries(obj).forEach(([key, value]) => ...) — modern, readable. (2) for (const [key, value] of Object.entries(obj)) — same, as a for...of loop. (3) Object.keys(obj).forEach(key => { const value = obj[key]; ... }). For simple iteration, entries is the cleanest.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Do these methods include inherited properties?</summary>
+<p class="mt-2 text-sm text-slate-300">No. Object.keys, Object.values, and Object.entries iterate only own enumerable properties. Inherited properties are excluded. This is different from for...in, which includes inherited enumerable properties.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What order are the keys returned in?</summary>
+<p class="mt-2 text-sm text-slate-300">Integer-like keys in ascending numeric order — '1' before '2' before '10'. String keys in insertion order. Symbol keys are excluded entirely. For plain string-keyed objects, insertion order is preserved. If order matters and you have numeric keys, sort explicitly rather than relying on the built-in order.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Are these methods fast?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes — they're implemented natively and iterate in O(n). For typical objects, the cost is negligible. The main performance consideration is allocation — each call creates a new array. If you're iterating the same object repeatedly, cache the result. But don't micro-optimize unless you've measured a problem.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/debounce-throttle.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⏱️ Debounce vs throttle</div>
+<div class="text-xs text-slate-400 mt-1">Two patterns that look the same but solve different problems</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
