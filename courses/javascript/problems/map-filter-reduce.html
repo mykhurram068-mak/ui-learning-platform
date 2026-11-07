@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>map vs filter vs reduce in JavaScript — Which One (2026)</title>
+<meta name="description" content="map vs filter vs reduce explained: what each does, when to use each, and the real-world examples. Direct answer with working code.">
+<meta name="keywords" content="map vs filter vs reduce, javascript array methods, array map filter reduce, javascript reduce, javascript map">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="map vs filter vs reduce in JavaScript — Which One">
+<meta property="og:description" content="What each does, when to use each, and real-world examples.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/map-filter-reduce.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="map vs filter vs reduce in JavaScript">
+<meta name="twitter:description" content="What each does, when to use each.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/map-filter-reduce.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "map vs filter vs reduce in JavaScript — Which One",
+"description": "map transforms, filter selects, reduce aggregates — with real examples.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Beginner",
+"dependencies": "ES2015"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between map, filter, and reduce?","acceptedAnswer":{"@type":"Answer","text":"Three operations on arrays, each with a distinct purpose. map transforms every element — it returns a new array of the same length, with each element replaced by the return value of the callback. filter selects elements — it returns a new array of the same or smaller length, containing only elements where the callback returned true. reduce aggregates — it returns a single value (number, string, object, array), built up by running the callback across all elements with an accumulator. The rule: transform with map, select with filter, aggregate with reduce."}},
+{"@type":"Question","name":"When should I use map instead of a for loop?","acceptedAnswer":{"@type":"Answer","text":"Use map when you want to transform each element of an array into a new array. It's more declarative than a for loop — you write what you want, not how to build it. Example: const names = users.map(u => u.name) is clearer than const names = []; for (let i = 0; i < users.length; i++) { names.push(users[i].name); }. Use a for loop when you need to break early (map can't break), when you need the index for more than just access (map passes index, but it's rarely used), or when you're not building a new array. If you're using map and not using the returned array, you want forEach instead."}},
+{"@type":"Question","name":"Why does reduce have an initial value?","acceptedAnswer":{"@type":"Answer","text":"The second argument to reduce is the initial value of the accumulator. If you omit it, reduce uses the first element of the array as the initial value and starts iterating from the second element. This works for some cases (summing an array of numbers) but breaks for others (summing an empty array, or where the accumulator should start with an empty object or array). The safe rule: always pass an initial value. Example: arr.reduce((acc, x) => acc + x, 0) instead of arr.reduce((acc, x) => acc + x). The explicit initial value is one more character and avoids a whole class of bugs."}},
+{"@type":"Question","name":"Can I chain map, filter, and reduce?","acceptedAnswer":{"@type":"Answer","text":"Yes, and this is one of the reasons they're powerful. Example: users.filter(u => u.active).map(u => u.name).reduce((acc, name) => acc + ', ' + name, ''). Each method returns a new array (or a value for reduce), so you can chain them. The array is iterated once per method — three methods means three passes. For large arrays, this can be slow. If you need a single pass, use reduce with a single callback that does all three operations. For most cases, the chained version is fine — the readability is worth the extra passes. Optimize only if you've measured a real bottleneck."}},
+{"@type":"Question","name":"What does reduce return for an empty array?","acceptedAnswer":{"@type":"Answer","text":"If you pass an initial value, reduce returns that initial value for an empty array. If you don't pass one, reduce throws a TypeError: Reduce of empty array with no initial value. This is why the initial value matters — it makes reduce safe for empty arrays. Example: [].reduce((a, b) => a + b, 0) returns 0. [].reduce((a, b) => a + b) throws. In production code, always pass an initial value unless you're certain the array is non-empty."}},
+{"@type":"Question","name":"Is map faster than a for loop?","acceptedAnswer":{"@type":"Answer","text":"No, and it's slightly slower in micro-benchmarks. map creates a new function scope per call, allocates a new array, and has some overhead a plain for loop doesn't. But the difference is in nanoseconds — for anything but the tightest loops, it doesn't matter. The real question is readability. map is declarative — it says 'transform every element' without specifying the mechanics. A for loop says 'iterate from 0 to length, push to a new array.' For most code, map is clearer. For performance-critical inner loops (parsing huge files, game physics), a for loop wins. Measure before optimizing — the bottleneck is almost never the array method."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · map filter reduce</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">map vs filter vs reduce</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 4 min read</div>
+<h1>map vs filter vs reduce.<br><span class="py-accent">Transform, select, aggregate.</span></h1>
+<p class="lead">
+Three array methods that cover 90% of array work. They look similar — same callback signature, same method chain — but they do different things. <code>map</code> transforms every element. <code>filter</code> selects some. <code>reduce</code> collapses the array to a single value. This page covers what each does, when to use each, and why the initial value in <code>reduce</code> matters more than people think.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>map</code> transforms every element — same-length array. <code>filter</code> selects matching elements — same-or-shorter array. <code>reduce</code> aggregates to a single value — number, string, object, anything. Use <code>map</code> when you want to change each element. Use <code>filter</code> when you want to keep some elements. Use <code>reduce</code> when you want one value out of many. Always pass an initial value to <code>reduce</code> — it makes it safe for empty arrays. Chain them for readable data pipelines.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The three rules</h2>
+<p class="section-sub">Each one does exactly one thing.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4><code>map</code> — transform</h4>
+<p>Same length in, same length out. Each element replaced by the callback's return value. Use for "change every element."</p>
+</div>
+<div class="concept-card">
+<h4><code>filter</code> — select</h4>
+<p>Same or fewer elements. Only elements where the callback returns <code>true</code> are kept. Use for "keep matching elements."</p>
+</div>
+<div class="concept-card">
+<h4><code>reduce</code> — aggregate</h4>
+<p>Any input, one output. The callback runs with an accumulator and each element. Use for "collapse to a single value."</p>
+</div>
+<div class="concept-card">
+<h4>Chain them</h4>
+<p><code>users.filter(...).map(...).reduce(...)</code> — each method returns a new array (or a value for <code>reduce</code>), so they compose.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The three in action</h2>
+<p class="section-sub">Same array, three operations.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">three-methods.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">const users = [
+{ name: 'Alice', age: 30, active: true },
+{ name: 'Bob', age: 25, active: false },
+{ name: 'Charlie', age: 35, active: true }
+];
+
+// map — transform every element
+const names = users.map(u => u.name);
+console.log(names);
+// ['Alice', 'Bob', 'Charlie']
+
+// filter — keep matching elements
+const activeUsers = users.filter(u => u.active);
+console.log(activeUsers.map(u => u.name));
+// ['Alice', 'Charlie']
+
+// reduce — collapse to a single value
+const totalAge = users.reduce((sum, u) => sum + u.age, 0);
+console.log(totalAge);
+// 90 (30 + 25 + 35)
+
+// Chain them — pipeline
+const activeAges = users
+.filter(u => u.active)
+.map(u => u.age)
+.reduce((sum, age) => sum + age, 0);
+console.log(activeAges);
+// 65 (30 + 35)</pre>
+<script type="text/plain" id="raw-code-sol1">const users = [
+{ name: 'Alice', age: 30, active: true },
+{ name: 'Bob', age: 25, active: false },
+{ name: 'Charlie', age: 35, active: true }
+];
+
+// map — transform every element
+const names = users.map(u => u.name);
+console.log(names);
+// ['Alice', 'Bob', 'Charlie']
+
+// filter — keep matching elements
+const activeUsers = users.filter(u => u.active);
+console.log(activeUsers.map(u => u.name));
+// ['Alice', 'Charlie']
+
+// reduce — collapse to a single value
+const totalAge = users.reduce((sum, u) => sum + u.age, 0);
+console.log(totalAge);
+// 90 (30 + 25 + 35)
+
+// Chain them — pipeline
+const activeAges = users
+.filter(u => u.active)
+.map(u => u.age)
+.reduce((sum, age) => sum + age, 0);
+console.log(activeAges);
+// 65 (30 + 35)</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Array sizes:
+
+Original: 3 elements.
+
+map → 3 elements (same length).
+['Alice', 'Bob', 'Charlie']
+
+filter → 2 elements (same or fewer).
+[{name: 'Alice', ...}, {name: 'Charlie', ...}]
+
+reduce → 1 value (number).
+90
+
+Chain → 1 value (number).
+65
+
+The sizes are the key:
+
+map preserves length.
+filter preserves or shrinks.
+reduce collapses to one value.
+
+If you're unsure which to use, ask:
+"Do I want a same-length array?" → map
+"Do I want fewer elements?" → filter
+"Do I want one value?" → reduce
+
+The chain:
+filter first (removes elements you don't need)
+then map (transforms what's left)
+then reduce (aggregates)
+This is the most efficient order — filter
+removes elements before map/reduce process them.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Why reduce needs an initial value</h2>
+<p class="section-sub">The bug that only shows up on empty arrays.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">reduce-initial.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">// ❌ Without initial value
+const nums = [1, 2, 3];
+const sum1 = nums.reduce((acc, n) => acc + n);
+console.log(sum1); // 6
+
+// But:
+const empty = [];
+// const sum2 = empty.reduce((acc, n) => acc + n);
+// TypeError: Reduce of empty array with no initial value
+
+// ✅ With initial value
+const sum3 = empty.reduce((acc, n) => acc + n, 0);
+console.log(sum3); // 0
+
+// The rule: always pass an initial value.
+const users = [{ name: 'Alice' }, { name: 'Bob' }];
+const nameMap = users.reduce((acc, u) => {
+acc[u.name] = u;
+return acc;
+}, {});
+console.log(nameMap);
+// { Alice: {name: 'Alice'}, Bob: {name: 'Bob'} }</pre>
+<script type="text/plain" id="raw-code-sol2">// Without initial value
+const nums = [1, 2, 3];
+const sum1 = nums.reduce((acc, n) => acc + n);
+console.log(sum1); // 6
+
+// But:
+const empty = [];
+// const sum2 = empty.reduce((acc, n) => acc + n);
+// TypeError: Reduce of empty array with no initial value
+
+// With initial value
+const sum3 = empty.reduce((acc, n) => acc + n, 0);
+console.log(sum3); // 0
+
+// The rule: always pass an initial value.
+const users = [{ name: 'Alice' }, { name: 'Bob' }];
+const nameMap = users.reduce((acc, u) => {
+acc[u.name] = u;
+return acc;
+}, {});
+console.log(nameMap);
+// { Alice: {name: 'Alice'}, Bob: {name: 'Bob'} }</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Without initial value:
+
+nums.reduce((acc, n) => acc + n)
+→ initial value = first element (1)
+→ iterate from second element (2)
+→ 1 + 2 + 3 = 6
+→ works, but for the wrong reason
+
+empty.reduce((acc, n) => acc + n)
+→ no initial value, no first element
+→ TypeError
+→ the bug shows up only on empty arrays
+
+With initial value:
+
+nums.reduce((acc, n) => acc + n, 0)
+→ initial value = 0
+→ iterate all elements
+→ 0 + 1 + 2 + 3 = 6
+→ works, and works for empty arrays too
+
+The initial value can be anything:
+
+reduce(..., 0) → sum (number)
+reduce(..., '') → concatenation (string)
+reduce(..., {}) → object accumulator
+reduce(..., []) → array accumulator
+reduce(..., new Map()) → Map accumulator
+
+The most common production bug:
+sum = items.reduce((a, b) => a + b) → crashes on empty
+sum = items.reduce((a, b) => a + b, 0) → safe
+
+Always pass the initial value.
+The 2 extra characters are worth it.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ When NOT to use them</h2>
+<p class="section-sub">The three cases where a loop is better.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">when-not-to.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// ❌ Not map — you don't need the result
+users.map(user => {
+console.log(user.name);
+});
+// Use forEach instead: users.forEach(u => console.log(u.name));
+
+// ❌ Not filter — you want to break early
+const firstMatch = users.filter(u => u.active)[0];
+// Use find instead: users.find(u => u.active);
+// Or a for loop if you need true early-exit
+
+// ❌ Not reduce for simple iteration
+users.reduce((_, user) => {
+console.log(user.name);
+}, null);
+// Use forEach. Reduce is for aggregating, not iterating.
+
+// ✅ The right methods
+users.forEach(u => console.log(u.name)); // side effects
+const first = users.find(u => u.active); // first match
+const hasActive = users.some(u => u.active); // any match
+const allActive = users.every(u => u.active); // all match</pre>
+<script type="text/plain" id="raw-code-sol3">// Not map — you don't need the result
+users.map(user => {
+console.log(user.name);
+});
+// Use forEach instead: users.forEach(u => console.log(u.name));
+
+// Not filter — you want to break early
+const firstMatch = users.filter(u => u.active)[0];
+// Use find instead: users.find(u => u.active);
+// Or a for loop if you need true early-exit
+
+// Not reduce for simple iteration
+users.reduce((_, user) => {
+console.log(user.name);
+}, null);
+// Use forEach. Reduce is for aggregating, not iterating.
+
+// The right methods
+users.forEach(u => console.log(u.name)); // side effects
+const first = users.find(u => u.active); // first match
+const hasActive = users.some(u => u.active); // any match
+const allActive = users.every(u => u.active); // all match</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The other array methods:
+
+forEach → iterate for side effects (no return value)
+find → first matching element (or undefined)
+findIndex → index of first matching element (or -1)
+some → does at least one element match?
+every → do all elements match?
+includes → is this value in the array?
+
+Use each for its purpose:
+
+❌ users.map(u => { console.log(u) }) → wrong tool
+✅ users.forEach(u => { console.log(u) })
+
+❌ users.filter(u => u.active)[0] → inefficient
+✅ users.find(u => u.active)
+
+❌ users.filter(u => u.active).length > 0 → inefficient
+✅ users.some(u => u.active)
+
+❌ users.filter(u => !u.active).length === 0 → inefficient
+✅ users.every(u => u.active)
+
+The pattern: each method has one job.
+Use it for that job. Don't use map for
+iteration (that's forEach), don't use filter
+for finding (that's find), don't use filter
+• length for existence (that's some/every).
+
+These are readability improvements, not
+performance optimizations. But they make
+the intent clearer — which is the point.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>map</code> for side effects.</strong> If you write <code>users.map(u => console.log(u.name))</code> and ignore the return value, you're using <code>map</code> when you mean <code>forEach</code>. The difference matters because <code>map</code> creates a new array — for a side-effect loop, that array is wasted memory. More importantly, it misleads the reader: <code>map</code> says "I'm building a new array," and the reader looks for what you do with it. <code>forEach</code> says "I'm iterating for side effects." Use the right method for the right intent. This is a readability issue, not a performance one — but readability is what makes code maintainable.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The map/filter/reduce mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>map</code> without using the result</div>
+<p>You meant <code>forEach</code>. Fix: use <code>forEach</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. <code>reduce</code> without an initial value</div>
+<p>Throws on empty arrays. Fix: always pass an initial value.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. <code>filter</code> + <code>[0]</code> instead of <code>find</code></div>
+<p>Inefficient and unclear. Fix: use <code>find</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. <code>filter(...).length > 0</code> instead of <code>some</code></div>
+<p>Inefficient. Fix: use <code>some</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Chaining without thinking about order</div>
+<p>Filter first (cheapest, removes elements), then map, then reduce. Fix: filter before transform.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. <code>reduce</code> for simple iteration</div>
+<p>Overcomplicated. Fix: use <code>forEach</code> or <code>for...of</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Mutating the array inside <code>map</code>/<code>filter</code></div>
+<p>Confusing side effects. Fix: return new values, don't mutate.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Forgetting that <code>reduce</code> can return anything</div>
+<p>Not just numbers — strings, objects, arrays. Fix: use the right accumulator for the job.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between map, filter, and reduce?</summary>
+<p class="mt-2 text-sm text-slate-300">Three operations on arrays. map transforms every element — same-length array. filter selects elements — same or smaller array. reduce aggregates — a single value. The rule: transform with map, select with filter, aggregate with reduce.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">When should I use map instead of a for loop?</summary>
+<p class="mt-2 text-sm text-slate-300">Use map when you want to transform each element of an array into a new array. It's more declarative than a for loop. Use a for loop when you need to break early, or when you're not building a new array. If you're using map and not using the returned array, you want forEach instead.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why does reduce have an initial value?</summary>
+<p class="mt-2 text-sm text-slate-300">The second argument to reduce is the initial value of the accumulator. If you omit it, reduce uses the first element of the array as the initial value and starts iterating from the second element. This works for some cases but breaks for others (summing an empty array). Always pass an initial value.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Can I chain map, filter, and reduce?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, and this is one of the reasons they're powerful. Example: users.filter(u => u.active).map(u => u.name).reduce((acc, name) => acc + ', ' + name, ''). Each method returns a new array (or a value for reduce), so you can chain them. For most cases, the chained version is fine.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What does reduce return for an empty array?</summary>
+<p class="mt-2 text-sm text-slate-300">If you pass an initial value, reduce returns that initial value for an empty array. If you don't pass one, reduce throws a TypeError. This is why the initial value matters — it makes reduce safe for empty arrays.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Is map faster than a for loop?</summary>
+<p class="mt-2 text-sm text-slate-300">No, and it's slightly slower in micro-benchmarks. map creates a new function scope per call, allocates a new array, and has some overhead a plain for loop doesn't. But the difference is in nanoseconds. The real question is readability. map is declarative. For most code, map is clearer. Measure before optimizing.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/array-methods.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📊 Array methods: map, filter, reduce</div>
+<div class="text-xs text-slate-400 mt-1">The three that cover 90% of array work — with real examples</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
