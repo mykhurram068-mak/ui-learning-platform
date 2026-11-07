@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Async/await Error Handling in JavaScript — Complete Guide (2026)</title>
+<meta name="description" content="Async/await error handling explained: try/catch, unhandled rejections, Promise.all error handling, and the patterns that don't lose errors. Direct answer with examples.">
+<meta name="keywords" content="async await error handling, javascript try catch async, unhandled promise rejection, async await catch, promise all error">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Async/await Error Handling in JavaScript — Complete Guide">
+<meta property="og:description" content="try/catch, unhandled rejections, and the patterns that don't lose errors.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/async-await-error.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Async/await Error Handling in JavaScript">
+<meta name="twitter:description" content="try/catch, unhandled rejections, and the patterns.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/async-await-error.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Async/await Error Handling in JavaScript — Complete Guide",
+"description": "try/catch, unhandled rejections, Promise.all error handling, and the patterns that don't lose errors.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Intermediate",
+"dependencies": "ES2017"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I handle errors in async/await?","acceptedAnswer":{"@type":"Answer","text":"Use try/catch, same as synchronous code. try { const data = await fetchData(); } catch (error) { console.error(error); }. This catches any rejected promise that you await inside the try block. It's one of the main advantages of async/await over .then() chains — the error handling looks like synchronous code. For multiple awaits, one try/catch covers all of them: any rejection in the block goes to the catch. For parallel operations, wrap Promise.all in try/catch — if any promise rejects, the whole Promise.all rejects."}},
+{"@type":"Question","name":"What is an unhandled promise rejection?","acceptedAnswer":{"@type":"Answer","text":"An unhandled rejection happens when a promise rejects and nothing handles the error. It's the async equivalent of throwing an exception with no try/catch. In Node.js, unhandled rejections can crash the process (Node 15+). In browsers, they show as console errors and fire the unhandledrejection event. The most common cause: an async function that awaits a rejecting promise without try/catch. The fix: wrap awaits in try/catch, or add a .catch() to the promise. For top-level async code, use a global handler: process.on('unhandledRejection') in Node, window.addEventListener('unhandledrejection') in browsers."}},
+{"@type":"Question","name":"How does Promise.all handle errors?","acceptedAnswer":{"@type":"Answer","text":"Promise.all fails fast. If any promise in the array rejects, the entire Promise.all rejects with that error — the other promises continue running but their results are discarded. This is usually what you want for dependent operations. For cases where you want all results regardless of individual failures, use Promise.allSettled: it waits for all promises and returns an array of {status, value} or {status, reason} objects. Use Promise.all when any failure should fail the whole thing; use Promise.allSettled when partial success is acceptable."}},
+{"@type":"Question","name":"Can I use try/catch around setTimeout?","acceptedAnswer":{"@type":"Answer","text":"No — try/catch only catches synchronous errors and errors from awaited promises. A setTimeout callback runs later, outside the try block, so an error inside the callback is not caught. Example: try { setTimeout(() => { throw new Error('oops'); }, 100); } catch (e) { console.log('not caught'); } — the catch never runs. The same applies to event handlers, .then() callbacks without await, and any other asynchronous code. To catch errors inside a callback, use try/catch inside the callback itself, or convert the callback to a promise and await it."}},
+{"@type":"Question","name":"How do I retry a failed async call?","acceptedAnswer":{"@type":"Answer","text":"Wrap the await in a loop with try/catch. Example: async function retry(fn, maxAttempts) { for (let i = 0; i < maxAttempts; i++) { try { return await fn(); } catch (error) { if (i === maxAttempts - 1) throw error; await new Promise(r => setTimeout(r, 1000 * (i + 1))); } } }. This retries with exponential backoff. For production, use a library like p-retry or async-retry, which handle edge cases (timeouts, abort signals, error filtering). For simple cases, the loop pattern is fine. For complex retry logic, use the library."}},
+{"@type":"Question","name":"Should I catch every error in every async function?","acceptedAnswer":{"@type":"Answer","text":"No — that's over-engineering. The rule: catch errors where you can do something useful. If the caller can handle the error, let it propagate — return a rejected promise, don't catch. If the error is expected and recoverable (network timeout, retry), catch it. If the error is unexpected (programming bug), let it propagate to a top-level handler that logs and reports it. The mistake is catching everything and logging it — that hides bugs and makes debugging harder. Catch errors when you have a plan; let them propagate when you don't."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · async error handling</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Async error handling</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 4 min read</div>
+<h1>Async/await error handling.<br><span class="py-accent">try/catch, not try/catch.</span></h1>
+<p class="lead">
+<code>try/catch</code> catches sync errors and awaited promises. It does not catch errors in callbacks, event handlers, or un-awaited promises. That distinction is the source of most async bugs. This page covers what try/catch actually catches, what it doesn't, how <code>Promise.all</code> handles errors, and the pattern for unhandled rejections.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Wrap <code>await</code> in <code>try/catch</code>. It catches synchronous errors and rejected promises you <code>await</code>. It does <strong>not</strong> catch errors in <code>setTimeout</code>, event handlers, or promises you don't await. <code>Promise.all</code> fails fast — one rejection fails everything. Use <code>Promise.allSettled</code> for partial results. For unhandled rejections, add a global handler: <code>process.on('unhandledRejection')</code> in Node, <code>window.addEventListener('unhandledrejection')</code> in browsers.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ What try/catch catches</h2>
+<p class="section-sub">Synchronous errors and awaited promises. Not callbacks.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">try-catch-scope.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">What happens</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">// ✅ Caught: synchronous errors
+try {
+JSON.parse('not json');
+} catch (e) {
+console.log('caught sync');
+}
+
+// ✅ Caught: awaited rejection
+try {
+await fetch('/api/missing'); // 404 → rejects
+} catch (e) {
+console.log('caught await');
+}
+
+// ❌ NOT caught: setTimeout callback
+try {
+setTimeout(() => {
+throw new Error('oops');
+}, 100);
+} catch (e) {
+console.log('not reached');
+}
+
+// ❌ NOT caught: un-awaited promise
+try {
+fetch('/api/missing'); // no await
+} catch (e) {
+console.log('not reached');
+}
+
+// ❌ NOT caught: event handler
+try {
+button.addEventListener('click', () => {
+throw new Error('boom');
+});
+} catch (e) {
+console.log('not reached');
+}</pre>
+<script type="text/plain" id="raw-code-sol1">// Caught: synchronous errors
+try {
+JSON.parse('not json');
+} catch (e) {
+console.log('caught sync');
+}
+
+// Caught: awaited rejection
+try {
+await fetch('/api/missing'); // 404 → rejects
+} catch (e) {
+console.log('caught await');
+}
+
+// NOT caught: setTimeout callback
+try {
+setTimeout(() => {
+throw new Error('oops');
+}, 100);
+} catch (e) {
+console.log('not reached');
+}
+
+// NOT caught: un-awaited promise
+try {
+fetch('/api/missing'); // no await
+} catch (e) {
+console.log('not reached');
+}
+
+// NOT caught: event handler
+try {
+button.addEventListener('click', () => {
+throw new Error('boom');
+});
+} catch (e) {
+console.log('not reached');
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Output:
+caught sync
+caught await
+(Uncaught Error: oops) ← setTimeout
+(UnhandledPromiseRejection) ← un-awaited fetch
+(Uncaught Error: boom) ← event handler
+
+Why:
+
+try/catch is a synchronous construct.
+It catches errors that occur while the try
+block is running.
+
+setTimeout callback runs AFTER the try block
+finishes. The try is long gone.
+
+Un-awaited promise: the promise is created
+and the try block finishes immediately.
+The rejection happens later.
+
+Event handler: same — the handler runs when
+the event fires, not inside the try.
+
+Rule:
+try/catch around await → works
+try/catch around sync code → works
+try/catch around callbacks → does NOT work
+try/catch around un-awaited promises → does NOT work</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The fixes</h2>
+<p class="section-sub">How to catch each case.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">fixes.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Notes</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">// Fix 1: try/catch INSIDE the callback
+setTimeout(() => {
+try {
+throw new Error('caught');
+} catch (e) {
+console.log('caught inside');
+}
+}, 100);
+
+// Fix 2: await the promise
+try {
+await fetch('/api/missing');
+} catch (e) {
+console.log('caught');
+}
+
+// Fix 3: .catch() on the promise
+fetch('/api/missing').catch(e => {
+console.log('caught via .catch');
+});
+
+// Fix 4: convert callback to promise
+function wait(ms) {
+return new Promise((resolve, reject) => {
+setTimeout(() => {
+try {
+// callback logic
+resolve('done');
+} catch (e) {
+reject(e);
+}
+}, ms);
+});
+}
+
+try {
+await wait(100);
+} catch (e) {
+console.log('caught');
+}</pre>
+<script type="text/plain" id="raw-code-sol2">// Fix 1: try/catch INSIDE the callback
+setTimeout(() => {
+try {
+throw new Error('caught');
+} catch (e) {
+console.log('caught inside');
+}
+}, 100);
+
+// Fix 2: await the promise
+try {
+await fetch('/api/missing');
+} catch (e) {
+console.log('caught');
+}
+
+// Fix 3: .catch() on the promise
+fetch('/api/missing').catch(e => {
+console.log('caught via .catch');
+});
+
+// Fix 4: convert callback to promise
+function wait(ms) {
+return new Promise((resolve, reject) => {
+setTimeout(() => {
+try {
+// callback logic
+resolve('done');
+} catch (e) {
+reject(e);
+}
+}, ms);
+});
+}
+
+try {
+await wait(100);
+} catch (e) {
+console.log('caught');
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Rule of thumb:
+
+For sync errors → try/catch around the code.
+For awaited promises → try/catch around the await.
+For un-awaited promises → .catch() on the promise.
+For callbacks → try/catch inside the callback.
+For event handlers → try/catch inside the handler.
+
+The common mistake: assume try/catch covers
+all errors in the block. It doesn't.
+
+Common bug in React:
+
+❌ useEffect(() => {
+try {
+fetchData().then(setData); // not awaited
+} catch (e) {
+setError(e); // never runs
+}
+}, []);
+
+✅ useEffect(() => {
+fetchData()
+.then(setData)
+.catch(setError); // catches
+}, []);
+
+Or:
+
+✅ useEffect(() => {
+(async () => {
+try {
+const data = await fetchData();
+setData(data);
+} catch (e) {
+setError(e);
+}
+})();
+}, []);
+
+The second version is more common in modern
+code because it handles cleanup naturally.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Promise.all error handling</h2>
+<p class="section-sub">Fast-fail vs settled.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">promise-all.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Behavior</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// Promise.all — fails fast
+try {
+const [user, posts] = await Promise.all([
+fetch('/api/user').then(r => r.json()),
+fetch('/api/posts').then(r => r.json())
+]);
+console.log(user, posts);
+} catch (e) {
+// If either request fails, this runs.
+// The other request may still be in flight.
+console.log('one failed:', e);
+}
+
+// Promise.allSettled — waits for all
+const results = await Promise.allSettled([
+fetch('/api/user').then(r => r.json()),
+fetch('/api/posts').then(r => r.json())
+]);
+
+for (const result of results) {
+if (result.status === 'fulfilled') {
+console.log('success:', result.value);
+} else {
+console.log('failure:', result.reason);
+}
+}</pre>
+<script type="text/plain" id="raw-code-sol3">// Promise.all — fails fast
+try {
+const [user, posts] = await Promise.all([
+fetch('/api/user').then(r => r.json()),
+fetch('/api/posts').then(r => r.json())
+]);
+console.log(user, posts);
+} catch (e) {
+// If either request fails, this runs.
+// The other request may still be in flight.
+console.log('one failed:', e);
+}
+
+// Promise.allSettled — waits for all
+const results = await Promise.allSettled([
+fetch('/api/user').then(r => r.json()),
+fetch('/api/posts').then(r => r.json())
+]);
+
+for (const result of results) {
+if (result.status === 'fulfilled') {
+console.log('success:', result.value);
+} else {
+console.log('failure:', result.reason);
+}
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Promise.all behavior:
+
+1. Starts all promises simultaneously.
+2. If any rejects, the whole Promise.all
+rejects immediately with that error.
+3. Other promises continue running — but
+their results are discarded.
+4. Total time = time of the slowest promise
+OR the time of the first rejection.
+
+Promise.allSettled behavior:
+
+1. Starts all promises simultaneously.
+2. Waits for ALL of them to settle (resolve or reject).
+3. Returns an array of { status, value } or
+{ status, reason } objects.
+4. Never rejects — you always get the array.
+5. You decide how to handle each result.
+
+When to use which:
+
+✅ Promise.all — when any failure means
+the whole operation should fail. Loading
+dependent data, saving multiple records
+atomically.
+
+✅ Promise.allSettled — when you can handle
+partial success. Loading a dashboard where
+some widgets might fail, bulk operations
+where you want a report of what succeeded
+and what failed.
+
+⚠️ Never use Promise.all for operations
+where the failures are independent.
+
+⚠️ Promise.all rejects with the FIRST error.
+If multiple promises fail, you only see one.
+For error aggregation, use allSettled.
+
+The Promise.race and Promise.any variants:
+Promise.race — first to settle (success or fail)
+Promise.any — first to fulfill (ignores rejections)</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't let async errors go unhandled.</strong> In Node.js 15+, an unhandled promise rejection crashes the process by default. In browsers, it shows a console error and fires the <code>unhandledrejection</code> event, which you can listen for. But by then, the error has already escaped your code. The fix: add a global handler at startup. In Node: <code>process.on('unhandledRejection', (reason, promise) => { console.error('Unhandled:', reason); })</code>. In browsers: <code>window.addEventListener('unhandledrejection', event => { console.error(event.reason); })</code>. This catches errors you missed — but it's a safety net, not a substitute for proper error handling. Log the errors, alert on them, fix the code that caused them.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The async error handling mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. try/catch around a callback</div>
+<p>The callback runs later — not caught. Fix: try/catch inside the callback.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Forgetting to await a promise</div>
+<p>Rejection escapes the try/catch. Fix: <code>await</code> it, or add <code>.catch()</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. <code>Promise.all</code> when one failure shouldn't fail all</div>
+<p>All-or-nothing behavior. Fix: <code>Promise.allSettled</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. No global unhandled rejection handler</div>
+<p>Silent failures in Node, console noise in browsers. Fix: add a global handler.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Catching and swallowing errors</div>
+<p>Logging without acting hides bugs. Fix: only catch what you can handle.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Catching everything in every function</div>
+<p>Makes debugging harder. Fix: catch at the boundary, let errors propagate inside.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Not handling partial failures</div>
+<p>One failed request crashes the whole dashboard. Fix: <code>allSettled</code> + fallback UI.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Forgetting cleanup in error paths</div>
+<p>Loading spinners that never stop. Fix: use <code>finally</code> for cleanup.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How do I handle errors in async/await?</summary>
+<p class="mt-2 text-sm text-slate-300">Use try/catch, same as synchronous code. try { const data = await fetchData(); } catch (error) { console.error(error); }. This catches any rejected promise that you await inside the try block. For parallel operations, wrap Promise.all in try/catch — if any promise rejects, the whole Promise.all rejects.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is an unhandled promise rejection?</summary>
+<p class="mt-2 text-sm text-slate-300">An unhandled rejection happens when a promise rejects and nothing handles the error. In Node.js, unhandled rejections can crash the process. In browsers, they show as console errors and fire the unhandledrejection event. The most common cause: an async function that awaits a rejecting promise without try/catch.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How does Promise.all handle errors?</summary>
+<p class="mt-2 text-sm text-slate-300">Promise.all fails fast. If any promise in the array rejects, the entire Promise.all rejects with that error — the other promises continue running but their results are discarded. For cases where you want all results regardless of individual failures, use Promise.allSettled.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Can I use try/catch around setTimeout?</summary>
+<p class="mt-2 text-sm text-slate-300">No — try/catch only catches synchronous errors and errors from awaited promises. A setTimeout callback runs later, outside the try block, so an error inside the callback is not caught. To catch errors inside a callback, use try/catch inside the callback itself, or convert the callback to a promise and await it.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How do I retry a failed async call?</summary>
+<p class="mt-2 text-sm text-slate-300">Wrap the await in a loop with try/catch. This retries with exponential backoff. For production, use a library like p-retry or async-retry, which handle edge cases. For simple cases, the loop pattern is fine.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Should I catch every error in every async function?</summary>
+<p class="mt-2 text-sm text-slate-300">No — that's over-engineering. The rule: catch errors where you can do something useful. If the caller can handle the error, let it propagate. If the error is expected and recoverable (network timeout, retry), catch it. If the error is unexpected (programming bug), let it propagate to a top-level handler.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/map-filter-reduce.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📊 map vs filter vs reduce</div>
+<div class="text-xs text-slate-400 mt-1">Which one transforms, which one selects, which one aggregates</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
