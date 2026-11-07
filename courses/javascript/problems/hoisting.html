@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>What is Hoisting in JavaScript? — Explained (2026)</title>
+<meta name="description" content="JavaScript hoisting explained: why you can call a function before declaring it, why let/const break that, and the temporal dead zone. Direct answer with examples.">
+<meta name="keywords" content="javascript hoisting, hoisting explained, javascript temporal dead zone, function declaration hoisting, var hoisting, let hoisting">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="What is Hoisting in JavaScript? — Explained">
+<meta property="og:description" content="Why you can call a function before declaring it, and why let/const break that.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/hoisting.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What is Hoisting in JavaScript?">
+<meta name="twitter:description" content="Why functions work before declaration — and let breaks that.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/hoisting.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "What is Hoisting in JavaScript? — Explained",
+"description": "Function and variable hoisting, the temporal dead zone, and how let/const differ from var.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Intermediate",
+"dependencies": "ES2015"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is hoisting in JavaScript?","acceptedAnswer":{"@type":"Answer","text":"Hoisting is JavaScript's behavior of moving declarations to the top of their scope before code runs. Function declarations are hoisted entirely — you can call them before they're defined. var declarations are hoisted but initialized to undefined — you can reference them before declaration, but the value is undefined. let and const declarations are hoisted but stay in a temporal dead zone — accessing them before declaration throws a ReferenceError. The word 'hoisting' suggests the code is physically moved, but it's actually a compile-time behavior: the engine allocates space and sets initial values before execution."}},
+{"@type":"Question","name":"Why can I call a function before declaring it?","acceptedAnswer":{"@type":"Answer","text":"Because function declarations are hoisted with their entire body. When JavaScript parses your code, it registers all function declarations in the current scope before executing any line. So function greet() { return 'hi'; } is available even if it appears at the bottom of the file. This is different from function expressions: const greet = function () { ... } is not hoisted — the variable is hoisted but the value isn't, so calling greet before the declaration throws. The rule: function declarations work before they appear; function expressions don't."}},
+{"@type":"Question","name":"What is the temporal dead zone?","acceptedAnswer":{"@type":"Answer","text":"The temporal dead zone (TDZ) is the period between entering a scope and the point where a let or const variable is initialized. During the TDZ, the variable is hoisted (it exists in the scope) but accessing it throws a ReferenceError. Example: console.log(x); let x = 5; throws. This is intentional — it catches the bug of using a variable before declaring it. var doesn't have a TDZ: accessing a var before declaration returns undefined. The TDZ is why let/const feel 'safer' — they surface bugs that var would silently allow."}},
+{"@type":"Question","name":"Is hoisting a bug or a feature?","acceptedAnswer":{"@type":"Answer","text":"Both. It's a design choice from JavaScript's early days, driven by the need to support function calls from anywhere in a script. For function declarations, hoisting is convenient and expected — you can organize code by concern, not by dependency order. For var, hoisting is a bug source — it hides typos and undeclared variables. The let/const TDZ is the modern compromise: hoisting still happens (to keep function calls working), but accessing before declaration now throws, which catches bugs early. The best practice: declare before use, even though hoisting allows otherwise."}},
+{"@type":"Question","name":"Does hoisting apply to functions inside blocks?","acceptedAnswer":{"@type":"Answer","text":"Function declarations inside blocks are complex. In strict mode, they're block-scoped — they only exist inside the block, and they're hoisted within the block. In sloppy mode, behavior varies across engines (some hoist to the function scope, some to the block). The safe rule: don't rely on it. If you need a function only inside a block, use a function declaration and accept whatever the engine does. If you need it outside the block, declare it outside. Function expressions inside blocks don't hoist at all — the variable is hoisted (as let/const/var), but the function value isn't assigned until execution reaches the line."}},
+{"@type":"Question","name":"How does hoisting interact with closures?","acceptedAnswer":{"@type":"Answer","text":"Closures capture variables, not values. If a closure references a variable that's hoisted but not yet initialized (a let/const in the TDZ), and the closure is called before initialization, it throws. If the closure is called after initialization, it sees the value. With var, the closure sees undefined if called before the assignment, and the assigned value after. This is why the loop closure bug happens: all the callbacks capture the same var, and by the time they run, the var has been reassigned multiple times. Use let to get a fresh binding per iteration."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · hoisting</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Hoisting</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 3 min read</div>
+<h1>What is hoisting?<br><span class="py-accent">Declarations move up. Initializations don't.</span></h1>
+<p class="lead">
+JavaScript "hoists" declarations to the top of their scope before running the code. That's why you can call a function before it appears in the file. But hoisting has limits — <code>var</code> hoists to <code>undefined</code>, <code>let</code>/<code>const</code> hoist to a temporal dead zone that throws if you access them early, and function expressions don't hoist their values at all. This page covers each case with examples.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Function declarations hoist completely — you can call them before they appear. <code>var</code> hoists the declaration but not the value, so accessing before assignment returns <code>undefined</code>. <code>let</code>/<code>const</code> hoist but stay in the temporal dead zone — accessing before declaration throws <code>ReferenceError</code>. Function expressions don't hoist their value (the variable hoists, the function doesn't). The best practice: declare before use. Hoisting is convenient, not a reason to rely on it.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The three cases</h2>
+<p class="section-sub">Each keyword hoists differently.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Function declarations</h4>
+<p>Hoisted with their entire body. Callable before they appear in the source.</p>
+</div>
+<div class="concept-card">
+<h4><code>var</code></h4>
+<p>Hoisted to <code>undefined</code>. Accessing before assignment returns <code>undefined</code> (no error).</p>
+</div>
+<div class="concept-card">
+<h4><code>let</code> / <code>const</code></h4>
+<p>Hoisted into a temporal dead zone. Accessing before declaration throws <code>ReferenceError</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Function expressions</h4>
+<p>The variable hoists, the function doesn't. <code>const fn = () => {}</code> is not callable before the line.</p>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Before and after</h2>
+<p class="section-sub">What hoists and what doesn't.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">hoisting-cases.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">What happens</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">// ✅ Function declaration — hoisted
+sayHi();
+function sayHi() {
+console.log('Hi');
+}
+// Works. Function is available before the line.
+
+// ⚠️ var — hoisted to undefined
+console.log(x); // undefined (not error)
+var x = 5;
+console.log(x); // 5
+
+// ❌ let / const — temporal dead zone
+console.log(y); // ReferenceError
+let y = 5;
+
+// ❌ Function expression — not hoisted
+greet(); // TypeError: greet is not a function
+const greet = () => console.log('Hello');</pre>
+<script type="text/plain" id="raw-code-sol1">// Function declaration — hoisted
+sayHi();
+function sayHi() {
+console.log('Hi');
+}
+// Works. Function is available before the line.
+
+// var — hoisted to undefined
+console.log(x); // undefined (not error)
+var x = 5;
+console.log(x); // 5
+
+// let / const — temporal dead zone
+console.log(y); // ReferenceError
+let y = 5;
+
+// Function expression — not hoisted
+greet(); // TypeError: greet is not a function
+const greet = () => console.log('Hello');</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Actual output:
+
+sayHi() → "Hi" (function declaration hoisted)
+
+console.log(x) → undefined (var hoisted as undefined)
+console.log(x) → 5 (after assignment)
+
+console.log(y) → ReferenceError (TDZ, let not initialized)
+
+greet() → TypeError: greet is not a function
+(const hoisted, but the value is undefined until
+the line executes — calling undefined throws)
+
+Key insight:
+Hoisting moves declarations up.
+It does NOT move initializations up.
+A function declaration has both declaration and
+body hoisted (that's why it works).
+A function expression only hoists the variable —
+the function is assigned at execution time.
+
+The TDZ is the modern safety net:
+let/const throw when accessed early.
+var returns undefined (silent bug).
+The TDZ catches bugs that var hides.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ The temporal dead zone</h2>
+<p class="section-sub">What <code>let</code> and <code>const</code> add to hoisting.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">tdz.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">// The temporal dead zone starts at the top of the
+// scope and ends at the declaration.
+
+function example() {
+// TDZ for x starts here
+console.log(x); // ReferenceError
+let x = 5; // TDZ ends here
+console.log(x); // 5
+}
+
+// With var — no TDZ
+function example2() {
+console.log(y); // undefined
+var y = 5;
+console.log(y); // 5
+}
+
+// Why the difference:
+// var is initialized to undefined at scope entry.
+// let/const are declared at scope entry, but
+// initialized at their declaration line.
+// Between those two points is the TDZ.</pre>
+<script type="text/plain" id="raw-code-sol2">// The temporal dead zone starts at the top of the
+// scope and ends at the declaration.
+
+function example() {
+// TDZ for x starts here
+console.log(x); // ReferenceError
+let x = 5; // TDZ ends here
+console.log(x); // 5
+}
+
+// With var — no TDZ
+function example2() {
+console.log(y); // undefined
+var y = 5;
+console.log(y); // 5
+}
+
+// Why the difference:
+// var is initialized to undefined at scope entry.
+// let/const are declared at scope entry, but
+// initialized at their declaration line.
+// Between those two points is the TDZ.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The TDZ is not a bug — it's a feature.
+
+Without TDZ (like var):
+console.log(x); // undefined
+let x = 5;
+→ Silently returns undefined. User thinks
+x is undefined, but it's just not initialized yet.
+→ Hides bugs like typos or wrong variable names.
+
+With TDZ (let/const):
+console.log(x); // ReferenceError
+let x = 5;
+→ Throws loudly. User sees the bug immediately.
+→ Cannot accidentally use an uninitialized value.
+
+✅ TDZ surfaces bugs early.
+✅ TDZ catches the "used before declared" mistake.
+✅ TDZ forces you to declare variables where
+you intend to use them.
+
+The error message is helpful:
+"Cannot access 'x' before initialization"
+
+This is one of the reasons let/const are
+recommended over var.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Function declarations vs expressions</h2>
+<p class="section-sub">The rule that trips people up.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">function-hoisting.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// ✅ Function declaration — hoisted with body
+console.log(declared()); // "I'm declared"
+
+function declared() {
+return "I'm declared";
+}
+
+// ❌ Function expression — NOT hoisted
+console.log(expressed()); // TypeError
+
+const expressed = function () {
+return "I'm expressed";
+};
+
+// ❌ Arrow function assigned to const — NOT hoisted
+console.log(arrow()); // TypeError
+
+const arrow = () => "I'm an arrow";</pre>
+<script type="text/plain" id="raw-code-sol3">// Function declaration — hoisted with body
+console.log(declared()); // "I'm declared"
+
+function declared() {
+return "I'm declared";
+}
+
+// Function expression — NOT hoisted
+console.log(expressed()); // TypeError
+
+const expressed = function () {
+return "I'm expressed";
+};
+
+// Arrow function assigned to const — NOT hoisted
+console.log(arrow()); // TypeError
+
+const arrow = () => "I'm an arrow";</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the difference:
+
+Function declaration:
+function declared() { ... }
+→ The entire function is hoisted.
+→ Calling it before the line works.
+
+Function expression:
+const expressed = function () { ... }
+→ Only the variable expressed is hoisted.
+→ The variable starts as undefined (TDZ for const).
+→ Calling undefined() throws TypeError.
+→ The function value is assigned at execution time.
+
+Same for arrow functions assigned to variables:
+const arrow = () => ...
+→ The variable hoists (TDZ for const).
+→ The value is assigned at execution time.
+→ Calling before the line throws.
+
+Rule:
+Function declarations hoist completely.
+Function expressions (any form) do not.
+
+Practical implication:
+If you need to call a function before defining it,
+use a function declaration. Otherwise, prefer
+const + arrow (or function expression) for clarity —
+it makes the dependency explicit.
+
+Modern style prefers function expressions for
+most cases — the hoisting benefit of declarations
+is rarely worth the readability cost of "why is
+this function defined at the bottom?"</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't rely on hoisting as a style.</strong> Just because a function declaration works before its definition doesn't mean you should write code that way. Hoisting is a mechanism, not a feature you should design around. If a function is called at the top of a file and defined at the bottom, that's harder to read — the reader has to scroll to understand what the function does. The modern style: declare functions and variables near where they're used, or at the top of the file for clarity. Use function declarations when you have a reason to (mutual recursion, callback ordering), not as a default.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The hoisting mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Expecting function expressions to hoist</div>
+<p>They don't — the value is <code>undefined</code> until assignment. Fix: declare before use, or use a function declaration.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Accessing <code>let</code>/<code>const</code> before declaration</div>
+<p>TDZ throws a <code>ReferenceError</code>. Fix: declare before use.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Relying on <code>var</code> hoisting</div>
+<p>It silently returns <code>undefined</code> — hides bugs. Fix: use <code>let</code>/<code>const</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Function declaration inside a block</div>
+<p>Behavior is engine-dependent in sloppy mode. Fix: don't rely on it; declare outside the block.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Confusing hoisting with scope</div>
+<p>Hoisting moves declarations to the top of their existing scope — it doesn't change the scope. Fix: understand scope separately.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Mutually recursive function declarations</div>
+<p>Both hoist, so both work. Fix: this is a legitimate use of hoisting.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Hoisting <code>class</code> declarations</div>
+<p>Classes hoist but stay in the TDZ — accessing before declaration throws. Fix: declare classes before use.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Hoisting in arrow functions</div>
+<p>Arrow functions don't hoist (same as expressions). Fix: declare before use.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is hoisting in JavaScript?</summary>
+<p class="mt-2 text-sm text-slate-300">Hoisting is JavaScript's behavior of moving declarations to the top of their scope before code runs. Function declarations are hoisted entirely — you can call them before they're defined. var declarations are hoisted but initialized to undefined. let and const declarations are hoisted but stay in a temporal dead zone — accessing them before declaration throws a ReferenceError.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why can I call a function before declaring it?</summary>
+<p class="mt-2 text-sm text-slate-300">Because function declarations are hoisted with their entire body. When JavaScript parses your code, it registers all function declarations in the current scope before executing any line. This is different from function expressions: const greet = function () { ... } is not hoisted — the variable is hoisted but the value isn't.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the temporal dead zone?</summary>
+<p class="mt-2 text-sm text-slate-300">The temporal dead zone (TDZ) is the period between entering a scope and the point where a let or const variable is initialized. During the TDZ, the variable is hoisted (it exists in the scope) but accessing it throws a ReferenceError. Example: console.log(x); let x = 5; throws. This is intentional — it catches the bug of using a variable before declaring it.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Is hoisting a bug or a feature?</summary>
+<p class="mt-2 text-sm text-slate-300">Both. For function declarations, hoisting is convenient and expected. For var, hoisting is a bug source — it hides typos and undeclared variables. The let/const TDZ is the modern compromise: hoisting still happens (to keep function calls working), but accessing before declaration now throws, which catches bugs early.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Does hoisting apply to functions inside blocks?</summary>
+<p class="mt-2 text-sm text-slate-300">Function declarations inside blocks are complex. In strict mode, they're block-scoped — they only exist inside the block. In sloppy mode, behavior varies across engines. The safe rule: don't rely on it. If you need a function only inside a block, use a function declaration and accept whatever the engine does. If you need it outside the block, declare it outside.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How does hoisting interact with closures?</summary>
+<p class="mt-2 text-sm text-slate-300">Closures capture variables, not values. If a closure references a variable that's hoisted but not yet initialized (a let/const in the TDZ), and the closure is called before initialization, it throws. With var, the closure sees undefined if called before the assignment. This is why the loop closure bug happens — all callbacks capture the same var.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/event-loop.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⏳ How does the event loop work?</div>
+<div class="text-xs text-slate-400 mt-1">Microtasks, macrotasks, and why <code>setTimeout(0)</code> doesn't run first</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
