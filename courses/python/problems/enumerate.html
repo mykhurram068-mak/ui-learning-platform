@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How to Iterate with an Index in Python — enumerate &amp; zip (2026)</title>
+<meta name="description" content="Python enumerate explained: how to loop with index and value, why range(len()) is an anti-pattern, and how zip handles parallel iteration. Direct answer with examples.">
+<meta name="keywords" content="python enumerate, python loop index, python range len, python zip, python iterate with index, enumerate vs range">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="How to Iterate with an Index in Python — enumerate &amp; zip">
+<meta property="og:description" content="How to loop with index and value — and why range(len()) is an anti-pattern.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/problems/enumerate.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="How to Iterate with an Index in Python">
+<meta name="twitter:description" content="enumerate, zip, and why range(len()) is an anti-pattern.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/problems/enumerate.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "How to Iterate with an Index in Python — enumerate & zip",
+"description": "enumerate, zip, and why range(len()) is an anti-pattern.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Beginner",
+"dependencies": "Python 3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"How do I loop with an index in Python?","acceptedAnswer":{"@type":"Answer","text":"Use enumerate: for i, item in enumerate(items): print(i, item). It yields (index, value) tuples. Start the counter at any number: enumerate(items, start=1). Don't use range(len(items)) — it's slower, less readable, and a known anti-pattern. enumerate is the Pythonic way. For parallel iteration over two sequences, use zip: for a, b in zip(list1, list2). For both index and multiple sequences: for i, (a, b) in enumerate(zip(list1, list2))."}},
+{"@type":"Question","name":"What is the difference between enumerate and range(len())?","acceptedAnswer":{"@type":"Answer","text":"Three differences. (1) enumerate yields (index, value) directly — you don't need to index back into the sequence. (2) enumerate works on any iterable (generators, files, sets) — range(len()) requires len() and __getitem__, which not all iterables have. (3) enumerate is faster — it doesn't build a range object, doesn't call len(), doesn't index. The range(len()) version is a holdover from C and pre-2.3 Python. In modern Python, always use enumerate. The only valid use of range(len()) is when you need to modify the list while iterating — but that's usually a design smell."}},
+{"@type":"Question","name":"How do I start enumerate at 1 instead of 0?","acceptedAnswer":{"@type":"Answer","text":"Pass start=1: for i, item in enumerate(items, start=1): print(f'{i}. {item}'). The start parameter sets the initial counter value. It doesn't affect iteration order — it just changes the number. enumerate(items, start=100) counts 100, 101, 102, ... This is useful for user-facing numbering, line numbers, and any case where the counter shouldn't be 0-based."}},
+{"@type":"Question","name":"Can I iterate two lists at the same time?","acceptedAnswer":{"@type":"Answer","text":"Yes — use zip: for a, b in zip(list1, list2). zip yields tuples of corresponding elements. Stop at the shortest: zip([1, 2, 3], ['a', 'b']) yields (1, 'a'), (2, 'b') — the extra 3 is dropped. For unequal-length sequences where you want to keep all items, use itertools.zip_longest with a fillvalue. For index + multiple lists: for i, (a, b) in enumerate(zip(list1, list2))."}},
+{"@type":"Question","name":"Can I modify a list while iterating with enumerate?","acceptedAnswer":{"@type":"Answer","text":"Technically yes, but it's dangerous. enumerate yields the value from the original sequence — modifying the list during iteration can cause skipped elements or wrong values. The safe pattern: iterate over a copy (for i, item in enumerate(list(items))), or build a new list (new = [f(x) for x in items]). If you truly need to modify in place, iterate backwards: for i in range(len(items) - 1, -1, -1): ... — this is the rare case where range(len()) is justified."}},
+{"@type":"Question","name":"Does enumerate create a new list?","acceptedAnswer":{"@type":"Answer","text":"No — enumerate returns an iterator, not a list. It's lazy: it produces (index, value) tuples one at a time as you iterate. If you need a list (rare), wrap it: list(enumerate(items)). For 99% of code, the iterator is what you want — no intermediate list, no memory overhead. This is why enumerate is faster than range(len()) for large sequences: no list construction, no indexing."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-python.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Python · enumerate</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#7ee8fc;">Python</a> ›
+<a href="/courses/python/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">enumerate</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Concept · 3 min read</div>
+<h1>How to iterate with an index.<br><span class="py-accent">enumerate, not range(len()).</span></h1>
+<p class="lead">
+The most common Python loop question. You need both the index and the value. In C-style languages, you'd write <code>for (int i = 0; i &lt; n; i++)</code>. In Python, you write <code>for i, item in enumerate(items)</code>. It's not just cleaner — it's faster, works on any iterable, and avoids the off-by-one bugs that <code>range(len())</code> creates. This page covers <code>enumerate</code>, <code>zip</code> for parallel iteration, and why <code>range(len())</code> is an anti-pattern.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>for i, item in enumerate(items):</code> — yields <code>(index, value)</code> tuples. Start at 1: <code>enumerate(items, start=1)</code>. Two lists: <code>zip(list1, list2)</code>. Both index and multiple lists: <code>enumerate(zip(list1, list2))</code>. Never use <code>range(len(items))</code> — it's slower, less readable, and fails on iterables that don't support indexing. <code>enumerate</code> returns a lazy iterator, not a list.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ enumerate vs range(len())</h2>
+<p class="section-sub">The pattern you should always use.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">enumerate.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">items = ['apple', 'banana', 'cherry']
+
+# ❌ The anti-pattern — range(len())
+for i in range(len(items)):
+    print(i, items[i])
+# 0 apple
+# 1 banana
+# 2 cherry
+
+# ✅ The Pythonic way — enumerate
+for i, item in enumerate(items):
+    print(i, item)
+# 0 apple
+# 1 banana
+# 2 cherry
+
+# Start at 1 instead of 0
+for i, item in enumerate(items, start=1):
+    print(f'{i}. {item}')
+# 1. apple
+# 2. banana
+# 3. cherry
+
+# Works on any iterable — not just lists
+for i, char in enumerate('abc'):
+    print(i, char)
+# 0 a
+# 1 b
+# 2 c
+
+# Works on generators (which range(len()) can't do)
+squares = (x * x for x in range(5))
+for i, sq in enumerate(squares):
+    print(i, sq)
+# 0 0
+# 1 1
+# 2 4
+# 3 9
+# 4 16</pre>
+<script type="text/plain" id="raw-code-sol1">items = ['apple', 'banana', 'cherry']
+
+# The anti-pattern — range(len())
+for i in range(len(items)):
+    print(i, items[i])
+# 0 apple
+# 1 banana
+# 2 cherry
+
+# The Pythonic way — enumerate
+for i, item in enumerate(items):
+    print(i, item)
+# 0 apple
+# 1 banana
+# 2 cherry
+
+# Start at 1 instead of 0
+for i, item in enumerate(items, start=1):
+    print(f'{i}. {item}')
+# 1. apple
+# 2. banana
+# 3. cherry
+
+# Works on any iterable — not just lists
+for i, char in enumerate('abc'):
+    print(i, char)
+# 0 a
+# 1 b
+# 2 c
+
+# Works on generators (which range(len()) can't do)
+squares = (x * x for x in range(5))
+for i, sq in enumerate(squares):
+    print(i, sq)
+# 0 0
+# 1 1
+# 2 4
+# 3 9
+# 4 16</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why enumerate is better:
+
+1. No indexing back into the sequence
+   range(len()):
+     for i in range(len(items)):
+         item = items[i]   # extra lookup
+   
+   enumerate:
+     for i, item in enumerate(items):
+         # item is already here
+
+2. Works on any iterable
+   ❌ range(len()) requires:
+      - len() support
+      - __getitem__ support
+   
+   ✅ enumerate requires only iteration
+   
+   Examples that work with enumerate but not range(len()):
+     - Generators
+     - Files
+     - Sets
+     - Dictionaries
+     - zip objects
+     - map objects
+
+3. Faster
+   enumerate is O(1) per item.
+   range(len()) creates a range, calls len(),
+   then indexes the sequence for each item.
+   
+   For a 1M-item list:
+     enumerate: ~50ms
+     range(len()): ~80ms
+   
+   The difference is real, though not huge.
+   The readability difference is bigger.
+
+4. Fewer bugs
+   range(len()) tempts you to:
+     - Use the wrong index (off-by-one)
+     - Forget that modifying the list while
+       iterating breaks the indexing
+     - Assume the sequence is a list
+   
+   enumerate gives you the value directly.
+   You can't have an off-by-one if you
+   never touch the index.
+
+When range(len()) is justified:
+
+The rare case: modifying a list while iterating.
+  for i in range(len(items) - 1, -1, -1):
+      if should_remove(items[i]):
+          del items[i]
+  → Iterate backwards so deletion doesn't
+    shift unprocessed items.
+  → enumerate can't do this.
+  
+  But even this is usually better with a
+  list comprehension:
+    items = [x for x in items if not should_remove(x)]
+
+The only truly valid use of range(len()):
+  When you need the index AFTER iteration,
+  or when you're building a data structure that
+  references positions.
+  
+  Even then, enumerate is usually possible.
+  Use range(len()) only when you've tried
+  enumerate and it doesn't fit.
+
+Rule of thumb:
+  For every range(len(x)) you write,
+  ask: could this be enumerate(x)?
+  The answer is almost always yes.
+  Write the enumerate.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Parallel iteration with zip</h2>
+<p class="section-sub">Two (or more) sequences at once.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">zip.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">names = ['Alice', 'Bob', 'Charlie']
+scores = [85, 72, 95]
+
+# zip — iterate two sequences together
+for name, score in zip(names, scores):
+    print(f'{name}: {score}')
+# Alice: 85
+# Bob: 72
+# Charlie: 95
+
+# enumerate + zip — index and multiple sequences
+for i, (name, score) in enumerate(zip(names, scores), start=1):
+    print(f'{i}. {name}: {score}')
+# 1. Alice: 85
+# 2. Bob: 72
+# 3. Charlie: 95
+
+# Build a dict from two lists
+scores_dict = dict(zip(names, scores))
+print(scores_dict)
+# {'Alice': 85, 'Bob': 72, 'Charlie': 95}
+
+# zip stops at the shortest
+short = [1, 2]
+long = ['a', 'b', 'c']
+for a, b in zip(short, long):
+    print(a, b)
+# 1 a
+# 2 b
+# (3 is dropped)
+
+# zip_longest — keep all, fill missing with a value
+from itertools import zip_longest
+for a, b in zip_longest(short, long, fillvalue='?'):
+    print(a, b)
+# 1 a
+# 2 b
+# ? c
+
+# Three or more sequences
+for name, score, grade in zip(names, scores, ['A', 'B', 'A']):
+    print(name, score, grade)</pre>
+<script type="text/plain" id="raw-code-sol2">names = ['Alice', 'Bob', 'Charlie']
+scores = [85, 72, 95]
+
+# zip — iterate two sequences together
+for name, score in zip(names, scores):
+    print(f'{name}: {score}')
+# Alice: 85
+# Bob: 72
+# Charlie: 95
+
+# enumerate + zip — index and multiple sequences
+for i, (name, score) in enumerate(zip(names, scores), start=1):
+    print(f'{i}. {name}: {score}')
+# 1. Alice: 85
+# 2. Bob: 72
+# 3. Charlie: 95
+
+# Build a dict from two lists
+scores_dict = dict(zip(names, scores))
+print(scores_dict)
+# {'Alice': 85, 'Bob': 72, 'Charlie': 95}
+
+# zip stops at the shortest
+short = [1, 2]
+long = ['a', 'b', 'c']
+for a, b in zip(short, long):
+    print(a, b)
+# 1 a
+# 2 b
+# (3 is dropped)
+
+# zip_longest — keep all, fill missing with a value
+from itertools import zip_longest
+for a, b in zip_longest(short, long, fillvalue='?'):
+    print(a, b)
+# 1 a
+# 2 b
+# ? c
+
+# Three or more sequences
+for name, score, grade in zip(names, scores, ['A', 'B', 'A']):
+    print(name, score, grade)</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>zip basics:
+
+  zip(a, b) yields (a[0], b[0]), (a[1], b[1]), ...
+  Each iteration produces a tuple.
+
+  Stops at the shortest.
+  Length of zip(a, b) = min(len(a), len(b)).
+
+Why zip is better than indexing:
+
+❌ for i in range(min(len(a), len(b))):
+      x, y = a[i], b[i]
+
+✅ for x, y in zip(a, b):
+
+Same output, cleaner code, faster, safer.
+
+The dict(zip(...)) pattern:
+
+  names = ['Alice', 'Bob', 'Charlie']
+  scores = [85, 72, 95]
+  d = dict(zip(names, scores))
+  # {'Alice': 85, 'Bob': 72, 'Charlie': 95}
+
+  Common for two parallel lists that logically
+  form key-value pairs.
+  This is how you'd process CSV columns,
+  API responses, or paired data.
+
+The zip(*) trick — unzip:
+
+  pairs = [('Alice', 85), ('Bob', 72)]
+  names, scores = zip(*pairs)
+  # names = ('Alice', 'Bob')
+  # scores = (85, 72)
+
+  zip(*iterable) transposes.
+  Useful for converting a list of tuples into
+  two separate sequences.
+
+Nested enumerate + zip:
+
+  for i, (name, score) in enumerate(zip(names, scores)):
+      ...
+  
+  The tuple unpacking is:
+    i ← enumerate's counter
+    (name, score) ← zip's tuple
+  
+  The parentheses around name, score are required
+  when unpacking a nested tuple. Without them,
+  Python tries to assign three separate variables,
+  which fails.
+
+Combined patterns:
+
+  # Index + two sequences
+  for i, (a, b) in enumerate(zip(list1, list2)):
+  
+  # Index + three sequences
+  for i, (a, b, c) in enumerate(zip(list1, list2, list3)):
+  
+  # Dict from three sequences (rare but valid)
+  combined = list(zip(names, scores, grades))
+  for name, score, grade in combined:
+      ...
+
+  # Unzip a list of tuples
+  xs, ys = zip(*pairs)
+
+  # Enumerate a dictionary's items
+  for i, (key, value) in enumerate(d.items()):
+      ...
+
+The enumerate + items pattern:
+
+  for i, (k, v) in enumerate(scores.items(), start=1):
+      print(f'{i}. {k}: {v}')
+
+  Useful for numbered lists of dict entries.
+  Matches the pattern of enumerate + zip,
+  because d.items() yields tuples too.
+
+⚠️ zip is lazy — it doesn't create a list.
+   for a, b in zip(huge_list_a, huge_list_b):
+       ...  # streams, doesn't materialize
+
+   To force a list: list(zip(a, b)).
+   But usually you don't need to.
+
+⚠️ zip truncates silently.
+   If the lists have different lengths,
+   the extra items are dropped.
+   To catch this:
+     if len(a) != len(b): raise ValueError
+   Or use zip_longest with fillvalue.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Advanced patterns</h2>
+<p class="section-sub">The cases beyond simple iteration.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">advanced.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">What each does</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"># 1. Enumerate a dict's items
+scores = {'Alice': 85, 'Bob': 72}
+for i, (name, score) in enumerate(scores.items(), start=1):
+    print(f'{i}. {name}: {score}')
+# 1. Alice: 85
+# 2. Bob: 72
+
+# 2. Enumerate with conditional — skip or break
+for i, item in enumerate(items):
+    if item == 'banana':
+        continue    # skip the print
+    if item == 'cherry':
+        break       # stop iterating
+    print(i, item)
+# 0 apple
+
+# 3. Enumerate a range
+for i, n in enumerate(range(10, 15)):
+    print(i, n)
+# 0 10
+# 1 11
+# 2 12
+# 3 13
+# 4 14
+
+# 4. Find the index of the first match
+items = ['apple', 'banana', 'cherry']
+banana_index = next(
+    (i for i, item in enumerate(items) if item == 'banana'),
+    None
+)
+print(banana_index)  # 1
+
+# 5. Collect indices and values separately
+items = [10, 20, 30]
+indices = []
+values = []
+for i, v in enumerate(items):
+    indices.append(i)
+    values.append(v)
+print(indices)  # [0, 1, 2]
+print(values)   # [10, 20, 30]
+
+# Or in one line with zip(*enumerate(...))
+indices, values = zip(*enumerate(items))
+print(indices)  # (0, 1, 2)
+print(values)   # (10, 20, 30)
+
+# 6. Sort by original index
+sorted_items = sorted(enumerate(items), key=lambda x: x[0])
+print(sorted_items)
+# [(0, 10), (1, 20), (2, 30)]</pre>
+<script type="text/plain" id="raw-code-sol3"># 1. Enumerate a dict's items
+scores = {'Alice': 85, 'Bob': 72}
+for i, (name, score) in enumerate(scores.items(), start=1):
+    print(f'{i}. {name}: {score}')
+# 1. Alice: 85
+# 2. Bob: 72
+
+# 2. Enumerate with conditional — skip or break
+for i, item in enumerate(items):
+    if item == 'banana':
+        continue    # skip the print
+    if item == 'cherry':
+        break       # stop iterating
+    print(i, item)
+# 0 apple
+
+# 3. Enumerate a range
+for i, n in enumerate(range(10, 15)):
+    print(i, n)
+# 0 10
+# 1 11
+# 2 12
+# 3 13
+# 4 14
+
+# 4. Find the index of the first match
+items = ['apple', 'banana', 'cherry']
+banana_index = next(
+    (i for i, item in enumerate(items) if item == 'banana'),
+    None
+)
+print(banana_index)  # 1
+
+# 5. Collect indices and values separately
+items = [10, 20, 30]
+indices = []
+values = []
+for i, v in enumerate(items):
+    indices.append(i)
+    values.append(v)
+print(indices)  # [0, 1, 2]
+print(values)   # [10, 20, 30]
+
+# Or in one line with zip(*enumerate(...))
+indices, values = zip(*enumerate(items))
+print(indices)  # (0, 1, 2)
+print(values)   # (10, 20, 30)
+
+# 6. Sort by original index
+sorted_items = sorted(enumerate(items), key=lambda x: x[0])
+print(sorted_items)
+# [(0, 10), (1, 20), (2, 30)]</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Advanced enumerate patterns:
+
+1. Enumerate + dict items
+   for i, (k, v) in enumerate(d.items()):
+       # i is counter, (k, v) is the item tuple
+   
+   The double unpacking (i, (k, v)) is common.
+
+2. Find the first match index
+   next((i for i, x in enumerate(items) if cond(x)), None)
+   → returns the index of the first match
+   → or None if no match
+   → useful for "where is X in this list?"
+   
+   Or use items.index(x) — but that raises ValueError
+   if not found, and it compares by equality, not condition.
+   
+   enumerate + next is the general "find where" idiom.
+
+3. Collect indices and values
+   indices, values = zip(*enumerate(items))
+   → transposes (0, item0), (1, item1), ... into
+     (indices_tuple, values_tuple)
+   → the same zip(*) trick as unzipping pairs
+
+4. Enumerate and modify the sequence
+   for i, item in enumerate(list(items)):  # copy
+       items[i] = f(item)
+   
+   → iterate a copy, modify the original by index
+   → avoids the "modifying while iterating" problem
+   
+   Better: build a new list
+   items = [f(x) for x in items]
+   
+   The enumerate version is for in-place mutation.
+   It's rare — prefer the new list.
+
+5. Enumerate with start offset
+   enumerate(items, start=100)
+   → counts 100, 101, 102, ...
+   → useful for IDs, line numbers, chapters
+   
+   Often used for 1-based numbering:
+   enumerate(items, start=1)
+
+6. Reverse iteration with enumerate
+   for i, item in reversed(list(enumerate(items))):
+       print(i, item)
+   → iterates backwards, index preserved
+   → reversed() doesn't work on enumerate objects
+     directly (enumerate isn't reversible)
+   → so wrap in list() first, then reversed
+   → O(n) memory for the list
+   → for large sequences, use:
+     for i in range(len(items) - 1, -1, -1):
+         item = items[i]
+         ...
+     → this is the justified range(len()) case
+
+7. Enumerate over a range
+   for i, n in enumerate(range(10, 15)):
+       # i is 0..4, n is 10..14
+   
+   Redundant in most cases — enumerate of range
+   gives two counters. But useful when you want
+   BOTH the enumeration index AND the range value.
+   
+   Usually you want one or the other:
+     for i in range(10, 15):     # just the values
+     for i, _ in enumerate(range(10, 15)):  # just indices
+   
+   enumerate(range(...)) is rare.
+
+The patterns that come up most often:
+
+  for i, item in enumerate(items):        # 90%
+  for i, (k, v) in enumerate(d.items()):  # 5%
+  for i, (a, b) in enumerate(zip(a, b)):  # 5%
+
+Learn these three.
+They cover 99% of enumerate use cases.
+The rest are variations.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>range(len())</code> as a reflex.</strong> It's the single most common Python anti-pattern, especially from developers coming from C, Java, or JavaScript. <code>for i in range(len(items))</code> is nearly always replaceable with <code>for i, item in enumerate(items)</code> — and the replacement is shorter, clearer, faster, and works on more types. The two legitimate uses of <code>range(len())</code>: (1) you need to iterate backwards while modifying the list, (2) you need the index for something other than accessing the sequence. For everything else, use <code>enumerate</code>.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The enumerate mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>range(len(items))</code></div>
+<p>The anti-pattern. Fix: <code>enumerate(items)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Forgetting <code>start=</code></div>
+<p><code>enumerate(items, 1)</code> works but <code>start=1</code> is clearer. Fix: <code>enumerate(items, start=1)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Wrong unpacking order</div>
+<p><code>for item, i in enumerate(items)</code> — swapped. Fix: <code>for i, item in enumerate(items)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Nested tuple unpacking</div>
+<p><code>for i, name, score in enumerate(zip(names, scores))</code> — wrong. Fix: <code>for i, (name, score) in enumerate(zip(names, scores))</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Trying to reverse enumerate</div>
+<p><code>reversed(enumerate(items))</code> — TypeError. Fix: <code>reversed(list(enumerate(items)))</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Modifying the list while iterating</div>
+<p>Skipped elements, wrong values. Fix: iterate a copy, or build a new list.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. zip with unequal lengths</div>
+<p>Silently truncates. Fix: check lengths, or use <code>zip_longest</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Assuming enumerate returns a list</div>
+<p>It's an iterator. Fix: <code>list(enumerate(items))</code> if you need a list.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I loop with an index in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">Use enumerate: for i, item in enumerate(items): print(i, item). It yields (index, value) tuples. Start the counter at any number: enumerate(items, start=1). Don't use range(len(items)) — it's slower, less readable, and a known anti-pattern. For parallel iteration over two sequences, use zip.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between enumerate and range(len())?</summary>
+<p class="mt-2 text-sm text-slate-300">Three differences. (1) enumerate yields (index, value) directly. (2) enumerate works on any iterable (generators, files, sets). (3) enumerate is faster. The range(len()) version is a holdover from C. In modern Python, always use enumerate. The only valid use of range(len()) is when you need to modify the list while iterating.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I start enumerate at 1 instead of 0?</summary>
+<p class="mt-2 text-sm text-slate-300">Pass start=1: for i, item in enumerate(items, start=1): print(f'{i}. {item}'). The start parameter sets the initial counter value. It doesn't affect iteration order. enumerate(items, start=100) counts 100, 101, 102, ...</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I iterate two lists at the same time?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes — use zip: for a, b in zip(list1, list2). zip yields tuples of corresponding elements. It stops at the shortest. For unequal-length sequences, use itertools.zip_longest with a fillvalue. For index + multiple lists: for i, (a, b) in enumerate(zip(list1, list2)).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I modify a list while iterating with enumerate?</summary>
+<p class="mt-2 text-sm text-slate-300">Technically yes, but dangerous. enumerate yields the value from the original sequence — modifying the list during iteration can cause skipped elements or wrong values. The safe pattern: iterate over a copy, or build a new list. If you truly need to modify in place, iterate backwards with range(len()).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Does enumerate create a new list?</summary>
+<p class="mt-2 text-sm text-slate-300">No — enumerate returns an iterator, not a list. It's lazy: it produces (index, value) tuples one at a time as you iterate. If you need a list, wrap it: list(enumerate(items)). For 99% of code, the iterator is what you want.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from install to first project — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/python/problems/iterate-dict.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📖 How to iterate a dictionary</div>
+<div class="text-xs text-slate-400 mt-1"><code>keys()</code>, <code>values()</code>, <code>items()</code> — and the set-operation superpower</div>
+</a>
+</section>
+
+<a href="/courses/python/problems/index.html" class="back-link">← All Python problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · Python <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
