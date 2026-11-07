@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Debounce vs Throttle in JavaScript — What's the Difference? (2026)</title>
+<meta name="description" content="Debounce vs throttle explained: what each does, when to use each, and the working implementation of both. Direct answer with examples.">
+<meta name="keywords" content="debounce vs throttle, javascript debounce, javascript throttle, debounce implementation, throttle implementation, event rate limiting">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Debounce vs Throttle in JavaScript — What's the Difference?">
+<meta property="og:description" content="What each does, when to use each, and the working implementation.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/debounce-throttle.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Debounce vs Throttle in JavaScript">
+<meta name="twitter:description" content="What each does, when to use each.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/debounce-throttle.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Debounce vs Throttle in JavaScript — What's the Difference?",
+"description": "What debounce and throttle each do, when to use each, and how to implement them.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Intermediate",
+"dependencies": "ES2015"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between debounce and throttle?","acceptedAnswer":{"@type":"Answer","text":"Both limit how often a function runs. Debounce waits until the events stop — it runs the function once, after the last event plus a delay. If the user keeps typing, the timer resets on each keystroke. Throttle runs the function at most once per interval — it fires on a schedule regardless of how many events occur. Use debounce for search-as-you-type (wait until typing stops), autosave (save after the user pauses), form validation (validate after the user finishes). Use throttle for scroll handlers (update every 100ms), resize handlers, mousemove, infinite scroll, drag handlers. Debounce collapses bursts into one call; throttle spaces calls out."}},
+{"@type":"Question","name":"Why use debounce for search input?","acceptedAnswer":{"@type":"Answer","text":"Because the user types many characters quickly. Without debounce, every keystroke triggers an API call — 10 characters = 10 requests, most of which are wasted because the user wasn't finished. With debounce (300ms), the API call only fires when the user stops typing for 300ms. Result: 1 request instead of 10, and the request is for the complete query, not a partial one. The same logic applies to any expensive operation triggered by rapid events: form validation, localStorage writes, layout calculations."}},
+{"@type":"Question","name":"Why use throttle for scroll?","acceptedAnswer":{"@type":"Answer","text":"Because scroll fires at 60+ events per second — throttling to 100ms reduces that to 10 events per second, which is still smooth but 6x less work. Without throttle, a scroll handler that does DOM queries or layout calculations can drop frames, cause jank, and drain battery. With throttle, the handler runs on a fixed schedule and the page stays smooth. The same applies to resize, mousemove, and drag — any event that fires faster than you need to respond."}},
+{"@type":"Question","name":"Can I use a library instead of writing my own?","acceptedAnswer":{"@type":"Answer","text":"Yes — lodash has debounce and throttle, and they're battle-tested. For most applications, using the library is the right choice: it handles edge cases (immediate execution, cancel, flush, leading/trailing options) that take time to implement correctly. Write your own only for learning, or when the library dependency isn't worth it (a tiny script, a specific behavior the library doesn't support). The implementations on this page are simplified versions of what lodash provides — they work for the common case, but the library handles more."}},
+{"@type":"Question","name":"Does debounce delay every call or just the last one?","acceptedAnswer":{"@type":"Answer","text":"By default, debounce delays only the last call. If the user types 'hello' quickly, the function runs once, after 300ms of no input — with 'hello', not 'h', 'he', 'hel', 'hell', 'hello' separately. This is what you want for search. But debounce can also be configured to run on the leading edge (the first call), or both edges. The simple implementation in this page is trailing-only. The library supports all three modes. For 90% of use cases, trailing-only is correct."}},
+{"@type":"Question","name":"What is the delay value I should use?","acceptedAnswer":{"@type":"Answer","text":"Depends on the use case. Search input: 300ms is standard — fast enough to feel responsive, slow enough to avoid excessive requests. Autosave: 1-2 seconds — long enough that the user isn't waiting between saves. Scroll throttle: 16ms (60fps) is ideal but 100ms is common — smooth enough visually, 6x fewer handler calls. Resize: 100-200ms. Mousemove: 16-50ms. The general rule: fast events need shorter delays to feel responsive; slow events can tolerate longer delays. Start with 300ms for debounce, 100ms for throttle, and adjust based on feel."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · debounce vs throttle</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Debounce vs throttle</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 3 min read</div>
+<h1>Debounce vs throttle.<br><span class="py-accent">Group or space. Not both.</span></h1>
+<p class="lead">
+Both limit how often a function runs. They do it differently. <strong>Debounce</strong> waits until the events stop — one call, after the last event plus a delay. <strong>Throttle</strong> runs at most once per interval — fires on a schedule regardless of how many events occur. This page covers the difference, the working implementations, and the use cases each pattern is designed for.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Debounce collapses bursts — use for search input, autosave, form validation. Throttle spaces calls — use for scroll, resize, mousemove, drag. Delay: 300ms for debounce is standard, 100ms for throttle. Use <code>lodash.debounce</code> and <code>lodash.throttle</code> for production — they handle edge cases (leading/trailing, cancel, flush). Write your own only for learning or when the dependency isn't worth it.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The difference</h2>
+<p class="section-sub">Same input events, different output timing.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">timing.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Timing</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">// User types 5 events: keystrokes at 0ms, 50ms, 100ms, 150ms, 200ms
+// Then stops.
+
+// Debounce with 300ms delay:
+// ────────┬─────────────────────────┬─────
+//         0ms   50  100  150  200   500ms
+//         │     │    │    │    │     │
+//         X     X    X    X    X     ✓
+//         (keystroke events, all swallowed)
+//
+// One call at 500ms = last event (200) + delay (300).
+// The timer resets on each keystroke.
+
+// Throttle with 300ms interval:
+// ────────┬─────────────────────────┬─────
+//         0ms   50  100  150  200   300ms
+//         │     │    │    │    │     │
+//         ✓     X    X    ✓    X     ✓
+//         (calls at 0, 100, 300...)
+//
+// Multiple calls, spaced 300ms apart.
+// Ignores intermediate events.</pre>
+<script type="text/plain" id="raw-code-sol1">// User types 5 events: keystrokes at 0ms, 50ms, 100ms, 150ms, 200ms
+// Then stops.
+
+// Debounce with 300ms delay:
+// ────────┬─────────────────────────┬─────
+//         0ms   50  100  150  200   500ms
+//         │     │    │    │    │     │
+//         X     X    X    X    X     ✓
+//         (keystroke events, all swallowed)
+//
+// One call at 500ms = last event (200) + delay (300).
+// The timer resets on each keystroke.
+
+// Throttle with 300ms interval:
+// ────────┬─────────────────────────┬─────
+//         0ms   50  100  150  200   300ms
+//         │     │    │    │    │     │
+//         ✓     X    X    ✓    X     ✓
+//         (calls at 0, 100, 300...)
+//
+// Multiple calls, spaced 300ms apart.
+// Ignores intermediate events.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The mental model:
+
+Debounce = "wait until quiet, then act"
+  → Like an elevator: door waits until no one
+    has entered for 3 seconds, then closes.
+  → Every event resets the timer.
+
+Throttle = "act at most once per period"
+  → Like a metronome: ticks every 100ms regardless
+    of what you do in between.
+  → Events don't reset the timer.
+
+Which to use:
+
+Debounce — the function should run ONCE,
+           after the events stop:
+  ✅ Search as you type
+  ✅ Autosave after edits
+  ✅ Form validation after input
+  ✅ Resize layout calculation after resize
+  ✅ API calls triggered by user input
+
+Throttle — the function should run periodically
+           DURING the events:
+  ✅ Scroll handlers
+  ✅ Mousemove tracking
+  ✅ Infinite scroll checks
+  ✅ Drag position updates
+  ✅ Progress bar updates
+
+The key question:
+  "Do I want the FINAL value, or REGULAR updates?"
+  Final value → debounce
+  Regular updates → throttle
+
+The wrong choice:
+  Debounce on scroll — the handler only runs
+    after the user stops scrolling. Janky.
+  Throttle on search — the API is called every
+    300ms during typing. Wasteful.
+
+Match the pattern to the use case.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Debounce — the implementation</h2>
+<p class="section-sub">Simple, readable, works.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">debounce.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">How it works</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">function debounce(fn, delay) {
+  let timerId;
+
+  return function (...args) {
+    clearTimeout(timerId);
+
+    timerId = setTimeout(() => {
+      fn.apply(this, args);
+    }, delay);
+  };
+}
+
+// Usage: search input
+const searchInput = document.getElementById('search');
+
+const handleSearch = debounce((event) => {
+  console.log('Searching for:', event.target.value);
+  // fetch('/api/search?q=' + event.target.value)
+}, 300);
+
+searchInput.addEventListener('input', handleSearch);
+
+// What happens:
+// User types 'h'    → timer set (fires in 300ms)
+// User types 'e'    → timer cleared, new timer set
+// User types 'l'    → timer cleared, new timer set
+// User types 'l'    → timer cleared, new timer set
+// User types 'o'    → timer cleared, new timer set
+// User stops typing → 300ms later, handler runs with 'hello'</pre>
+<script type="text/plain" id="raw-code-sol2">function debounce(fn, delay) {
+  let timerId;
+
+  return function (...args) {
+    clearTimeout(timerId);
+
+    timerId = setTimeout(() => {
+      fn.apply(this, args);
+    }, delay);
+  };
+}
+
+// Usage: search input
+const searchInput = document.getElementById('search');
+
+const handleSearch = debounce((event) => {
+  console.log('Searching for:', event.target.value);
+  // fetch('/api/search?q=' + event.target.value)
+}, 300);
+
+searchInput.addEventListener('input', handleSearch);
+
+// What happens:
+// User types 'h'    → timer set (fires in 300ms)
+// User types 'e'    → timer cleared, new timer set
+// User types 'l'    → timer cleared, new timer set
+// User types 'l'    → timer cleared, new timer set
+// User types 'o'    → timer cleared, new timer set
+// User stops typing → 300ms later, handler runs with 'hello'</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>How the implementation works:
+
+1. timerId is captured in the closure.
+   It survives between calls to the returned function.
+
+2. Each call clears the previous timer.
+   The pending call is cancelled.
+
+3. Each call sets a new timer.
+   If the user doesn't call again within `delay`,
+   the timer fires and calls fn.
+
+4. ...args and this preserve the arguments
+   and context of the most recent call.
+   Without this, the handler would receive
+   the wrong event or lose `this`.
+
+What it doesn't handle:
+
+❌ Leading edge — calling on the first event
+   instead of the last.
+❌ Cancel — a way to cancel a pending call.
+❌ Flush — a way to run immediately.
+❌ Immediate call — an option to call fn on
+   the first event, not the last.
+
+For these, use lodash.debounce:
+
+  import debounce from 'lodash/debounce';
+
+  const search = debounce(fn, 300, {
+    leading: false,
+    trailing: true,
+    maxWait: 1000
+  });
+
+  search.cancel();   // cancel pending
+  search.flush();    // run immediately
+
+The simple implementation is enough for
+90% of cases. The library handles the rest.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Throttle — the implementation</h2>
+<p class="section-sub">Simple, readable, works.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">throttle.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">How it works</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">function throttle(fn, interval) {
+  let lastCall = 0;
+
+  return function (...args) {
+    const now = Date.now();
+
+    if (now - lastCall >= interval) {
+      lastCall = now;
+      fn.apply(this, args);
+    }
+  };
+}
+
+// Usage: scroll handler
+const handleScroll = throttle(() => {
+  console.log('Scroll position:', window.scrollY);
+  // Update sticky header, progress bar, etc.
+}, 100);
+
+window.addEventListener('scroll', handleScroll);
+
+// What happens:
+// User scrolls rapidly for 1 second (60 events).
+// Handler runs at t=0, t=100, t=200, ..., t=1000.
+// That's 11 calls instead of 60.
+
+// At 16ms throttle (60fps):
+// Handler runs at t=0, 16, 32, 48, ...
+// ~60 calls per second, but each on a fixed schedule.
+// Smooth for animations, DOM updates.</pre>
+<script type="text/plain" id="raw-code-sol3">function throttle(fn, interval) {
+  let lastCall = 0;
+
+  return function (...args) {
+    const now = Date.now();
+
+    if (now - lastCall >= interval) {
+      lastCall = now;
+      fn.apply(this, args);
+    }
+  };
+}
+
+// Usage: scroll handler
+const handleScroll = throttle(() => {
+  console.log('Scroll position:', window.scrollY);
+  // Update sticky header, progress bar, etc.
+}, 100);
+
+window.addEventListener('scroll', handleScroll);
+
+// What happens:
+// User scrolls rapidly for 1 second (60 events).
+// Handler runs at t=0, t=100, t=200, ..., t=1000.
+// That's 11 calls instead of 60.
+
+// At 16ms throttle (60fps):
+// Handler runs at t=0, 16, 32, 48, ...
+// ~60 calls per second, but each on a fixed schedule.
+// Smooth for animations, DOM updates.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>How the implementation works:
+
+1. lastCall is captured in the closure.
+   It tracks when fn was last called.
+
+2. Each call checks the current time.
+
+3. If enough time has passed since lastCall,
+   the function runs and lastCall is updated.
+
+4. If not enough time has passed, the call is
+   ignored entirely.
+
+What it does NOT do:
+
+❌ Trailing call — if the last event in a burst
+   happened after the last call, the handler
+   doesn't run for that final event.
+❌ Configurable leading/trailing — the simple
+   version is leading-only (fires on the first
+   event of each interval, then ignores the rest).
+❌ Cancel / flush.
+
+For these, use lodash.throttle:
+
+  import throttle from 'lodash/throttle';
+
+  const onScroll = throttle(fn, 100, {
+    leading: true,
+    trailing: true
+  });
+
+  onScroll.cancel();
+  onScroll.flush();
+
+The simple version is enough for most cases.
+The library handles the edge cases.
+
+⚠️ requestAnimationFrame is often better than throttle
+   for visual updates:
+
+   let ticking = false;
+   window.addEventListener('scroll', () => {
+     if (!ticking) {
+       requestAnimationFrame(() => {
+         updateUI();
+         ticking = false;
+       });
+       ticking = true;
+     }
+   });
+
+   This ties updates to the browser's frame rate,
+   not a timer. Smoother for scroll animations.
+
+   Use throttle for logic that isn't frame-synced
+   (API calls, analytics, localStorage writes).
+   Use rAF for visual updates.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use throttle on search input.</strong> Throttle fires every N milliseconds regardless of whether the user is still typing. On a search input, this means firing a request mid-word — "hel", "hello", "helloooo" — most of which are wasted. Debounce is the right pattern: wait until the user stops, then fire once with the complete query. The reverse mistake is also common: using debounce on scroll means the handler doesn't fire until scrolling stops, which is janky for visual updates. Match the pattern to the use case — final value vs regular updates.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The debounce/throttle mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Debounce on scroll</div>
+<p>Handler only runs after scrolling stops — janky. Fix: throttle.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Throttle on search input</div>
+<p>Fires mid-word — wasted requests. Fix: debounce.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Wrong delay</div>
+<p>100ms for search feels laggy; 1000ms for scroll feels disconnected. Fix: 300ms debounce, 100ms throttle.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Recreating the debounced function on every render</div>
+<p>Breaks the debouncing. Fix: create once, outside render, or use useMemo/useRef in React.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Forgetting cleanup</div>
+<p>Timers keep running after unmount. Fix: clearTimeout on cleanup, or use the library's cancel.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Not preserving <code>this</code> or args</div>
+<p>Custom implementation loses context. Fix: <code>fn.apply(this, args)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Debounce for analytics events</div>
+<p>Analytics should capture all events — debouncing loses data. Fix: send all, throttle the network layer.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using <code>setInterval</code> instead of <code>setTimeout</code></div>
+<p>Misses the trailing call. Fix: use setTimeout with clearTimeout (debounce pattern).</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between debounce and throttle?</summary>
+<p class="mt-2 text-sm text-slate-300">Both limit how often a function runs. Debounce waits until the events stop — it runs the function once, after the last event plus a delay. Throttle runs the function at most once per interval — it fires on a schedule regardless of how many events occur. Debounce collapses bursts into one call; throttle spaces calls out.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why use debounce for search input?</summary>
+<p class="mt-2 text-sm text-slate-300">Because the user types many characters quickly. Without debounce, every keystroke triggers an API call — 10 characters = 10 requests, most of which are wasted. With debounce (300ms), the API call only fires when the user stops typing for 300ms. Result: 1 request instead of 10.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why use throttle for scroll?</summary>
+<p class="mt-2 text-sm text-slate-300">Because scroll fires at 60+ events per second — throttling to 100ms reduces that to 10 events per second, which is still smooth but 6x less work. Without throttle, a scroll handler that does DOM queries or layout calculations can drop frames, cause jank, and drain battery.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Can I use a library instead of writing my own?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes — lodash has debounce and throttle, and they're battle-tested. For most applications, using the library is the right choice: it handles edge cases (immediate execution, cancel, flush, leading/trailing options) that take time to implement correctly. Write your own only for learning, or when the library dependency isn't worth it.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Does debounce delay every call or just the last one?</summary>
+<p class="mt-2 text-sm text-slate-300">By default, debounce delays only the last call. If the user types 'hello' quickly, the function runs once, after 300ms of no input — with 'hello', not 'h', 'he', 'hel', 'hell', 'hello' separately. This is what you want for search. But debounce can also be configured to run on the leading edge (the first call), or both edges.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the delay value I should use?</summary>
+<p class="mt-2 text-sm text-slate-300">Depends on the use case. Search input: 300ms is standard. Autosave: 1-2 seconds. Scroll throttle: 16ms (60fps) is ideal but 100ms is common. Resize: 100-200ms. Mousemove: 16-50ms. Start with 300ms for debounce, 100ms for throttle, and adjust based on feel.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/event-delegation.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🎯 Event delegation</div>
+<div class="text-xs text-slate-400 mt-1">One listener for many elements — the pattern and its performance implications</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
