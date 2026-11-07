@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>JSON.parse and JSON.stringify in JavaScript — Complete Guide (2026)</title>
+<meta name="description" content="JSON.parse and JSON.stringify explained: the two methods, the edge cases (dates, undefined, circular refs), and the patterns that don't lose data. Direct answer with examples.">
+<meta name="keywords" content="json.parse, json.stringify, javascript json, parse json javascript, stringify circular reference, json date">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="JSON.parse and JSON.stringify in JavaScript — Complete Guide">
+<meta property="og:description" content="The two methods — and the edge cases that bite.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/json-parse.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="JSON.parse and JSON.stringify in JavaScript">
+<meta name="twitter:description" content="The two methods, the edge cases.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/json-parse.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "JSON.parse and JSON.stringify in JavaScript — Complete Guide",
+"description": "The two JSON methods and the edge cases that bite.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Beginner",
+"dependencies": "ES5"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between JSON.parse and JSON.stringify?","acceptedAnswer":{"@type":"Answer","text":"They go in opposite directions. JSON.parse converts a JSON string into a JavaScript value: JSON.parse('{\"a\":1}') gives { a: 1 }. JSON.stringify converts a JavaScript value into a JSON string: JSON.stringify({ a: 1 }) gives '{\"a\":1}'. Use parse when you receive data as text (from an API, localStorage, a file). Use stringify when you need to send data as text (to an API, to localStorage, in a URL). The names are verbs: parse reads, stringify writes."}},
+{"@type":"Question","name":"Why does JSON.parse throw on valid-looking data?","acceptedAnswer":{"@type":"Answer","text":"Three common causes. (1) The data isn't JSON — it's HTML (a 404 page), a JavaScript object literal (single quotes, unquoted keys), or empty. (2) The data has a trailing comma or unquoted key — that's JavaScript, not JSON. JSON requires double-quoted strings and no trailing commas. (3) The data is already parsed — parsing the result of a fetch that has already been .json()'d throws. Fix: check the source, log the raw text, and use try/catch around JSON.parse in production. Never assume the data is valid."}},
+{"@type":"Question","name":"Why does JSON.stringify drop undefined and functions?","acceptedAnswer":{"@type":"Answer","text":"JSON doesn't have undefined or functions — they're not valid JSON values. When stringifying an object, undefined properties and function properties are silently dropped. When stringifying an array, they become null. This is by spec, not a bug. If you need to keep these values, transform them first: JSON.stringify(obj, (key, val) => val === undefined ? null : val). Also null gets preserved, so if the field must exist in the JSON, use null instead of undefined as the 'empty' marker."}},
+{"@type":"Question","name":"How do I stringify a Date?","acceptedAnswer":{"@type":"Answer","text":"JSON.stringify converts a Date to its ISO 8601 string automatically: JSON.stringify({ d: new Date() }) gives '{\"d\":\"2026-11-07T12:00:00.000Z\"}'. But JSON.parse does not convert it back to a Date — you get a string. To preserve Dates, use a reviver: JSON.parse(str, (key, val) => key === 'createdAt' ? new Date(val) : val). Or use a library like flatted or superjson that handles Dates, Maps, Sets, and other types. The asymmetry is by design — JSON has no Date type."}},
+{"@type":"Question","name":"How do I stringify an object with circular references?","acceptedAnswer":{"@type":"Answer","text":"JSON.stringify throws on circular references — an object that contains itself, directly or indirectly. Example: const obj = {}; obj.self = obj; JSON.stringify(obj) throws TypeError: Converting circular structure to JSON. Fixes: (1) Remove the circular reference before stringifying. (2) Use a replacer that tracks seen objects and replaces repeats with a placeholder. (3) Use a library like flatted or circular-json designed for this. The most common case is a data structure you didn't expect to be circular — check your data model."}},
+{"@type":"Question","name":"Is JSON.parse faster than JSON.stringify?","acceptedAnswer":{"@type":"Answer","text":"Generally yes — parsing is usually 2-3x faster than stringifying for the same data. Parsing is a pure transformation from string to object; stringifying involves walking the object, converting each value to its JSON representation, and building the string. But both are fast enough for typical data — a 1MB JSON payload parses in a few milliseconds. The performance matters only at scale (megabytes of data, thousands of operations per second). Optimize after measuring, not before."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · JSON.parse</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">JSON.parse / stringify</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 3 min read</div>
+<h1>JSON.parse and JSON.stringify.<br><span class="py-accent">Read and write JSON.</span></h1>
+<p class="lead">
+The two methods every JavaScript project uses. <code>JSON.parse</code> converts a JSON string into a JavaScript value. <code>JSON.stringify</code> converts a JavaScript value into a JSON string. They're symmetric in name, asymmetric in behavior — Dates survive stringify but not parse; undefined and functions are silently dropped; circular references throw. This page covers the syntax, the edge cases, and the patterns that don't lose data.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> <code>JSON.parse(str)</code> reads a JSON string into a JS value. <code>JSON.stringify(obj)</code> writes a JS value to a JSON string. Wrap <code>parse</code> in try/catch — bad data throws. Use the replacer/reviver arguments to handle Dates, undefined, and custom types. <code>JSON.stringify</code> throws on circular references — remove them or use a library. Both methods are deep — they traverse the whole structure.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The two directions</h2>
+<p class="section-sub">Parse reads. Stringify writes.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">parse-stringify.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Output</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">// Parse — JSON string → JS value
+const json = '{"name":"Alice","age":30,"active":true}';
+const obj = JSON.parse(json);
+console.log(obj);
+// { name: 'Alice', age: 30, active: true }
+
+// Stringify — JS value → JSON string
+const data = { name: 'Alice', age: 30, active: true };
+const str = JSON.stringify(data);
+console.log(str);
+// '{"name":"Alice","age":30,"active":true}'
+
+// Pretty-printed
+const pretty = JSON.stringify(data, null, 2);
+console.log(pretty);
+// {
+//   "name": "Alice",
+//   "age": 30,
+//   "active": true
+// }
+
+// Round-trip — stringify then parse
+const back = JSON.parse(JSON.stringify(data));
+console.log(back.name);  // 'Alice'</pre>
+<script type="text/plain" id="raw-code-sol1">// Parse — JSON string → JS value
+const json = '{"name":"Alice","age":30,"active":true}';
+const obj = JSON.parse(json);
+console.log(obj);
+// { name: 'Alice', age: 30, active: true }
+
+// Stringify — JS value → JSON string
+const data = { name: 'Alice', age: 30, active: true };
+const str = JSON.stringify(data);
+console.log(str);
+// '{"name":"Alice","age":30,"active":true}'
+
+// Pretty-printed
+const pretty = JSON.stringify(data, null, 2);
+console.log(pretty);
+// {
+//   "name": "Alice",
+//   "age": 30,
+//   "active": true
+// }
+
+// Round-trip — stringify then parse
+const back = JSON.parse(JSON.stringify(data));
+console.log(back.name);  // 'Alice'</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What the round-trip preserves:
+
+✅ Objects, arrays, strings, numbers, booleans, null
+✅ Nested structures
+✅ Object property order (in modern browsers)
+
+What the round-trip does NOT preserve:
+
+❌ undefined (dropped from objects, becomes null in arrays)
+❌ functions (dropped entirely)
+❌ Symbol keys (dropped)
+❌ BigInt (throws)
+❌ Dates (converted to ISO strings)
+❌ Map, Set (become {})
+❌ RegExp (becomes {})
+❌ Class instances (lose their prototype)
+❌ Circular references (throw)
+❌ NaN, Infinity (become null)
+
+The most important asymmetry:
+
+  const obj = { d: new Date() };
+  const str = JSON.stringify(obj);
+  // '{"d":"2026-11-07T12:00:00.000Z"}'
+  const back = JSON.parse(str);
+  // { d: '2026-11-07T12:00:00.000Z' }  ← string, not Date
+
+  Date → string via stringify.
+  string does not become Date via parse.
+  The asymmetry is by design — JSON has no Date.
+
+For lossless serialization, use a library:
+  superjson, devalue, flatted — all preserve
+  Dates, Maps, Sets, and other types.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Error handling for parse</h2>
+<p class="section-sub">Bad data throws. Always wrap.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">parse-errors.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">// ❌ Bad data throws
+JSON.parse('not json');
+// SyntaxError: Unexpected token 'o'
+
+JSON.parse('');
+// SyntaxError: Unexpected end of JSON input
+
+JSON.parse('<html>404</html>');
+// SyntaxError: Unexpected token '<'
+
+// ✅ Wrap in try/catch
+function safeParse(str, fallback = null) {
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    console.error('Invalid JSON:', e.message);
+    return fallback;
+  }
+}
+
+console.log(safeParse('{"a":1}'));   // { a: 1 }
+console.log(safeParse('invalid'));   // null
+console.log(safeParse('', []));      // []
+
+// ✅ Common pattern for fetch
+async function fetchData(url) {
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+    return safeParse(text, null);
+  } catch (e) {
+    return null;
+  }
+}</pre>
+<script type="text/plain" id="raw-code-sol2">// Bad data throws
+JSON.parse('not json');
+// SyntaxError: Unexpected token 'o'
+
+JSON.parse('');
+// SyntaxError: Unexpected end of JSON input
+
+JSON.parse('<html>404</html>');
+// SyntaxError: Unexpected token '<'
+
+// Wrap in try/catch
+function safeParse(str, fallback = null) {
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    console.error('Invalid JSON:', e.message);
+    return fallback;
+  }
+}
+
+console.log(safeParse('{"a":1}'));   // { a: 1 }
+console.log(safeParse('invalid'));   // null
+console.log(safeParse('', []));      // []
+
+// Common pattern for fetch
+async function fetchData(url) {
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+    return safeParse(text, null);
+  } catch (e) {
+    return null;
+  }
+}</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why JSON.parse throws:
+
+JSON is a strict format.
+  → Double quotes for strings: {"key":"value"}
+  → No trailing commas: {"a":1,"b":2} not {"a":1,"b":2,}
+  → No comments
+  → No single quotes
+  → No unquoted keys
+  → No functions, undefined, Date, Map
+
+If the input is any of these, JSON.parse throws:
+  → JavaScript object literal (single quotes)
+  → HTML (a 404 page served with 200 status)
+  → Empty string
+  → Already-parsed object (parse expects a string)
+  → Truncated response (network dropped mid-stream)
+
+The most common production bug:
+
+❌ const res = await fetch(url);
+   const data = await res.json();   // throws on 404
+   
+✅ const res = await fetch(url);
+   if (!res.ok) throw new Error(res.status);
+   const data = await res.json();
+
+Always check res.ok before .json().
+A 404 returns HTML, and .json() throws on HTML.
+
+For localStorage:
+
+❌ const data = JSON.parse(localStorage.getItem('key'));
+   // throws if item is null
+
+✅ const data = safeParse(localStorage.getItem('key'));
+   // or check for null first
+
+localStorage.getItem returns null for missing keys.
+JSON.parse(null) throws.
+
+Rule: wrap JSON.parse in try/catch,
+      or know that the source is always valid.
+      The second is rare — data from the network,
+      from localStorage, from user input —
+      is rarely guaranteed.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Replacer and reviver</h2>
+<p class="section-sub">Custom handling for special types.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">replacer-reviver.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">What it does</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">const data = {
+  name: 'Alice',
+  createdAt: new Date('2026-01-15'),
+  score: undefined,
+  meta: { tags: ['a', 'b'] }
+};
+
+// Replacer — custom logic during stringify
+const str = JSON.stringify(data, (key, value) => {
+  // Convert Dates to a marker object
+  if (value instanceof Date) {
+    return { __type: 'Date', value: value.toISOString() };
+  }
+  return value;
+});
+
+console.log(str);
+// {"name":"Alice","createdAt":{"__type":"Date","value":"..."},"meta":{"tags":["a","b"]}}
+
+// Reviver — custom logic during parse
+const parsed = JSON.parse(str, (key, value) => {
+  if (value && typeof value === 'object' && value.__type === 'Date') {
+    return new Date(value.value);
+  }
+  return value;
+});
+
+console.log(parsed.createdAt);
+// Date object, not string
+console.log(parsed.createdAt instanceof Date);
+// true</pre>
+<script type="text/plain" id="raw-code-sol3">const data = {
+  name: 'Alice',
+  createdAt: new Date('2026-01-15'),
+  score: undefined,
+  meta: { tags: ['a', 'b'] }
+};
+
+// Replacer — custom logic during stringify
+const str = JSON.stringify(data, (key, value) => {
+  // Convert Dates to a marker object
+  if (value instanceof Date) {
+    return { __type: 'Date', value: value.toISOString() };
+  }
+  return value;
+});
+
+console.log(str);
+// {"name":"Alice","createdAt":{"__type":"Date","value":"..."},"meta":{"tags":["a","b"]}}
+
+// Reviver — custom logic during parse
+const parsed = JSON.parse(str, (key, value) => {
+  if (value && typeof value === 'object' && value.__type === 'Date') {
+    return new Date(value.value);
+  }
+  return value;
+});
+
+console.log(parsed.createdAt);
+// Date object, not string
+console.log(parsed.createdAt instanceof Date);
+// true</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The replacer signature:
+
+  JSON.stringify(value, (key, val) => transformedVal)
+  JSON.stringify(value, (key, val) => transformedVal, indent)
+
+Called for every key-value pair in the object.
+The `key` is the property name, or '' for the root.
+Return the transformed value, or undefined to omit.
+
+Common uses:
+
+✅ Convert Dates to a custom format
+✅ Omit sensitive fields (passwords, tokens)
+✅ Convert Sets and Maps to arrays
+✅ Convert BigInt to strings
+✅ Redact circular references
+
+The reviver signature:
+
+  JSON.parse(str, (key, val) => transformedVal)
+
+Called for every parsed key-value pair.
+Return the transformed value, or undefined to omit.
+
+Common uses:
+
+✅ Convert date strings back to Date objects
+✅ Restore Sets and Maps
+✅ Hydrate class instances
+✅ Validate the parsed shape
+
+The two together give you lossless serialization:
+
+  stringify(obj, replacer)
+  → parse(str, reviver)
+
+For complex types (Map, Set, custom classes),
+use a library: superjson, devalue, or flatted.
+They handle the edge cases (nested types,
+circular references, type collisions) that
+custom replacers often miss.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>JSON.parse(JSON.stringify(obj))</code> as a deep clone.</strong> This is a common pattern that looks like a deep clone but has real gaps. It loses Dates (becomes strings), undefined (dropped), functions (dropped), Map/Set (become {}), RegExp (becomes {}), class instances (lose their prototype), and it throws on circular references. It also fails on BigInt. For deep clones, use <code>structuredClone(obj)</code> (supported in all modern browsers and Node 17+). It's faster, handles more types, and preserves what JSON loses. The <code>JSON.parse(JSON.stringify())</code> trick was necessary before structuredClone existed — in 2026, it's not.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The JSON mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Parsing without try/catch</div>
+<p>Bad data throws. Fix: wrap <code>JSON.parse</code> in try/catch, or ensure the source is valid.</p>
+</div>
+<div class="mtitle">2. Calling <code>.json()</code> before checking <code>res.ok</code></div>
+<p>404 returns HTML, not JSON. Fix: check <code>res.ok</code> first.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Assuming Date survives round-trip</div>
+<p>Date becomes string. Fix: reviver, or use structuredClone.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Assuming undefined survives</div>
+<p>Dropped from objects, null in arrays. Fix: transform with replacer if needed.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Circular reference in stringify</div>
+<p>Throws TypeError. Fix: remove the cycle, or use flatted.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. <code>JSON.parse(JSON.stringify(obj))</code> for deep clone</div>
+<p>Loses Date, Map, Set, undefined, BigInt. Fix: <code>structuredClone(obj)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Parsing <code>localStorage.getItem</code> without a null check</div>
+<p><code>JSON.parse(null)</code> throws. Fix: check for <code>null</code> before parsing.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. BigInt in stringify</div>
+<p>Throws TypeError. Fix: convert to string first, or use a replacer.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between JSON.parse and JSON.stringify?</summary>
+<p class="mt-2 text-sm text-slate-300">They go in opposite directions. JSON.parse converts a JSON string into a JavaScript value. JSON.stringify converts a JavaScript value into a JSON string. Use parse when you receive data as text. Use stringify when you need to send data as text.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why does JSON.parse throw on valid-looking data?</summary>
+<p class="mt-2 text-sm text-slate-300">Three common causes. (1) The data isn't JSON — it's HTML, a JS object literal, or empty. (2) The data has a trailing comma or unquoted key — that's JavaScript, not JSON. (3) The data is already parsed. Fix: check the source, log the raw text, and use try/catch around JSON.parse in production.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why does JSON.stringify drop undefined and functions?</summary>
+<p class="mt-2 text-sm text-slate-300">JSON doesn't have undefined or functions — they're not valid JSON values. When stringifying an object, undefined properties and function properties are silently dropped. When stringifying an array, they become null. This is by spec. If you need to keep these values, transform them first with a replacer.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How do I stringify a Date?</summary>
+<p class="mt-2 text-sm text-slate-300">JSON.stringify converts a Date to its ISO 8601 string automatically. But JSON.parse does not convert it back to a Date — you get a string. To preserve Dates, use a reviver. Or use a library like flatted or superjson. The asymmetry is by design — JSON has no Date type.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How do I stringify an object with circular references?</summary>
+<p class="mt-2 text-sm text-slate-300">JSON.stringify throws on circular references. Fixes: (1) Remove the circular reference. (2) Use a replacer that tracks seen objects. (3) Use a library like flatted. The most common case is a data structure you didn't expect to be circular — check your data model.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Is JSON.parse faster than JSON.stringify?</summary>
+<p class="mt-2 text-sm text-slate-300">Generally yes — parsing is usually 2-3x faster than stringifying for the same data. But both are fast enough for typical data. The performance matters only at scale. Optimize after measuring, not before.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/string-methods.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">📝 String methods</div>
+<div class="text-xs text-slate-400 mt-1">slice, split, replace, includes, padStart — with the gotchas each one has</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
