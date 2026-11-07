@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Promises vs async/await in JavaScript — When to Use Each (2026)</title>
+<meta name="description" content="Promises vs async/await explained: the difference, when each is better, and why async/await is not a replacement for .then(). Direct answer with working examples.">
+<meta name="keywords" content="promises vs async await, javascript promises, async await explained, promise then, javascript async">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Promises vs async/await in JavaScript — When to Use Each">
+<meta property="og:description" content="The difference, when each is better, and why async/await isn't a replacement.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/javascript/problems/promises-async.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Promises vs async/await in JavaScript">
+<meta name="twitter:description" content="When to use each, and why async/await isn't a replacement.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/javascript/problems/promises-async.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Promises vs async/await in JavaScript — When to Use Each",
+"description": "The difference between promises and async/await, and when each is better.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Intermediate",
+"dependencies": "ES2017"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between promises and async/await?","acceptedAnswer":{"@type":"Answer","text":"They're the same mechanism with different syntax. A promise is an object that represents a future value — you attach .then() and .catch() callbacks to it. async/await is syntactic sugar on top of promises: an async function always returns a promise, and await pauses the function until the promise resolves. Under the hood, async/await still uses promises and microtasks. The difference is readability: async/await lets you write asynchronous code that looks synchronous. Promises are better for parallel operations and functional pipelines; async/await is better for sequential operations and try/catch error handling."}},
+{"@type":"Question","name":"Is async/await better than promises?","acceptedAnswer":{"@type":"Answer","text":"Neither is universally better — they're tools for different jobs. async/await is better for: sequential operations (fetch A, then B using A's result), try/catch error handling, and reading like synchronous code. Promises are better for: parallel operations (Promise.all), functional pipelines (.then chains), and cases where you need the promise object itself (like returning it from a function without making the function async). Most modern code uses async/await for the majority of cases, falling back to promise methods for parallelism and composition."}},
+{"@type":"Question","name":"How do I run promises in parallel?","acceptedAnswer":{"@type":"Answer","text":"Use Promise.all() for parallel execution. It takes an array of promises and returns a single promise that resolves when all of them resolve (or rejects when any rejects). Example: const [user, posts] = await Promise.all([fetchUser(), fetchPosts()]). This runs both fetches simultaneously — total time is max(fetchUser, fetchPosts), not the sum. For cases where you want all results regardless of failures, use Promise.allSettled(). For the first one to resolve (a race), use Promise.race(). For the first one to succeed, use Promise.any(). These are the tools for parallelism — async/await alone is sequential."}},
+{"@type":"Question","name":"Why doesn't my async function return the value?","acceptedAnswer":{"@type":"Answer","text":"Because async functions always return a promise. If you write async function getUser() { return { name: 'Alice' }; }, calling getUser() returns a promise, not the object. To get the value, you must await it: const user = await getUser(); or use .then(): getUser().then(user => ...). The return value inside the async function becomes the resolved value of the promise. This is the most common async/await mistake — treating the async function's return value as if it were synchronous."}},
+{"@type":"Question","name":"How do I handle errors in async/await?","acceptedAnswer":{"@type":"Answer","text":"Use try/catch, same as synchronous code. try { const data = await fetchData(); } catch (error) { console.error(error); }. This is one of the main advantages of async/await over promises — you can use the same error handling pattern as synchronous code. With promises, you need .catch() at the end of the chain. With async/await, try/catch catches any await that rejects. For parallel operations, wrap Promise.all() in try/catch — if any promise rejects, the whole Promise.all rejects, and the error is caught. Use Promise.allSettled() if you want partial results."}},
+{"@type":"Question","name":"When should I use .then() instead of await?","acceptedAnswer":{"@type":"Answer","text":"Three cases. (1) At the top level of a module — top-level await is supported in modern environments, but .then() is still valid. (2) When you need to return a promise from a function without making the function async. (3) When you're building a functional pipeline where the promise is passed through transformations. Also: if you're writing code that needs to work in older environments without async/await support, .then() is the fallback. In modern application code, async/await handles 90% of cases; .then() handles the rest — mainly Promise.all and pipeline-style code."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-javascript.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #e6b800; border-bottom-color: #e6b800; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#e6b800 !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">JavaScript · promises vs async</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/javascript/index.html" style="color:#7ee8fc;">JavaScript</a> ›
+<a href="/courses/javascript/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Promises vs async</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🟨 Concept · 4 min read</div>
+<h1>Promises vs async/await.<br><span class="py-accent">Same mechanism, different syntax.</span></h1>
+<p class="lead">
+<code>async/await</code> isn't a replacement for promises — it's syntactic sugar on top of them. An <code>async</code> function always returns a promise. <code>await</code> pauses the function until the promise resolves. The underlying mechanism is identical. What changes is readability and ergonomics. This page covers when each shines, how to run promises in parallel, and the most common async/await mistake: treating the return value as synchronous.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Use <code>async/await</code> for sequential operations and try/catch error handling. Use promise methods (<code>Promise.all</code>, <code>Promise.allSettled</code>) for parallel operations. An <code>async</code> function always returns a promise — the return value is the resolved value, not the value itself. If you need to run multiple async operations at the same time, <code>await Promise.all([...])</code> — not sequential <code>await</code> calls. The syntax is different; the underlying mechanism is the same.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ Same thing, two syntaxes</h2>
+<p class="section-sub">What promises and async/await actually do.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">same-thing.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Notes</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">// Promise syntax
+function getUser() {
+return fetch('/api/user')
+.then(res => res.json())
+.then(data => data.user);
+}
+
+// async/await syntax — same thing
+async function getUserAsync() {
+const res = await fetch('/api/user');
+const data = await res.json();
+return data.user;
+}
+
+// Both return a promise.
+// Both resolve to the user object.
+// Both can be awaited or .then'd.</pre>
+<script type="text/plain" id="raw-code-sol1">// Promise syntax
+function getUser() {
+return fetch('/api/user')
+.then(res => res.json())
+.then(data => data.user);
+}
+
+// async/await syntax — same thing
+async function getUserAsync() {
+const res = await fetch('/api/user');
+const data = await res.json();
+return data.user;
+}
+
+// Both return a promise.
+// Both resolve to the user object.
+// Both can be awaited or .then'd.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Under the hood:
+
+async function getUserAsync() { ... }
+→ The function is wrapped so that its
+return value becomes a resolved promise.
+→ Each await becomes a .then() that pauses
+the function and resumes when the promise
+resolves.
+→ The mechanism is identical to the promise
+version. Only the syntax is different.
+
+The async keyword does two things:
+1. Wraps the return value in a promise.
+2. Allows await inside the function.
+
+The await keyword does one thing:
+Pauses the function until the promise resolves,
+then resumes with the resolved value.
+
+✅ Same behavior, same performance.
+✅ async/await is just easier to read.
+✅ Promises are still there — you use them
+whenever you call await.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Sequential vs parallel</h2>
+<p class="section-sub">The most common async mistake.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">sequential-vs-parallel.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Timing</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">// ❌ Sequential — each waits for the previous
+async function loadSequential() {
+const user = await fetch('/api/user').then(r => r.json());
+const posts = await fetch('/api/posts').then(r => r.json());
+const comments = await fetch('/api/comments').then(r => r.json());
+return { user, posts, comments };
+}
+// Total time = user + posts + comments
+// If each is 200ms, total = 600ms
+
+// ✅ Parallel — all run at the same time
+async function loadParallel() {
+const [user, posts, comments] = await Promise.all([
+fetch('/api/user').then(r => r.json()),
+fetch('/api/posts').then(r => r.json()),
+fetch('/api/comments').then(r => r.json())
+]);
+return { user, posts, comments };
+}
+// Total time = max(user, posts, comments)
+// If each is 200ms, total = 200ms</pre>
+<script type="text/plain" id="raw-code-sol2">// Sequential — each waits for the previous
+async function loadSequential() {
+const user = await fetch('/api/user').then(r => r.json());
+const posts = await fetch('/api/posts').then(r => r.json());
+const comments = await fetch('/api/comments').then(r => r.json());
+return { user, posts, comments };
+}
+// Total time = user + posts + comments
+// If each is 200ms, total = 600ms
+
+// Parallel — all run at the same time
+async function loadParallel() {
+const [user, posts, comments] = await Promise.all([
+fetch('/api/user').then(r => r.json()),
+fetch('/api/posts').then(r => r.json()),
+fetch('/api/comments').then(r => r.json())
+]);
+return { user, posts, comments };
+}
+// Total time = max(user, posts, comments)
+// If each is 200ms, total = 200ms</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the difference:
+
+Sequential await:
+const a = await p1; // wait for p1
+const b = await p2; // then wait for p2
+const c = await p3; // then wait for p3
+→ p2 doesn't start until p1 finishes.
+→ Total = p1 + p2 + p3.
+
+Promise.all:
+await Promise.all([p1, p2, p3]);
+→ All three start at the same time.
+→ The await waits for the last one.
+→ Total = max(p1, p2, p3).
+
+This is the most common async/await performance
+bug: writing sequential awaits when the operations
+are independent.
+
+Rule: if the operations don't depend on each other,
+use Promise.all. Only await sequentially when
+each step needs the previous result.
+
+For error handling with parallel:
+try {
+const results = await Promise.all([...]);
+} catch (err) {
+// one failed — all fail
+}
+
+For partial results:
+const results = await Promise.allSettled([...]);
+// results is an array of {status, value/reason}</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Error handling</h2>
+<p class="section-sub">try/catch vs .catch().</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">error-handling.js</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Notes</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// Promise style
+function getUser() {
+return fetch('/api/user')
+.then(res => res.json())
+.then(data => data.user)
+.catch(err => {
+console.error('Failed:', err);
+return null;
+});
+}
+
+// async/await style
+async function getUserAsync() {
+try {
+const res = await fetch('/api/user');
+const data = await res.json();
+return data.user;
+} catch (err) {
+console.error('Failed:', err);
+return null;
+}
+}
+
+// Both work.
+// async/await looks like synchronous error handling.
+// That's its main advantage.</pre>
+<script type="text/plain" id="raw-code-sol3">// Promise style
+function getUser() {
+return fetch('/api/user')
+.then(res => res.json())
+.then(data => data.user)
+.catch(err => {
+console.error('Failed:', err);
+return null;
+});
+}
+
+// async/await style
+async function getUserAsync() {
+try {
+const res = await fetch('/api/user');
+const data = await res.json();
+return data.user;
+} catch (err) {
+console.error('Failed:', err);
+return null;
+}
+}
+
+// Both work.
+// async/await looks like synchronous error handling.
+// That's its main advantage.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why async/await wins for error handling:
+
+Promise chain:
+→ .catch() at the end.
+→ To catch errors from multiple steps,
+one .catch is enough.
+→ But if you need per-step error handling,
+you need multiple .catch() calls.
+
+async/await:
+→ One try/catch block.
+→ Catches any await that rejects.
+→ Per-step handling is possible with
+nested try/catch.
+→ Looks like synchronous code.
+
+The mistake: forgetting to catch.
+
+❌ async function foo() {
+await fetch('/api'); // no try/catch
+}
+→ Unhandled rejection if fetch fails.
+
+✅ async function foo() {
+try { await fetch('/api'); }
+catch (e) { console.error(e); }
+}
+
+For top-level async (modules):
+→ Unhandled rejections crash the process
+in Node, or show an error in the console
+in browsers.
+→ Always handle rejections, or use a global
+unhandledRejection handler.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use <code>await</code> inside a loop.</strong> <code>for (const item of items) { await process(item); }</code> runs sequentially — each iteration waits for the previous. If <code>process</code> takes 100ms and you have 10 items, the loop takes 1 second. Use <code>Promise.all(items.map(item => process(item)))</code> instead — all items process in parallel, total time is ~100ms. The same rule as the sequential vs parallel section applies to loops: if the iterations are independent, use <code>Promise.all</code>; if each depends on the previous result, sequential <code>await</code> is correct. The mistake is using sequential <code>await</code> when the operations are independent.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The promises/async mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Sequential <code>await</code> for parallel operations</div>
+<p>Each waits for the previous. Fix: <code>Promise.all</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Treating an async function's return as synchronous</div>
+<p>It returns a promise. Fix: <code>await</code> or <code>.then()</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. No try/catch around <code>await</code></div>
+<p>Unhandled rejections. Fix: wrap in try/catch.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. <code>await</code> inside <code>forEach</code></div>
+<p><code>forEach</code> doesn't await — the loop finishes before the async work. Fix: <code>for...of</code> with await, or <code>Promise.all</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. <code>Promise.all</code> with a rejection</div>
+<p>One failure fails all. Fix: <code>Promise.allSettled</code> for partial results.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Forgetting <code>return</code> in a <code>.then()</code></div>
+<p>The next <code>.then()</code> gets <code>undefined</code>. Fix: always return.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Mixing <code>.then()</code> and <code>await</code> in the same function</div>
+<p>Confusing and error-prone. Fix: pick one per function.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Not knowing when <code>async/await</code> isn't available</div>
+<p>Older environments need transpilation. Fix: check target support or use promises.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">What is the difference between promises and async/await?</summary>
+<p class="mt-2 text-sm text-slate-300">They're the same mechanism with different syntax. A promise is an object that represents a future value — you attach .then() and .catch() callbacks. async/await is syntactic sugar on top of promises: an async function always returns a promise, and await pauses the function until the promise resolves. Under the hood, async/await still uses promises and microtasks.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Is async/await better than promises?</summary>
+<p class="mt-2 text-sm text-slate-300">Neither is universally better — they're tools for different jobs. async/await is better for: sequential operations, try/catch error handling, and reading like synchronous code. Promises are better for: parallel operations (Promise.all), functional pipelines (.then chains), and cases where you need the promise object itself.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How do I run promises in parallel?</summary>
+<p class="mt-2 text-sm text-slate-300">Use Promise.all() for parallel execution. It takes an array of promises and returns a single promise that resolves when all of them resolve. Example: const [user, posts] = await Promise.all([fetchUser(), fetchPosts()]). This runs both fetches simultaneously — total time is max(fetchUser, fetchPosts), not the sum. For partial results, use Promise.allSettled().</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">Why doesn't my async function return the value?</summary>
+<p class="mt-2 text-sm text-slate-300">Because async functions always return a promise. If you write async function getUser() { return { name: 'Alice' }; }, calling getUser() returns a promise, not the object. To get the value, you must await it: const user = await getUser(); or use .then(). The return value inside the async function becomes the resolved value of the promise.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">How do I handle errors in async/await?</summary>
+<p class="mt-2 text-sm text-slate-300">Use try/catch, same as synchronous code. try { const data = await fetchData(); } catch (error) { console.error(error); }. This is one of the main advantages of async/await over promises — you can use the same error handling pattern as synchronous code. With promises, you need .catch() at the end of the chain.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-yellow-400 font-medium text-sm">When should I use .then() instead of await?</summary>
+<p class="mt-2 text-sm text-slate-300">Three cases. (1) At the top level of a module. (2) When you need to return a promise from a function without making the function async. (3) When you're building a functional pipeline where the promise is passed through transformations. In modern application code, async/await handles 90% of cases; .then() handles the rest.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/javascript/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ JavaScript learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from variables to async — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/javascript/problems/async-await-error.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-yellow-500/50 transition-all">
+<div class="font-semibold text-white text-sm">⚠️ Async/await error handling</div>
+<div class="text-xs text-slate-400 mt-1">try/catch, unhandled rejections, and the pattern that doesn't lose errors</div>
+</a>
+</section>
+
+<a href="/courses/javascript/problems/index.html" class="back-link">← All JavaScript problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · JavaScript <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-yellow-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
