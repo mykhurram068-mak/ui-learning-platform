@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>List vs Tuple in Python — What's the Difference? (2026)</title>
+<meta name="description" content="List vs tuple in Python explained: mutability, memory usage, performance, and when to use each. The 27% memory difference and why tuples can be dict keys. Direct answer with examples.">
+<meta name="keywords" content="python list vs tuple, list vs tuple python, python tuple, python list, mutable immutable python, tuple vs list performance">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="List vs Tuple in Python — What's the Difference?">
+<meta property="og:description" content="Mutability, memory, and when to use each.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/python/problems/list-vs-tuple.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="List vs Tuple in Python">
+<meta name="twitter:description" content="Mutability, memory, and when to use each.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/python/problems/list-vs-tuple.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "List vs Tuple in Python — What's the Difference?",
+"description": "Mutability, memory usage, and when to use lists vs tuples in Python.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-07",
+"dateModified": "2026-11-07",
+"proficiencyLevel": "Beginner",
+"dependencies": "Python 3"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is the difference between a list and a tuple in Python?","acceptedAnswer":{"@type":"Answer","text":"Three differences. (1) Lists are mutable — you can add, remove, and change items. Tuples are immutable — once created, they can't be changed. (2) Lists use square brackets [1, 2, 3]. Tuples use parentheses (1, 2, 3). (3) Tuples are slightly smaller (about 27% less memory) and faster to create, because they don't need to support resizing. Tuples can be dictionary keys and set elements; lists can't. Use lists when the collection will change. Use tuples when it won't — coordinates, RGB values, function return values, dictionary keys."}},
+{"@type":"Question","name":"Why would I use a tuple instead of a list?","acceptedAnswer":{"@type":"Answer","text":"Four reasons. (1) Immutability signals intent — a tuple says 'this shouldn't change.' (2) Tuples are hashable — they can be dict keys and set members. (3) Tuples are faster and smaller — about 27% less memory, faster to create. (4) Tuples work where an API requires an immutable type. Common cases: coordinates (x, y), RGB colors, database rows, function return values (multiple values), named fields. If the data represents a fixed record, use a tuple. If it's a collection that will grow or change, use a list."}},
+{"@type":"Question","name":"Are tuples really faster than lists?","acceptedAnswer":{"@type":"Answer","text":"Yes, but the difference is small. In CPython, tuples are allocated with a fixed size — no over-allocation, no resize support. Lists over-allocate to support append and pop. For a tuple of n elements, memory is roughly 56 + 8n bytes. For a list, it's roughly 56 + 8n + over-allocation (usually ~12.5% more). Time-wise, creating a tuple is slightly faster. But the difference is in nanoseconds — for most code, it's not the reason to choose one. The reason to choose is semantics: is this data supposed to change? That question matters more than the micro-benchmark."}},
+{"@type":"Question","name":"Can a tuple contain mutable objects?","acceptedAnswer":{"@type":"Answer","text":"Yes. A tuple is immutable in that its slots can't be reassigned — but the objects inside can be mutable. Example: t = ([1, 2], [3, 4]); t[0].append(5) works — you're mutating the list inside the tuple, not the tuple itself. This is the 'tuple of mutables' trap: the tuple looks immutable but its contents aren't. If you need true immutability, use only immutable types inside the tuple. The rule: a tuple is hashable only if all its contents are hashable. ([1], [2]) is not a valid dict key."}},
+{"@type":"Question","name":"How do I create a tuple with one element?","acceptedAnswer":{"@type":"Answer","text":"Add a trailing comma: (1,) — not (1). Without the comma, (1) is just the integer 1 in parentheses. Same for (1,) — it's a tuple of one element. The comma is what makes it a tuple, not the parentheses. This is one of the most common tuple gotchas. Examples: type((1)) is int, type((1,)) is tuple. type(()) is tuple (empty tuple). type([]) is list. type((1, 2)) is tuple. Always include the comma for single-element tuples."}},
+{"@type":"Question","name":"When should I convert a list to a tuple?","acceptedAnswer":{"@type":"Answer","text":"When you need a hashable version (dict key, set member), when you're done modifying a collection and want to signal it's now fixed, or when you're passing data to an API that requires a tuple. Example: after building a list, convert to tuple for a dict key: key = tuple(items). Or after sorting a list of coordinates, convert to tuple for caching: cache[tuple(coords)] = result. The conversion itself is O(n) — it copies the elements. Don't convert repeatedly; convert once at the boundary where immutability is needed."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-python.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">Problem Solved</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Python · list vs tuple</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/python/index.html" style="color:#7ee8fc;">Python</a> ›
+<a href="/courses/python/problems/index.html" style="color:#7ee8fc;">Problems</a> ›
+<span style="color:#FFFFFF; font-weight:700;">List vs tuple</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Concept · 3 min read</div>
+<h1>List vs tuple.<br><span class="py-accent">Mutable or not.</span></h1>
+<p class="lead">
+The most common Python comparison. Lists and tuples look similar — both are ordered collections — but they behave differently. Lists are mutable, tuples are immutable. That one difference drives everything else: memory, speed, hashability, and the semantics of "this data should not change." This page covers the difference, when each wins, and the single-element tuple gotcha.
+</p>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Lists are mutable <code>[1, 2, 3]</code> — add, remove, change. Tuples are immutable <code>(1, 2, 3)</code> — created once, can't be changed. Tuples are ~27% smaller, faster to create, and hashable (can be dict keys). Lists can't be dict keys. Use tuples for fixed records — coordinates, RGB, dict keys, function returns. Use lists for collections that grow or change. Single-element tuple needs a trailing comma: <code>(1,)</code>, not <code>(1)</code>.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">✅ The core difference</h2>
+<p class="section-sub">Mutability is everything.</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">mutability.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Result</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1"># List — mutable
+nums = [1, 2, 3]
+nums.append(4)          # ✅ works
+nums[0] = 99            # ✅ works
+del nums[1]             # ✅ works
+print(nums)             # [99, 3, 4]
+
+# Tuple — immutable
+coords = (10, 20)
+coords[0] = 99          # ❌ TypeError: 'tuple' object does not support item assignment
+coords.append(30)       # ❌ AttributeError: 'tuple' object has no attribute 'append'
+del coords[0]           # ❌ TypeError
+
+# Tuple can be a dict key
+point = (10, 20)
+locations = {point: 'Lahore'}
+print(locations[(10, 20)])  # 'Lahore'
+
+# List can't
+try:
+    locations[[10, 20]] = 'Karachi'
+except TypeError as e:
+    print(e)            # unhashable type: 'list'
+
+# Tuple can be a set member
+seen = {(1, 2), (3, 4)}
+print((1, 2) in seen)   # True
+
+# List can't
+try:
+    seen = {[1, 2]}
+except TypeError as e:
+    print(e)            # unhashable type: 'list'</pre>
+<script type="text/plain" id="raw-code-sol1"># List — mutable
+nums = [1, 2, 3]
+nums.append(4)          # works
+nums[0] = 99            # works
+del nums[1]             # works
+print(nums)             # [99, 3, 4]
+
+# Tuple — immutable
+coords = (10, 20)
+coords[0] = 99          # TypeError: 'tuple' object does not support item assignment
+coords.append(30)       # AttributeError: 'tuple' object has no attribute 'append'
+del coords[0]           # TypeError
+
+# Tuple can be a dict key
+point = (10, 20)
+locations = {point: 'Lahore'}
+print(locations[(10, 20)])  # 'Lahore'
+
+# List can't
+try:
+    locations[[10, 20]] = 'Karachi'
+except TypeError as e:
+    print(e)            # unhashable type: 'list'
+
+# Tuple can be a set member
+seen = {(1, 2), (3, 4)}
+print((1, 2) in seen)   # True
+
+# List can't
+try:
+    seen = {[1, 2]}
+except TypeError as e:
+    print(e)            # unhashable type: 'list'</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What mutability enables:
+
+Lists:
+  → append, extend, insert
+  → remove, pop, clear
+  → item assignment (lst[0] = x)
+  → del lst[i]
+  → sort in place
+  → reverse in place
+  → slice assignment (lst[1:3] = [...])
+
+Tuples:
+  → no mutation methods
+  → no item assignment
+  → no del on items
+  → no sort in place (use sorted(t) — returns list)
+  → no reverse in place (use reversed(t) — returns iterator)
+  → no slice assignment
+
+What immutability enables:
+
+Tuples:
+  → hashable (dict keys, set members)
+  → thread-safe (no locks needed)
+  → signal of intent ("this is fixed")
+  → safe as default arguments
+  → slight memory/speed advantage
+  → can be used as cached keys
+
+Lists:
+  → not hashable
+  → not safe as default arguments
+  → need locks if shared across threads
+  → mutable state is fine, but has a cost
+
+The rule:
+  Use a list when you need to change the collection.
+  Use a tuple when the collection is fixed.
+  The type communicates intent.
+
+Why tuples can be dict keys:
+
+  Python's dict uses a hash table.
+  To look up a key, it hashes the key.
+  Hash requires the value to be immutable —
+  otherwise the hash could change after insertion,
+  and lookups would break.
+
+  Tuples are immutable → hash is stable → safe as keys.
+  Lists are mutable → hash would change → not allowed.
+
+Same logic for set members.
+Same logic for frozenset vs set.
+
+Hashability is the foundation of Python's
+data structures. Immutability is what makes
+hashability possible.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ Memory and speed</h2>
+<p class="section-sub">Tuples are smaller and faster. Small margins.</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">memory.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Explanation</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">import sys
+
+# Empty container
+lst = []
+tup = ()
+
+print(sys.getsizeof(lst))  # 56  (empty list)
+print(sys.getsizeof(tup))  # 40  (empty tuple)
+
+# Five elements
+lst = [1, 2, 3, 4, 5]
+tup = (1, 2, 3, 4, 5)
+
+print(sys.getsizeof(lst))  # 120  (with over-allocation)
+print(sys.getsizeof(tup))  # 80
+
+# The difference: 40 bytes on 5 elements.
+# About 33% smaller for tuples.
+
+# One hundred elements
+lst = list(range(100))
+tup = tuple(range(100))
+
+print(sys.getsizeof(lst))  # 856  (over-allocated)
+print(sys.getsizeof(tup))  # 840
+
+# The difference shrinks as n grows.
+# For 100 elements, ~2% smaller.
+
+# Speed: tuple creation is faster
+import timeit
+
+print(timeit.timeit('[1, 2, 3]', number=1000000))  # ~0.05s
+print(timeit.timeit('(1, 2, 3)', number=1000000))  # ~0.03s
+
+# Tuple is ~40% faster to create.
+# But the absolute difference is 20ms per million
+# operations — irrelevant for typical code.
+
+# Iteration speed is nearly identical.
+# Indexing is nearly identical.
+# The difference only matters in tight loops
+# with millions of operations, and even then
+# it's small.</pre>
+<script type="text/plain" id="raw-code-sol2">import sys
+
+# Empty container
+lst = []
+tup = ()
+
+print(sys.getsizeof(lst))  # 56  (empty list)
+print(sys.getsizeof(tup))  # 40  (empty tuple)
+
+# Five elements
+lst = [1, 2, 3, 4, 5]
+tup = (1, 2, 3, 4, 5)
+
+print(sys.getsizeof(lst))  # 120  (with over-allocation)
+print(sys.getsizeof(tup))  # 80
+
+# The difference: 40 bytes on 5 elements.
+# About 33% smaller for tuples.
+
+# One hundred elements
+lst = list(range(100))
+tup = tuple(range(100))
+
+print(sys.getsizeof(lst))  # 856  (over-allocated)
+print(sys.getsizeof(tup))  # 840
+
+# The difference shrinks as n grows.
+# For 100 elements, ~2% smaller.
+
+# Speed: tuple creation is faster
+import timeit
+
+print(timeit.timeit('[1, 2, 3]', number=1000000))  # ~0.05s
+print(timeit.timeit('(1, 2, 3)', number=1000000))  # ~0.03s
+
+# Tuple is ~40% faster to create.
+# But the absolute difference is 20ms per million
+# operations — irrelevant for typical code.
+
+# Iteration speed is nearly identical.
+# Indexing is nearly identical.
+# The difference only matters in tight loops
+# with millions of operations, and even then
+# it's small.</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why lists are bigger:
+
+Lists over-allocate to support append.
+When a list grows, Python allocates more space
+than needed — usually 1.125x to 1.25x — so
+the next append doesn't require a resize.
+
+  [1, 2, 3]  → allocated for 3, room for 3-4
+  Append 4   → room already allocated
+  Append 5   → resize, allocate ~10 slots
+
+The over-allocation is why lists are ~33% bigger
+for small collections.
+
+Tuples are fixed size.
+When you create (1, 2, 3), Python allocates
+exactly 3 slots. No over-allocation.
+
+The memory difference matters when:
+  → You have millions of small containers
+  → You're reading a large dataset into memory
+  → You're caching many keys
+
+It doesn't matter when:
+  → You have a few thousand containers
+  → You're processing data incrementally
+  → The containers are small relative to
+    the objects they hold
+
+For 99% of code, the difference is noise.
+Choose based on semantics, not micro-optimization.
+
+The real performance win:
+
+Tuples as dict keys:
+
+  # Using a list as a key — impossible
+  cache[[1, 2]] = 'value'  # TypeError
+
+  # Using a tuple as a key — works
+  cache[(1, 2)] = 'value'  # OK
+
+  # This is the memoization pattern:
+  @cache
+  def fn(a, b):  # *args becomes a tuple
+      ...
+
+The performance benefit isn't from tuple vs list
+memory — it's from being able to use the tuple
+as a key at all. That's the real reason.</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">✅ When to use which</h2>
+<p class="section-sub">The decision rules.</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">when-to-use.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"># ✅ Tuple — fixed record
+point = (10, 20)
+rgb = (255, 128, 0)
+date = (2026, 11, 7)
+
+# ✅ Tuple — dict key
+cache = {}
+cache[(10, 20)] = 'Lahore'
+cache[(30, 40)] = 'Karachi'
+
+# ✅ Tuple — function returning multiple values
+def min_max(nums):
+    return min(nums), max(nums)
+
+low, high = min_max([3, 1, 4, 1, 5, 9, 2, 6])
+
+# ✅ Tuple — *args
+def fn(*args):  # args is a tuple
+    return sum(args)
+
+# ✅ Tuple — as default argument (safe)
+def process(data, options=()):
+    for opt in options:
+        ...
+
+# ❌ List as default — mutation trap
+def bad(data, items=[]):  # BUG: shared across calls
+    items.append(data)
+    return items
+
+# ✅ List — collection that changes
+queue = []
+queue.append('task1')
+queue.append('task2')
+queue.pop(0)
+
+# ✅ List — needs sort in place
+scores = [3, 1, 4, 1, 5]
+scores.sort()  # returns None, modifies in place
+
+# ✅ List — needs item assignment
+scores[0] = 100
+
+# ✅ List — needs append/extend/insert
+results = []
+for x in range(10):
+    results.append(x * x)
+
+# The decision:
+# Does the collection change? → list
+# Is it a fixed record? → tuple
+# Does it need to be a key? → tuple
+# Is it returned from a function? → tuple
+# Does it need to be sorted/mutated? → list
+# Is it *args or **kwargs? → tuple</pre>
+<script type="text/plain" id="raw-code-sol3"># Tuple — fixed record
+point = (10, 20)
+rgb = (255, 128, 0)
+date = (2026, 11, 7)
+
+# Tuple — dict key
+cache = {}
+cache[(10, 20)] = 'Lahore'
+cache[(30, 40)] = 'Karachi'
+
+# Tuple — function returning multiple values
+def min_max(nums):
+    return min(nums), max(nums)
+
+low, high = min_max([3, 1, 4, 1, 5, 9, 2, 6])
+
+# Tuple — *args
+def fn(*args):  # args is a tuple
+    return sum(args)
+
+# Tuple — as default argument (safe)
+def process(data, options=()):
+    for opt in options:
+        ...
+
+# List as default — mutation trap
+def bad(data, items=[]):  # BUG: shared across calls
+    items.append(data)
+    return items
+
+# List — collection that changes
+queue = []
+queue.append('task1')
+queue.append('task2')
+queue.pop(0)
+
+# List — needs sort in place
+scores = [3, 1, 4, 1, 5]
+scores.sort()  # returns None, modifies in place
+
+# List — needs item assignment
+scores[0] = 100
+
+# List — needs append/extend/insert
+results = []
+for x in range(10):
+    results.append(x * x)
+
+# The decision:
+# Does the collection change? → list
+# Is it a fixed record? → tuple
+# Does it need to be a key? → tuple
+# Is it returned from a function? → tuple
+# Does it need to be sorted/mutated? → list
+# Is it *args or **kwargs? → tuple</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The three most important cases:
+
+1. Function return values — tuple
+   def get_user():
+       return 'Alice', 30, 'alice@example.com'
+   
+   name, age, email = get_user()
+   
+   Why tuple? Because the return is a fixed
+   record. You're not going to append to it.
+   Python creates a tuple by default when you
+   return multiple values with a comma.
+   
+   Also: the caller can ignore fields with _:
+   name, _, email = get_user()
+
+2. Dict keys — tuple
+   cache = {(10, 20): 'Lahore'}
+   
+   Why? Because lists aren't hashable.
+   Tuples are. If you need a composite key,
+   you need a tuple.
+   
+   This applies to:
+     - Coordinates
+     - Multi-part IDs
+     - Cached function arguments
+     - Grouping by multiple fields
+
+3. Default arguments — tuple (never list)
+   def good(items=()):    # safe
+       ...
+   
+   def bad(items=[]):     # BUG
+       items.append(1)    # mutates the default
+       return items
+   
+   The list default is evaluated once and
+   shared across all calls. The tuple default
+   is safe because it can't be mutated.
+   
+   The standard fix is None + check:
+   def good(items=None):
+       if items is None:
+           items = []
+   
+   But tuple-as-default is cleaner when the
+   function never mutates the argument.
+
+The tuple is the "safer default."
+It's immutable, hashable, and signals intent.
+Use it whenever you don't need to change
+the collection.
+
+The list is for "collection that changes."
+Use it when you're building, accumulating,
+sorting, or filtering in place.
+
+Both are correct. The type tells the reader
+which one you mean.</pre>
+</div>
+</div>
+
+<div class="warning-box">
+<p><strong>Don't use a list as a default argument.</strong> This is the most famous Python gotcha, and it's still everywhere in code reviews. <code>def bad(items=[]):</code> evaluates the <code>[]</code> once — at function definition time — and shares it across all calls. Call the function twice, appending to the list, and you get the previous call's items. The fix: use <code>None</code> as the default and create a new list inside: <code>def good(items=None): if items is None: items = []</code>. Or use a tuple, which is immutable and can't be mutated. Either works. Just don't use a mutable default argument.</p>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">The list/tuple mistakes that cost real time.</p>
+
+<div class="mistake">
+<div class="mtitle">1. <code>(1)</code> instead of <code>(1,)</code></div>
+<p>Single-element tuple needs a trailing comma. Fix: <code>(1,)</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. List as default argument</div>
+<p>Mutable default is shared across calls. Fix: <code>None</code> + check, or tuple.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Trying to hash a list</div>
+<p><code>{[1,2]: 'x'}</code> — TypeError. Fix: <code>{(1,2): 'x'}</code>.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Trying to append to a tuple</div>
+<p>No <code>append</code> method. Fix: create a new tuple, or use a list.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Expecting <code>sort()</code> to work on a tuple</div>
+<p>Tuples are immutable. Fix: <code>sorted(t)</code> returns a list.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Assuming tuple of mutables is immutable</div>
+<p>Contents can still change. Fix: only immutable items for true immutability.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Converting to tuple without a reason</div>
+<p>Loses mutability you might need. Fix: convert only at the boundary where immutability matters.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using a tuple for a growing collection</div>
+<p>Every append creates a new tuple. Fix: use a list, convert to tuple when done.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the difference between a list and a tuple in Python?</summary>
+<p class="mt-2 text-sm text-slate-300">Three differences. (1) Lists are mutable — you can add, remove, and change items. Tuples are immutable — once created, they can't be changed. (2) Lists use square brackets [1, 2, 3]. Tuples use parentheses (1, 2, 3). (3) Tuples are slightly smaller and faster to create. Tuples can be dictionary keys and set elements; lists can't.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why would I use a tuple instead of a list?</summary>
+<p class="mt-2 text-sm text-slate-300">Four reasons. (1) Immutability signals intent — a tuple says 'this shouldn't change.' (2) Tuples are hashable — they can be dict keys and set members. (3) Tuples are faster and smaller. (4) Tuples work where an API requires an immutable type. Common cases: coordinates, RGB colors, database rows, function return values.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Are tuples really faster than lists?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes, but the difference is small. In CPython, tuples are allocated with a fixed size — no over-allocation, no resize support. Lists over-allocate to support append and pop. But the difference is in nanoseconds — for most code, it's not the reason to choose one. The reason to choose is semantics: is this data supposed to change?</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Can a tuple contain mutable objects?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. A tuple is immutable in that its slots can't be reassigned — but the objects inside can be mutable. Example: t = ([1, 2], [3, 4]); t[0].append(5) works. This is the 'tuple of mutables' trap. If you need true immutability, use only immutable types inside the tuple. A tuple is hashable only if all its contents are hashable.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I create a tuple with one element?</summary>
+<p class="mt-2 text-sm text-slate-300">Add a trailing comma: (1,) — not (1). Without the comma, (1) is just the integer 1 in parentheses. The comma is what makes it a tuple, not the parentheses. type((1)) is int, type((1,)) is tuple. type(()) is tuple (empty tuple).</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">When should I convert a list to a tuple?</summary>
+<p class="mt-2 text-sm text-slate-300">When you need a hashable version (dict key, set member), when you're done modifying a collection and want to signal it's now fixed, or when you're passing data to an API that requires a tuple. The conversion itself is O(n) — it copies the elements. Don't convert repeatedly; convert once at the boundary where immutability is needed.</p>
+</details>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+<a href="/courses/python/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🗺️ Python learning path</div>
+<div class="text-xs text-slate-400 mt-1">The full roadmap from install to first project — every concept in order</div>
+</a>
+<p class="text-xs text-slate-400 mb-2">Next in this series:</p>
+<a href="/courses/python/problems/if-name-main.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🏗️ <code>if __name__ == "__main__"</code></div>
+<div class="text-xs text-slate-400 mt-1">Why every script has this line, and what happens when you remove it</div>
+</a>
+</section>
+
+<a href="/courses/python/problems/index.html" class="back-link">← All Python problems</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Problem solved · Python <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
