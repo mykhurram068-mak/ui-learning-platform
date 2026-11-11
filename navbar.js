@@ -688,6 +688,9 @@
                 <ul class="dropdown-nav-content">
                  <li style="padding: 4px 8px;">
                     <a href="/projects/index.html" style="color: #60a5fa; font-weight: 700; display:block; padding: 10px 14px; border-radius: 8px;">📚 All Projects Hub</a>
+                    <li style="padding: 4px 8px;">
+                        <a href="/apps/index.html" style="color: #a78bfa; font-weight: 700; display:block; padding: 10px 14px; border-radius: 8px;">🧩 Interactive App Gallery</a>
+                    </li>
                 </li>
                     <li class="dropdown-category">
                         <a href="#" class="dropdown-category-btn">📐 Math & Money</a>
