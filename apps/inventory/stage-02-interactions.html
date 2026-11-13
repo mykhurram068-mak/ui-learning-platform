@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Inventory Stage 02 — Interactions (JavaScript CRUD + localStorage) (2026)</title>
+    <meta name="description" content="Stage 02 of the Inventory build: add JavaScript state, CRUD operations, filters, search, live KPI calculations, derived stock status, and localStorage persistence.">
+    <meta name="keywords" content="javascript inventory crud, localstorage tutorial, derived state, vanilla javascript dashboard, stock status calculation">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Inventory Stage 02 — Interactions">
+    <meta property="og:description" content="Add JavaScript state, CRUD, filters, search, live KPI calculations, and localStorage.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/apps/inventory/stage-02-interactions.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <meta property="og:site_name" content="MAK UI Studio">
+    
+    <!-- Twitter Metadata -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Inventory Stage 02 — Interactions">
+    <meta name="twitter:description" content="JavaScript CRUD, filters, live KPIs, localStorage.">
+    <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+    
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/apps/inventory/stage-02-interactions.html"/>
+
+    <!-- Structured Data Scripts -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        "headline": "Inventory Stage 02 — Interactions",
+        "description": "Add JavaScript state, CRUD, filters, live KPI calculations, and localStorage to the inventory app.",
+        "author": { "@type": "Organization", "name": "MAK Studio" },
+        "datePublished": "2026-11-11",
+        "dateModified": "2026-11-11",
+        "proficiencyLevel": "Intermediate",
+        "dependencies": "JavaScript"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What will I build in Stage 02?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "A fully working inventory app. Add products (SKU, name, category, price, cost, quantity, reorder level), edit them, delete them, search by name or SKU, filter by category or low-stock status, and the KPI cards update in real time. Stock status is derived from quantity vs reorder level — in-stock, low-stock, out-of-stock. All data persists to localStorage. One HTML file, no dependencies."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What does 'derived state' mean and why does it matter?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Derived state is a value computed from other state rather than stored separately. The stock status (in-stock / low-stock / out-of-stock) is derived from quantity and reorderLevel — not stored. This matters because stored state can go stale: if you store a status field and forget to update it when quantity changes, the UI shows the wrong badge. Derived state can't go stale: it's always computed from the current data at render time. The KPI cards (total inventory value, low count, out count) are also derived. This is a fundamental principle: store the source of truth, derive the display."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why reject duplicate SKUs?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Because a SKU (stock-keeping unit) is a unique business identifier. Two products with the same SKU would be a data error — ambiguous in the warehouse, ambiguous on invoices, ambiguous in reports. The form checks for duplicates before saving: if another product (not the one being edited) already has this SKU (case-insensitive), it shows a toast and refuses to save. This is data integrity enforced at the boundary."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How do you calculate total inventory value?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Total value = sum(quantity × cost) for every product. Notice it uses cost, not price. Cost is what you paid to acquire the stock — that's what's sitting on the shelf. Price is what you'd sell it for, which only becomes revenue when it sells. Inventory value answers 'how much money is tied up in stock?' That's cost × quantity. If you used price, you'd be counting unrealized profit as an asset."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why use localStorage again instead of a backend?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Because Stage 02 is about the frontend. localStorage is the simplest possible persistence — no server, no API, no setup. It has limits (~5MB, synchronous, per-device) but for learning state management, it's the right tool. Stage 03 replaces it with Flask + SQLite. The UI barely changes — only where the data lives. Learning the CRUD pattern against localStorage first makes the backend transition trivial: the API calls are async versions of what you already wrote."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How do you make sure the KPI cards update correctly?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "The render() function calls renderKPIs() at the end. renderKPIs() iterates over state.products, computes total value, low count, and out count, then writes the formatted numbers into the KPI card DOM nodes. Because render() is called after every CRUD operation (add, edit, delete), the KPIs always reflect the current data. The trick is discipline: every state change goes through a function that ends with saveProducts(); render(). No path mutates state without triggering a re-render."
+                }
+            }
+        ]
+    }
+    </script>
+
+    <!-- UI Core Assets -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="/style.css" rel="stylesheet"/>
+    <link href="/assets/courses.css" rel="stylesheet"/>
+    <link href="/assets/language-react.css" rel="stylesheet"/>
+    
+    <style>
+        .code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+        .code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+        .code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+        .code-output-pane { display: none; }
+        .code-output-pane.active { display: block; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a class="logo" href="index.html">✨ MAK UI Studio</a>
+            <div id="navbar-placeholder"></div>
+            <script src="/navbar.js"></script>
+        </div>
+    </nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Inventory Build</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 02 · Interactions</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs" style="color:#7d8fa9;">
+            <a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+            <a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+            <a href="/apps/inventory/index.html" style="color:#7ee8fc;">Inventory</a> ›
+            <span style="color:#FFFFFF; font-weight:700;">Stage 02</span>
+        </div>
+
+        <div class="py-hero">
+            <div class="badge">⚡ Stage 02 · 3–4 hours</div>
+            <h1>Add interactions.<br><span class="py-accent">State → render → derived values.</span></h1>
+            <p class="lead">
+                In this stage, the inventory app becomes a real app. You'll add JavaScript state, CRUD operations, search, category and low-stock filters, live KPI calculations, and localStorage persistence. The new idea here is <strong>derived state</strong>: stock status is computed from <code>quantity</code> vs <code>reorderLevel</code>, not stored. Same for the KPI totals. Nothing goes stale because nothing is stored twice.
+            </p>
+            <div class="meta">
+                <span><i class="fa-solid fa-clock"></i> 3–4 hours</span>
+                <span><i class="fa-solid fa-signal"></i> Intermediate</span>
+                <span><i class="fa-solid fa-code"></i> JavaScript · DOM · localStorage</span>
+            </div>
+        </div>
+
+        <div class="quick-nav">
+            <a href="/apps/inventory/index.html">Inventory hub</a>
+            <a href="#what">What you'll build</a>
+            <a href="#derived">Derived state</a>
+            <a href="#crud">CRUD + SKU check</a>
+            <a href="#kpi">Live KPI calculations</a>
+            <a href="#full">Full file</a>
+        </div>
+
+        <div class="info-box">
+            <p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+                <strong>Short answer:</strong> One <code>state</code> object (products + filter + query). One <code>render()</code> function that rebuilds the table and KPIs. <code>stockStatus(product)</code> derives the badge from quantity vs reorder. <code>renderKPIs()</code> derives the totals from the product list. <code>localStorage.setItem</code> persists after every change. <code>escapeHtml</code> on every user string. Duplicate SKU rejected at save. Same pattern as the CRM, with inventory-specific derivations.
+            </p>
+        </div>
+
+        <section id="what">
+            <h2 class="section-title">✅ What you'll build</h2>
+            <p class="section-sub">The shell from Stage 01, now with working data.</p>
+
+            <div class="concept-grid">
+                <div class="concept-card">
+                    <h4>Add</h4>
+                    <p>Form with SKU, name, category, price, cost, quantity, reorder level. SKU must be unique.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Edit</h4>
+                    <p>Click ✎ on any row. Modal pre-fills. Changing quantity re-derives the stock status.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Delete</h4>
+                    <p>Click ×. Confirm dialog. Row disappears. KPIs update.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Search</h4>
+                    <p>Type in search. Filters by name or SKU. Instant. Empty state on no match.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Filter</h4>
+                    <p>All / Electronics / Accessories / Low stock. The low-stock filter shows both low and out-of-stock items.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Live KPIs</h4>
+                    <p>Total value (qty × cost), product count, low count, out count. Recomputed on every change.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="derived">
+            <h2 class="section-title">✅ Derived state — the key idea</h2>
+            <p class="section-sub">Store the truth. Compute the display.</p>
+
+            <div class="code-block" id="sol1">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">derived.js</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+                    <button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol1">// Source of truth — what's stored
+const product = {
+  quantity: 8,
+  reorderLevel: 10
+};
+
+// Derived — what's shown
+function stockStatus(p) {
+  if (p.quantity === 0) return 'out-of-stock';
+  if (p.quantity &lt;= p.reorderLevel) return 'low-stock';
+  return 'in-stock';
+}
+
+// Rendered
+stockStatus(product);  // 'low-stock'
+
+// Change quantity — status changes automatically
+product.quantity = 42;
+stockStatus(product);  // 'in-stock'
+
+product.quantity = 0;
+stockStatus(product);  // 'out-of-stock'
+
+// ─────────────────────────────────────────────
+
+// BAD: stored status goes stale
+const badProduct = {
+  quantity: 8,
+  reorderLevel: 10,
+  status: 'low-stock'   // ❌ computed at creation
+};
+
+// Later, someone updates quantity:
+badProduct.quantity = 42;
+// But forgets to update status:
+console.log(badProduct.status);  // ❌ still 'low-stock'
+
+// The UI shows the wrong badge.
+
+// ─────────────────────────────────────────────
+
+// The same idea for KPIs
+function renderKPIs() {
+  let totalValue = 0;
+  let low = 0;
+  let out = 0;
+
+  state.products.forEach(function (p) {
+    totalValue += p.quantity * p.cost;   // derived
+    const s = stockStatus(p);             // derived
+    if (s === 'low-stock') low++;
+    if (s === 'out-of-stock') out++;
+  });
+
+  document.getElementById('kpi-value').textContent = formatMoney(totalValue);
+  document.getElementById('kpi-low').textContent = low;
+  document.getElementById('kpi-out').textContent = out;
+}</pre>
+                    <script type="text/plain" id="raw-code-sol1">// Source of truth — what's stored
+const product = {
+  quantity: 8,
+  reorderLevel: 10
+};
+
+// Derived — what's shown
+function stockStatus(p) {
+  if (p.quantity === 0) return 'out-of-stock';
+  if (p.quantity <= p.reorderLevel) return 'low-stock';
+  return 'in-stock';
+}
+
+// Rendered
+stockStatus(product);  // 'low-stock'
+
+// Change quantity — status changes automatically
+product.quantity = 42;
+stockStatus(product);  // 'in-stock'
+
+product.quantity = 0;
+stockStatus(product);  // 'out-of-stock'
+
+// ─────────────────────────────────────────────
+
+// BAD: stored status goes stale
+const badProduct = {
+  quantity: 8,
+  reorderLevel: 10,
+  status: 'low-stock'   // computed at creation
+};
+
+// Later, someone updates quantity:
+badProduct.quantity = 42;
+// But forgets to update status:
+console.log(badProduct.status);  // still 'low-stock'
+
+// The UI shows the wrong badge.
+
+// ─────────────────────────────────────────────
+
+// The same idea for KPIs
+function renderKPIs() {
+  let totalValue = 0;
+  let low = 0;
+  let out = 0;
+
+  state.products.forEach(function (p) {
+    totalValue += p.quantity * p.cost;   // derived
+    const s = stockStatus(p);             // derived
+    if (s === 'low-stock') low++;
+    if (s === 'out-of-stock') out++;
+  });
+
+  document.getElementById('kpi-value').textContent = formatMoney(totalValue);
+  document.getElementById('kpi-low').textContent = low;
+  document.getElementById('kpi-out').textContent = out;
+}</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>Why derived state matters:
+
+  You have two choices:
+  
+  A. Store quantity AND status.
+     Every time quantity changes, update status too.
+     Risk: forget one place, and the status is wrong.
+     You now have two sources of truth.
+  
+  B. Store quantity. Derive status at render time.
+     Only one source of truth: quantity.
+     Status is always correct.
+     No possibility of drift.
+
+  B is the right choice. Every UI framework
+  that does "computed values" (React's useMemo,
+  Vue's computed, Svelte's $:, Solid's createMemo)
+  is formalizing exactly this idea.
+
+  In vanilla JS, the "computation" is just a
+  function called inside render(). Same result,
+  no framework needed.
+
+Common derived values in this app:
+
+  → stockStatus(product)         (per-product)
+  → stockLabel(product)          (per-product, human text)
+  → total inventory value        (per-app)
+  → product count                (per-app)
+  → low stock count              (per-app)
+  → out of stock count           (per-app)
+  → filtered products            (per-app, from filter + query)
+
+None of these are stored. All recomputed
+from state.products on every render.
+
+⚠️ When NOT to derive:
+
+  If a computation is expensive (e.g., parsing
+  a 10MB JSON), you might cache it. But even
+  then, cache the result with the source as the
+  key, not as a stored field on the product.
+  
+  If a computation needs to survive a reload
+  for business reasons (e.g., "date marked as
+  low-stock"), store it separately as a distinct
+  fact. But for this app, nothing does.
+
+The rule: store facts, derive display.
+
+  Fact: quantity is 8.
+  Fact: reorderLevel is 10.
+  Display: "Low stock" (derived from both facts).
+  
+  If you store "Low stock" as a fact, you're
+  duplicating the logic. Two places can disagree.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="crud">
+            <h2 class="section-title">✅ CRUD + duplicate SKU check</h2>
+            <p class="section-sub">Same pattern as the CRM, with one new rule.</p>
+
+            <div class="code-block" id="sol2">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">crud.js</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+                    <button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol2">function addProduct(data) {
+  const now = new Date().toISOString();
+  state.products.unshift(Object.assign({
+    id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    createdAt: now,
+    updatedAt: now
+  }, data));
+  saveProducts();
+  render();
+  showToast('Product added.');
+}
+
+function updateProduct(id, data) {
+  const idx = state.products.findIndex(p =&gt; p.id === id);
+  if (idx === -1) return;
+  state.products[idx] = Object.assign({}, state.products[idx], data, {
+    updatedAt: new Date().toISOString()
+  });
+  saveProducts();
+  render();
+  showToast('Product updated.');
+}
+
+function deleteProduct(id) {
+  const p = state.products.find(x =&gt; x.id === id);
+  if (!p) return;
+  if (!confirm('Delete "' + p.name + '" (' + p.sku + ')?')) return;
+  state.products = state.products.filter(x =&gt; x.id !== id);
+  saveProducts();
+  render();
+  showToast('Product deleted.');
+}
+
+// ─── The new rule: duplicate SKU check ───
+form.addEventListener('submit', function (e) {
+  e.preventDefault();
+  const data = {
+    sku: fieldSku.value.trim(),
+    name: fieldName.value.trim(),
+    category: fieldCategory.value.trim() || 'Uncategorized',
+    price: parseFloat(fieldPrice.value) || 0,
+    cost: parseFloat(fieldCost.value) || 0,
+    quantity: parseInt(fieldQuantity.value, 10) || 0,
+    reorderLevel: parseInt(fieldReorder.value, 10) || 0
+  };
+  if (!data.sku || !data.name) return;
+
+  // Reject duplicate SKU (unless editing the same product)
+  const duplicate = state.products.find(p =&gt;
+    p.sku.toLowerCase() === data.sku.toLowerCase() &amp;&amp;
+    p.id !== fieldId.value
+  );
+  if (duplicate) {
+    showToast('SKU "' + data.sku + '" already exists.', true);
+    return;
+  }
+
+  if (fieldId.value) updateProduct(fieldId.value, data);
+  else addProduct(data);
+  closeModal();
+});</pre>
+                    <script type="text/plain" id="raw-code-sol2">function addProduct(data) {
+  const now = new Date().toISOString();
+  state.products.unshift(Object.assign({
+    id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    createdAt: now,
+    updatedAt: now
+  }, data));
+  saveProducts();
+  render();
+  showToast('Product added.');
+}
+
+function updateProduct(id, data) {
+  const idx = state.products.findIndex(p => p.id === id);
+  if (idx === -1) return;
+  state.products[idx] = Object.assign({}, state.products[idx], data, {
+    updatedAt: new Date().toISOString()
+  });
+  saveProducts();
+  render();
+  showToast('Product updated.');
+}
+
+function deleteProduct(id) {
+  const p = state.products.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm('Delete "' + p.name + '" (' + p.sku + ')?')) return;
+  state.products = state.products.filter(x => x.id !== id);
+  saveProducts();
+  render();
+  showToast('Product deleted.');
+}
+
+// ─── The new rule: duplicate SKU check ───
+form.addEventListener('submit', function (e) {
+  e.preventDefault();
+  const data = {
+    sku: fieldSku.value.trim(),
+    name: fieldName.value.trim(),
+    category: fieldCategory.value.trim() || 'Uncategorized',
+    price: parseFloat(fieldPrice.value) || 0,
+    cost: parseFloat(fieldCost.value) || 0,
+    quantity: parseInt(fieldQuantity.value, 10) || 0,
+    reorderLevel: parseInt(fieldReorder.value, 10) || 0
+  };
+  if (!data.sku || !data.name) return;
+
+  // Reject duplicate SKU (unless editing the same product)
+  const duplicate = state.products.find(p =>
+    p.sku.toLowerCase() === data.sku.toLowerCase() &&
+    p.id !== fieldId.value
+  );
+  if (duplicate) {
+    showToast('SKU "' + data.sku + '" already exists.', true);
+    return;
+  }
+
+  if (fieldId.value) updateProduct(fieldId.value, data);
+  else addProduct(data);
+  closeModal();
+});</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>The duplicate SKU check:
+
+  Business rule: SKUs are unique.
+  Two products with the same SKU is a data bug.
+  
+  Enforcement: reject the save, show a toast.
+  
+  ┌─────────────────────────────────────────┐
+  │ Find any product whose SKU matches       │
+  │ (case-insensitive) AND whose id is       │
+  │ not the one being edited.                │
+  ├─────────────────────────────────────────┤
+  │ If found: show "SKU already exists"      │
+  │           return without saving          │
+  │ If not:   proceed with add or update     │
+  └─────────────────────────────────────────┘
+
+Why case-insensitive:
+  "SKU-001" and "sku-001" should be
+  the same SKU for a warehouse scanner.
+  Lowercase both sides, compare.
+
+Why exclude the current product:
+  When editing an existing product, the SKU
+  hasn't changed. The form re-submits the
+  same SKU. Without the id check, saving
+  would falsely flag a duplicate.
+
+Why check on submit, not on input:
+  Checking on every keystroke would show
+  "duplicate" mid-type for every keystroke.
+  Check on submit — that's when the decision
+  matters. If you wanted real-time feedback,
+  you'd debounce the check (a callback to
+  the debounce-throttle page).
+
+Where the check lives:
+  In the form submit handler — the boundary
+  where data enters the app. This is the
+  right place: validate once, then trust.
+
+  In Stage 03, the same rule goes on the
+  server too (a UNIQUE constraint on the
+  sku column). Client-side check is UX;
+  server-side check is integrity. Both
+  are needed. Never trust the client.
+
+The pattern across all CRUD:
+
+  add    → unshift → save → render → toast
+  update → spread  → save → render → toast
+  delete → filter  → save → render → toast
+
+  Every path: state change → persistence →
+  re-render → user feedback. Same three-step
+  loop. Every time.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="kpi">
+            <h2 class="section-title">✅ Live KPI calculations</h2>
+            <p class="section-sub">Total value, counts, low-stock.</p>
+
+            <div class="code-block" id="sol3">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">kpi.js</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+                    <button onclick="switchCodeOutput('sol3', 'js', this)">Why cost, not price</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol3">function renderKPIs() {
+  let totalValue = 0;
+  let low = 0;
+  let out = 0;
+
+  state.products.forEach(function (p) {
+    // Inventory value = quantity × cost
+    // (what you paid for the stock on hand)
+    totalValue += p.quantity * p.cost;
+
+    const s = stockStatus(p);
+    if (s === 'low-stock') low++;
+    if (s === 'out-of-stock') out++;
+  });
+
+  document.getElementById('kpi-value').textContent = formatMoney(totalValue);
+  document.getElementById('kpi-count').textContent = formatNumber(state.products.length);
+  document.getElementById('kpi-low').textContent = formatNumber(low);
+  document.getElementById('kpi-out').textContent = formatNumber(out);
+
+  document.getElementById('kpi-value-delta').textContent = 'Quantity × cost';
+  document.getElementById('kpi-count-delta').textContent = 'Across all categories';
+  document.getElementById('kpi-low-delta').textContent = low === 0 ? 'None low' : 'Reorder soon';
+  document.getElementById('kpi-out-delta').textContent = out === 0 ? 'None out' : 'Reorder now';
+}
+
+function formatMoney(n) {
+  return '$' + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function formatNumber(n) {
+  return Number(n).toLocaleString();
+}</pre>
+                    <script type="text/plain" id="raw-code-sol3">function renderKPIs() {
+  let totalValue = 0;
+  let low = 0;
+  let out = 0;
+
+  state.products.forEach(function (p) {
+    // Inventory value = quantity × cost
+    // (what you paid for the stock on hand)
+    totalValue += p.quantity * p.cost;
+
+    const s = stockStatus(p);
+    if (s === 'low-stock') low++;
+    if (s === 'out-of-stock') out++;
+  });
+
+  document.getElementById('kpi-value').textContent = formatMoney(totalValue);
+  document.getElementById('kpi-count').textContent = formatNumber(state.products.length);
+  document.getElementById('kpi-low').textContent = formatNumber(low);
+  document.getElementById('kpi-out').textContent = formatNumber(out);
+
+  document.getElementById('kpi-value-delta').textContent = 'Quantity × cost';
+  document.getElementById('kpi-count-delta').textContent = 'Across all categories';
+  document.getElementById('kpi-low-delta').textContent = low === 0 ? 'None low' : 'Reorder soon';
+  document.getElementById('kpi-out-delta').textContent = out === 0 ? 'None out' : 'Reorder now';
+}
+
+function formatMoney(n) {
+  return '$' + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function formatNumber(n) {
+  return Number(n).toLocaleString();
+}</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>Why quantity × cost, not quantity × price:
+
+  You have 100 units. Cost $5 each.
+  You sell them for $10 each.
+  
+  What is the value of your inventory?
+  
+  Cost basis:  100 × $5 = $500
+  Retail value: 100 × $10 = $1,000
+  
+  The difference ($500) is unrealized
+  profit — you only earn it when you sell.
+  Until then, it's not an asset.
+  
+  The standard accounting answer:
+  inventory value = cost × quantity.
+  
+  If a manager wants to see "what could
+  this stock earn?", that's a separate
+  metric: quantity × (price - cost) =
+  potential profit. Or quantity × price =
+  retail value.
+  
+  Stage 02 shows cost × quantity.
+  That's the real number that's sitting
+  on the shelf. Price is for sales
+  projections.
+
+The KPI card deltas:
+
+  Value:       "Quantity × cost"     — explains the formula
+  Count:       "Across all categories" — context
+  Low:         "Reorder soon"        — call to action
+  Out:         "Reorder now"         — urgent
+                
+  Static deltas work here because
+  the numbers change on every render,
+  but the meaning doesn't. If you wanted
+  a delta vs. last week, you'd need
+  historical data (a Stage 04+ addition).
+
+The formatMoney regex:
+
+  n.toFixed(2)        → "1234.56"
+  .replace(regex, ...) → "1,234.56"
+  '$' + ...            → "$1,234.56"
+
+  The regex \B(?=(\d{3})+(?!\d)) matches
+  positions where a comma should go —
+  between every 3 digits from the right.
+
+  Alternative: n.toLocaleString('en-US',
+    { style: 'currency', currency: 'USD' })
+  → "$1,234.56" (locale-aware, cleaner)
+  
+  Both work. toLocaleString is preferable
+  for multi-locale apps. The regex is fine
+  for a demo.
+
+The rule for KPI rendering:
+
+  Compute fresh on every render.
+  Never cache the computed value.
+  The cost of the computation is O(n)
+  with n = product count — trivially
+  fast for hundreds of products.
+  
+  If you had 100,000 products, you'd
+  memoize the total (recompute only
+  when the product list changes).
+  Not needed for this app.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="full">
+            <h2 class="section-title">✅ The full file</h2>
+            <p class="section-sub">The complete Stage 02 code, ready to run.</p>
+
+            <p class="text-sm text-slate-300 leading-relaxed mb-3">
+                The complete file is at <code>/apps/inventory/downloads/inventory-stage-02.html</code>. It's the same file the earlier sections described, fully assembled. Open it in a browser to use it.
+            </p>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-4">
+                <div class="text-sm text-slate-300 mb-3"><strong class="text-white">Download:</strong></div>
+                <a href="/apps/inventory/downloads/inventory-stage-02.html" download class="inline-block bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:bg-cyan-400 transition-colors">
+                    Download inventory-stage-02.html →
+                </a>
+                <p class="text-xs text-slate-500 mt-3">Right-click, save link as. Or open in a new tab and use File → Save Page.</p>
+            </div>
+
+            <div class="concept-grid mt-6">
+                <div class="concept-card">
+                    <h4>Test it</h4>
+                    <p>Add a product, edit quantity, watch the stock badge change. Delete one. Search "SKU-002". Click "Low stock".</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Break it (intentionally)</h4>
+                    <p>Try saving with SKU "SKU-001" twice — the second save shows a toast and is rejected.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Customize it</h4>
+                    <p>Add a "supplier" field to the model and form. Add it to the row rendering. Same pattern.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Extend it</h4>
+                    <p>Add a "Sort by: name / price / quantity" dropdown. State gets a sortBy, getFiltered sorts first. Same loop.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2 class="section-title">⚠️ Common mistakes</h2>
+            <p class="section-sub">What to check if the app doesn't work.</p>
+
+            <div class="mistake">
+                <div class="mtitle">1. Forgetting to call <code>render()</code> after a change</div>
+                <p>The UI doesn't update. Fix: every CRUD function ends with <code>saveProducts(); render();</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">2. Storing a <code>status</code> field</div>
+                <p>It goes stale when quantity changes. Fix: derive from quantity vs reorderLevel.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">3. Using price instead of cost for inventory value</div>
+                <p>Overstates the value by unrealized profit. Fix: <code>quantity × cost</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">4. Not escaping user data</div>
+                <p>XSS hole. Fix: <code>escapeHtml()</code> on every string before <code>innerHTML</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">5. No duplicate SKU check</div>
+                <p>Two products can share an identifier. Fix: check on submit, exclude current id.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">6. Attaching handlers to each edit button</div>
+                <p>Handlers leak on every render. Fix: event delegation on tbody.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">7. KPI numbers not formatted</div>
+                <p>1000.5 shows as <code>1000.5</code>, not <code>$1,000.50</code>. Fix: use <code>formatMoney</code> / <code>formatNumber</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">8. localStorage without try/catch</div>
+                <p>Crashes in private mode or when quota exceeds. Fix: wrap in try/catch.</p>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What will I build in Stage 02?</summary>
+                    <p class="mt-2 text-sm text-slate-300">A fully working inventory app. Add products (SKU, name, category, price, cost, quantity, reorder level), edit them, delete them, search by name or SKU, filter by category or low-stock status, and the KPI cards update in real time. Stock status is derived. All data persists to localStorage. One HTML file, no dependencies.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What does 'derived state' mean and why does it matter?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Derived state is a value computed from other state rather than stored separately. The stock status is derived from quantity and reorderLevel — not stored. This matters because stored state can go stale. Derived state can't go stale: it's always computed from the current data at render time.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why reject duplicate SKUs?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Because a SKU is a unique business identifier. Two products with the same SKU would be a data error — ambiguous in the warehouse, on invoices, in reports. The form checks for duplicates before saving and shows a toast if found.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do you calculate total inventory value?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Total value = sum(quantity × cost) for every product. Cost is what you paid to acquire the stock. Price is what you'd sell for, which only becomes revenue when it sells. Inventory value answers 'how much money is tied up in stock?' That's cost × quantity.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why use localStorage again instead of a backend?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Because Stage 02 is about the frontend. localStorage is the simplest possible persistence. Stage 03 replaces it with Flask + SQLite. The UI barely changes — only where the data lives.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do you make sure the KPI cards update correctly?</summary>
+                    <p class="mt-2 text-sm text-slate-300">The render() function calls renderKPIs() at the end. renderKPIs() iterates over state.products, computes the values, then writes them into the KPI card DOM nodes. Because render() is called after every CRUD operation, the KPIs always reflect the current data.</p>
+                </details>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+            <a href="/apps/inventory/stage-03-backend.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+                <div class="font-semibold text-white text-sm">🐍 Next: Stage 03 — Backend</div>
+                <div class="text-xs text-slate-400 mt-1">Move the data to Python Flask + SQLite. Two tables (products, suppliers). The same UI, now talking to a real server. 2–3 hours.</div>
+            </a>
+            <p class="text-xs text-slate-400 mb-2">Or explore related JavaScript concepts:</p>
+            <a href="/courses/javascript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">🟨 JavaScript problem solvers</div>
+                <div class="text-xs text-slate-400 mt-1">20 real answers to real queries — closures, this, event loop, debounce, and more</div>
+            </a>
+        </section>
+
+        <a href="/apps/inventory/index.html" class="back-link">← Back to Inventory build hub</a>
+
+        <div class="lang-signature">
+            <span class="dot"></span> Inventory Stage 02 · Interactions <span class="dot"></span>
+        </div>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/assets/courses.js" defer></script>
+    <script>
+    (function () {
+        if (typeof window.switchCodeOutput !== 'function') {
+            window.switchCodeOutput = function (blockId, paneName, btn) {
+                var block = document.getElementById(blockId);
+                if (!block) block = btn.closest('.code-block');
+                if (!block) return;
+                block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+                btn.classList.add('active');
+                block.querySelectorAll('.code-output-pane').forEach(function (p) {
+                    p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+                });
+            };
+        }
+        if (typeof window.copyCode !== 'function') {
+            window.copyCode = function (id, btn) {
+                var raw = document.getElementById('raw-' + id);
+                var text = raw ? raw.textContent : document.getElementById(id).textContent;
+                var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+                if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+                else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+            };
+        }
+    })();
+    </script>
+</body>
+</html>
