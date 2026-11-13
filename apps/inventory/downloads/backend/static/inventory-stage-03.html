@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory — Stage 03: Backend</title>
+<style>
+  :root {
+    --bg: #0f172a; --bg-elevated: #1e293b; --bg-hover: #334155;
+    --border: #334155; --text: #e2e8f0; --text-muted: #94a3b8;
+    --text-dim: #64748b; --accent: #61dafb; --accent-dark: #0891b2;
+    --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+    --radius: 8px; --sidebar-width: 240px; --header-height: 64px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh; }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; }
+  button { cursor: pointer; }
+
+  .inv-shell { display: grid; grid-template-columns: var(--sidebar-width) 1fr;
+    grid-template-rows: var(--header-height) 1fr;
+    grid-template-areas: "sidebar header" "sidebar main"; min-height: 100vh; }
+
+  .inv-sidebar { grid-area: sidebar; background: var(--bg-elevated);
+    border-right: 1px solid var(--border); padding: 1.5rem 1rem;
+    display: flex; flex-direction: column; gap: 0.5rem; }
+  .inv-brand { display: flex; align-items: center; gap: 0.75rem;
+    padding: 0 0.5rem; margin-bottom: 1.5rem; color: var(--text);
+    font-weight: 700; font-size: 1.125rem; text-decoration: none; }
+  .inv-brand-mark { width: 32px; height: 32px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bg); font-weight: 900; font-size: 0.875rem; }
+  .inv-nav-group { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 1.5rem; }
+  .inv-nav-label { font-size: 0.6875rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim); padding: 0 0.5rem;
+    margin-bottom: 0.5rem; font-weight: 700; }
+  .inv-nav-link { display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem; border-radius: 6px; color: var(--text-muted);
+    text-decoration: none; font-size: 0.875rem; font-weight: 500; }
+  .inv-nav-link:hover { background: var(--bg-hover); color: var(--text); }
+  .inv-nav-link.is-active { background: var(--bg); color: var(--accent);
+    border-left: 2px solid var(--accent); padding-left: calc(0.75rem - 2px); }
+  .inv-nav-icon { width: 18px; text-align: center; opacity: 0.7; }
+
+  .inv-header { grid-area: header; background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border); padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; }
+  .inv-page-title { font-size: 1.125rem; font-weight: 700; }
+  .inv-header-actions { display: flex; align-items: center; gap: 0.75rem; }
+  .inv-search { display: flex; align-items: center; gap: 0.5rem;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.5rem 0.75rem; min-width: 260px; }
+  .inv-search input { background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 0.875rem; width: 100%; }
+  .inv-search input::placeholder { color: var(--text-dim); }
+  .inv-search-icon { color: var(--text-dim); font-size: 0.875rem; }
+
+  .inv-btn { padding: 0.5rem 1rem; border-radius: 6px; border: none;
+    font-size: 0.875rem; font-weight: 600; display: inline-flex;
+    align-items: center; gap: 0.5rem; }
+  .inv-btn-primary { background: var(--accent); color: var(--bg); }
+  .inv-btn-primary:hover { background: var(--accent-dark); color: white; }
+  .inv-btn-secondary { background: transparent; color: var(--text-muted);
+    border: 1px solid var(--border); }
+  .inv-btn-secondary:hover { background: var(--bg-hover); color: var(--text); }
+  .inv-avatar { width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 0.875rem; }
+
+  .inv-main { grid-area: main; padding: 2rem; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 1.5rem; }
+
+  .inv-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+  .inv-kpi { background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem; }
+  .inv-kpi-label { font-size: 0.75rem; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-dim); font-weight: 700;
+    margin-bottom: 0.5rem; }
+  .inv-kpi-value { font-size: 1.875rem; font-weight: 800; color: var(--text);
+    line-height: 1; margin-bottom: 0.5rem; font-variant-numeric: tabular-nums; }
+  .inv-kpi-delta { font-size: 0.75rem; font-weight: 600; }
+  .inv-kpi-delta.up { color: var(--success); }
+  .inv-kpi-delta.warn { color: var(--warning); }
+  .inv-kpi-delta.neutral { color: var(--text-muted); }
+
+  .inv-panel { background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; }
+  .inv-panel-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; }
+  .inv-panel-title { font-size: 1rem; font-weight: 700; }
+  .inv-panel-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .inv-chip { padding: 0.25rem 0.75rem; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 600; background: var(--bg);
+    color: var(--text-muted); border: 1px solid var(--border); }
+  .inv-chip.is-active { background: var(--accent); color: var(--bg);
+    border-color: var(--accent); }
+
+  .inv-table { width: 100%; border-collapse: collapse; }
+  .inv-table th { text-align: left; padding: 0.75rem 1.25rem;
+    font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-dim); font-weight: 700;
+    border-bottom: 1px solid var(--border); background: var(--bg); }
+  .inv-table th.num, .inv-table td.num { text-align: right; }
+  .inv-table td { padding: 0.875rem 1.25rem; font-size: 0.875rem;
+    border-bottom: 1px solid var(--border); color: var(--text);
+    vertical-align: middle; }
+  .inv-table tr:last-child td { border-bottom: none; }
+  .inv-table tr:hover td { background: var(--bg); }
+  .inv-sku { font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.8125rem; color: var(--accent); font-weight: 600; }
+  .inv-cell-muted { color: var(--text-muted); }
+  .inv-cell-num { font-variant-numeric: tabular-nums; }
+
+  .inv-status { display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.25rem 0.625rem; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 600; }
+  .inv-status::before { content: ""; width: 6px; height: 6px;
+    border-radius: 50%; background: currentColor; }
+  .inv-status.in-stock { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+  .inv-status.low-stock { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .inv-status.out-of-stock { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+  .inv-actions { display: flex; gap: 0.375rem; justify-content: flex-end; }
+  .inv-icon-btn { width: 28px; height: 28px; border-radius: 6px;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--text-muted); display: inline-flex; align-items: center;
+    justify-content: center; font-size: 0.875rem; }
+  .inv-icon-btn:hover { background: var(--bg-hover); color: var(--text); }
+  .inv-icon-btn.danger:hover { background: rgba(239, 68, 68, 0.15);
+    color: var(--danger); border-color: var(--danger); }
+
+  .inv-empty { padding: 4rem 2rem; text-align: center; color: var(--text-muted); }
+  .inv-empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; opacity: 0.5; }
+
+  .inv-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center;
+    padding: 1rem; z-index: 100; }
+  .inv-modal-backdrop.is-open { display: flex; }
+  .inv-modal { background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); width: 100%; max-width: 540px;
+    max-height: 90vh; overflow-y: auto; }
+  .inv-modal-header { padding: 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; }
+  .inv-modal-title { font-size: 1.125rem; font-weight: 700; }
+  .inv-modal-close { background: transparent; border: none;
+    color: var(--text-muted); font-size: 1.25rem; padding: 0.25rem 0.5rem;
+    border-radius: 4px; }
+  .inv-modal-close:hover { background: var(--bg-hover); color: var(--text); }
+
+  .inv-form { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+  .inv-field { display: flex; flex-direction: column; gap: 0.375rem; }
+  .inv-field label { font-size: 0.75rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  .inv-field input, .inv-field select, .inv-field textarea {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.5rem 0.75rem; color: var(--text); font-size: 0.875rem; outline: none; }
+  .inv-field input:focus, .inv-field select:focus, .inv-field textarea:focus {
+    border-color: var(--accent); }
+  .inv-field textarea { resize: vertical; min-height: 60px; }
+  .inv-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .inv-form-actions { display: flex; justify-content: flex-end;
+    gap: 0.5rem; padding-top: 0.5rem; }
+
+  .inv-toast { position: fixed; bottom: 1.5rem; left: 50%;
+    transform: translateX(-50%) translateY(100px); background: var(--bg-elevated);
+    border: 1px solid var(--border); border-left: 3px solid var(--accent);
+    padding: 0.75rem 1rem; border-radius: 6px; font-size: 0.875rem;
+    color: var(--text); opacity: 0; transition: transform 0.2s, opacity 0.2s;
+    z-index: 200; pointer-events: none; }
+  .inv-toast.is-visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  @media (max-width: 900px) { .inv-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 768px) {
+    .inv-shell { grid-template-columns: 1fr;
+      grid-template-rows: auto var(--header-height) 1fr;
+      grid-template-areas: "header" "header" "main"; }
+    .inv-sidebar { display: none; }
+    .inv-header { padding: 0 1rem; }
+    .inv-search { min-width: 0; }
+    .inv-main { padding: 1rem; }
+    .inv-page-title { display: none; }
+    .inv-field-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 500px) {
+    .inv-kpi-grid { grid-template-columns: 1fr; }
+    .inv-table th:nth-child(3), .inv-table td:nth-child(3) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="inv-shell">
+  <aside class="inv-sidebar">
+    <a class="inv-brand" href="#">
+      <div class="inv-brand-mark">M</div>
+      <span>MAK INV</span>
+    </a>
+    <div class="inv-nav-group">
+      <div class="inv-nav-label">Overview</div>
+      <a class="inv-nav-link is-active" href="#"><span class="inv-nav-icon">▦</span> Dashboard</a>
+      <a class="inv-nav-link" href="#"><span class="inv-nav-icon">📦</span> Products</a>
+      <a class="inv-nav-link" href="#"><span class="inv-nav-icon">🏭</span> Suppliers</a>
+    </div>
+  </aside>
+
+  <header class="inv-header">
+    <h1 class="inv-page-title">Dashboard</h1>
+    <div class="inv-header-actions">
+      <label class="inv-search">
+        <span class="inv-search-icon">⌕</span>
+        <input id="search-input" type="search" placeholder="Search by name or SKU...">
+      </label>
+      <button class="inv-btn inv-btn-primary" type="button" id="add-btn">
+        <span>+</span> Add product
+      </button>
+      <div class="inv-avatar">AR</div>
+    </div>
+  </header>
+
+  <main class="inv-main">
+    <div class="inv-kpi-grid">
+      <div class="inv-kpi">
+        <div class="inv-kpi-label">Total inventory value</div>
+        <div class="inv-kpi-value" id="kpi-value">$0</div>
+        <div class="inv-kpi-delta up" id="kpi-value-delta">—</div>
+      </div>
+      <div class="inv-kpi">
+        <div class="inv-kpi-label">Products tracked</div>
+        <div class="inv-kpi-value" id="kpi-count">0</div>
+        <div class="inv-kpi-delta neutral" id="kpi-count-delta">—</div>
+      </div>
+      <div class="inv-kpi">
+        <div class="inv-kpi-label">Low stock</div>
+        <div class="inv-kpi-value" id="kpi-low">0</div>
+        <div class="inv-kpi-delta warn" id="kpi-low-delta">—</div>
+      </div>
+      <div class="inv-kpi">
+        <div class="inv-kpi-label">Out of stock</div>
+        <div class="inv-kpi-value" id="kpi-out">0</div>
+        <div class="inv-kpi-delta warn" id="kpi-out-delta">—</div>
+      </div>
+    </div>
+
+    <div class="inv-panel">
+      <div class="inv-panel-header">
+        <h2 class="inv-panel-title">Products</h2>
+        <div class="inv-panel-actions" id="filter-chips">
+          <button class="inv-chip is-active" type="button" data-filter="all">All</button>
+          <button class="inv-chip" type="button" data-filter="electronics">Electronics</button>
+          <button class="inv-chip" type="button" data-filter="accessories">Accessories</button>
+          <button class="inv-chip" type="button" data-filter="low">Low stock</button>
+        </div>
+      </div>
+      <table class="inv-table">
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th>Product</th>
+            <th>Category</th>
+            <th>Supplier</th>
+            <th class="num">Price</th>
+            <th class="num">Cost</th>
+            <th class="num">Qty</th>
+            <th>Status</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="product-tbody"></tbody>
+      </table>
+      <div class="inv-empty" id="empty-state" style="display:none;">
+        <div class="inv-empty-icon">📦</div>
+        <div id="empty-message">No products yet. Click "Add product" to create your first one.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="inv-modal-backdrop" id="modal-backdrop">
+  <div class="inv-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="inv-modal-header">
+      <h2 class="inv-modal-title" id="modal-title">Add product</h2>
+      <button class="inv-modal-close" type="button" id="modal-close" aria-label="Close">×</button>
+    </div>
+    <form class="inv-form" id="product-form">
+      <input type="hidden" id="field-id">
+      <div class="inv-field-row">
+        <div class="inv-field">
+          <label for="field-sku">SKU *</label>
+          <input type="text" id="field-sku" required maxlength="40" placeholder="SKU-001">
+        </div>
+        <div class="inv-field">
+          <label for="field-name">Product name *</label>
+          <input type="text" id="field-name" required maxlength="100">
+        </div>
+      </div>
+      <div class="inv-field-row">
+        <div class="inv-field">
+          <label for="field-category">Category</label>
+          <input type="text" id="field-category" maxlength="50" placeholder="Electronics">
+        </div>
+        <div class="inv-field">
+          <label for="field-supplier">Supplier</label>
+          <select id="field-supplier">
+            <option value="">— None —</option>
+          </select>
+        </div>
+      </div>
+      <div class="inv-field-row">
+        <div class="inv-field">
+          <label for="field-price">Price ($) *</label>
+          <input type="number" id="field-price" required min="0" step="0.01">
+        </div>
+        <div class="inv-field">
+          <label for="field-cost">Cost ($) *</label>
+          <input type="number" id="field-cost" required min="0" step="0.01">
+        </div>
+      </div>
+      <div class="inv-field-row">
+        <div class="inv-field">
+          <label for="field-quantity">Quantity *</label>
+          <input type="number" id="field-quantity" required min="0" step="1">
+        </div>
+        <div class="inv-field">
+          <label for="field-reorder">Reorder level</label>
+          <input type="number" id="field-reorder" min="0" step="1" value="10">
+        </div>
+      </div>
+      <div class="inv-form-actions">
+        <button type="button" class="inv-btn inv-btn-secondary" id="form-cancel">Cancel</button>
+        <button type="submit" class="inv-btn inv-btn-primary" id="form-submit">Save product</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="inv-toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ─────────────────────────────────────────────
+  // 1. CONFIG
+  // ─────────────────────────────────────────────
+  // Same origin when served by Flask. If you open this file directly
+  // (file://) change this to "http://localhost:5000".
+  const API = (location.protocol === 'file:')
+    ? 'http://localhost:5000'
+    : '';
+
+  // ─────────────────────────────────────────────
+  // 2. STATE
+  // ─────────────────────────────────────────────
+  const state = {
+    products: [],
+    suppliers: [],
+    filter: 'all',
+    query: '',
+    loading: false
+  };
+
+  // ─────────────────────────────────────────────
+  // 3. API LAYER — the only thing that changed from Stage 02
+  // ─────────────────────────────────────────────
+  async function apiFetch(path, options) {
+    const res = await fetch(API + path, Object.assign({
+      headers: { 'Content-Type': 'application/json' }
+    }, options || {}));
+    let body = null;
+    try { body = await res.json(); } catch (_) { /* empty */ }
+    if (!res.ok) {
+      const msg = (body && body.error) ? body.error : ('Request failed (' + res.status + ')');
+      const err = new Error(msg);
+      err.status = res.status;
+      throw err;
+    }
+    return body;
+  }
+
+  async function apiListProducts() {
+    const params = new URLSearchParams();
+    if (state.query) params.set('q', state.query);
+    if (state.filter !== 'all' && state.filter !== 'low') params.set('category', state.filter);
+    const qs = params.toString();
+    return apiFetch('/api/products' + (qs ? '?' + qs : ''));
+  }
+
+  async function apiListSuppliers() { return apiFetch('/api/suppliers'); }
+
+  async function apiCreateProduct(data) {
+    return apiFetch('/api/products', { method: 'POST', body: JSON.stringify(data) });
+  }
+  async function apiUpdateProduct(id, data) {
+    return apiFetch('/api/products/' + id, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  async function apiDeleteProduct(id) {
+    return apiFetch('/api/products/' + id, { method: 'DELETE' });
+  }
+
+  // ─────────────────────────────────────────────
+  // 4. DERIVED DATA — unchanged from Stage 02
+  // ─────────────────────────────────────────────
+  function stockStatus(p) {
+    if (p.quantity === 0) return 'out-of-stock';
+    if (p.quantity <= p.reorder_level) return 'low-stock';
+    return 'in-stock';
+  }
+  function stockLabel(p) {
+    const s = stockStatus(p);
+    if (s === 'out-of-stock') return 'Out of stock';
+    if (s === 'low-stock') return 'Low stock';
+    return 'In stock';
+  }
+  function getFiltered() {
+    // Server already filters by q + category. The "low" filter is
+    // client-side because it's a derived value, not a column.
+    if (state.filter === 'low') {
+      return state.products.filter(function (p) {
+        const s = stockStatus(p);
+        return s === 'low-stock' || s === 'out-of-stock';
+      });
+    }
+    return state.products;
+  }
+
+  // ─────────────────────────────────────────────
+  // 5. FORMATTING — unchanged
+  // ─────────────────────────────────────────────
+  function formatMoney(n) {
+    return '$' + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  function formatNumber(n) { return Number(n).toLocaleString(); }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function escapeAttr(s) { return String(s).replace(/"/g, '&quot;'); }
+
+  // ─────────────────────────────────────────────
+  // 6. RENDER — unchanged
+  // ─────────────────────────────────────────────
+  const tbody = document.getElementById('product-tbody');
+  const emptyState = document.getElementById('empty-state');
+  const emptyMessage = document.getElementById('empty-message');
+
+  function render() {
+    renderTable();
+    renderKPIs();
+  }
+
+  function renderTable() {
+    const rows = getFiltered();
+    if (rows.length === 0) {
+      tbody.innerHTML = '';
+      emptyState.style.display = 'block';
+      if (state.query) emptyMessage.textContent = 'No products match "' + state.query + '".';
+      else if (state.filter !== 'all') emptyMessage.textContent = 'No products in this category or filter.';
+      else emptyMessage.textContent = 'No products yet. Click "Add product" to create your first one.';
+      return;
+    }
+    emptyState.style.display = 'none';
+    tbody.innerHTML = rows.map(function (p) {
+      const status = stockStatus(p);
+      const statusClass = status === 'out-of-stock' ? 'out-of-stock'
+                        : status === 'low-stock' ? 'low-stock' : 'in-stock';
+      return '<tr data-id="' + escapeAttr(p.id) + '">' +
+        '<td class="inv-sku">' + escapeHtml(p.sku) + '</td>' +
+        '<td>' + escapeHtml(p.name) + '</td>' +
+        '<td class="inv-cell-muted">' + escapeHtml(p.category || '—') + '</td>' +
+        '<td class="inv-cell-muted">' + escapeHtml(p.supplier_name || '—') + '</td>' +
+        '<td class="num inv-cell-num">' + formatMoney(p.price) + '</td>' +
+        '<td class="num inv-cell-num inv-cell-muted">' + formatMoney(p.cost) + '</td>' +
+        '<td class="num inv-cell-num">' + formatNumber(p.quantity) + '</td>' +
+        '<td><span class="inv-status ' + statusClass + '">' + stockLabel(p) + '</span></td>' +
+        '<td><div class="inv-actions">' +
+          '<button class="inv-icon-btn" type="button" data-action="edit" data-id="' + escapeAttr(p.id) + '" title="Edit">✎</button>' +
+          '<button class="inv-icon-btn danger" type="button" data-action="delete" data-id="' + escapeAttr(p.id) + '" title="Delete">×</button>' +
+        '</div></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderKPIs() {
+    let totalValue = 0, low = 0, out = 0;
+    state.products.forEach(function (p) {
+      totalValue += p.quantity * p.cost;
+      const s = stockStatus(p);
+      if (s === 'low-stock') low++;
+      if (s === 'out-of-stock') out++;
+    });
+    document.getElementById('kpi-value').textContent = formatMoney(totalValue);
+    document.getElementById('kpi-count').textContent = formatNumber(state.products.length);
+    document.getElementById('kpi-low').textContent = formatNumber(low);
+    document.getElementById('kpi-out').textContent = formatNumber(out);
+    document.getElementById('kpi-value-delta').textContent = 'Quantity × cost';
+    document.getElementById('kpi-count-delta').textContent = 'Across all categories';
+    document.getElementById('kpi-low-delta').textContent = low === 0 ? 'None low' : 'Reorder soon';
+    document.getElementById('kpi-out-delta').textContent = out === 0 ? 'None out' : 'Reorder now';
+  }
+
+  // ─────────────────────────────────────────────
+  // 7. DATA LOADERS
+  // ─────────────────────────────────────────────
+  async function refreshProducts() {
+    try {
+      state.loading = true;
+      state.products = await apiListProducts();
+      render();
+    } catch (err) {
+      showToast('Could not load products: ' + err.message, true);
+    } finally {
+      state.loading = false;
+    }
+  }
+
+  async function loadSuppliers() {
+    try {
+      state.suppliers = await apiListSuppliers();
+      const sel = document.getElementById('field-supplier');
+      sel.innerHTML = '<option value="">— None —</option>' +
+        state.suppliers.map(function (s) {
+          return '<option value="' + s.id + '">' + escapeHtml(s.name) + '</option>';
+        }).join('');
+    } catch (err) {
+      showToast('Could not load suppliers: ' + err.message, true);
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // 8. CRUD via API
+  // ─────────────────────────────────────────────
+  async function deleteProduct(id) {
+    const p = state.products.find(function (x) { return x.id === id; });
+    if (!p) return;
+    if (!confirm('Delete "' + p.name + '" (' + p.sku + ')?')) return;
+    try {
+      await apiDeleteProduct(id);
+      await refreshProducts();
+      showToast('Product deleted.');
+    } catch (err) {
+      showToast('Delete failed: ' + err.message, true);
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // 9. MODAL — unchanged except submit is async
+  // ─────────────────────────────────────────────
+  const backdrop = document.getElementById('modal-backdrop');
+  const form = document.getElementById('product-form');
+  const modalTitle = document.getElementById('modal-title');
+  const fieldId = document.getElementById('field-id');
+  const fieldSku = document.getElementById('field-sku');
+  const fieldName = document.getElementById('field-name');
+  const fieldCategory = document.getElementById('field-category');
+  const fieldSupplier = document.getElementById('field-supplier');
+  const fieldPrice = document.getElementById('field-price');
+  const fieldCost = document.getElementById('field-cost');
+  const fieldQuantity = document.getElementById('field-quantity');
+  const fieldReorder = document.getElementById('field-reorder');
+  const submitBtn = document.getElementById('form-submit');
+
+  function openModal(id) {
+    form.reset();
+    fieldId.value = '';
+    fieldReorder.value = '10';
+    fieldSupplier.value = '';
+    if (id) {
+      const p = state.products.find(function (x) { return x.id === id; });
+      if (!p) return;
+      modalTitle.textContent = 'Edit product';
+      fieldId.value = p.id;
+      fieldSku.value = p.sku;
+      fieldName.value = p.name;
+      fieldCategory.value = p.category || '';
+      fieldSupplier.value = p.supplier_id || '';
+      fieldPrice.value = p.price;
+      fieldCost.value = p.cost;
+      fieldQuantity.value = p.quantity;
+      fieldReorder.value = p.reorder_level;
+    } else {
+      modalTitle.textContent = 'Add product';
+    }
+    backdrop.classList.add('is-open');
+    setTimeout(function () { fieldSku.focus(); }, 50);
+  }
+
+  function closeModal() { backdrop.classList.remove('is-open'); }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const data = {
+      sku: fieldSku.value.trim(),
+      name: fieldName.value.trim(),
+      category: fieldCategory.value.trim() || 'Uncategorized',
+      supplierId: fieldSupplier.value ? parseInt(fieldSupplier.value, 10) : null,
+      price: parseFloat(fieldPrice.value) || 0,
+      cost: parseFloat(fieldCost.value) || 0,
+      quantity: parseInt(fieldQuantity.value, 10) || 0,
+      reorderLevel: parseInt(fieldReorder.value, 10) || 0
+    };
+    if (!data.sku || !data.name) return;
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving…';
+    try {
+      if (fieldId.value) await apiUpdateProduct(fieldId.value, data);
+      else await apiCreateProduct(data);
+      closeModal();
+      await refreshProducts();
+      showToast(fieldId.value ? 'Product updated.' : 'Product added.');
+    } catch (err) {
+      // 409 = duplicate SKU — the server-side version of the Stage 02 check
+      showToast(err.message, true);
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save product';
+    }
+  });
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('form-cancel').addEventListener('click', closeModal);
+  backdrop.addEventListener('click', function (e) {
+    if (e.target === backdrop) closeModal();
+  });
+
+  // ─────────────────────────────────────────────
+  // 10. EVENTS
+  // ─────────────────────────────────────────────
+  document.getElementById('add-btn').addEventListener('click', function () { openModal(null); });
+
+  tbody.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = parseInt(btn.getAttribute('data-id'), 10);
+    const action = btn.getAttribute('data-action');
+    if (action === 'edit') openModal(id);
+    else if (action === 'delete') deleteProduct(id);
+  });
+
+  // Debounce search so we don't hammer the server on every keystroke
+  let searchTimer = null;
+  document.getElementById('search-input').addEventListener('input', function (e) {
+    state.query = e.target.value;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(refreshProducts, 250);
+  });
+
+  document.querySelectorAll('[data-filter]').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      document.querySelectorAll('[data-filter]').forEach(function (c) {
+        c.classList.remove('is-active');
+      });
+      chip.classList.add('is-active');
+      state.filter = chip.getAttribute('data-filter');
+      refreshProducts();  // server filters category; low is client-side derived
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // 11. TOAST — unchanged
+  // ─────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(message, isError) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.style.borderLeftColor = isError ? '#ef4444' : '#61dafb';
+    toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove('is-visible'); }, 2800);
+  }
+
+  // ─────────────────────────────────────────────
+  // 12. INIT
+  // ─────────────────────────────────────────────
+  loadSuppliers();
+  refreshProducts();
+
+})();
+</script>
+</body>
+</html>
