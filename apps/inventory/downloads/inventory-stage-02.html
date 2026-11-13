@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory — Stage 02: Interactions</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --bg-elevated: #1e293b;
+    --bg-hover: #334155;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --accent: #61dafb;
+    --accent-dark: #0891b2;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --radius: 8px;
+    --sidebar-width: 240px;
+    --header-height: 64px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  button, input, select, textarea { font-family: inherit; font-size: inherit; }
+  button { cursor: pointer; }
+
+  /* ─── Layout ─── */
+  .inv-shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) 1fr;
+    grid-template-rows: var(--header-height) 1fr;
+    grid-template-areas:
+      "sidebar header"
+      "sidebar main";
+    min-height: 100vh;
+  }
+
+  /* ─── Sidebar ─── */
+  .inv-sidebar {
+    grid-area: sidebar;
+    background: var(--bg-elevated);
+    border-right: 1px solid var(--border);
+    padding: 1.5rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .inv-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0 0.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--text);
+    font-weight: 700;
+    font-size: 1.125rem;
+    text-decoration: none;
+  }
+
+  .inv-brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bg);
+    font-weight: 900;
+    font-size: 0.875rem;
+  }
+
+  .inv-nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .inv-nav-label {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    padding: 0 0.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+  }
+
+  .inv-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .inv-nav-link:hover { background: var(--bg-hover); color: var(--text); }
+
+  .inv-nav-link.is-active {
+    background: var(--bg);
+    color: var(--accent);
+    border-left: 2px solid var(--accent);
+    padding-left: calc(0.75rem - 2px);
+  }
+
+  .inv-nav-icon { width: 18px; text-align: center; opacity: 0.7; }
+
+  /* ─── Header ─── */
+  .inv-header {
+    grid-area: header;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .inv-page-title { font-size: 1.125rem; font-weight: 700; }
+  .inv-header-actions { display: flex; align-items: center; gap: 0.75rem; }
+
+  .inv-search {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    min-width: 260px;
+  }
+
+  .inv-search input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 0.875rem;
+    width: 100%;
+  }
+
+  .inv-search input::placeholder { color: var(--text-dim); }
+  .inv-search-icon { color: var(--text-dim); font-size: 0.875rem; }
+
+  .inv-btn {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.875rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .inv-btn-primary { background: var(--accent); color: var(--bg); }
+  .inv-btn-primary:hover { background: var(--accent-dark); color: white; }
+  .inv-btn-secondary { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+  .inv-btn-secondary:hover { background: var(--bg-hover); color: var(--text); }
+  .inv-btn-danger { background: var(--danger); color: white; }
+  .inv-btn-danger:hover { opacity: 0.9; }
+
+  .inv-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 0.875rem;
+  }
+
+  /* ─── Main ─── */
+  .inv-main {
+    grid-area: main;
+    padding: 2rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* ─── KPI ─── */
+  .inv-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+
+  .inv-kpi {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+  }
+
+  .inv-kpi-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+  }
+
+  .inv-kpi-value {
+    font-size: 1.875rem;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .inv-kpi-delta { font-size: 0.75rem; font-weight: 600; }
+  .inv-kpi-delta.up { color: var(--success); }
+  .inv-kpi-delta.warn { color: var(--warning); }
+  .inv-kpi-delta.neutral { color: var(--text-muted); }
+
+  /* ─── Panel ─── */
+  .inv-panel {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .inv-panel-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .inv-panel-title { font-size: 1rem; font-weight: 700; }
+  .inv-panel-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+  .inv-chip {
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--bg);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .inv-chip.is-active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+  /* ─── Table ─── */
+  .inv-table { width: 100%; border-collapse: collapse; }
+
+  .inv-table th {
+    text-align: left;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    font-weight: 700;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  .inv-table th.num, .inv-table td.num { text-align: right; }
+
+  .inv-table td {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.875rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: middle;
+  }
+
+  .inv-table tr:last-child td { border-bottom: none; }
+  .inv-table tr:hover td { background: var(--bg); }
+
+  .inv-sku {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.8125rem;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .inv-cell-muted { color: var(--text-muted); }
+  .inv-cell-num { font-variant-numeric: tabular-nums; }
+
+  .inv-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .inv-status::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .inv-status.in-stock { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+  .inv-status.low-stock { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .inv-status.out-of-stock { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+  .inv-actions { display: flex; gap: 0.375rem; justify-content: flex-end; }
+
+  .inv-icon-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+  }
+
+  .inv-icon-btn:hover { background: var(--bg-hover); color: var(--text); }
+  .inv-icon-btn.danger:hover { background: rgba(239, 68, 68, 0.15); color: var(--danger); border-color: var(--danger); }
+
+  /* ─── Empty state ─── */
+  .inv-empty { padding: 4rem 2rem; text-align: center; color: var(--text-muted); }
+  .inv-empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; opacity: 0.5; }
+
+  /* ─── Modal ─── */
+  .inv-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 100;
+  }
+
+  .inv-modal-backdrop.is-open { display: flex; }
+
+  .inv-modal {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 540px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .inv-modal-header {
+    padding: 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .inv-modal-title { font-size: 1.125rem; font-weight: 700; }
+
+  .inv-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+  }
+
+  .inv-modal-close:hover { background: var(--bg-hover); color: var(--text); }
+
+  .inv-form { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+
+  .inv-field { display: flex; flex-direction: column; gap: 0.375rem; }
+
+  .inv-field label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+
+  .inv-field input, .inv-field select, .inv-field textarea {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    color: var(--text);
+    font-size: 0.875rem;
+    outline: none;
+  }
+
+  .inv-field input:focus, .inv-field select:focus, .inv-field textarea:focus { border-color: var(--accent); }
+
+  .inv-field textarea { resize: vertical; min-height: 60px; }
+
+  .inv-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+
+  .inv-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+  }
+
+  /* ─── Toast ─── */
+  .inv-toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: var(--text);
+    opacity: 0;
+    transition: transform 0.2s, opacity 0.2s;
+    z-index: 200;
+    pointer-events: none;
+  }
+
+  .inv-toast.is-visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 900px) {
+    .inv-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 768px) {
+    .inv-shell {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto var(--header-height) 1fr;
+      grid-template-areas: "header" "header" "main";
+    }
+    .inv-sidebar { display: none; }
+    .inv-header { padding: 0 1rem; }
+    .inv-search { min-width: 0; }
+    .inv-main { padding: 1rem; }
+    .inv-page-title { display: none; }
+    .inv-field-row { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 500px) {
+    .inv-kpi-grid { grid-template-columns: 1fr; }
+    .inv-table th:nth-child(3), .inv-table td:nth-child(3) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="inv-shell">
+
+  <aside class="inv-sidebar">
+    <a class="inv-brand" href="#">
+      <div class="inv-brand-mark">M</div>
+      <span>MAK INV</span>
+    </a>
+    <div class="inv-nav-group">
+      <div class="inv-nav-label">Overview</div>
+      <a class="inv-nav-link is-active" href="#"><span class="inv-nav-icon">▦</span> Dashboard</a>
+      <a class="inv-nav-link" href="#"><span class="inv-nav-icon">📦</span> Products</a>
+      <a class="inv-nav-link" href="#"><span class="inv-nav-icon">🏭</span> Suppliers</a>
+    </div>
+  </aside>
+
+  <header class="inv-header">
+    <h1 class="inv-page-title">Dashboard</h1>
+    <div class="inv-header-actions">
+      <label class="inv-search">
+        <span class="inv-search-icon">⌕</span>
+        <input id="search-input" type="search" placeholder="Search by name or SKU...">
+      </label>
+      <button class="inv-btn inv-btn-primary" type="button" id="add-btn">
+        <span>+</span> Add product
+      </button>
+      <div class="inv-avatar">AR</div>
+    </div>
+  </header>
+
+  <main class="inv-main">
+
+    <div class="inv-kpi-grid">
+      <div class="inv-kpi">
+        <div class="inv-kpi-label">Total inventory value</div>
+        <div class="inv-kpi-value" id="kpi-value">$0</div>
+        <div class="inv-kpi-delta up" id="kpi-value-delta">—</div>
+      </div>
+      <div class="inv-kpi">
+        <div class="inv-kpi-label">Products tracked</div>
+        <div class="inv-kpi-value" id="kpi-count">0</div>
+        <div class="inv-kpi-delta neutral" id="kpi-count-delta">—</div>
+      </div>
+      <div class="inv-kpi">
+        <div class="inv-kpi-label">Low stock</div>
+        <div class="inv-kpi-value" id="kpi-low">0</div>
+        <div class="inv-kpi-delta warn" id="kpi-low-delta">—</div>
+      </div>
+      <div class="inv-kpi">
+        <div class="inv-kpi-label">Out of stock</div>
+        <div class="inv-kpi-value" id="kpi-out">0</div>
+        <div class="inv-kpi-delta warn" id="kpi-out-delta">—</div>
+      </div>
+    </div>
+
+    <div class="inv-panel">
+      <div class="inv-panel-header">
+        <h2 class="inv-panel-title">Products</h2>
+        <div class="inv-panel-actions" id="filter-chips">
+          <button class="inv-chip is-active" type="button" data-filter="all">All</button>
+          <button class="inv-chip" type="button" data-filter="electronics">Electronics</button>
+          <button class="inv-chip" type="button" data-filter="accessories">Accessories</button>
+          <button class="inv-chip" type="button" data-filter="low">Low stock</button>
+        </div>
+      </div>
+      <table class="inv-table">
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th>Product</th>
+            <th>Category</th>
+            <th class="num">Price</th>
+            <th class="num">Cost</th>
+            <th class="num">Qty</th>
+            <th>Status</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="product-tbody">
+          <!-- rendered by JS -->
+        </tbody>
+      </table>
+      <div class="inv-empty" id="empty-state" style="display:none;">
+        <div class="inv-empty-icon">📦</div>
+        <div id="empty-message">No products yet. Click "Add product" to create your first one.</div>
+      </div>
+    </div>
+
+  </main>
+
+</div>
+
+<div class="inv-modal-backdrop" id="modal-backdrop">
+  <div class="inv-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="inv-modal-header">
+      <h2 class="inv-modal-title" id="modal-title">Add product</h2>
+      <button class="inv-modal-close" type="button" id="modal-close" aria-label="Close">×</button>
+    </div>
+    <form class="inv-form" id="product-form">
+      <input type="hidden" id="field-id">
+      <div class="inv-field-row">
+        <div class="inv-field">
+          <label for="field-sku">SKU *</label>
+          <input type="text" id="field-sku" required maxlength="40" placeholder="SKU-001">
+        </div>
+        <div class="inv-field">
+          <label for="field-name">Product name *</label>
+          <input type="text" id="field-name" required maxlength="100">
+        </div>
+      </div>
+      <div class="inv-field">
+        <label for="field-category">Category</label>
+        <input type="text" id="field-category" maxlength="50" placeholder="Electronics">
+      </div>
+      <div class="inv-field-row">
+        <div class="inv-field">
+          <label for="field-price">Price ($) *</label>
+          <input type="number" id="field-price" required min="0" step="0.01">
+        </div>
+        <div class="inv-field">
+          <label for="field-cost">Cost ($) *</label>
+          <input type="number" id="field-cost" required min="0" step="0.01">
+        </div>
+      </div>
+      <div class="inv-field-row">
+        <div class="inv-field">
+          <label for="field-quantity">Quantity *</label>
+          <input type="number" id="field-quantity" required min="0" step="1">
+        </div>
+        <div class="inv-field">
+          <label for="field-reorder">Reorder level</label>
+          <input type="number" id="field-reorder" min="0" step="1" value="10">
+        </div>
+      </div>
+      <div class="inv-form-actions">
+        <button type="button" class="inv-btn inv-btn-secondary" id="form-cancel">Cancel</button>
+        <button type="submit" class="inv-btn inv-btn-primary" id="form-submit">Save product</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="inv-toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ─────────────────────────────────────────────
+  // 1. DATA MODEL
+  // ─────────────────────────────────────────────
+  // Product: { id, sku, name, category, price, cost, quantity, reorderLevel, createdAt, updatedAt }
+
+  const STORAGE_KEY = 'mak-inventory-products';
+
+  const SAMPLE_DATA = [
+    { id: 'p1', sku: 'SKU-001', name: 'Wireless Mouse',      category: 'Electronics', price: 29.99, cost: 15.50, quantity: 42,  reorderLevel: 10, createdAt: '2026-11-01T09:00:00.000Z', updatedAt: '2026-11-01T09:00:00.000Z' },
+    { id: 'p2', sku: 'SKU-002', name: 'Mechanical Keyboard', category: 'Electronics', price: 89.00, cost: 45.00, quantity: 8,   reorderLevel: 10, createdAt: '2026-11-03T14:30:00.000Z', updatedAt: '2026-11-03T14:30:00.000Z' },
+    { id: 'p3', sku: 'SKU-003', name: 'USB-C Cable (2m)',   category: 'Accessories', price: 12.50, cost: 4.20,  quantity: 156, reorderLevel: 20, createdAt: '2026-11-05T11:15:00.000Z', updatedAt: '2026-11-05T11:15:00.000Z' },
+    { id: 'p4', sku: 'SKU-004', name: 'Monitor Stand',      category: 'Accessories', price: 45.00, cost: 22.00, quantity: 0,   reorderLevel: 5,  createdAt: '2026-10-20T08:00:00.000Z', updatedAt: '2026-10-20T08:00:00.000Z' },
+    { id: 'p5', sku: 'SKU-005', name: 'Webcam HD 1080p',    category: 'Electronics', price: 79.99, cost: 38.00, quantity: 15,  reorderLevel: 8,  createdAt: '2026-11-08T16:45:00.000Z', updatedAt: '2026-11-08T16:45:00.000Z' },
+    { id: 'p6', sku: 'SKU-006', name: 'Desk Lamp LED',      category: 'Accessories', price: 34.00, cost: 14.00, quantity: 3,   reorderLevel: 5,  createdAt: '2026-11-10T10:30:00.000Z', updatedAt: '2026-11-10T10:30:00.000Z' }
+  ];
+
+  // ─────────────────────────────────────────────
+  // 2. STATE
+  // ─────────────────────────────────────────────
+  const state = {
+    products: [],
+    filter: 'all',
+    query: ''
+  };
+
+  function loadProducts() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        state.products = SAMPLE_DATA.slice();
+        saveProducts();
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      state.products = Array.isArray(parsed) ? parsed : SAMPLE_DATA.slice();
+    } catch (e) {
+      state.products = SAMPLE_DATA.slice();
+    }
+  }
+
+  function saveProducts() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.products));
+    } catch (e) {
+      showToast('Could not save to localStorage.');
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // 3. DERIVED DATA
+  // ─────────────────────────────────────────────
+  function stockStatus(product) {
+    if (product.quantity === 0) return 'out-of-stock';
+    if (product.quantity <= product.reorderLevel) return 'low-stock';
+    return 'in-stock';
+  }
+
+  function stockLabel(product) {
+    const s = stockStatus(product);
+    if (s === 'out-of-stock') return 'Out of stock';
+    if (s === 'low-stock') return 'Low stock';
+    return 'In stock';
+  }
+
+  function getFiltered() {
+    const q = state.query.toLowerCase().trim();
+    return state.products.filter(function (p) {
+      if (state.filter === 'low' && stockStatus(p) !== 'low-stock' && stockStatus(p) !== 'out-of-stock') return false;
+      if (state.filter !== 'all' && state.filter !== 'low' && (p.category || '').toLowerCase() !== state.filter) return false;
+      if (!q) return true;
+      return (p.name + ' ' + p.sku).toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // 4. FORMATTING
+  // ─────────────────────────────────────────────
+  function formatMoney(n) {
+    return '$' + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+
+  function formatNumber(n) {
+    return Number(n).toLocaleString();
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function escapeAttr(s) {
+    return String(s).replace(/"/g, '&quot;');
+  }
+
+  // ─────────────────────────────────────────────
+  // 5. RENDER
+  // ─────────────────────────────────────────────
+  const tbody = document.getElementById('product-tbody');
+  const emptyState = document.getElementById('empty-state');
+  const emptyMessage = document.getElementById('empty-message');
+
+  function render() {
+    renderTable();
+    renderKPIs();
+  }
+
+  function renderTable() {
+    const rows = getFiltered();
+    if (rows.length === 0) {
+      tbody.innerHTML = '';
+      emptyState.style.display = 'block';
+      if (state.query) emptyMessage.textContent = 'No products match "' + state.query + '".';
+      else if (state.filter !== 'all') emptyMessage.textContent = 'No products in this category or filter.';
+      else emptyMessage.textContent = 'No products yet. Click "Add product" to create your first one.';
+      return;
+    }
+    emptyState.style.display = 'none';
+    tbody.innerHTML = rows.map(function (p) {
+      const status = stockStatus(p);
+      const statusClass = status === 'out-of-stock' ? 'out-of-stock' : status === 'low-stock' ? 'low-stock' : 'in-stock';
+      return '<tr data-id="' + escapeAttr(p.id) + '">' +
+        '<td class="inv-sku">' + escapeHtml(p.sku) + '</td>' +
+        '<td>' + escapeHtml(p.name) + '</td>' +
+        '<td class="inv-cell-muted">' + escapeHtml(p.category || '—') + '</td>' +
+        '<td class="num inv-cell-num">' + formatMoney(p.price) + '</td>' +
+        '<td class="num inv-cell-num inv-cell-muted">' + formatMoney(p.cost) + '</td>' +
+        '<td class="num inv-cell-num">' + formatNumber(p.quantity) + '</td>' +
+        '<td><span class="inv-status ' + statusClass + '">' + stockLabel(p) + '</span></td>' +
+        '<td><div class="inv-actions">' +
+          '<button class="inv-icon-btn" type="button" data-action="edit" data-id="' + escapeAttr(p.id) + '" title="Edit">✎</button>' +
+          '<button class="inv-icon-btn danger" type="button" data-action="delete" data-id="' + escapeAttr(p.id) + '" title="Delete">×</button>' +
+        '</div></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderKPIs() {
+    let totalValue = 0;
+    let low = 0;
+    let out = 0;
+    state.products.forEach(function (p) {
+      totalValue += p.quantity * p.cost;
+      const s = stockStatus(p);
+      if (s === 'low-stock') low++;
+      if (s === 'out-of-stock') out++;
+    });
+
+    document.getElementById('kpi-value').textContent = formatMoney(totalValue);
+    document.getElementById('kpi-count').textContent = formatNumber(state.products.length);
+    document.getElementById('kpi-low').textContent = formatNumber(low);
+    document.getElementById('kpi-out').textContent = formatNumber(out);
+
+    document.getElementById('kpi-value-delta').textContent = 'Quantity × cost';
+    document.getElementById('kpi-count-delta').textContent = 'Across all categories';
+    document.getElementById('kpi-low-delta').textContent = low === 0 ? 'None low' : 'Reorder soon';
+    document.getElementById('kpi-out-delta').textContent = out === 0 ? 'None out' : 'Reorder now';
+  }
+
+  // ─────────────────────────────────────────────
+  // 6. CRUD
+  // ─────────────────────────────────────────────
+  function addProduct(data) {
+    const now = new Date().toISOString();
+    state.products.unshift(Object.assign({
+      id: 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      createdAt: now,
+      updatedAt: now
+    }, data));
+    saveProducts();
+    render();
+    showToast('Product added.');
+  }
+
+  function updateProduct(id, data) {
+    const idx = state.products.findIndex(function (p) { return p.id === id; });
+    if (idx === -1) return;
+    state.products[idx] = Object.assign({}, state.products[idx], data, {
+      updatedAt: new Date().toISOString()
+    });
+    saveProducts();
+    render();
+    showToast('Product updated.');
+  }
+
+  function deleteProduct(id) {
+    const p = state.products.find(function (x) { return x.id === id; });
+    if (!p) return;
+    if (!confirm('Delete "' + p.name + '" (' + p.sku + ')?')) return;
+    state.products = state.products.filter(function (x) { return x.id !== id; });
+    saveProducts();
+    render();
+    showToast('Product deleted.');
+  }
+
+  // ─────────────────────────────────────────────
+  // 7. MODAL
+  // ─────────────────────────────────────────────
+  const backdrop = document.getElementById('modal-backdrop');
+  const form = document.getElementById('product-form');
+  const modalTitle = document.getElementById('modal-title');
+  const fieldId = document.getElementById('field-id');
+  const fieldSku = document.getElementById('field-sku');
+  const fieldName = document.getElementById('field-name');
+  const fieldCategory = document.getElementById('field-category');
+  const fieldPrice = document.getElementById('field-price');
+  const fieldCost = document.getElementById('field-cost');
+  const fieldQuantity = document.getElementById('field-quantity');
+  const fieldReorder = document.getElementById('field-reorder');
+
+  function openModal(id) {
+    form.reset();
+    fieldId.value = '';
+    fieldReorder.value = '10';
+    if (id) {
+      const p = state.products.find(function (x) { return x.id === id; });
+      if (!p) return;
+      modalTitle.textContent = 'Edit product';
+      fieldId.value = p.id;
+      fieldSku.value = p.sku;
+      fieldName.value = p.name;
+      fieldCategory.value = p.category || '';
+      fieldPrice.value = p.price;
+      fieldCost.value = p.cost;
+      fieldQuantity.value = p.quantity;
+      fieldReorder.value = p.reorderLevel;
+    } else {
+      modalTitle.textContent = 'Add product';
+    }
+    backdrop.classList.add('is-open');
+    setTimeout(function () { fieldSku.focus(); }, 50);
+  }
+
+  function closeModal() {
+    backdrop.classList.remove('is-open');
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const data = {
+      sku: fieldSku.value.trim(),
+      name: fieldName.value.trim(),
+      category: fieldCategory.value.trim() || 'Uncategorized',
+      price: parseFloat(fieldPrice.value) || 0,
+      cost: parseFloat(fieldCost.value) || 0,
+      quantity: parseInt(fieldQuantity.value, 10) || 0,
+      reorderLevel: parseInt(fieldReorder.value, 10) || 0
+    };
+    if (!data.sku || !data.name) return;
+
+    // Reject duplicate SKU (unless editing the same product)
+    const duplicate = state.products.find(function (p) {
+      return p.sku.toLowerCase() === data.sku.toLowerCase() && p.id !== fieldId.value;
+    });
+    if (duplicate) {
+      showToast('SKU "' + data.sku + '" already exists.', true);
+      return;
+    }
+
+    if (fieldId.value) updateProduct(fieldId.value, data);
+    else addProduct(data);
+    closeModal();
+  });
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('form-cancel').addEventListener('click', closeModal);
+  backdrop.addEventListener('click', function (e) {
+    if (e.target === backdrop) closeModal();
+  });
+
+  // ─────────────────────────────────────────────
+  // 8. EVENTS
+  // ─────────────────────────────────────────────
+  document.getElementById('add-btn').addEventListener('click', function () {
+    openModal(null);
+  });
+
+  tbody.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-id');
+    const action = btn.getAttribute('data-action');
+    if (action === 'edit') openModal(id);
+    else if (action === 'delete') deleteProduct(id);
+  });
+
+  document.getElementById('search-input').addEventListener('input', function (e) {
+    state.query = e.target.value;
+    render();
+  });
+
+  document.querySelectorAll('[data-filter]').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      document.querySelectorAll('[data-filter]').forEach(function (c) {
+        c.classList.remove('is-active');
+      });
+      chip.classList.add('is-active');
+      state.filter = chip.getAttribute('data-filter');
+      render();
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // 9. TOAST
+  // ─────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(message, isError) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.style.borderLeftColor = isError ? '#ef4444' : '#61dafb';
+    toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toast.classList.remove('is-visible');
+    }, 2500);
+  }
+
+  // ─────────────────────────────────────────────
+  // 10. INIT
+  // ─────────────────────────────────────────────
+  loadProducts();
+  render();
+
+})();
+</script>
+</body>
+</html>
