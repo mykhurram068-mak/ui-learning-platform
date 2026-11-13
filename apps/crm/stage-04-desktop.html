@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>CRM Stage 04 — Desktop (PySide6 + PyInstaller) (2026)</title>
+    <meta name="description" content="Stage 04 of the CRM build: rebuild the app as a native desktop application with PySide6. Package it as an installable .exe or .app with PyInstaller.">
+    <meta name="keywords" content="pyside6 desktop app, pyinstaller tutorial, python desktop application, qt python, python gui tutorial">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="CRM Stage 04 — Desktop (PySide6 + PyInstaller)">
+    <meta property="og:description" content="Rebuild the CRM as a native desktop app and package it as an executable.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/apps/crm/stage-04-desktop.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <meta property="og:site_name" content="MAK UI Studio">
+    
+    <!-- Twitter Metadata -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="CRM Stage 04 — Desktop">
+    <meta name="twitter:description" content="PySide6 + PyInstaller for a native desktop CRM.">
+    <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+    
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/apps/crm/stage-04-desktop.html"/>
+
+    <!-- Structured Data Scripts -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        "headline": "CRM Stage 04 — Desktop (PySide6 + PyInstaller)",
+        "description": "Rebuild the CRM as a native desktop application and package it as an executable.",
+        "author": { "@type": "Organization", "name": "MAK Studio" },
+        "datePublished": "2026-11-11",
+        "dateModified": "2026-11-11",
+        "proficiencyLevel": "Intermediate",
+        "dependencies": "Python 3.11+, PySide6, PyInstaller"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What will I build in Stage 04?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "A native desktop CRM application built with PySide6 — the official Python bindings for Qt. It looks and behaves like a normal desktop app: a window with a table, a modal dialog for add/edit, native buttons and dropdowns. The data is stored in a local SQLite database. The whole app is packaged as a single executable file with PyInstaller, so anyone can double-click it and run it — no Python installation needed on the target machine."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why rebuild the UI instead of wrapping the web version?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "You could wrap the web version with Electron or Tauri — the HTML/CSS/JS UI running inside a desktop shell. That works and is a valid choice. But it doesn't teach you anything new: the same web code, in a different frame. PySide6 rebuilds the UI in Qt, which is a genuinely different toolkit: different layout model, different event model, different rendering. Rebuilding the UI in Qt teaches you how desktop frameworks think — the model/view pattern, the signal/slot system, the widget hierarchy. That's the value of Stage 04: not 'ship the app' (you already had that in Stage 03), but 'learn a second UI paradigm'."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What is the model/view pattern in Qt?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "It's the Qt equivalent of state → render. In Stage 02, you had a state object and a render() function that rebuilt the DOM. In Qt, you have a data model (a list of customers) and a view (a QTableWidget) that displays it. When the data changes, you call refresh_table(), which clears the view and repopulates it from the current data. It's the same pattern, just with different names. The QTableWidget manages the rows and columns; you manage the data and the rendering logic. This is the same separation of concerns — data vs display — that every UI framework encourages."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why PyInstaller and not cx_Freeze or Nuitka?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "PyInstaller is the most widely used and best-documented tool for packaging Python apps. It supports Windows, macOS, and Linux, handles PySide6 out of the box, and produces a single executable with --onefile. cx_Freeze works but has fewer features and less documentation. Nuitka compiles to C, which can be faster but has a steeper learning curve and longer build times. For a first desktop app, PyInstaller is the right tool. Once you're comfortable with it, the others are alternatives worth exploring for specific use cases."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "How large is the packaged app?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Around 80–120 MB, depending on the platform and PySide6 version. Qt is a large library — the packaged app includes the Qt runtime, the platform plugins, and the Python interpreter. This is normal for Qt desktop apps. If size matters, you can trim unused Qt modules with PyInstaller's --exclude-module flags, or use the folder mode (no --onefile) which produces a smaller overall size but multiple files. For most apps, the size is acceptable. Electron apps are typically 100–150 MB, so Qt is competitive."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Can I share the executable with someone who doesn't have Python?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Yes. That's the whole point of PyInstaller. The executable bundles Python, PySide6, and your code into a single file. The recipient double-clicks it and the app runs — no Python installation, no dependencies, no setup. The only requirement is the same operating system: a Windows .exe doesn't run on macOS, and a macOS .app doesn't run on Windows. To support multiple platforms, build on each platform separately (or use a CI service that builds on multiple OSes)."
+                }
+            }
+        ]
+    }
+    </script>
+
+    <!-- UI Core Assets -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="/style.css" rel="stylesheet"/>
+    <link href="/assets/courses.css" rel="stylesheet"/>
+    <link href="/assets/language-python.css" rel="stylesheet"/>
+    
+    <style>
+        .code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+        .code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+        .code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+        .code-output-pane { display: none; }
+        .code-output-pane.active { display: block; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a class="logo" href="index.html">✨ MAK UI Studio</a>
+            <div id="navbar-placeholder"></div>
+            <script src="/navbar.js"></script>
+        </div>
+    </nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">CRM Build</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 04 · Desktop</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs" style="color:#7d8fa9;">
+            <a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+            <a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+            <a href="/apps/crm/index.html" style="color:#7ee8fc;">CRM</a> ›
+            <span style="color:#FFFFFF; font-weight:700;">Stage 04</span>
+        </div>
+
+        <div class="py-hero">
+            <div class="badge">🖥️ Stage 04 · 2–3 hours</div>
+            <h1>Ship it as a desktop app.<br><span class="py-accent">PySide6 + PyInstaller.</span></h1>
+            <p class="lead">
+                The final stage. Rebuild the CRM as a native desktop application with PySide6 — the official Python bindings for Qt. Then package it as a standalone executable with PyInstaller: a single file that runs on any machine, no Python installation required. This is the journey from an empty HTML file to a shipped product.
+            </p>
+            <div class="meta">
+                <span><i class="fa-solid fa-clock"></i> 2–3 hours</span>
+                <span><i class="fa-solid fa-signal"></i> Intermediate</span>
+                <span><i class="fa-solid fa-code"></i> Python · PySide6 · SQLite · PyInstaller</span>
+            </div>
+        </div>
+
+        <div class="quick-nav">
+            <a href="/apps/crm/index.html">CRM hub</a>
+            <a href="#why">Why desktop</a>
+            <a href="#widgets">The widgets</a>
+            <a href="#packaging">Packaging</a>
+            <a href="#full">Full project</a>
+        </div>
+
+        <div class="info-box">
+            <p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+                <strong>Short answer:</strong> Five Python files. A <code>QMainWindow</code> with a table, a header row, four KPI cards, and filter chips. A <code>QDialog</code> for add/edit. SQLite for storage. Packaged with <code>pyinstaller --onefile --windowed --add-data "schema.sql:." main.py</code>. The result is a single executable that runs on Windows, macOS, or Linux. No Python, no server, no browser.
+            </p>
+        </div>
+
+        <section id="why">
+            <h2 class="section-title">✅ Why ship a desktop app</h2>
+            <p class="section-sub">The web version works. What does desktop add?</p>
+
+            <div class="concept-grid">
+                <div class="concept-card">
+                    <h4>No browser, no server</h4>
+                    <p>The app runs on its own. No localhost:5000, no terminal, no Flask. Just double-click and go.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Native performance</h4>
+                    <p>Qt renders natively — no DOM, no CSS engine, no JavaScript VM. For a data-heavy table, it's smoother.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Real file system access</h4>
+                    <p>The app can read and write files, use the clipboard, show native dialogs — without browser permissions.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Works offline, always</h4>
+                    <p>No network needed. The SQLite database is a local file. The app is fully self-contained.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Distributable</h4>
+                    <p>One executable. Ship it on a USB stick, a download link, or an enterprise installer. No dependencies.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Different UI paradigm</h4>
+                    <p>Qt uses signals/slots, model/view, and native widgets. A genuinely new toolkit to learn.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="widgets">
+            <h2 class="section-title">✅ The widgets</h2>
+            <p class="section-sub">From web components to Qt widgets.</p>
+
+            <div class="code-block" id="sol1">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">main.py</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+                    <button onclick="switchCodeOutput('sol1', 'js', this)">Web → Qt</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol1"><span class="kw">from</span> PySide6.QtWidgets <span class="kw">import</span> (
+    QApplication, QMainWindow, QWidget,
+    QVBoxLayout, QHBoxLayout, QLabel,
+    QLineEdit, QPushButton, QTableWidget,
+    QTableWidgetItem, QDialog, QComboBox, QTextEdit,
+)
+
+<span class="kw">class</span> <span class="fn">MainWindow</span>(QMainWindow):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self):
+        super().__init__()
+        self.setWindowTitle(<span class="str">"MAK CRM"</span>)
+        self.setMinimumSize(<span class="num">1100</span>, <span class="num">700</span>)
+
+        central = QWidget()
+        self.setCentralWidget(central)
+        layout = QVBoxLayout(central)
+
+        <span class="com"># Header: title + search + add button</span>
+        header = QHBoxLayout()
+        header.addWidget(QLabel(<span class="str">"Dashboard"</span>))
+        header.addStretch()
+        self.search_input = QLineEdit()
+        self.search_input.textChanged.connect(self.refresh_table)
+        header.addWidget(self.search_input)
+        add_btn = QPushButton(<span class="str">"+ Add Customer"</span>)
+        add_btn.clicked.connect(self.add_customer)
+        header.addWidget(add_btn)
+        layout.addLayout(header)
+
+        <span class="com"># Table: name, company, email, status, actions</span>
+        self.table = QTableWidget()
+        self.table.setColumnCount(<span class="num">6</span>)
+        self.table.setHorizontalHeaderLabels([
+            <span class="str">"Name"</span>, <span class="str">"Company"</span>, <span class="str">"Email"</span>,
+            <span class="str">"Status"</span>, <span class="str">"Added"</span>, <span class="str">"Actions"</span>
+        ])
+        layout.addWidget(self.table)</pre>
+                    <script type="text/plain" id="raw-code-sol1">from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QWidget,
+    QVBoxLayout, QHBoxLayout, QLabel,
+    QLineEdit, QPushButton, QTableWidget,
+    QTableWidgetItem, QDialog, QComboBox, QTextEdit,
+)
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("MAK CRM")
+        self.setMinimumSize(1100, 700)
+
+        central = QWidget()
+        self.setCentralWidget(central)
+        layout = QVBoxLayout(central)
+
+        # Header: title + search + add button
+        header = QHBoxLayout()
+        header.addWidget(QLabel("Dashboard"))
+        header.addStretch()
+        self.search_input = QLineEdit()
+        self.search_input.textChanged.connect(self.refresh_table)
+        header.addWidget(self.search_input)
+        add_btn = QPushButton("+ Add Customer")
+        add_btn.clicked.connect(self.add_customer)
+        header.addWidget(add_btn)
+        layout.addLayout(header)
+
+        # Table: name, company, email, status, actions
+        self.table = QTableWidget()
+        self.table.setColumnCount(6)
+        self.table.setHorizontalHeaderLabels([
+            "Name", "Company", "Email",
+            "Status", "Added", "Actions"
+        ])
+        layout.addWidget(self.table)</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>The mental map:
+
+  HTML                        Qt
+  ─────────────────────       ─────────────────────
+  &lt;div&gt;                       QWidget
+  &lt;h1&gt;                        QLabel
+  &lt;input&gt;                     QLineEdit
+  &lt;select&gt;                    QComboBox
+  &lt;textarea&gt;                  QTextEdit
+  &lt;button&gt;                    QPushButton
+  &lt;table&gt;                     QTableWidget
+  &lt;dialog&gt;                    QDialog
+  
+  flexbox layout              QVBoxLayout / QHBoxLayout
+  CSS grid                    QGridLayout
+  
+  addEventListener('click')   button.clicked.connect(fn)
+  textContent = 'x'           label.setText('x')
+  document.createElement      QWidget()
+  appendChild                 layout.addWidget()
+
+The pattern is the same:
+
+  state  →  render()  →  event  →  state
+
+  In Stage 02:
+    state.customers → renderTable() → click → addCustomer() → renderTable()
+
+  In Stage 04:
+    self.current_filter → refresh_table() → clicked.connect → add_customer() → refresh_table()
+
+  The state is Python instance attributes.
+  The render is refresh_table().
+  The events are signal/slot connections.
+
+What's different in Qt:
+
+  1. Signals and slots
+     Instead of addEventListener, you connect
+     a signal (clicked, textChanged) to a slot
+     (a Python function).
+     
+     button.clicked.connect(self.handle_click)
+     
+     The slot is called when the signal fires.
+     No manual event object. No event.target.
+     The handler knows what it's attached to.
+
+  2. Layouts, not CSS
+     Layouts are objects (QVBoxLayout).
+     Add widgets to a layout with addWidget.
+     Nested layouts compose (a QVBoxLayout with
+     QHBoxLayouts inside it).
+     No position, no flex, no grid-template.
+     The layout does the geometry automatically.
+
+  3. Widgets are classes
+     To customize behavior, subclass the widget
+     and override its methods.
+     To customize appearance, use a stylesheet
+     (which is CSS-like but with Qt selectors).
+     
+     QPushButton { background: #61dafb; }
+     
+     Qt stylesheets are more limited than CSS
+     (no calc, no flex, no grid), but they work
+     for colors, borders, padding, fonts.
+
+  4. State lives on the object
+     self.current_filter = "all"
+     self.search_input = QLineEdit()
+     
+     Python instance attributes. No global
+     state object. The window owns its state.
+
+The event flow:
+
+  User types in search:
+    QLineEdit.textChanged fires
+    → self.refresh_table() is called
+    → fetches customers
+    → filters by search text
+    → repopulates self.table
+
+  User clicks "Add":
+    QPushButton.clicked fires
+    → self.add_customer() is called
+    → opens CustomerDialog
+    → on save: insert_customer(data)
+    → self.refresh_table()
+
+  User clicks "Edit" on a row:
+    QPushButton.clicked fires (per-row button)
+    → self.edit_customer(id) is called
+    → opens CustomerDialog with data
+    → on save: update_customer(id, data)
+    → self.refresh_table()
+
+Same flow as the web. Different names.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="packaging">
+            <h2 class="section-title">✅ Packaging with PyInstaller</h2>
+            <p class="section-sub">One command. One executable.</p>
+
+            <div class="code-block" id="sol2">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">terminal</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Terminal</button>
+                    <button onclick="switchCodeOutput('sol2', 'js', this)">What each flag does</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol2"># 1. Verify the app runs from source first
+python main.py
+
+# 2. Install PyInstaller
+pip install pyinstaller
+
+# 3. Build the executable
+pyinstaller --onefile --windowed --name "MAK CRM" \
+  --add-data "schema.sql:." \
+  main.py
+
+# On Windows, use ; instead of : in --add-data
+pyinstaller --onefile --windowed --name "MAK CRM" ^
+  --add-data "schema.sql;." ^
+  main.py
+
+# 4. Find the executable
+#    Windows: dist/MAK CRM.exe
+#    macOS:   dist/MAK CRM.app
+#    Linux:   dist/MAK CRM</pre>
+                    <script type="text/plain" id="raw-code-sol2"># 1. Verify the app runs from source first
+python main.py
+
+# 2. Install PyInstaller
+pip install pyinstaller
+
+# 3. Build the executable
+pyinstaller --onefile --windowed --name "MAK CRM" \
+  --add-data "schema.sql:." \
+  main.py
+
+# On Windows, use ; instead of : in --add-data
+pyinstaller --onefile --windowed --name "MAK CRM" ^
+  --add-data "schema.sql;." ^
+  main.py
+
+# 4. Find the executable
+#    Windows: dist/MAK CRM.exe
+#    macOS:   dist/MAK CRM.app
+#    Linux:   dist/MAK CRM</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>The flags explained:
+
+--onefile
+  Bundle everything into a single file.
+  Without it, PyInstaller produces a folder
+  with the executable plus the dependencies
+  (Qt libraries, Python runtime, etc.).
+  
+  --onefile: one file, starts a bit slower
+             (unpacks to a temp dir on launch)
+  folder mode: many files, starts faster
+               
+  For a simple app, --onefile is the right
+  choice. For a production app, folder mode
+  is often preferred (faster startup, easier
+  code signing).
+
+--windowed (or -w)
+  Hide the terminal console window.
+  Without it, the app opens with a black
+  terminal window behind it. On macOS,
+  --windowed is automatic.
+
+--name "MAK CRM"
+  Sets the output filename.
+  Without it, the name defaults to the
+  script name (main).
+  
+  The spaces in the name work on macOS
+  and Linux. On Windows, PyInstaller
+  produces MAK CRM.exe with a space
+  in the name — works fine.
+
+--add-data "schema.sql:."
+  Bundle schema.sql into the executable.
+  The format is source:destination.
+  On Windows, use ; instead of :.
+  
+  The . destination means "put it next
+  to the executable in the temp unpack
+  directory." That's where database.py
+  looks for it (via sys._MEIPASS
+  resolution in the code).
+
+What PyInstaller does:
+
+  1. Analyzes main.py
+  2. Follows the imports
+     - PySide6 (the whole Qt library)
+     - database.py
+     - schema.sql (bundled via --add-data)
+  3. Collects every .py, .so/.dylib/.dll,
+     and data file into the executable
+  4. Adds a small bootstrap that:
+     - Unpacks everything to a temp dir
+     - Runs Python with the bundled interpreter
+     - Starts the app
+
+The result:
+  A single file that runs on any machine
+  with the same operating system.
+
+Cross-platform:
+  A .exe built on Windows runs on Windows.
+  A .app built on macOS runs on macOS.
+  A Linux binary built on Linux runs on Linux.
+  
+  To support multiple platforms:
+  Build on each platform (a Windows VM,
+  a Mac, a Linux box) — or use a CI service
+  like GitHub Actions with a matrix of
+  operating systems.
+
+Code signing:
+  On Windows, unsigned .exe files trigger
+  SmartScreen warnings.
+  On macOS, unsigned .app files trigger
+  Gatekeeper.
+  
+  For personal use or a small team, click
+  through the warnings.
+  For public distribution, buy a code
+  signing certificate and sign the executable.
+  
+  This is beyond Stage 04's scope. PyInstaller
+  produces a working executable; signing is
+  a deployment concern.
+
+Debugging the build:
+  If the executable crashes on launch:
+    - Run it from a terminal to see the error:
+      ./"MAK CRM" (macOS/Linux)
+      "MAK CRM.exe" (Windows)
+    - The most common cause is a missing
+      --add-data (schema.sql not found).
+    - Check dist/ for the executable and any
+      warnings printed during the build.
+
+  To see what PyInstaller bundled:
+    pyinstaller --onefile --windowed \
+      --name "MAK CRM" \
+      --add-data "schema.sql:." \
+      --log-level DEBUG \
+      main.py
+  
+  The debug log shows every file collected.</pre>
+                </div>
+            </div>
+
+            <div class="warning-box">
+                <p><strong>Don't skip the "runs from source" step.</strong> If <code>python main.py</code> doesn't open the app and show the customers, <code>pyinstaller</code> won't fix it — it will just produce a broken executable. The order is: (1) the app runs from source, (2) then package. Debugging a PyInstaller build is much harder than debugging the source. Get the source working first, then package.</p>
+            </div>
+        </section>
+
+        <section id="full">
+            <h2 class="section-title">✅ The full project</h2>
+            <p class="section-sub">Six files. Copy them or recreate them.</p>
+
+            <p class="text-sm text-slate-300 leading-relaxed mb-3">
+                Stage 04 is a folder with 5 Python files (plus the README). Copy each file to the exact path shown, or run the script at the bottom to recreate the structure in one command.
+            </p>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-4">
+                <div class="text-sm text-slate-300 mb-3"><strong class="text-white">Files to save:</strong></div>
+                <table class="w-full text-xs">
+                    <thead>
+                        <tr class="text-left text-slate-400 border-b border-slate-800">
+                            <th class="py-2 pr-3">Path</th>
+                            <th class="py-2">Purpose</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-slate-300">
+                        <tr class="border-b border-slate-800/50">
+                            <td class="py-2 pr-3 font-mono text-cyan-400">main.py</td>
+                            <td class="py-2 text-slate-400">PySide6 app: window, dialog, table</td>
+                        </tr>
+                        <tr class="border-b border-slate-800/50">
+                            <td class="py-2 pr-3 font-mono text-cyan-400">database.py</td>
+                            <td class="py-2 text-slate-400">SQLite helpers</td>
+                        </tr>
+                        <tr class="border-b border-slate-800/50">
+                            <td class="py-2 pr-3 font-mono text-cyan-400">schema.sql</td>
+                            <td class="py-2 text-slate-400">The customers table</td>
+                        </tr>
+                        <tr class="border-b border-slate-800/50">
+                            <td class="py-2 pr-3 font-mono text-cyan-400">seed.py</td>
+                            <td class="py-2 text-slate-400">Sample data loader</td>
+                        </tr>
+                        <tr class="border-b border-slate-800/50">
+                            <td class="py-2 pr-3 font-mono text-cyan-400">requirements.txt</td>
+                            <td class="py-2 text-slate-400">PySide6, pyinstaller</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 pr-3 font-mono text-cyan-400">README.md</td>
+                            <td class="py-2 text-slate-400">Setup and packaging instructions</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="text-white font-bold mt-6 mb-3 text-base">Option A: Save each file manually</h3>
+            <p class="text-sm text-slate-300 leading-relaxed mb-3">
+                Each file is in a code block above (Files 1–6). Save each one to the path in the table. The folder structure must be:
+            </p>
+
+            <div class="code-block" id="sol3">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">folder structure</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol3">crm-stage-04/
+├── main.py
+├── database.py
+├── schema.sql
+├── seed.py
+├── requirements.txt
+└── README.md</pre>
+                    <script type="text/plain" id="raw-code-sol3">crm-stage-04/
+├── main.py
+├── database.py
+├── schema.sql
+├── seed.py
+├── requirements.txt
+└── README.md</script>
+                </div>
+            </div>
+
+            <h3 class="text-white font-bold mt-6 mb-3 text-base">Option B: Recreate the folder in one command</h3>
+
+            <div class="code-block" id="sol4">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">terminal</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol4">mkdir crm-stage-04
+cd crm-stage-04
+touch main.py database.py schema.sql seed.py requirements.txt README.md
+echo "Folder created. Paste the code from each block above into the matching file."
+ls</pre>
+                    <script type="text/plain" id="raw-code-sol4">mkdir crm-stage-04
+cd crm-stage-04
+touch main.py database.py schema.sql seed.py requirements.txt README.md
+echo "Folder created. Paste the code from each block above into the matching file."
+ls</script>
+                </div>
+            </div>
+
+            <h3 class="text-white font-bold mt-6 mb-3 text-base">Run and package</h3>
+
+            <div class="code-block" id="sol5">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">terminal</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol5">cd crm-stage-04
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python seed.py
+python main.py                  # the app should open
+
+# When the app works, package it:
+pyinstaller --onefile --windowed --name "MAK CRM" \
+  --add-data "schema.sql:." \
+  main.py
+
+# Windows: use ; instead of : in --add-data
+# The executable is at dist/MAK CRM.exe (or .app, or binary)</pre>
+                    <script type="text/plain" id="raw-code-sol5">cd crm-stage-04
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python seed.py
+python main.py                  # the app should open
+
+# When the app works, package it:
+pyinstaller --onefile --windowed --name "MAK CRM" \
+  --add-data "schema.sql:." \
+  main.py
+
+# Windows: use ; instead of : in --add-data
+# The executable is at dist/MAK CRM.exe (or .app, or binary)</script>
+                </div>
+            </div>
+
+            <div class="concept-grid mt-6">
+                <div class="concept-card">
+                    <h4>Native window</h4>
+                    <p>The app opens as a normal desktop window, not a browser tab. Native menus, native dialogs.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Self-contained</h4>
+                    <p>The packaged executable bundles Python and PySide6. No dependency installation on the target machine.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Cross-platform</h4>
+                    <p>Build on Windows for Windows, on macOS for macOS, on Linux for Linux. Same source code.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Ship it</h4>
+                    <p>One file. USB stick, download link, email attachment, enterprise installer. It runs.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2 class="section-title">⚠️ Common mistakes</h2>
+            <p class="section-sub">What to check if the app or the build fails.</p>
+
+            <div class="mistake">
+                <div class="mtitle">1. Packaging before the source works</div>
+                <p>The executable inherits every bug. Fix: <code>python main.py</code> must open the app before <code>pyinstaller</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">2. Forgetting <code>--add-data "schema.sql:."</code></div>
+                <p>The app crashes on launch: schema.sql not found. Fix: include it, or use <code>--add-data "schema.sql;."</code> on Windows.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">3. Relative paths in the packaged app</div>
+                <p>Files aren't found because the working directory is different. Fix: use <code>sys._MEIPASS</code> in the packaged app. The <code>database.py</code> file already handles this.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">4. Trying to run a .exe on macOS</div>
+                <p>Builds are per-platform. Fix: build on each platform. Or use a CI service with a matrix.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">5. Missing <code>--windowed</code></div>
+                <p>A terminal opens behind the app. Fix: add <code>--windowed</code> (or <code>-w</code>).</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">6. PySide6 not installed</div>
+                <p><code>pip install -r requirements.txt</code> was skipped. Fix: activate the venv and install.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">7. Code signing errors on macOS</div>
+                <p>The app won't open ("damaged"). Fix: right-click → Open, or sign with an Apple certificate for public distribution.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">8. The packaged app is 100MB+</div>
+                <p>Qt is a large library. Fix: this is normal. Use folder mode (no <code>--onefile</code>) for smaller total size, or exclude unused Qt modules with <code>--exclude-module</code>.</p>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What will I build in Stage 04?</summary>
+                    <p class="mt-2 text-sm text-slate-300">A native desktop CRM application built with PySide6 — the official Python bindings for Qt. It looks and behaves like a normal desktop app: a window with a table, a modal dialog for add/edit, native buttons and dropdowns. The data is stored in a local SQLite database. The whole app is packaged as a single executable file with PyInstaller, so anyone can double-click it and run it.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why rebuild the UI instead of wrapping the web version?</summary>
+                    <p class="mt-2 text-sm text-slate-300">You could wrap the web version with Electron or Tauri. That works. But it doesn't teach anything new: the same web code, in a different frame. PySide6 rebuilds the UI in Qt, which is a genuinely different toolkit. Rebuilding the UI in Qt teaches you how desktop frameworks think — the model/view pattern, the signal/slot system, the widget hierarchy.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the model/view pattern in Qt?</summary>
+                    <p class="mt-2 text-sm text-slate-300">It's the Qt equivalent of state → render. In Stage 02, you had a state object and a render() function. In Qt, you have a data model and a view (a QTableWidget) that displays it. When the data changes, you call refresh_table(), which clears the view and repopulates it. Same pattern, different names.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why PyInstaller and not cx_Freeze or Nuitka?</summary>
+                    <p class="mt-2 text-sm text-slate-300">PyInstaller is the most widely used and best-documented tool for packaging Python apps. It supports Windows, macOS, and Linux, handles PySide6 out of the box, and produces a single executable with --onefile. For a first desktop app, it's the right tool.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How large is the packaged app?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Around 80–120 MB, depending on the platform and PySide6 version. Qt is a large library — the packaged app includes the Qt runtime, the platform plugins, and the Python interpreter. This is normal for Qt desktop apps. Electron apps are typically 100–150 MB, so Qt is competitive.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Can I share the executable with someone who doesn't have Python?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes. That's the whole point of PyInstaller. The executable bundles Python, PySide6, and your code into a single file. The recipient double-clicks it and the app runs. The only requirement is the same operating system: a Windows .exe doesn't run on macOS, and a macOS .app doesn't run on Windows.</p>
+                </details>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🎉 CRM build complete</h2>
+            <p class="text-sm text-slate-300 leading-relaxed mb-4">
+                You've built the CRM end-to-end: interface → interactions → backend → desktop. Four stages, four working apps, one complete project. The same pattern — state → render → event — powers all four. The same data model — customers, statuses, timestamps — persists through all four. The same discipline — escape user data, validate at the boundary, handle errors — applies to all four.
+            </p>
+            <a href="/apps/crm/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+                <div class="font-semibold text-white text-sm">🗺️ Back to the CRM build hub</div>
+                <div class="text-xs text-slate-400 mt-1">Review all four stages</div>
+            </a>
+            <a href="/apps/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">🖥️ All applications</div>
+                <div class="text-xs text-slate-400 mt-1">See the full app gallery</div>
+            </a>
+        </section>
+
+        <a href="/apps/crm/index.html" class="back-link">← Back to CRM build hub</a>
+
+        <div class="lang-signature">
+            <span class="dot"></span> CRM Stage 04 · Desktop <span class="dot"></span>
+        </div>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/assets/courses.js" defer></script>
+    <script>
+    (function () {
+        if (typeof window.switchCodeOutput !== 'function') {
+            window.switchCodeOutput = function (blockId, paneName, btn) {
+                var block = document.getElementById(blockId);
+                if (!block) block = btn.closest('.code-block');
+                if (!block) return;
+                block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+                btn.classList.add('active');
+                block.querySelectorAll('.code-output-pane').forEach(function (p) {
+                    p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+                });
+            };
+        }
+        if (typeof window.copyCode !== 'function') {
+            window.copyCode = function (id, btn) {
+                var raw = document.getElementById('raw-' + id);
+                var text = raw ? raw.textContent : document.getElementById(id).textContent;
+                var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+                if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+                else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+            };
+        }
+    })();
+    </script>
+</body>
+</html>
