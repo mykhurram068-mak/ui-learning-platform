@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>CRM Stage 03 — Backend (Python Flask + SQLite) (2026)</title>
+    <meta name="description" content="Stage 03 of the CRM build: move from localStorage to a Python Flask backend with SQLite. REST API, fetch, error handling, CORS, and the same UI talking to a real server.">
+    <meta name="keywords" content="flask sqlite tutorial, python rest api, fetch api javascript, flask crud api, python backend tutorial">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="CRM Stage 03 — Backend (Python Flask + SQLite)">
+    <meta property="og:description" content="Move from localStorage to a Python Flask backend with SQLite.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/apps/crm/stage-03-backend.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <meta property="og:site_name" content="MAK UI Studio">
+    
+    <!-- Twitter Metadata -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="CRM Stage 03 — Backend">
+    <meta name="twitter:description" content="Python Flask + SQLite for the CRM.">
+    <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+    
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/apps/crm/stage-03-backend.html"/>
+
+    <!-- Structured Data Scripts -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        "headline": "CRM Stage 03 — Backend (Python Flask + SQLite)",
+        "description": "Move the CRM from localStorage to a Python Flask backend with SQLite.",
+        "author": { "@type": "Organization", "name": "MAK Studio" },
+        "datePublished": "2026-11-11",
+        "dateModified": "2026-11-11",
+        "proficiencyLevel": "Intermediate",
+        "dependencies": "Python 3.11+, Flask, SQLite"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What will I build in Stage 03?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "The same CRM UI, but now talking to a Python Flask backend with a SQLite database. Customers persist in a real database file, not localStorage. The frontend calls a REST API at /api/customers to read and write data. You'll run two things locally: a Flask server on port 5000, and the frontend served by Flask itself. Adding a customer in the UI creates a row in the SQLite table. Restart the server — the data is still there."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why move from localStorage to a backend?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Three reasons. (1) localStorage is per-device: two users on two computers see two different datasets. A backend shares data across users. (2) localStorage is limited to ~5MB: a real CRM with thousands of customers needs a real database. (3) localStorage is synchronous: every write blocks the UI thread. A backend is async — the UI stays smooth. This stage teaches the transition from a toy app to a real one."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why Flask and SQLite instead of Django and Postgres?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Because the goal is to teach the concepts, not to build a production system. Flask is a minimal framework: one file for the whole app, no ORM, no migrations, no configuration. SQLite is a single-file database with no server. Together they fit in your head. Django and Postgres add real power, but they also add 10x the complexity. Learn the concepts here, and the transition to Django and Postgres is straightforward. The REST API, the queries, the error handling — all the same ideas, just more framework around them."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why async/await for the fetch calls?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Because network requests take time. Without await, the code that uses the result runs before the response arrives. The pattern is: async function loadCustomers() { const data = await fetchCustomers(); state.customers = data; render(); }. If the fetch fails, the try/catch catches it, and the UI shows an error. Without await, the data would be undefined, and the render would fail. async/await makes the code read like synchronous code while being non-blocking."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What is CORS and why do I need it?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "CORS (Cross-Origin Resource Sharing) is a browser security rule. If the frontend is served from http://127.0.0.1:5000 and the API is on the same origin, no problem. But if you serve the frontend from a separate dev server (e.g., http://localhost:3000), the browser blocks the fetch to http://127.0.0.1:5000 because they're different origins. flask-cors adds the CORS headers that tell the browser to allow it. For production, you serve both from the same origin (Flask serves both), so CORS isn't needed. The library is for local development."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Where is the database stored?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "In a file called crm.db in the backend/ folder. SQLite stores the entire database in a single file. Copy that file to back up the database. Delete it to reset. No server process, no configuration, no credentials. The file IS the database. This is why SQLite is perfect for small projects and local development."
+                }
+            }
+        ]
+    }
+    </script>
+
+    <!-- UI Core Assets -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="/style.css" rel="stylesheet"/>
+    <link href="/assets/courses.css" rel="stylesheet"/>
+    <link href="/assets/language-python.css" rel="stylesheet"/>
+    
+    <style>
+        .code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+        .code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+        .code-output-tabs button.active { color: #3776ab; border-bottom-color: #3776ab; }
+        .code-output-pane { display: none; }
+        .code-output-pane.active { display: block; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a class="logo" href="index.html">✨ MAK UI Studio</a>
+            <div id="navbar-placeholder"></div>
+            <script src="/navbar.js"></script>
+        </div>
+    </nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2" style="color:#3776ab !important;">CRM Build</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 03 · Backend</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs" style="color:#7d8fa9;">
+            <a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+            <a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+            <a href="/apps/crm/index.html" style="color:#7ee8fc;">CRM</a> ›
+            <span style="color:#FFFFFF; font-weight:700;">Stage 03</span>
+        </div>
+
+        <div class="py-hero">
+            <div class="badge">🐍 Stage 03 · 2–3 hours</div>
+            <h1>Add a backend.<br><span class="py-accent">Flask + SQLite + fetch.</span></h1>
+            <p class="lead">
+                In this stage, the CRM stops being a toy. You'll add a Python Flask backend with a SQLite database. The UI barely changes — the buttons still say "Add customer", the table still shows rows. But now the data lives in a real database on a real server. Two users on two computers see the same customers. Restart the server, and the data is still there. This is the transition from a client-side demo to a real application.
+            </p>
+            <div class="meta">
+                <span><i class="fa-solid fa-clock"></i> 2–3 hours</span>
+                <span><i class="fa-solid fa-signal"></i> Intermediate</span>
+                <span><i class="fa-solid fa-code"></i> Python · Flask · SQLite · fetch</span>
+            </div>
+        </div>
+
+        <div class="quick-nav">
+            <a href="/apps/crm/index.html">CRM hub</a>
+            <a href="#what">What you'll build</a>
+            <a href="#api">The REST API</a>
+            <a href="#fetch">Rewire the frontend</a>
+            <a href="#setup">Setup and run</a>
+            <a href="#full">Full project</a>
+        </div>
+
+        <div class="info-box">
+            <p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+                <strong>Short answer:</strong> Three files in Python (<code>app.py</code>, <code>database.py</code>, <code>schema.sql</code>) plus a seed script. Four REST routes: <code>GET /api/customers</code>, <code>POST /api/customers</code>, <code>PUT /api/customers/:id</code>, <code>DELETE /api/customers/:id</code>. The frontend swaps <code>localStorage.getItem</code> for <code>await fetch('/api/customers')</code>. Every CRUD operation becomes async. The UI is identical. The data is now in SQLite.
+            </p>
+        </div>
+
+        <section id="what">
+            <h2 class="section-title">✅ What changes</h2>
+            <p class="section-sub">The UI stays. The data layer changes.</p>
+
+            <div class="concept-grid">
+                <div class="concept-card">
+                    <h4>Where data lives</h4>
+                    <p>Was <code>localStorage</code> (in the browser). Now <code>crm.db</code> (a SQLite file on the server).</p>
+                </div>
+                <div class="concept-card">
+                    <h4>How CRUD works</h4>
+                    <p>Was synchronous <code>localStorage.setItem()</code>. Now <code>async fetch()</code> to the API.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>What users see</h4>
+                    <p>Identical. Same table, same modal, same buttons, same KPIs. The visual layer is unchanged.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>What you learn</h4>
+                    <p>REST APIs, HTTP methods, JSON serialization, async/await, error handling, CORS, SQL, and how a real backend works.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="api">
+            <h2 class="section-title">✅ The REST API</h2>
+            <p class="section-sub">Four routes. Standard HTTP verbs.</p>
+
+            <div class="code-block" id="sol1">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">api.py</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+                    <button onclick="switchCodeOutput('sol1', 'js', this)">HTTP calls</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol1">@app.route('/api/customers', methods=['GET'])
+def list_customers():
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, name, email, phone, company, status, notes, '
+        'created_at AS createdAt, updated_at AS updatedAt '
+        'FROM customers ORDER BY created_at DESC'
+    ).fetchall()
+    return jsonify([dict(row) for row in rows])
+
+
+@app.route('/api/customers', methods=['POST'])
+def create_customer():
+    data = request.get_json()
+    # ... validate, insert ...
+    return jsonify(new_row), 201
+
+
+@app.route('/api/customers/&lt;int:customer_id&gt;', methods=['PUT'])
+def update_customer(customer_id):
+    # ... find existing, validate, update ...
+    return jsonify(updated_row)
+
+
+@app.route('/api/customers/&lt;int:customer_id&gt;', methods=['DELETE'])
+def delete_customer(customer_id):
+    # ... find existing, delete ...
+    return jsonify({'deleted': customer_id}), 200</pre>
+                    <script type="text/plain" id="raw-code-sol1">@app.route('/api/customers', methods=['GET'])
+def list_customers():
+    db = get_db()
+    rows = db.execute(
+        'SELECT id, name, email, phone, company, status, notes, '
+        'created_at AS createdAt, updated_at AS updatedAt '
+        'FROM customers ORDER BY created_at DESC'
+    ).fetchall()
+    return jsonify([dict(row) for row in rows])
+
+
+@app.route('/api/customers', methods=['POST'])
+def create_customer():
+    data = request.get_json()
+    # ... validate, insert ...
+    return jsonify(new_row), 201
+
+
+@app.route('/api/customers/<int:customer_id>', methods=['PUT'])
+def update_customer(customer_id):
+    # ... find existing, validate, update ...
+    return jsonify(updated_row)
+
+
+@app.route('/api/customers/<int:customer_id>', methods=['DELETE'])
+def delete_customer(customer_id):
+    # ... find existing, delete ...
+    return jsonify({'deleted': customer_id}), 200</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>The four REST calls:
+
+  GET /api/customers
+    → fetch('/api/customers')
+    → returns [{...}, {...}]
+
+  POST /api/customers
+    → fetch('/api/customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, ... })
+      })
+    → returns the new customer with id and timestamps
+
+  PUT /api/customers/:id
+    → fetch('/api/customers/1', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ... })
+      })
+    → returns the updated customer
+
+  DELETE /api/customers/:id
+    → fetch('/api/customers/1', { method: 'DELETE' })
+    → returns { deleted: 1 }
+
+Why REST:
+
+  The URL identifies the resource (customers).
+  The method identifies the operation
+    (GET = read, POST = create, PUT = update, DELETE = delete).
+  The body carries the data (as JSON).
+  The response carries the result (as JSON).
+
+  This is the pattern every modern API uses.
+  Once you understand it here, you understand
+  every REST API you'll ever use.
+
+Status codes:
+
+  200 OK           — successful GET, PUT, DELETE
+  201 Created      — successful POST
+  400 Bad Request  — validation failed
+  404 Not Found    — the ID doesn't exist
+  500 Server Error — the server crashed
+
+  The frontend uses res.ok to distinguish
+  success from failure. That's what allows
+  the try/catch to work.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="fetch">
+            <h2 class="section-title">✅ Rewire the frontend</h2>
+            <p class="section-sub">Same functions. Now async. Now fetch.</p>
+
+            <div class="code-block" id="sol2">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">fetch.js</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+                    <button onclick="switchCodeOutput('sol2', 'js', this)">Before / after</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol2">// ─── API base URL ───
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://127.0.0.1:5000'
+  : '';
+
+// ─── Generic fetch helper ───
+async function apiFetch(path, options) {
+  const res = await fetch(API_BASE + path, options);
+  if (!res.ok) {
+    let message = 'Request failed: ' + res.status;
+    try {
+      const data = await res.json();
+      if (data && data.error) message = data.error;
+    } catch (e) { /* ignore */ }
+    throw new Error(message);
+  }
+  return res.json();
+}
+
+// ─── CRUD ───
+async function fetchCustomers() {
+  return apiFetch('/api/customers');
+}
+
+async function createCustomer(data) {
+  return apiFetch('/api/customers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+async function updateCustomerAPI(id, data) {
+  return apiFetch('/api/customers/' + id, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+async function deleteCustomerAPI(id) {
+  return apiFetch('/api/customers/' + id, { method: 'DELETE' });
+}
+
+// ─── Load (called on page start) ───
+async function loadCustomers() {
+  setLoading(true);
+  try {
+    state.customers = await fetchCustomers();
+    state.error = null;
+  } catch (e) {
+    state.error = e.message;
+    showToast('Could not load: ' + e.message, true);
+  } finally {
+    setLoading(false);
+    render();
+  }
+}</pre>
+                    <script type="text/plain" id="raw-code-sol2">// ─── API base URL ───
+const API_BASE = window.location.hostname === 'localhost'
+  ? 'http://127.0.0.1:5000'
+  : '';
+
+// ─── Generic fetch helper ───
+async function apiFetch(path, options) {
+  const res = await fetch(API_BASE + path, options);
+  if (!res.ok) {
+    let message = 'Request failed: ' + res.status;
+    try {
+      const data = await res.json();
+      if (data && data.error) message = data.error;
+    } catch (e) { /* ignore */ }
+    throw new Error(message);
+  }
+  return res.json();
+}
+
+// ─── CRUD ───
+async function fetchCustomers() {
+  return apiFetch('/api/customers');
+}
+
+async function createCustomer(data) {
+  return apiFetch('/api/customers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+async function updateCustomerAPI(id, data) {
+  return apiFetch('/api/customers/' + id, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+}
+
+async function deleteCustomerAPI(id) {
+  return apiFetch('/api/customers/' + id, { method: 'DELETE' });
+}
+
+// ─── Load (called on page start) ───
+async function loadCustomers() {
+  setLoading(true);
+  try {
+    state.customers = await fetchCustomers();
+    state.error = null;
+  } catch (e) {
+    state.error = e.message;
+    showToast('Could not load: ' + e.message, true);
+  } finally {
+    setLoading(false);
+    render();
+  }
+}</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>Stage 02 vs Stage 03:
+
+Stage 02 (localStorage):
+  function loadCustomers() {
+    const raw = localStorage.getItem(KEY);
+    state.customers = JSON.parse(raw) || [];
+    render();
+  }
+  
+  function addCustomer(data) {
+    state.customers.unshift(newCustomer(data));
+    localStorage.setItem(KEY, JSON.stringify(state.customers));
+    render();
+  }
+
+Stage 03 (fetch):
+  async function loadCustomers() {
+    setLoading(true);
+    try {
+      state.customers = await fetchCustomers();
+    } catch (e) {
+      state.error = e.message;
+    } finally {
+      setLoading(false);
+      render();
+    }
+  }
+  
+  async function handleCreate(data) {
+    setLoading(true);
+    try {
+      await createCustomer(data);
+      await loadCustomers();  // refresh from server
+      closeModal();
+    } catch (e) {
+      showToast(e.message, true);
+    }
+  }
+
+Key differences:
+
+  1. async / await
+     The function waits for the server.
+     The UI shows a loading spinner.
+     When the response arrives, the UI updates.
+
+  2. try / catch / finally
+     catch: handle the error (toast, error state)
+     finally: hide the spinner, re-render
+     This is the standard async error pattern.
+
+  3. Refresh after mutation
+     After POST / PUT / DELETE, we call
+     loadCustomers() to get the server's
+     canonical view of the data.
+     
+     Why? The server assigns the id, the
+     timestamps, and might normalize fields.
+     Refreshing gives us the server's truth.
+
+  4. Loading state
+     state.loading shows a spinner while
+     a request is in flight.
+     Without it, the user might click
+     "Add" twice and create duplicates.
+
+  5. Error state
+     If loadCustomers fails (server down),
+     state.error holds the message and the
+     table shows "could not load — retry".
+     This is a real production pattern.
+
+The optimistic vs pessimistic update:
+
+  Optimistic:
+    Update state immediately, send the
+    request in the background.
+    Fast, but if the request fails,
+    the UI is wrong.
+    Used for likes, follows, etc.
+
+  Pessimistic:
+    Wait for the server, then update state.
+    Slower (network round-trip), but
+    the UI is always correct.
+    Used for CRUD that matters.
+    
+  This stage uses pessimistic. The
+  "loading" spinner covers the wait.
+  For a CRM, correctness matters more
+  than speed.
+
+  Later, you could optimize individual
+  operations to optimistic. That's a
+  Stage 04+ decision.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="setup">
+            <h2 class="section-title">✅ Setup and run</h2>
+            <p class="section-sub">Five commands. Five minutes.</p>
+
+            <div class="code-block" id="sol3">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">terminal</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Terminal</button>
+                    <button onclick="switchCodeOutput('sol3', 'js', this)">What happens</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol3"># 1. Navigate to the backend folder
+cd crm-stage-03/backend
+
+# 2. Create a virtual environment
+python -m venv venv
+
+# 3. Activate it
+source venv/bin/activate        # macOS/Linux
+venv\Scriptsctivate           # Windows
+
+# 4. Install dependencies
+pip install -r requirements.txt
+
+# 5. Seed the database with sample data
+python seed.py
+# → Seeded 5 customers.
+
+# 6. Start the server
+python app.py
+# → Running on http://127.0.0.1:5000
+
+# 7. Open http://127.0.0.1:5000 in your browser</pre>
+                    <script type="text/plain" id="raw-code-sol3"># 1. Navigate to the backend folder
+cd crm-stage-03/backend
+
+# 2. Create a virtual environment
+python -m venv venv
+
+# 3. Activate it
+source venv/bin/activate        # macOS/Linux
+venv\Scriptsctivate           # Windows
+
+# 4. Install dependencies
+pip install -r requirements.txt
+
+# 5. Seed the database with sample data
+python seed.py
+# → Seeded 5 customers.
+
+# 6. Start the server
+python app.py
+# → Running on http://127.0.0.1:5000
+
+# 7. Open http://127.0.0.1:5000 in your browser</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>What each step does:
+
+1. cd backend
+   Get into the folder with app.py.
+
+2. python -m venv venv
+   Create an isolated Python environment.
+   Dependencies installed here don't
+   affect your system Python.
+
+3. source venv/bin/activate
+   Activate the environment. Your shell
+   now uses the venv's Python and pip.
+
+4. pip install -r requirements.txt
+   Install Flask and flask-cors.
+   Two packages. Both small.
+
+5. python seed.py
+   Create the crm.db file, the customers
+   table, and insert 5 sample rows.
+   Idempotent — safe to run twice.
+
+6. python app.py
+   Start the Flask development server.
+   Serves the frontend at /
+   and the API at /api/customers.
+
+7. Open the browser
+   You see the CRM with 5 customers.
+   Add, edit, delete — all persisted.
+
+Verify it's working:
+
+  $ curl http://127.0.0.1:5000/api/health
+  {"service":"crm-backend","status":"ok"}
+  
+  $ curl http://127.0.0.1:5000/api/customers
+  [{"id":1,"name":"Alice Rahman",...},...]
+  
+  If you see this, the backend works.
+
+To stop the server:
+  Ctrl+C in the terminal.
+
+To reset the database:
+  Delete crm.db and run `python seed.py` again.
+
+Common first-run issues:
+
+  "Address already in use"
+    Another process is on port 5000.
+    Change the port in app.py:
+    app.run(port=5001)
+    Then change API_BASE in frontend/index.html.
+
+  "flask not found"
+    You forgot to activate the venv,
+    or didn't run pip install.
+
+  "CORS error"
+    The frontend and backend are on
+    different origins. flask-cors handles
+    this if it's installed. If you still
+    see it, add the origin to CORS:
+    CORS(app, origins=['http://localhost:3000'])
+
+  "Could not load customers"
+    The server isn't running.
+    Start it with `python app.py`.
+
+Full instructions in the README.md
+in the download folder.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="full">
+            <h2 class="section-title">✅ The full project</h2>
+            <p class="section-sub">Eight files. Download and run.</p>
+
+            <p class="text-sm text-slate-300 leading-relaxed mb-3">
+                The complete Stage 03 project — backend, frontend, database, README — is packaged as a folder. It includes all the code from this page plus setup instructions.
+            </p>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-4">
+                <div class="text-sm text-slate-300 mb-3"><strong class="text-white">Download the folder:</strong></div>
+                <p class="text-xs text-slate-400 mb-3">The download contains:</p>
+                <ul class="text-xs text-slate-400 mb-3 list-disc pl-5 space-y-1">
+                    <li><code>backend/app.py</code> — the Flask application</li>
+                    <li><code>backend/database.py</code> — SQLite helpers</li>
+                    <li><code>backend/schema.sql</code> — the customers table</li>
+                    <li><code>backend/seed.py</code> — sample data loader</li>
+                    <li><code>backend/requirements.txt</code> — Flask, flask-cors</li>
+                    <li><code>frontend/index.html</code> — the CRM UI (fetch-based)</li>
+                    <li><code>README.md</code> — setup instructions</li>
+                </ul>
+                <a href="/apps/crm/downloads/crm-stage-03/README.md" class="inline-block bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:bg-cyan-400 transition-colors">
+                    View README →
+                </a>
+            </div>
+
+            <div class="concept-grid mt-6">
+                <div class="concept-card">
+                    <h4>Real database</h4>
+                    <p>SQLite stores the data in <code>crm.db</code>. Copy the file to back up. Delete it to reset.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Real HTTP</h4>
+                    <p>Every CRUD operation is a network request. The UI shows loading and errors.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Real validation</h4>
+                    <p>The server validates <code>name</code> and <code>email</code>, returns 400 with an error message.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Real portability</h4>
+                    <p>Runs on Windows, macOS, Linux. Same code. Same setup.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2 class="section-title">⚠️ Common mistakes</h2>
+            <p class="section-sub">What to check if the app doesn't work.</p>
+
+            <div class="mistake">
+                <div class="mtitle">1. Forgetting <code>await</code> on <code>fetch()</code></div>
+                <p><code>fetch()</code> returns a promise, not data. Fix: <code>const res = await fetch(...); const data = await res.json();</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">2. Missing <code>Content-Type</code> header on POST/PUT</div>
+                <p>The server gets <code>None</code> from <code>request.get_json()</code>. Fix: <code>headers: { 'Content-Type': 'application/json' }</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">3. Not checking <code>res.ok</code></div>
+                <p>4xx and 5xx responses are not thrown by <code>fetch</code>. Fix: <code>if (!res.ok) throw ...</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">4. Using <code>fetch</code> URL without the base</div>
+                <p>The request goes to the wrong origin. Fix: <code>API_BASE + path</code>, with <code>API_BASE = 'http://127.0.0.1:5000'</code> locally.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">5. CORS not enabled</div>
+                <p>Browser blocks the request. Fix: <code>CORS(app)</code> in <code>app.py</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">6. Database file not created</div>
+                <p>Table doesn't exist. Fix: run <code>python seed.py</code> (which calls <code>init_db()</code>) before the first request.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">7. Body is not JSON on the server</div>
+                <p><code>request.get_json()</code> returns <code>None</code>. Fix: <code>request.get_json(force=True)</code> or ensure the header is set.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">8. Port 5000 already in use</div>
+                <p>The server won't start. Fix: change to port 5001 and update <code>API_BASE</code>.</p>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What will I build in Stage 03?</summary>
+                    <p class="mt-2 text-sm text-slate-300">The same CRM UI, but now talking to a Python Flask backend with a SQLite database. Customers persist in a real database file, not localStorage. The frontend calls a REST API at /api/customers to read and write data. You run two things locally: a Flask server on port 5000, and the frontend served by Flask itself.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why move from localStorage to a backend?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Three reasons. (1) localStorage is per-device: two users on two computers see two different datasets. A backend shares data across users. (2) localStorage is limited to ~5MB. (3) localStorage is synchronous: every write blocks the UI. A backend is async. This stage teaches the transition from a toy app to a real one.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why Flask and SQLite instead of Django and Postgres?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Because the goal is to teach the concepts, not to build a production system. Flask is a minimal framework: one file for the whole app. SQLite is a single-file database with no server. Together they fit in your head. Learn the concepts here, and the transition to Django and Postgres is straightforward.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why async/await for the fetch calls?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Because network requests take time. Without await, the code that uses the result runs before the response arrives. The pattern is: async function loadCustomers() { const data = await fetchCustomers(); state.customers = data; render(); }. If the fetch fails, the try/catch catches it, and the UI shows an error.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is CORS and why do I need it?</summary>
+                    <p class="mt-2 text-sm text-slate-300">CORS (Cross-Origin Resource Sharing) is a browser security rule. If the frontend is served from http://127.0.0.1:5000 and the API is on the same origin, no problem. But if you serve the frontend from a separate dev server, the browser blocks the fetch. flask-cors adds the headers that tell the browser to allow it. For production, you serve both from the same origin.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Where is the database stored?</summary>
+                    <p class="mt-2 text-sm text-slate-300">In a file called crm.db in the backend/ folder. SQLite stores the entire database in a single file. Copy that file to back up the database. Delete it to reset. No server process, no configuration, no credentials.</p>
+                </details>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+            <a href="/apps/crm/stage-04-desktop.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+                <div class="font-semibold text-white text-sm">🖥️ Next: Stage 04 — Desktop</div>
+                <div class="text-xs text-slate-400 mt-1">Rebuild the CRM as a native desktop app with PySide6. Package it as an installable .exe or .app. 2–3 hours.</div>
+            </a>
+            <p class="text-xs text-slate-400 mb-2">Or explore related Python concepts:</p>
+            <a href="/courses/python/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">🐍 Python problem solvers</div>
+                <div class="text-xs text-slate-400 mt-1">15 real answers to real queries — dicts, files, copy, slicing, and more</div>
+            </a>
+        </section>
+
+        <a href="/apps/crm/index.html" class="back-link">← Back to CRM build hub</a>
+
+        <div class="lang-signature">
+            <span class="dot"></span> CRM Stage 03 · Backend <span class="dot"></span>
+        </div>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/assets/courses.js" defer></script>
+    <script>
+    (function () {
+        if (typeof window.switchCodeOutput !== 'function') {
+            window.switchCodeOutput = function (blockId, paneName, btn) {
+                var block = document.getElementById(blockId);
+                if (!block) block = btn.closest('.code-block');
+                if (!block) return;
+                block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+                btn.classList.add('active');
+                block.querySelectorAll('.code-output-pane').forEach(function (p) {
+                    p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+                });
+            };
+        }
+        if (typeof window.copyCode !== 'function') {
+            window.copyCode = function (id, btn) {
+                var raw = document.getElementById('raw-' + id);
+                var text = raw ? raw.textContent : document.getElementById(id).textContent;
+                var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+                if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+                else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+            };
+        }
+    })();
+    </script>
+</body>
+</html>
