@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRM — Stage 03: Backend</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --bg-elevated: #1e293b;
+    --bg-hover: #334155;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --accent: #61dafb;
+    --accent-dark: #0891b2;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --radius: 8px;
+    --sidebar-width: 240px;
+    --header-height: 64px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh;
+  }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; }
+  button { cursor: pointer; }
+
+  .crm-shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) 1fr;
+    grid-template-rows: var(--header-height) 1fr;
+    grid-template-areas: "sidebar header" "sidebar main";
+    min-height: 100vh;
+  }
+  .crm-sidebar {
+    grid-area: sidebar; background: var(--bg-elevated);
+    border-right: 1px solid var(--border); padding: 1.5rem 1rem;
+    display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .crm-brand {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0 0.5rem; margin-bottom: 1.5rem; color: var(--text);
+    font-weight: 700; font-size: 1.125rem; text-decoration: none;
+  }
+  .crm-brand-mark {
+    width: 32px; height: 32px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bg); font-weight: 900; font-size: 0.875rem;
+  }
+  .crm-nav-group { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 1.5rem; }
+  .crm-nav-label {
+    font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-dim); padding: 0 0.5rem; margin-bottom: 0.5rem; font-weight: 700;
+  }
+  .crm-nav-link {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.5rem 0.75rem; border-radius: 6px;
+    color: var(--text-muted); text-decoration: none; font-size: 0.875rem; font-weight: 500;
+  }
+  .crm-nav-link:hover { background: var(--bg-hover); color: var(--text); }
+  .crm-nav-link.is-active {
+    background: var(--bg); color: var(--accent);
+    border-left: 2px solid var(--accent); padding-left: calc(0.75rem - 2px);
+  }
+  .crm-nav-icon { width: 18px; text-align: center; opacity: 0.7; }
+
+  .crm-header {
+    grid-area: header; background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border); padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  }
+  .crm-page-title { font-size: 1.125rem; font-weight: 700; }
+  .crm-header-actions { display: flex; align-items: center; gap: 0.75rem; }
+  .crm-search {
+    display: flex; align-items: center; gap: 0.5rem; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem 0.75rem; min-width: 240px;
+  }
+  .crm-search input {
+    background: transparent; border: none; outline: none; color: var(--text);
+    font-size: 0.875rem; width: 100%;
+  }
+  .crm-search input::placeholder { color: var(--text-dim); }
+  .crm-search-icon { color: var(--text-dim); font-size: 0.875rem; }
+
+  .crm-btn {
+    padding: 0.5rem 1rem; border-radius: 6px; border: none; font-size: 0.875rem;
+    font-weight: 600; display: inline-flex; align-items: center; gap: 0.5rem;
+  }
+  .crm-btn-primary { background: var(--accent); color: var(--bg); }
+  .crm-btn-primary:hover { background: var(--accent-dark); color: white; }
+  .crm-btn-secondary { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+  .crm-btn-secondary:hover { background: var(--bg-hover); color: var(--text); }
+  .crm-btn-danger { background: var(--danger); color: white; }
+
+  .crm-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 0.875rem;
+  }
+
+  .crm-main {
+    grid-area: main; padding: 2rem; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 1.5rem;
+  }
+
+  .crm-kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+  .crm-kpi {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem;
+  }
+  .crm-kpi-label {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-dim); font-weight: 700; margin-bottom: 0.5rem;
+  }
+  .crm-kpi-value { font-size: 1.875rem; font-weight: 800; color: var(--text); line-height: 1; margin-bottom: 0.5rem; }
+  .crm-kpi-delta { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
+
+  .crm-panel {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .crm-panel-header {
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+  }
+  .crm-panel-title { font-size: 1rem; font-weight: 700; }
+  .crm-panel-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .crm-chip {
+    padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.75rem;
+    font-weight: 600; background: var(--bg); color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .crm-chip.is-active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+
+  .crm-table { width: 100%; border-collapse: collapse; }
+  .crm-table th {
+    text-align: left; padding: 0.75rem 1.25rem; font-size: 0.6875rem;
+    text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim);
+    font-weight: 700; border-bottom: 1px solid var(--border); background: var(--bg);
+  }
+  .crm-table td {
+    padding: 0.875rem 1.25rem; font-size: 0.875rem;
+    border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle;
+  }
+  .crm-table tr:last-child td { border-bottom: none; }
+  .crm-table tr:hover td { background: var(--bg); }
+
+  .crm-status {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.25rem 0.625rem; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .crm-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .crm-status.active { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+  .crm-status.lead { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .crm-status.inactive { background: rgba(148, 163, 184, 0.15); color: var(--text-muted); }
+  .crm-cell-muted { color: var(--text-muted); }
+  .crm-actions { display: flex; gap: 0.375rem; justify-content: flex-end; }
+  .crm-icon-btn {
+    width: 28px; height: 28px; border-radius: 6px; background: transparent;
+    border: 1px solid var(--border); color: var(--text-muted);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 0.875rem;
+  }
+  .crm-icon-btn:hover { background: var(--bg-hover); color: var(--text); }
+  .crm-icon-btn.danger:hover { background: rgba(239, 68, 68, 0.15); color: var(--danger); border-color: var(--danger); }
+
+  .crm-empty { padding: 4rem 2rem; text-align: center; color: var(--text-muted); }
+  .crm-empty-icon { font-size: 2.5rem; margin-bottom: 0.75rem; opacity: 0.5; }
+
+  .crm-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
+    display: none; align-items: center; justify-content: center; padding: 1rem; z-index: 100;
+  }
+  .crm-modal-backdrop.is-open { display: flex; }
+  .crm-modal {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); width: 100%; max-width: 480px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .crm-modal-header {
+    padding: 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .crm-modal-title { font-size: 1.125rem; font-weight: 700; }
+  .crm-modal-close {
+    background: transparent; border: none; color: var(--text-muted);
+    font-size: 1.25rem; padding: 0.25rem 0.5rem; border-radius: 4px;
+  }
+  .crm-modal-close:hover { background: var(--bg-hover); color: var(--text); }
+  .crm-form { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+  .crm-field { display: flex; flex-direction: column; gap: 0.375rem; }
+  .crm-field label {
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-muted);
+  }
+  .crm-field input, .crm-field select, .crm-field textarea {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.5rem 0.75rem; color: var(--text); font-size: 0.875rem; outline: none;
+  }
+  .crm-field input:focus, .crm-field select:focus, .crm-field textarea:focus { border-color: var(--accent); }
+  .crm-field textarea { resize: vertical; min-height: 60px; }
+  .crm-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .crm-form-actions { display: flex; justify-content: flex-end; gap: 0.5rem; padding-top: 0.5rem; }
+
+  .crm-toast {
+    position: fixed; bottom: 1.5rem; left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); padding: 0.75rem 1rem;
+    border-radius: 6px; font-size: 0.875rem; color: var(--text);
+    opacity: 0; transition: transform 0.2s, opacity 0.2s; z-index: 200;
+    pointer-events: none; max-width: 90vw;
+  }
+  .crm-toast.is-visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .crm-toast.error { border-left-color: var(--danger); }
+
+  .crm-loading {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8);
+    display: none; align-items: center; justify-content: center; z-index: 300;
+  }
+  .crm-loading.is-open { display: flex; }
+  .crm-loading-spinner {
+    width: 32px; height: 32px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%;
+    animation: crm-spin 0.8s linear infinite;
+  }
+  @keyframes crm-spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 900px) { .crm-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 768px) {
+    .crm-shell {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto var(--header-height) 1fr;
+      grid-template-areas: "header" "header" "main";
+    }
+    .crm-sidebar { display: none; }
+    .crm-header { padding: 0 1rem; }
+    .crm-search { min-width: 0; }
+    .crm-main { padding: 1rem; }
+    .crm-page-title { display: none; }
+    .crm-field-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 500px) {
+    .crm-kpi-grid { grid-template-columns: 1fr; }
+    .crm-table th:nth-child(3), .crm-table td:nth-child(3) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="crm-shell">
+  <aside class="crm-sidebar">
+    <a class="crm-brand" href="#">
+      <div class="crm-brand-mark">M</div>
+      <span>MAK CRM</span>
+    </a>
+    <div class="crm-nav-group">
+      <div class="crm-nav-label">Overview</div>
+      <a class="crm-nav-link is-active" href="#"><span class="crm-nav-icon">▦</span> Dashboard</a>
+      <a class="crm-nav-link" href="#"><span class="crm-nav-icon">👥</span> Customers</a>
+    </div>
+  </aside>
+
+  <header class="crm-header">
+    <h1 class="crm-page-title">Dashboard</h1>
+    <div class="crm-header-actions">
+      <label class="crm-search">
+        <span class="crm-search-icon">⌕</span>
+        <input id="search-input" type="search" placeholder="Search customers...">
+      </label>
+      <button class="crm-btn crm-btn-primary" type="button" id="add-btn">
+        <span>+</span> Add customer
+      </button>
+      <div class="crm-avatar">AR</div>
+    </div>
+  </header>
+
+  <main class="crm-main">
+    <div class="crm-kpi-grid">
+      <div class="crm-kpi">
+        <div class="crm-kpi-label">Total customers</div>
+        <div class="crm-kpi-value" id="kpi-total">—</div>
+        <div class="crm-kpi-delta">From server</div>
+      </div>
+      <div class="crm-kpi">
+        <div class="crm-kpi-label">Active leads</div>
+        <div class="crm-kpi-value" id="kpi-leads">—</div>
+        <div class="crm-kpi-delta">From server</div>
+      </div>
+      <div class="crm-kpi">
+        <div class="crm-kpi-label">Active customers</div>
+        <div class="crm-kpi-value" id="kpi-active">—</div>
+        <div class="crm-kpi-delta">From server</div>
+      </div>
+      <div class="crm-kpi">
+        <div class="crm-kpi-label">Inactive</div>
+        <div class="crm-kpi-value" id="kpi-inactive">—</div>
+        <div class="crm-kpi-delta">From server</div>
+      </div>
+    </div>
+
+    <div class="crm-panel">
+      <div class="crm-panel-header">
+        <h2 class="crm-panel-title">Customers</h2>
+        <div class="crm-panel-actions">
+          <button class="crm-chip is-active" type="button" data-filter="all">All</button>
+          <button class="crm-chip" type="button" data-filter="active">Active</button>
+          <button class="crm-chip" type="button" data-filter="lead">Leads</button>
+          <button class="crm-chip" type="button" data-filter="inactive">Inactive</button>
+        </div>
+      </div>
+      <table class="crm-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Company</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th>Added</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="customer-tbody">
+          <tr><td colspan="6" class="crm-cell-muted" style="text-align:center;padding:2rem;">Loading customers…</td></tr>
+        </tbody>
+      </table>
+      <div class="crm-empty" id="empty-state" style="display:none;">
+        <div class="crm-empty-icon">📋</div>
+        <div id="empty-message">No customers yet.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="crm-modal-backdrop" id="modal-backdrop">
+  <div class="crm-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="crm-modal-header">
+      <h2 class="crm-modal-title" id="modal-title">Add customer</h2>
+      <button class="crm-modal-close" type="button" id="modal-close" aria-label="Close">×</button>
+    </div>
+    <form class="crm-form" id="customer-form">
+      <input type="hidden" id="field-id">
+      <div class="crm-field-row">
+        <div class="crm-field">
+          <label for="field-name">Name *</label>
+          <input type="text" id="field-name" required maxlength="100">
+        </div>
+        <div class="crm-field">
+          <label for="field-email">Email *</label>
+          <input type="email" id="field-email" required maxlength="200">
+        </div>
+      </div>
+      <div class="crm-field-row">
+        <div class="crm-field">
+          <label for="field-company">Company</label>
+          <input type="text" id="field-company" maxlength="100">
+        </div>
+        <div class="crm-field">
+          <label for="field-phone">Phone</label>
+          <input type="tel" id="field-phone" maxlength="30">
+        </div>
+      </div>
+      <div class="crm-field">
+        <label for="field-status">Status</label>
+        <select id="field-status">
+          <option value="lead">Lead</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="crm-field">
+        <label for="field-notes">Notes</label>
+        <textarea id="field-notes" maxlength="1000"></textarea>
+      </div>
+      <div class="crm-form-actions">
+        <button type="button" class="crm-btn crm-btn-secondary" id="form-cancel">Cancel</button>
+        <button type="submit" class="crm-btn crm-btn-primary" id="form-submit">Save customer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="crm-toast" id="toast"></div>
+
+<div class="crm-loading" id="loading">
+  <div class="crm-loading-spinner"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ─────────────────────────────────────────────
+  // CONFIG
+  // ─────────────────────────────────────────────
+  // When running locally: backend on :5000
+  // When deployed: /api (same origin as frontend)
+  const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://127.0.0.1:5000'
+    : '';
+
+  // ─────────────────────────────────────────────
+  // STATE
+  // ─────────────────────────────────────────────
+  const state = {
+    customers: [],
+    filter: 'all',
+    query: '',
+    loading: false,
+    error: null
+  };
+
+  // ─────────────────────────────────────────────
+  // API HELPERS
+  // ─────────────────────────────────────────────
+  async function apiFetch(path, options) {
+    const url = API_BASE + path;
+    const res = await fetch(url, options);
+    if (!res.ok) {
+      let message = 'Request failed: ' + res.status;
+      try {
+        const data = await res.json();
+        if (data && data.error) message = data.error;
+      } catch (e) { /* ignore */ }
+      throw new Error(message);
+    }
+    return res.json();
+  }
+
+  async function fetchCustomers() {
+    return apiFetch('/api/customers');
+  }
+
+  async function createCustomer(data) {
+    return apiFetch('/api/customers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  }
+
+  async function updateCustomerAPI(id, data) {
+    return apiFetch('/api/customers/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  }
+
+  async function deleteCustomerAPI(id) {
+    return apiFetch('/api/customers/' + id, { method: 'DELETE' });
+  }
+
+  // ─────────────────────────────────────────────
+  // LOAD STATE FROM SERVER
+  // ─────────────────────────────────────────────
+  async function loadCustomers() {
+    setLoading(true);
+    try {
+      state.customers = await fetchCustomers();
+      state.error = null;
+    } catch (e) {
+      state.error = e.message;
+      showToast('Could not load customers: ' + e.message, true);
+    } finally {
+      setLoading(false);
+      render();
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────
+  const tbody = document.getElementById('customer-tbody');
+  const emptyState = document.getElementById('empty-state');
+  const emptyMessage = document.getElementById('empty-message');
+
+  function render() {
+    renderTable();
+    renderKPIs();
+  }
+
+  function getFiltered() {
+    const q = state.query.toLowerCase().trim();
+    return state.customers.filter(function (c) {
+      if (state.filter !== 'all' && c.status !== state.filter) return false;
+      if (!q) return true;
+      return (c.name + ' ' + c.email + ' ' + (c.company || ''))
+        .toLowerCase().indexOf(q) !== -1;
+    });
+  }
+
+  function renderTable() {
+    if (state.loading) {
+      tbody.innerHTML = '<tr><td colspan="6" class="crm-cell-muted" style="text-align:center;padding:2rem;">Loading customers…</td></tr>';
+      emptyState.style.display = 'none';
+      return;
+    }
+    if (state.error) {
+      tbody.innerHTML = '<tr><td colspan="6" class="crm-cell-muted" style="text-align:center;padding:2rem;color:#ef4444;">' +
+        escapeHtml(state.error) + ' — <a href="#" id="retry-load" style="color:#61dafb;">retry</a></td></tr>';
+      emptyState.style.display = 'none';
+      var retry = document.getElementById('retry-load');
+      if (retry) retry.addEventListener('click', function (e) { e.preventDefault(); loadCustomers(); });
+      return;
+    }
+    const rows = getFiltered();
+    if (rows.length === 0) {
+      tbody.innerHTML = '';
+      emptyState.style.display = 'block';
+      if (state.query) emptyMessage.textContent = 'No customers match "' + state.query + '".';
+      else if (state.filter !== 'all') emptyMessage.textContent = 'No customers with this status.';
+      else emptyMessage.textContent = 'No customers yet. Click "Add customer" to create one.';
+      return;
+    }
+    emptyState.style.display = 'none';
+    tbody.innerHTML = rows.map(function (c) {
+      return '<tr data-id="' + c.id + '">' +
+        '<td>' + escapeHtml(c.name) + '</td>' +
+        '<td class="crm-cell-muted">' + escapeHtml(c.company || '—') + '</td>' +
+        '<td class="crm-cell-muted">' + escapeHtml(c.email) + '</td>' +
+        '<td><span class="crm-status ' + c.status + '">' + statusLabel(c.status) + '</span></td>' +
+        '<td class="crm-cell-muted">' + formatDate(c.createdAt) + '</td>' +
+        '<td><div class="crm-actions">' +
+          '<button class="crm-icon-btn" type="button" data-action="edit" data-id="' + c.id + '" title="Edit">✎</button>' +
+          '<button class="crm-icon-btn danger" type="button" data-action="delete" data-id="' + c.id + '" title="Delete">×</button>' +
+        '</div></td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function renderKPIs() {
+    const total = state.customers.length;
+    const leads = state.customers.filter(function (c) { return c.status === 'lead'; }).length;
+    const active = state.customers.filter(function (c) { return c.status === 'active'; }).length;
+    const inactive = state.customers.filter(function (c) { return c.status === 'inactive'; }).length;
+    document.getElementById('kpi-total').textContent = total;
+    document.getElementById('kpi-leads').textContent = leads;
+    document.getElementById('kpi-active').textContent = active;
+    document.getElementById('kpi-inactive').textContent = inactive;
+  }
+
+  function statusLabel(s) {
+    return s === 'active' ? 'Active' : s === 'lead' ? 'Lead' : s === 'inactive' ? 'Inactive' : s;
+  }
+
+  function formatDate(iso) {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso.replace(' ', 'T') + (iso.endsWith('Z') ? '' : 'Z'));
+      const diffMs = Date.now() - d.getTime();
+      const diffDays = Math.floor(diffMs / 86400000);
+      if (diffDays === 0) return 'Today';
+      if (diffDays === 1) return 'Yesterday';
+      if (diffDays < 7) return diffDays + ' days ago';
+      if (diffDays < 30) return Math.floor(diffDays / 7) + ' weeks ago';
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } catch (e) { return '—'; }
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // CRUD (async — talks to backend)
+  // ─────────────────────────────────────────────
+  async function handleCreate(data) {
+    setLoading(true);
+    try {
+      await createCustomer(data);
+      showToast('Customer added.');
+      await loadCustomers();
+      closeModal();
+    } catch (e) {
+      setLoading(false);
+      showToast(e.message, true);
+    }
+  }
+
+  async function handleUpdate(id, data) {
+    setLoading(true);
+    try {
+      await updateCustomerAPI(id, data);
+      showToast('Customer updated.');
+      await loadCustomers();
+      closeModal();
+    } catch (e) {
+      setLoading(false);
+      showToast(e.message, true);
+    }
+  }
+
+  async function handleDelete(id) {
+    const customer = state.customers.find(function (c) { return String(c.id) === String(id); });
+    if (!customer) return;
+    if (!confirm('Delete "' + customer.name + '"? This cannot be undone.')) return;
+    setLoading(true);
+    try {
+      await deleteCustomerAPI(id);
+      showToast('Customer deleted.');
+      await loadCustomers();
+    } catch (e) {
+      setLoading(false);
+      showToast(e.message, true);
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // MODAL
+  // ─────────────────────────────────────────────
+  const backdrop = document.getElementById('modal-backdrop');
+  const form = document.getElementById('customer-form');
+  const modalTitle = document.getElementById('modal-title');
+  const fieldId = document.getElementById('field-id');
+  const fieldName = document.getElementById('field-name');
+  const fieldEmail = document.getElementById('field-email');
+  const fieldPhone = document.getElementById('field-phone');
+  const fieldCompany = document.getElementById('field-company');
+  const fieldStatus = document.getElementById('field-status');
+  const fieldNotes = document.getElementById('field-notes');
+
+  function openModal(id) {
+    form.reset();
+    fieldId.value = '';
+    if (id) {
+      const c = state.customers.find(function (x) { return String(x.id) === String(id); });
+      if (!c) return;
+      modalTitle.textContent = 'Edit customer';
+      fieldId.value = c.id;
+      fieldName.value = c.name;
+      fieldEmail.value = c.email;
+      fieldPhone.value = c.phone || '';
+      fieldCompany.value = c.company || '';
+      fieldStatus.value = c.status;
+      fieldNotes.value = c.notes || '';
+    } else {
+      modalTitle.textContent = 'Add customer';
+    }
+    backdrop.classList.add('is-open');
+    setTimeout(function () { fieldName.focus(); }, 50);
+  }
+
+  function closeModal() {
+    backdrop.classList.remove('is-open');
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const data = {
+      name: fieldName.value.trim(),
+      email: fieldEmail.value.trim(),
+      phone: fieldPhone.value.trim(),
+      company: fieldCompany.value.trim(),
+      status: fieldStatus.value,
+      notes: fieldNotes.value.trim()
+    };
+    if (!data.name || !data.email) return;
+    if (fieldId.value) {
+      handleUpdate(fieldId.value, data);
+    } else {
+      handleCreate(data);
+    }
+  });
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('form-cancel').addEventListener('click', closeModal);
+  backdrop.addEventListener('click', function (e) {
+    if (e.target === backdrop) closeModal();
+  });
+
+  // ─────────────────────────────────────────────
+  // EVENTS
+  // ─────────────────────────────────────────────
+  document.getElementById('add-btn').addEventListener('click', function () {
+    openModal(null);
+  });
+
+  tbody.addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-id');
+    const action = btn.getAttribute('data-action');
+    if (action === 'edit') openModal(id);
+    else if (action === 'delete') handleDelete(id);
+  });
+
+  document.getElementById('search-input').addEventListener('input', function (e) {
+    state.query = e.target.value;
+    render();
+  });
+
+  document.querySelectorAll('[data-filter]').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      document.querySelectorAll('[data-filter]').forEach(function (c) { c.classList.remove('is-active'); });
+      chip.classList.add('is-active');
+      state.filter = chip.getAttribute('data-filter');
+      render();
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // LOADING / TOAST
+  // ─────────────────────────────────────────────
+  function setLoading(isLoading) {
+    state.loading = isLoading;
+    document.getElementById('loading').classList.toggle('is-open', isLoading);
+    render();
+  }
+
+  let toastTimer = null;
+  function showToast(message, isError) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.toggle('error', !!isError);
+    toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toast.classList.remove('is-visible');
+    }, 3000);
+  }
+
+  // ─────────────────────────────────────────────
+  // INIT
+  // ─────────────────────────────────────────────
+  loadCustomers();
+
+})();
+</script>
+</body>
+</html>
