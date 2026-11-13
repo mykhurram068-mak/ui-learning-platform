@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>CRM Stage 02 — Interactions (JavaScript CRUD + localStorage) (2026)</title>
+    <meta name="description" content="Stage 02 of the CRM build: add JavaScript state, CRUD operations, search, filters, and localStorage persistence. The state → render → event pattern that powers every framework.">
+    <meta name="keywords" content="javascript crud app, state render pattern, localstorage tutorial, vanilla javascript crud, dom rendering, event delegation">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="CRM Stage 02 — Interactions">
+    <meta property="og:description" content="Add JavaScript state, CRUD, search, filters, and localStorage.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/apps/crm/stage-02-interactions.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <meta property="og:site_name" content="MAK UI Studio">
+    
+    <!-- Twitter Metadata -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="CRM Stage 02 — Interactions">
+    <meta name="twitter:description" content="Add JavaScript state, CRUD, search, filters, and localStorage.">
+    <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+    
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/apps/crm/stage-02-interactions.html"/>
+
+    <!-- Structured Data Scripts -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        "headline": "CRM Stage 02 — Interactions",
+        "description": "Add JavaScript state, CRUD, search, filters, and localStorage persistence to the CRM.",
+        "author": { "@type": "Organization", "name": "MAK Studio" },
+        "datePublished": "2026-11-11",
+        "dateModified": "2026-11-11",
+        "proficiencyLevel": "Intermediate",
+        "dependencies": "JavaScript"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What will I build in Stage 02?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "A fully working CRM. You can add customers, edit them, delete them, search by name/email/company, filter by status, and the KPI cards update in real time. All data persists to localStorage — reload the page and the customers are still there. The whole thing is one HTML file with inline JavaScript and CSS. No frameworks, no build tools."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What is the state → render → event pattern?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "It's the loop that powers every UI framework. (1) State is a plain object that holds all the data — here it's {customers: [...], filter: 'all', query: ''}. (2) render() reads the state and updates the DOM — it rebuilds the table from the filtered customers, updates the KPI counts, and shows/hides the empty state. (3) Events (clicking \"Add\", typing in search, clicking a filter) call a function that mutates the state and calls render() again. That's the whole loop. React, Vue, and Svelte do the same thing, with more abstraction. Learning it here, directly, makes every framework easier to understand."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why use localStorage instead of a database?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Because Stage 02 is about the frontend — state, rendering, and events. localStorage is the simplest possible persistence: it's a synchronous key-value store in the browser, no server required. It has limits (about 5MB, synchronous, string-only), but for a CRM with tens or hundreds of customers, it's fine. Stage 03 replaces it with a real SQLite database behind a Python Flask API. The UI doesn't change — only where the data lives."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why is every customer rendered with escapeHtml?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Because user input can contain HTML. If a customer's name is \u003cscript\u003ealert(1)\u003c/script\u003e, rendering it with innerHTML without escaping would execute that script. escapeHtml converts <, >, &, ', and \" into HTML entities, so they display as text instead of being parsed as HTML. This is a cross-site scripting (XSS) defense. Every piece of user-generated text that goes into innerHTML must be escaped. The alternative is to use textContent instead of innerHTML, but that doesn't work for rebuilding a whole row with markup. The escape function is the standard solution for template-based rendering."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why is event delegation used for the edit/delete buttons?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Because the table is re-rendered on every state change. If you attach a click handler to each edit button, you'd need to re-attach them every time the table is rebuilt — and you'd leak handlers every render. Event delegation attaches one handler to the tbody (which is never destroyed), and inside the handler you use event.target.closest('[data-action]') to figure out which button was clicked. One handler, no leaks, no re-attachment. This is the standard pattern for dynamic lists."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What if I reload the page?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Your data persists. localStorage survives page reloads, browser restarts, and tab closures. The next time the page opens, loadCustomers() reads from localStorage, parses the JSON, and repopulates the state. If localStorage is empty (first visit), it seeds with the 5 sample customers. If localStorage is corrupted (invalid JSON), it falls back to the sample data rather than crashing."
+                }
+            }
+        ]
+    }
+    </script>
+
+    <!-- UI Core Assets -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="/style.css" rel="stylesheet"/>
+    <link href="/assets/courses.css" rel="stylesheet"/>
+    <link href="/assets/language-react.css" rel="stylesheet"/>
+    
+    <style>
+        .code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+        .code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+        .code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+        .code-output-pane { display: none; }
+        .code-output-pane.active { display: block; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a class="logo" href="index.html">✨ MAK UI Studio</a>
+            <div id="navbar-placeholder"></div>
+            <script src="/navbar.js"></script>
+        </div>
+    </nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">CRM Build</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 02 · Interactions</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs" style="color:#7d8fa9;">
+            <a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+            <a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+            <a href="/apps/crm/index.html" style="color:#7ee8fc;">CRM</a> ›
+            <span style="color:#FFFFFF; font-weight:700;">Stage 02</span>
+        </div>
+
+        <div class="py-hero">
+            <div class="badge">⚡ Stage 02 · 3–4 hours</div>
+            <h1>Add interactions.<br><span class="py-accent">State → render → event.</span></h1>
+            <p class="lead">
+                In this stage, the CRM becomes a real app. You'll add JavaScript state, CRUD operations (create, read, update, delete), a search filter, status chips, and localStorage persistence. The whole thing is still one HTML file — no frameworks, no build tools. This is the state → render → event pattern that powers every UI framework. Learn it here, directly, and React and Vue stop being magic.
+            </p>
+            <div class="meta">
+                <span><i class="fa-solid fa-clock"></i> 3–4 hours</span>
+                <span><i class="fa-solid fa-signal"></i> Intermediate</span>
+                <span><i class="fa-solid fa-code"></i> JavaScript · DOM · localStorage</span>
+            </div>
+        </div>
+
+        <div class="quick-nav">
+            <a href="/apps/crm/index.html">CRM hub</a>
+            <a href="#what">What you'll build</a>
+            <a href="#state">The state pattern</a>
+            <a href="#crud">CRUD operations</a>
+            <a href="#storage">localStorage</a>
+            <a href="#full">Full file</a>
+        </div>
+
+        <div class="info-box">
+            <p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+                <strong>Short answer:</strong> One <code>state</code> object (customers + filter + query). One <code>render()</code> function that rebuilds the table and KPI cards from state. Event handlers that mutate state and call <code>render()</code>. <code>localStorage.setItem</code> on every change so data persists. <code>escapeHtml()</code> on every user string before <code>innerHTML</code>. Event delegation on the tbody for edit/delete. That's the whole app. No framework needed.
+            </p>
+        </div>
+
+        <section id="what">
+            <h2 class="section-title">✅ What you'll build</h2>
+            <p class="section-sub">The shell from Stage 01, now with working data.</p>
+
+            <div class="concept-grid">
+                <div class="concept-card">
+                    <h4>Add</h4>
+                    <p>Click "Add customer", fill the modal form, hit Save. The customer appears at the top of the table immediately.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Edit</h4>
+                    <p>Click the ✎ icon on any row. The modal opens with the customer's data pre-filled. Save updates the row in place.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Delete</h4>
+                    <p>Click the × icon. Confirm the deletion, and the row disappears. The KPI counts update.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Search</h4>
+                    <p>Type in the search box. The table filters instantly by name, email, or company. Empty state shows if nothing matches.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Filter</h4>
+                    <p>Click All / Active / Leads / Inactive. Only matching customers show. Click another to switch.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Persist</h4>
+                    <p>Reload the page. Everything is still there. localStorage saved it.</p>
+                </div>
+            </div>
+        </section>
+
+        <section id="state">
+            <h2 class="section-title">✅ The state → render → event pattern</h2>
+            <p class="section-sub">One loop, four functions.</p>
+
+            <div class="code-block" id="sol1">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">state-pattern.js</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+                    <button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol1">// 1. STATE — one object, holds everything
+const state = {
+  customers: [],
+  filter: 'all',
+  query: ''
+};
+
+// 2. RENDER — rebuilds DOM from state
+function render() {
+  renderTable();
+  renderKPIs();
+}
+
+function renderTable() {
+  const rows = getFiltered();  // state → filtered list
+  if (rows.length === 0) {
+    tbody.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  emptyState.style.display = 'none';
+  tbody.innerHTML = rows.map(customerRowHTML).join('');
+}
+
+// 3. EVENTS — mutate state, call render
+document.getElementById('search-input')
+  .addEventListener('input', function (e) {
+    state.query = e.target.value;
+    render();
+  });
+
+document.querySelectorAll('[data-filter]')
+  .forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      state.filter = chip.getAttribute('data-filter');
+      render();
+    });
+  });
+
+// 4. CRUD — mutate state, save, render
+function addCustomer(data) {
+  state.customers.unshift(newCustomer(data));
+  saveCustomers();
+  render();
+}
+
+function updateCustomer(id, data) {
+  const idx = state.customers.findIndex(c => c.id === id);
+  state.customers[idx] = { ...state.customers[idx], ...data };
+  saveCustomers();
+  render();
+}
+
+function deleteCustomer(id) {
+  state.customers = state.customers.filter(c => c.id !== id);
+  saveCustomers();
+  render();
+}</pre>
+                    <script type="text/plain" id="raw-code-sol1">// 1. STATE — one object, holds everything
+const state = {
+  customers: [],
+  filter: 'all',
+  query: ''
+};
+
+// 2. RENDER — rebuilds DOM from state
+function render() {
+  renderTable();
+  renderKPIs();
+}
+
+function renderTable() {
+  const rows = getFiltered();  // state → filtered list
+  if (rows.length === 0) {
+    tbody.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  emptyState.style.display = 'none';
+  tbody.innerHTML = rows.map(customerRowHTML).join('');
+}
+
+// 3. EVENTS — mutate state, call render
+document.getElementById('search-input')
+  .addEventListener('input', function (e) {
+    state.query = e.target.value;
+    render();
+  });
+
+document.querySelectorAll('[data-filter]')
+  .forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      state.filter = chip.getAttribute('data-filter');
+      render();
+    });
+  });
+
+// 4. CRUD — mutate state, save, render
+function addCustomer(data) {
+  state.customers.unshift(newCustomer(data));
+  saveCustomers();
+  render();
+}
+
+function updateCustomer(id, data) {
+  const idx = state.customers.findIndex(c => c.id === id);
+  state.customers[idx] = { ...state.customers[idx], ...data };
+  saveCustomers();
+  render();
+}
+
+function deleteCustomer(id) {
+  state.customers = state.customers.filter(c => c.id !== id);
+  saveCustomers();
+  render();
+}</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>Why this pattern works:
+
+1. Single source of truth
+   The DOM reflects state. Never the
+   other way around. If the UI is wrong,
+   the state is wrong. Debug the state.
+
+2. No DOM diffing needed
+   render() rebuilds the table from
+   scratch on every change. For a table
+   of 10-100 rows, this is fast enough
+   (a few milliseconds). When you have
+   thousands of rows, you'd switch to
+   a virtual DOM (or a framework that
+   does). But the mental model stays
+   the same: state → render.
+
+3. Events are one line
+   Each event handler: mutate state,
+   call render. No imperative DOM
+   manipulation scattered through the
+   code. Every visual change goes
+   through render().
+
+4. Debugging is easy
+   Log state at any point. Everything
+   the user sees is derived from it.
+
+The same pattern in React:
+
+  const [customers, setCustomers] = useState([]);
+  const filtered = customers.filter(matches);
+  return &lt;Table rows={filtered} /&gt;;
+
+  Events: setCustomers([...customers, new]);
+  React calls render() for you.
+
+The same pattern in Vue:
+
+  const customers = ref([]);
+  const filtered = computed(...);
+  Events: customers.value.push(new);
+  Vue calls render() for you.
+
+You are doing the same thing here,
+with more lines and more clarity.
+
+When you learn React later, you'll
+recognize the pattern immediately.
+"Ah — this is the state → render loop
+I built in the CRM."</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="crud">
+            <h2 class="section-title">✅ CRUD operations</h2>
+            <p class="section-sub">Create, Read, Update, Delete — in four functions.</p>
+
+            <div class="code-block" id="sol2">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">crud.js</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+                    <button onclick="switchCodeOutput('sol2', 'js', this)">What each does</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol2">// CREATE
+function addCustomer(data) {
+  const now = new Date().toISOString();
+  const customer = {
+    id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+    name: data.name,
+    email: data.email,
+    phone: data.phone || '',
+    company: data.company || '',
+    status: data.status || 'lead',
+    notes: data.notes || '',
+    createdAt: now,
+    updatedAt: now
+  };
+  state.customers.unshift(customer);   // newest first
+  saveCustomers();
+  render();
+  showToast('Customer added.');
+}
+
+// READ (filtered by search + status)
+function getFiltered() {
+  const q = state.query.toLowerCase().trim();
+  return state.customers.filter(function (c) {
+    if (state.filter !== 'all' && c.status !== state.filter) return false;
+    if (!q) return true;
+    return (c.name + ' ' + c.email + ' ' + c.company)
+      .toLowerCase().indexOf(q) !== -1;
+  });
+}
+
+// UPDATE
+function updateCustomer(id, data) {
+  const idx = state.customers.findIndex(c => c.id === id);
+  if (idx === -1) return false;
+  state.customers[idx] = {
+    ...state.customers[idx],
+    ...data,
+    updatedAt: new Date().toISOString()
+  };
+  saveCustomers();
+  render();
+  showToast('Customer updated.');
+}
+
+// DELETE
+function deleteCustomer(id) {
+  const customer = state.customers.find(c => c.id === id);
+  if (!confirm('Delete "' + customer.name + '"?')) return;
+  state.customers = state.customers.filter(c => c.id !== id);
+  saveCustomers();
+  render();
+  showToast('Customer deleted.');
+}</pre>
+                    <script type="text/plain" id="raw-code-sol2">// CREATE
+function addCustomer(data) {
+  const now = new Date().toISOString();
+  const customer = {
+    id: 'c_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+    name: data.name,
+    email: data.email,
+    phone: data.phone || '',
+    company: data.company || '',
+    status: data.status || 'lead',
+    notes: data.notes || '',
+    createdAt: now,
+    updatedAt: now
+  };
+  state.customers.unshift(customer);   // newest first
+  saveCustomers();
+  render();
+  showToast('Customer added.');
+}
+
+// READ (filtered by search + status)
+function getFiltered() {
+  const q = state.query.toLowerCase().trim();
+  return state.customers.filter(function (c) {
+    if (state.filter !== 'all' && c.status !== state.filter) return false;
+    if (!q) return true;
+    return (c.name + ' ' + c.email + ' ' + c.company)
+      .toLowerCase().indexOf(q) !== -1;
+  });
+}
+
+// UPDATE
+function updateCustomer(id, data) {
+  const idx = state.customers.findIndex(c => c.id === id);
+  if (idx === -1) return false;
+  state.customers[idx] = {
+    ...state.customers[idx],
+    ...data,
+    updatedAt: new Date().toISOString()
+  };
+  saveCustomers();
+  render();
+  showToast('Customer updated.');
+}
+
+// DELETE
+function deleteCustomer(id) {
+  const customer = state.customers.find(c => c.id === id);
+  if (!confirm('Delete "' + customer.name + '"?')) return;
+  state.customers = state.customers.filter(c => c.id !== id);
+  saveCustomers();
+  render();
+  showToast('Customer deleted.');
+}</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>Each operation in three steps:
+
+  1. Mutate state
+  2. Save to localStorage
+  3. Call render()
+
+That's it. The order matters
+(save before render, so a failed
+save doesn't show phantom data).
+
+Why unshift (not push) for add:
+  New customers appear at the top
+  of the list. That's the UX for
+  most CRMs — newest first.
+  push would put them at the bottom,
+  where the user might not see them.
+
+Why update via spread:
+  state.customers[idx] = {
+    ...existing,
+    ...newData,
+    updatedAt: new Date().toISOString()
+  }
+  
+  Creates a NEW object, doesn't
+  mutate the old one. This is
+  the same pattern React uses for
+  state updates. It means nothing
+  else holding a reference to the
+  old object sees the change.
+  
+  In vanilla JS this matters less
+  (nobody else holds the ref), but
+  it's the right habit. Learn it
+  here, use it in React later.
+
+Why confirm before delete:
+  Deletion is destructive. A
+  single click should not lose
+  data. The confirm dialog is the
+  minimum protection.
+  
+  In a real app, you might use an
+  undo toast instead ("Customer
+  deleted. Undo.") — but that's a
+  Stage 03+ feature. Confirm is
+  fine for Stage 02.
+
+Why generate IDs with Date.now + random:
+  Date.now() is unique down to the
+  millisecond. Adding Math.random()
+  avoids collisions if two customers
+  are added in the same millisecond.
+  The underscore separates the parts.
+  
+  Alternative: crypto.randomUUID()
+  (modern browsers). Cleaner but
+  requires a slightly newer browser.
+  The Date.now + random pattern works
+  everywhere.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="storage">
+            <h2 class="section-title">✅ localStorage persistence</h2>
+            <p class="section-sub">Two functions. Reload-safe.</p>
+
+            <div class="code-block" id="sol3">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">storage.js</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+                    <button onclick="switchCodeOutput('sol3', 'js', this)">Limits</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol3">const STORAGE_KEY = 'mak-crm-customers';
+
+function loadCustomers() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      // First visit — seed with sample data
+      state.customers = SAMPLE_DATA.slice();
+      saveCustomers();
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      state.customers = parsed;
+    } else {
+      state.customers = SAMPLE_DATA.slice();
+    }
+  } catch (e) {
+    // Corrupted data — fall back to samples
+    state.customers = SAMPLE_DATA.slice();
+  }
+}
+
+function saveCustomers() {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(state.customers)
+    );
+  } catch (e) {
+    // Quota exceeded or localStorage disabled
+    showToast('Could not save. Storage may be full.');
+  }
+}
+
+// On page load
+loadCustomers();
+render();</pre>
+                    <script type="text/plain" id="raw-code-sol3">const STORAGE_KEY = 'mak-crm-customers';
+
+function loadCustomers() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      // First visit — seed with sample data
+      state.customers = SAMPLE_DATA.slice();
+      saveCustomers();
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      state.customers = parsed;
+    } else {
+      state.customers = SAMPLE_DATA.slice();
+    }
+  } catch (e) {
+    // Corrupted data — fall back to samples
+    state.customers = SAMPLE_DATA.slice();
+  }
+}
+
+function saveCustomers() {
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(state.customers)
+    );
+  } catch (e) {
+    // Quota exceeded or localStorage disabled
+    showToast('Could not save. Storage may be full.');
+  }
+}
+
+// On page load
+loadCustomers();
+render();</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>localStorage limits:
+
+  Capacity:    ~5MB per origin (varies by browser)
+  Type:        strings only (JSON.stringify/parse)
+  Speed:       synchronous (blocks the main thread)
+  Scope:       per origin (https://makuistudio.com)
+  Persistence: until cleared by user or code
+
+What it's good for:
+  ✅ Small data (&lt; 5MB)
+  ✅ Client-side apps without a backend
+  ✅ Drafts, preferences, caches
+  ✅ Offline-first prototypes
+
+What it's bad for:
+  ❌ Large data (images, files, big datasets)
+  ❌ Sensitive data (no encryption)
+  ❌ Multi-user sync (it's per-device)
+  ❌ Frequent writes (synchronous blocking)
+
+Why synchronous is a problem:
+  Every setItem/getItem call blocks
+  the main thread for a few microseconds.
+  For a CRM with 5 customers, unnoticeable.
+  For a 1000-customer table saved on every
+  keystroke, it would jank.
+  
+  Stage 03 replaces localStorage with
+  async fetch() calls to a server. The
+  save is non-blocking, and the data
+  scales beyond 5MB.
+
+Error handling:
+  The try/catch around getItem and
+  setItem is not optional.
+  
+  getItem can throw:
+    - In private browsing mode (Safari)
+    - When cookies are disabled
+    - When quota is exceeded
+  
+  setItem can throw:
+    - When quota is exceeded (QuotaExceededError)
+    - When storage is disabled
+  
+  If you don't catch these, the app
+  crashes for users in those conditions.
+  The try/catch means: "if storage is
+  broken, still let the app work."
+
+The seed data pattern:
+  On first load, localStorage is empty.
+  Without seeding, the CRM shows nothing,
+  and the user has to add customers
+  before they can see anything working.
+  
+  With seeding, the CRM is immediately
+  populated — the user sees a working
+  table, KPI counts, filtered views.
+  They can experiment before committing
+  real data.
+  
+  Stage 03 seeds the SQLite database
+  the same way — a sample dataset
+  inserted on first migration.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="full">
+            <h2 class="section-title">✅ The full file</h2>
+            <p class="section-sub">The complete Stage 02 code, ready to run.</p>
+
+            <p class="text-sm text-slate-300 leading-relaxed mb-3">
+                The complete file is at <code>/apps/crm/downloads/crm-stage-02.html</code>. It's the same file the previous sections described, fully assembled. Open it in a browser to use it. Open it in a text editor to read it.
+            </p>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-4">
+                <div class="text-sm text-slate-300 mb-3"><strong class="text-white">Download:</strong></div>
+                <a href="/apps/crm/downloads/crm-stage-02.html" download class="inline-block bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:bg-cyan-400 transition-colors">
+                    Download crm-stage-02.html →
+                </a>
+                <p class="text-xs text-slate-500 mt-3">Right-click, save link as. Or open in a new tab and use File → Save Page.</p>
+            </div>
+
+            <div class="concept-grid mt-6">
+                <div class="concept-card">
+                    <h4>Test it</h4>
+                    <p>Add a customer. Edit one. Delete one. Search. Filter. Reload. Everything should work and persist.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Break it (intentionally)</h4>
+                    <p>Open DevTools, clear localStorage, reload. The seed data comes back. Good — that's the fallback.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Customize it</h4>
+                    <p>Add a new field (e.g., "industry") to the model, form, and table row. The pattern is the same.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Extend it</h4>
+                    <p>Add a "sort" control (A-Z, newest, oldest). The pattern: state.sortBy, then sort in getFiltered.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2 class="section-title">⚠️ Common mistakes</h2>
+            <p class="section-sub">What to check if the app doesn't work.</p>
+
+            <div class="mistake">
+                <div class="mtitle">1. Forgetting to call <code>render()</code> after a state change</div>
+                <p>The UI doesn't update. Fix: every CRUD function ends with <code>saveCustomers(); render();</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">2. No <code>escapeHtml</code> on user data</div>
+                <p>An XSS hole. Fix: every string that goes into <code>innerHTML</code> must pass through <code>escapeHtml()</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">3. Attaching click handlers to each edit button</div>
+                <p>Handlers leak on every render. Fix: event delegation on the tbody.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">4. <code>localStorage.setItem</code> without try/catch</div>
+                <p>Crashes in private mode or when quota exceeds. Fix: wrap in try/catch.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">5. Using <code>push</code> instead of <code>unshift</code> for new customers</div>
+                <p>New customers appear at the bottom, where users miss them. Fix: <code>unshift</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">6. Mutating state directly without reassigning</div>
+                <p>Not a bug in vanilla JS, but breaks the pattern. Fix: use spread or reassign.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">7. Not checking <code>Array.isArray</code> after parse</div>
+                <p>Corrupted storage returns an object, then crashes. Fix: check <code>Array.isArray(parsed)</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">8. Forgetting <code>form.reset()</code> when opening the modal for Add</div>
+                <p>Previous customer's data shows in the new form. Fix: <code>form.reset()</code> in <code>openModal()</code>.</p>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What will I build in Stage 02?</summary>
+                    <p class="mt-2 text-sm text-slate-300">A fully working CRM. You can add customers, edit them, delete them, search by name/email/company, filter by status, and the KPI cards update in real time. All data persists to localStorage — reload the page and the customers are still there. The whole thing is one HTML file with inline JavaScript and CSS.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the state → render → event pattern?</summary>
+                    <p class="mt-2 text-sm text-slate-300">It's the loop that powers every UI framework. (1) State is a plain object holding all data. (2) render() reads state and updates the DOM. (3) Events mutate state and call render() again. React, Vue, and Svelte do the same thing, with more abstraction. Learning it here makes every framework easier to understand.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why use localStorage instead of a database?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Because Stage 02 is about the frontend. localStorage is the simplest possible persistence: synchronous key-value store in the browser, no server required. Stage 03 replaces it with a real SQLite database behind a Python Flask API. The UI doesn't change — only where the data lives.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is every customer rendered with escapeHtml?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Because user input can contain HTML. If a customer's name is &lt;script&gt;alert(1)&lt;/script&gt;, rendering it without escaping would execute that script. escapeHtml converts dangerous characters to HTML entities, so they display as text. This is a cross-site scripting (XSS) defense.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is event delegation used for the edit/delete buttons?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Because the table is re-rendered on every state change. Attaching a click handler to each button would leak handlers on every render. Event delegation attaches one handler to the tbody, and uses event.target.closest('[data-action]') to find the button. One handler, no leaks.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What if I reload the page?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Your data persists. localStorage survives page reloads, browser restarts, and tab closures. If localStorage is empty (first visit), it seeds with the 5 sample customers. If corrupted, it falls back to the sample data.</p>
+                </details>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+            <a href="/apps/crm/stage-03-backend.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+                <div class="font-semibold text-white text-sm">🐍 Next: Stage 03 — Backend</div>
+                <div class="text-xs text-slate-400 mt-1">Move the data to Python Flask + SQLite. The same UI, but now talking to a real server. 2–3 hours.</div>
+            </a>
+            <p class="text-xs text-slate-400 mb-2">Or explore related JavaScript concepts:</p>
+            <a href="/courses/javascript/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">🟨 JavaScript problem solvers</div>
+                <div class="text-xs text-slate-400 mt-1">20 real answers to real queries — closures, this, event loop, debounce, and more</div>
+            </a>
+        </section>
+
+        <a href="/apps/crm/index.html" class="back-link">← Back to CRM build hub</a>
+
+        <div class="lang-signature">
+            <span class="dot"></span> CRM Stage 02 · Interactions <span class="dot"></span>
+        </div>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/assets/courses.js" defer></script>
+    <script>
+    (function () {
+        if (typeof window.switchCodeOutput !== 'function') {
+            window.switchCodeOutput = function (blockId, paneName, btn) {
+                var block = document.getElementById(blockId);
+                if (!block) block = btn.closest('.code-block');
+                if (!block) return;
+                block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+                btn.classList.add('active');
+                block.querySelectorAll('.code-output-pane').forEach(function (p) {
+                    p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+                });
+            };
+        }
+        if (typeof window.copyCode !== 'function') {
+            window.copyCode = function (id, btn) {
+                var raw = document.getElementById('raw-' + id);
+                var text = raw ? raw.textContent : document.getElementById(id).textContent;
+                var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+                if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+                else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+            };
+        }
+    })();
+    </script>
+</body>
+</html>
