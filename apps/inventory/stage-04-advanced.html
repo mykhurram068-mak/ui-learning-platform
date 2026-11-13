@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Inventory Stage 04 — Advanced (Final Stage) (2026)</title>
+  <meta name="description" content="Final stage of the Inventory build: a third table (stock_movements) with a second foreign key, full supplier CRUD, server-side pagination and sorting, aggregate KPI endpoints, and atomic transactions. Four stages. Done.">
+  <meta name="keywords" content="flask transactions, sqlite foreign key cascade, server side pagination, sql aggregate kpi, stock movement audit log, flask pagination sorting">
+  <meta name="author" content="MAK Studio">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="Inventory Stage 04 — Advanced (Final)">
+  <meta property="og:description" content="Third table, supplier CRUD, pagination, sorting, SQL-computed KPIs, transactions. Final stage.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://makuistudio.com/apps/inventory/stage-04-advanced.html">
+  <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+  <meta property="og:site_name" content="MAK UI Studio">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Inventory Stage 04 — Advanced (Final)">
+  <meta name="twitter:description" content="Third table, supplier CRUD, pagination, sorting, SQL KPIs, transactions. Final stage.">
+  <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+  <link href="/favicon.png" rel="icon" type="image/png">
+  <link rel="canonical" href="https://makuistudio.com/apps/inventory/stage-04-advanced.html">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "headline": "Inventory Stage 04 — Advanced (Final Stage)",
+    "description": "Third table with a second foreign key, full supplier CRUD, server-side pagination and sorting, SQL-computed KPIs, atomic transactions. The final stage of the Inventory build.",
+    "author": { "@type": "Organization", "name": "MAK Studio" },
+    "datePublished": "2026-11-13",
+    "dateModified": "2026-11-13",
+    "proficiencyLevel": "Intermediate",
+    "dependencies": "Python, Flask, SQLite, JavaScript"
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Why add a third table (stock_movements)?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Because quantity is not enough. A number like 42 tells you what's on the shelf, but not how it got there. Did 50 arrive and 8 sell? Or did 100 arrive and 58 get damaged? The stock_movements table logs each change as a row: delta, reason, note, timestamp. The products.quantity column becomes a cached total that is updated transactionally when a movement is recorded. The audit log answers questions the single number can't."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why is ON DELETE CASCADE right for stock_movements but SET NULL right for suppliers?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "The two relationships have different semantics. A stock movement is about its product — it has no meaning without it. If the product is deleted, its history should go too. A supplier is a separate entity that products reference — if the supplier disappears, the products still exist, they just have no supplier. SET NULL preserves the product; CASCADE removes the dependent history. The FK action should match what the relationship actually means."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What does 'transactional' mean here?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Recording a stock movement touches two tables: it inserts a row in stock_movements and updates products.quantity. Both writes must succeed together, or neither should. If the INSERT succeeds but the UPDATE fails, the audit log would claim a change that never happened. A transaction wraps both statements: either both commit or both roll back. In SQLite with Python, the `with get_db() as conn:` context manager commits on success and rolls back on exception."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why compute the KPIs in SQL instead of JavaScript?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Because the frontend is now paginated — it only holds 20 products at a time. It cannot compute total inventory value from 20 of 60,000 products. The aggregate has to happen where all the data lives: the database. A single SELECT with SUM and COUNT computes all four KPIs in one round-trip, regardless of dataset size. The client no longer has the full picture, so it must ask the server for the summary."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Is this the final stage?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Yes. The Inventory build is four stages: Interface, Interactions, Backend, Advanced. Stage 04 completes it. Authentication, deployment, and multi-user support are separate concept courses — they are not Stage 05 of this build. The four-stage arc mirrors the CRM build: shell, then client logic, then a backend, then the advanced data layer. Each stage adds exactly one layer and stops."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "What should I build next?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Not another stage of this app. Either take one of the concept courses (deployment, auth, SQL problem solvers), or build something new that reuses this pattern — the four-stage arc (shell → client logic → backend → advanced data layer) applies to any CRUD app: a task tracker, a booking system, a contacts manager. The inventory app is a template, not a starting point for infinite expansion."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="/style.css" rel="stylesheet">
+  <link href="/assets/courses.css" rel="stylesheet">
+  <link href="/assets/language-react.css" rel="stylesheet">
+  <style>
+    .code-output-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 0 12px;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+    }
+    .code-output-tabs button {
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+    }
+    .code-output-tabs button.active {
+      color: #61dafb;
+      border-bottom-color: #61dafb;
+    }
+    .code-output-pane {
+      display: none;
+    }
+    .code-output-pane.active {
+      display: block;
+    }
+  </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+
+  <nav class="navbar">
+    <div class="nav-container">
+      <a class="logo" href="index.html">✨ MAK UI Studio</a>
+      <div id="navbar-placeholder"></div>
+      <script src="/navbar.js"></script>
+    </div>
+  </nav>
+
+  <section class="p-8 text-center">
+    <h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Inventory Build</h2>
+    <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 04 · Advanced — Final Stage</p>
+  </section>
+
+  <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+    <div class="text-xs" style="color:#7d8fa9;">
+      <a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+      <a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+      <a href="/apps/inventory/index.html" style="color:#7ee8fc;">Inventory</a> ›
+      <span style="color:#FFFFFF; font-weight:700;">Stage 04</span>
+    </div>
+
+    <div class="py-hero">
+      <div class="badge">📊 Stage 04 · 3–4 hours · FINAL</div>
+      <h1>Make it real.<br><span class="py-accent">Audit log. Pagination. Transactions.</span></h1>
+      <p class="lead">
+        Three upgrades that separate a CRUD demo from an app you could plausibly use: a <strong>third table</strong> that logs every stock change (<code>stock_movements</code>, a second foreign key), <strong>server-side pagination and sorting</strong> so the table works with 60,000 rows, and <strong>SQL-computed KPIs</strong> so the totals are always right even though the client only holds one page. Plus full supplier CRUD, and the transactional write that keeps the audit log and the product quantity in sync.
+      </p>
+      <p class="lead" style="margin-top:0.75rem;">
+        <strong style="color:#61dafb;">This is the final stage.</strong> After it, the inventory app is complete: four stages, three tables, a working Flask + SQLite backend. No Stage 05.
+      </p>
+      <div class="meta">
+        <span><i class="fa-solid fa-clock"></i> 3–4 hours</span>
+        <span><i class="fa-solid fa-signal"></i> Intermediate</span>
+        <span><i class="fa-solid fa-code"></i> SQL · Flask · transactions · fetch</span>
+      </div>
+    </div>
+
+    <div class="quick-nav">
+      <a href="/apps/inventory/index.html">Inventory hub</a>
+      <a href="#third">Third table</a>
+      <a href="#tx">Transactions</a>
+      <a href="#pagination">Pagination + sorting</a>
+      <a href="#stats">KPIs in SQL</a>
+      <a href="#suppliers">Supplier CRUD</a>
+      <a href="#run">Run it</a>
+      <a href="#done">Done — next steps</a>
+    </div>
+
+    <div class="info-box">
+      <p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+        <strong>Short answer:</strong> Add <code>stock_movements(id, product_id FK, delta, reason, note, created_at)</code> with <code>ON DELETE CASCADE</code>. When you record a movement, wrap the INSERT and the <code>UPDATE products SET quantity = quantity + delta</code> in one transaction — both succeed or neither does. Move pagination and sorting into SQL (<code>LIMIT ? OFFSET ?</code>, <code>ORDER BY ?</code> with a whitelist). Move the KPI math into one aggregate SELECT (<code>SUM(quantity*cost)</code>, <code>COUNT FILTER</code>). Add full supplier CRUD with <code>ON DELETE SET NULL</code>. The UI gains a supplier page, a stock-movement button, and pager controls.
+      </p>
+    </div>
+
+    <section id="third">
+      <h2 class="section-title">✅ The third table — an audit log</h2>
+      <p class="section-sub">A number is not a story. A log is.</p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>What it stores</h4>
+          <p>One row per stock change: <code>delta</code> (+10, −3), <code>reason</code> (received / sold / damaged / adjustment), a free-text <code>note</code>, and a timestamp.</p>
+        </div>
+        <div class="concept-card">
+          <h4>What it answers</h4>
+          <p>"Why is the keyboard at 8?" → 20 received, 12 sold, 3 damaged. The number has a history now.</p>
+        </div>
+        <div class="concept-card">
+          <h4>The FK, and why CASCADE</h4>
+          <p><code>product_id → products.id ON DELETE CASCADE</code>. A movement is about its product — delete the product, its history goes too.</p>
+        </div>
+        <div class="concept-card">
+          <h4>The trade-off</h4>
+          <p><code>products.quantity</code> is now a <em>cached</em> total. It must be updated in the same transaction as the movement insert, or the two disagree.</p>
+        </div>
+      </div>
+
+      <div class="code-block mt-6" id="sol1">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">schema.sql (movements)</span>
+          <button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+        </div>
+        <div class="code-output-tabs">
+          <button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">SQL</button>
+          <button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">CREATE TABLE stock_movements (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL,
+  delta      INTEGER NOT NULL,          -- +10 received, -3 sold
+  reason     TEXT NOT NULL,             -- received | sold | damaged | adjustment
+  note       TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_movements_product ON stock_movements(product_id);
+CREATE INDEX idx_movements_created ON stock_movements(created_at);</pre>
+<script type="text/plain" id="raw-code-sol1">CREATE TABLE stock_movements (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL,
+  delta      INTEGER NOT NULL,          -- +10 received, -3 sold
+  reason     TEXT NOT NULL,             -- received | sold | damaged | adjustment
+  note       TEXT,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_movements_product ON stock_movements(product_id);
+CREATE INDEX idx_movements_created ON stock_movements(created_at);</script>
+        </div>
+        <div class="code-output-pane" data-pane="js">
+<pre>Two FK actions, two meanings:
+
+  products.supplier_id  → suppliers.id  ON DELETE SET NULL
+  stock_movements.product_id → products.id  ON DELETE CASCADE
+
+  Why the difference?
+
+  A supplier is a SEPARATE entity. A product
+  references it but does not depend on it. If
+  the supplier goes away, the product survives
+  with supplier_id = NULL. SET NULL.
+
+  A stock movement is ABOUT its product. It
+  has no independent existence — "8 units sold
+  on Tuesday" only means something if you know
+  which product. If the product is deleted, the
+  movement is meaningless. CASCADE.
+
+  The FK action is a statement about the
+  relationship, not a generic default. Choose
+  it to match what the data actually is.
+
+Why store delta, not the resulting quantity:
+
+  BAD: stock_movements(quantity_after)
+
+  After: 42, 34, 8, 0
+  What was each change? Subtract adjacent rows.
+  Fragile — one deleted row breaks the math.
+
+  GOOD: stock_movements(delta)
+
+  After: +50, -8, -12, -3
+  Each row is self-describing. Sum the deltas
+  and you get the current quantity. Delete a
+  row and you know exactly what you removed.
+
+  Deltas are additive; absolute quantities are
+  not. Prefer the additive representation.
+
+The cached quantity problem:
+
+  products.quantity is now redundant with
+  SUM(stock_movements.delta). Why keep both?
+
+  Because SELECT SUM(delta) on every product
+  list query is O(movements) — slow at scale.
+  The cached column makes reads O(1).
+
+  The cost: every write must update both. That
+  is exactly what a transaction is for. Stage 04
+  wraps the INSERT + UPDATE in one atomic unit.
+  If either fails, both roll back. The cache and
+  the log cannot disagree.
+
+  This is the standard denormalization trade-off:
+  pay on writes to save on reads. Correct only
+  when the writes are transactional.</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="tx">
+      <h2 class="section-title">✅ Transactions — both or neither</h2>
+      <p class="section-sub">Two tables, one atomic write.</p>
+
+      <div class="code-block" id="sol2">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">movements.py</span>
+          <button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+        </div>
+        <div class="code-output-tabs">
+          <button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+          <button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">@app.route("/api/products/&lt;int:pid&gt;/movements", methods=["POST"])
+def create_movement(pid):
+    data = request.get_json(silent=True) or {}
+
+    try:
+        delta = int(data.get("delta"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "delta must be an integer."}), 400
+    if delta == 0:
+        return jsonify({"error": "delta cannot be zero."}), 400
+
+    reason = (data.get("reason") or "adjustment").strip().lower()
+    if reason not in ("received", "sold", "damaged", "adjustment"):
+        return jsonify({"error": "Invalid reason."}), 400
+
+    # The `with get_db() as conn:` context manager commits on success
+    # and rolls back on exception. That is the transaction.
+    with get_db() as conn:
+        product = conn.execute(
+            "SELECT * FROM products WHERE id = ?", (pid,)
+        ).fetchone()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+
+        new_qty = product["quantity"] + delta
+        if new_qty &lt; 0:
+            return jsonify({
+                "error": f"Cannot apply {delta}: stock would go negative "
+                         f"(currently {product['quantity']})."
+            }), 400
+
+        # Write 1: update the cached quantity
+        conn.execute(
+            "UPDATE products SET quantity = ?, updated_at = ? WHERE id = ?",
+            (new_qty, now_iso(), pid),
+        )
+
+        # Write 2: append the audit row
+        conn.execute(
+            """INSERT INTO stock_movements
+               (product_id, delta, reason, note, created_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (pid, delta, reason, data.get("note"), now_iso()),
+        )
+        # Both writes commit together. An exception anywhere above
+        # rolls both back.
+
+    return jsonify({"ok": True}), 201</pre>
+<script type="text/plain" id="raw-code-sol2">@app.route("/api/products/<int:pid>/movements", methods=["POST"])
+def create_movement(pid):
+    data = request.get_json(silent=True) or {}
+
+    try:
+        delta = int(data.get("delta"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "delta must be an integer."}), 400
+    if delta == 0:
+        return jsonify({"error": "delta cannot be zero."}), 400
+
+    reason = (data.get("reason") or "adjustment").strip().lower()
+    if reason not in ("received", "sold", "damaged", "adjustment"):
+        return jsonify({"error": "Invalid reason."}), 400
+
+    # The `with get_db() as conn:` context manager commits on success
+    # and rolls back on exception. That is the transaction.
+    with get_db() as conn:
+        product = conn.execute(
+            "SELECT * FROM products WHERE id = ?", (pid,)
+        ).fetchone()
+        if not product:
+            return jsonify({"error": "Product not found"}), 404
+
+        new_qty = product["quantity"] + delta
+        if new_qty < 0:
+            return jsonify({
+                "error": f"Cannot apply {delta}: stock would go negative "
+                         f"(currently {product['quantity']})."
+            }), 400
+
+        # Write 1: update the cached quantity
+        conn.execute(
+            "UPDATE products SET quantity = ?, updated_at = ? WHERE id = ?",
+            (new_qty, now_iso(), pid),
+        )
+
+        # Write 2: append the audit row
+        conn.execute(
+            """INSERT INTO stock_movements
+               (product_id, delta, reason, note, created_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (pid, delta, reason, data.get("note"), now_iso()),
+        )
+        # Both writes commit together. An exception anywhere above
+        # rolls both back.
+
+    return jsonify({"ok": True}), 201</script>
+        </div>
+        <div class="code-output-pane" data-pane="js">
+<pre>What could go wrong without a transaction:
+
+  Write 1 succeeds: products.quantity = 42
+  Write 2 fails:   stock_movements INSERT crashes
+
+  Result: the product says 42, but there's no
+  log row explaining how it got there. The
+  cache and the log disagree. Silent corruption.
+
+  With a transaction:
+    Write 1 executes
+    Write 2 fails → exception → ROLLBACK
+    products.quantity is back to its old value
+    No movement row was inserted
+    The request returns 500
+    The client can retry cleanly
+
+  The invariant — "quantity == SUM(deltas)" —
+  holds. Always.
+
+How Python's sqlite3 gives you this:
+
+  conn = sqlite3.connect(...)
+  ...
+  conn.commit()      ← explicit commit
+
+  The `with get_db() as conn:` pattern uses
+  a connection context manager. On clean exit
+  of the block, it commits. On exception, it
+  rolls back and re-raises.
+
+  This is why the Stage 03 code used
+  `with get_db() as conn:` — not just for
+  cleanliness, but because every multi-statement
+  operation needs the transaction guarantee.
+
+  For a single INSERT (create product), the
+  guarantee matters less — but the pattern is
+  consistent. Always use it.
+
+The check-then-act race:
+
+  Two simultaneous requests:
+    A: "sell 5"    (reads quantity=5)
+    B: "sell 5"    (reads quantity=5)
+
+  Both see 5. Both compute new_qty = 0. Both
+  write 0. Result: 10 units sold, quantity 0.
+  Oversold by 5.
+
+  For a single-user demo, not a problem. For
+  real inventory, you'd use SELECT ... FOR UPDATE
+  (or SQLite's BEGIN IMMEDIATE) to lock the row.
+  We're not adding that here, but it's the next
+  thing to learn: transactions guarantee
+  atomicity, not isolation. Those are two of the
+  four ACID properties, and both matter at scale.</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="pagination">
+      <h2 class="section-title">✅ Pagination and sorting — in SQL</h2>
+      <p class="section-sub">The client stops owning the full list.</p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>Before</h4>
+          <p>Client had <code>state.products</code> = every row. Filtered, sorted, sliced in JS. Fine at 6 rows. Unusable at 60,000.</p>
+        </div>
+        <div class="concept-card">
+          <h4>After</h4>
+          <p>Client sends <code>?page=2&amp;perPage=20&amp;sort=price&amp;dir=asc&amp;status=low</code>. Server returns <code>{items, page, perPage, total, pages}</code>. Client renders 20 rows and a pager.</p>
+        </div>
+      </div>
+
+      <div class="code-block mt-6" id="sol3">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">app.py (list_products)</span>
+          <button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+        </div>
+        <div class="code-output-tabs">
+          <button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+          <button onclick="switchCodeOutput('sol3', 'js', this)">Why the whitelist</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">SORT_COLUMNS = {
+    "name": "p.name", "sku": "p.sku",
+    "price": "p.price", "cost": "p.cost",
+    "quantity": "p.quantity", "category": "p.category",
+    "supplier": "s.name", "created": "p.created_at",
+}
+
+STATUS_CLAUSES = {
+    "in":  "p.quantity > p.reorder_level",
+    "low": "p.quantity > 0 AND p.quantity <= p.reorder_level",
+    "out": "p.quantity = 0",
+}
+
+@app.route("/api/products", methods=["GET"])
+def list_products():
+    q = (request.args.get("q") or "").strip().lower()
+    category = (request.args.get("category") or "all").strip().lower()
+    status = (request.args.get("status") or "all").strip().lower()
+
+    # Whitelist sort columns — NEVER interpolate raw user input into ORDER BY.
+    sort_key = request.args.get("sort", "created")
+    sort_col = SORT_COLUMNS.get(sort_key, "p.created_at")
+    sort_dir = "ASC" if request.args.get("dir") == "asc" else "DESC"
+
+    page = max(1, request.args.get("page", 1, type=int))
+    per_page = min(100, max(1, request.args.get("perPage", 20, type=int)))
+    offset = (page - 1) * per_page
+
+    clauses, params = [], []
+    if q:
+        clauses.append("(LOWER(p.name) LIKE ? OR LOWER(p.sku) LIKE ?)")
+        params += [f"%{q}%", f"%{q}%"]
+    if category != "all":
+        clauses.append("LOWER(p.category) = ?")
+        params.append(category)
+    if status in STATUS_CLAUSES:
+        clauses.append(STATUS_CLAUSES[status])
+
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+
+    base = f"""FROM products p
+               LEFT JOIN suppliers s ON s.id = p.supplier_id
+               {where}"""
+
+    with get_db() as conn:
+        total = conn.execute("SELECT COUNT(*) " + base, params).fetchone()[0]
+        rows = conn.execute(
+            f"""SELECT p.*, s.name AS supplier_name
+                {base}
+                ORDER BY {sort_col} {sort_dir}
+                LIMIT ? OFFSET ?""",
+            params + [per_page, offset],
+        ).fetchall()
+
+    return jsonify({
+        "items": rows_to_list(rows),
+        "page": page, "perPage": per_page,
+        "total": total,
+        "pages": (total + per_page - 1) // per_page,
+    })</pre>
+<script type="text/plain" id="raw-code-sol3">SORT_COLUMNS = {
+    "name": "p.name", "sku": "p.sku",
+    "price": "p.price", "cost": "p.cost",
+    "quantity": "p.quantity", "category": "p.category",
+    "supplier": "s.name", "created": "p.created_at",
+}
+
+STATUS_CLAUSES = {
+    "in":  "p.quantity > p.reorder_level",
+    "low": "p.quantity > 0 AND p.quantity <= p.reorder_level",
+    "out": "p.quantity = 0",
+}
+
+@app.route("/api/products", methods=["GET"])
+def list_products():
+    q = (request.args.get("q") or "").strip().lower()
+    category = (request.args.get("category") or "all").strip().lower()
+    status = (request.args.get("status") or "all").strip().lower()
+
+    # Whitelist sort columns — NEVER interpolate raw user input into ORDER BY.
+    sort_key = request.args.get("sort", "created")
+    sort_col = SORT_COLUMNS.get(sort_key, "p.created_at")
+    sort_dir = "ASC" if request.args.get("dir") == "asc" else "DESC"
+
+    page = max(1, request.args.get("page", 1, type=int))
+    per_page = min(100, max(1, request.args.get("perPage", 20, type=int)))
+    offset = (page - 1) * per_page
+
+    clauses, params = [], []
+    if q:
+        clauses.append("(LOWER(p.name) LIKE ? OR LOWER(p.sku) LIKE ?)")
+        params += [f"%{q}%", f"%{q}%"]
+    if category != "all":
+        clauses.append("LOWER(p.category) = ?")
+        params.append(category)
+    if status in STATUS_CLAUSES:
+        clauses.append(STATUS_CLAUSES[status])
+
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+
+    base = f"""FROM products p
+               LEFT JOIN suppliers s ON s.id = p.supplier_id
+               {where}"""
+
+    with get_db() as conn:
+        total = conn.execute("SELECT COUNT(*) " + base, params).fetchone()[0]
+        rows = conn.execute(
+            f"""SELECT p.*, s.name AS supplier_name
+                {base}
+                ORDER BY {sort_col} {sort_dir}
+                LIMIT ? OFFSET ?""",
+            params + [per_page, offset],
+        ).fetchall()
+
+    return jsonify({
+        "items": rows_to_list(rows),
+        "page": page, "perPage": per_page,
+        "total": total,
+        "pages": (total + per_page - 1) // per_page,
+    })</script>
+        </div>
+        <div class="code-output-pane" data-pane="js">
+<pre>Why the SORT_COLUMNS whitelist:
+
+  Naive version:
+    order_by = request.args.get("sort")
+    sql = f"ORDER BY {order_by}"         ← injection
+
+  A client sends ?sort=price;DROP TABLE products
+  and the server concatenates it into the SQL.
+
+  Parameterized queries don't work here —
+  SQL doesn't allow ? placeholders in ORDER BY.
+  The column name is an identifier, not a value.
+
+  The fix: a whitelist. Map the client's key
+  ("price") to a known-safe identifier
+  ("p.price"). Unknown keys fall back to
+  a default. The client never sees the SQL.
+
+  Same for sort direction: only "asc" and
+  "desc" are valid, and we map to "ASC"/"DESC".
+  Everything else becomes the default.
+
+Why count separately from fetch:
+
+  The COUNT(*) tells the client how many pages
+  exist. The LIMIT/OFFSET query fetches one page.
+  Two queries, two purposes.
+
+  Could you do it in one? SQLite has
+  COUNT(*) OVER () as a window function,
+  which adds the count to each row. That
+  works but sends the same number 20 times.
+  Two queries is clearer and marginally faster.
+
+Why LIMIT/OFFSET, not keyset pagination:
+
+  OFFSET is O(offset) — fetching page 500 of
+  60,000 rows means SQLite scans 10,000 rows
+  and discards them. For a few thousand rows,
+  fine. For millions, too slow.
+
+  Keyset pagination ("WHERE id > last_id LIMIT 20")
+  is O(1) but doesn't support jumping to page N.
+  It's the right choice for infinite scroll,
+  wrong for a numbered pager.
+
+  We use OFFSET because the UI has a numbered
+  pager. The lesson: OFFSET works for
+  thousands, keyset for millions. Know which
+  you're building.
+
+Why filter server-side:
+
+  The client cannot filter what it doesn't have.
+  It has 20 of 60,000 rows. The category filter
+  must run in SQL, on the full table, before
+  LIMIT slices. This is why Stage 04 moves the
+  filter out of getFiltered() and into the WHERE
+  clause. The client's job becomes: send the
+  filter, receive the result, render it.
+
+The derived-status filter in SQL:
+
+  Stage 02 computed stockStatus in JS:
+    if (p.quantity === 0) return 'out-of-stock';
+    if (p.quantity <= p.reorder_level) return 'low-stock';
+    return 'in-stock';
+
+  Stage 04 computes the same thing as a
+  WHERE clause:
+    "low": "p.quantity > 0 AND p.quantity <= p.reorder_level"
+    "out": "p.quantity = 0"
+
+  Same logic, different execution environment.
+  Derived state doesn't care whether it's
+  computed in JS or SQL — only that it's
+  computed from source columns, never stored.
+
+  The status badge in the table is still
+  computed client-side from quantity and
+  reorder_level. Both places derive from the
+  same source. No stored status field exists.</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="stats">
+      <h2 class="section-title">✅ KPIs in SQL</h2>
+      <p class="section-sub">One aggregate query. Four numbers. Any dataset size.</p>
+
+      <div class="code-block" id="sol4">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">stats.py</span>
+          <button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+        </div>
+        <div class="code-output-tabs">
+          <button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">Python + SQL</button>
+          <button onclick="switchCodeOutput('sol4', 'js', this)">Why</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">@app.route("/api/stats", methods=["GET"])
+def stats():
+    with get_db() as conn:
+        row = conn.execute("""
+            SELECT
+              COALESCE(SUM(quantity * cost), 0)                         AS total_value,
+              COUNT(*)                                                   AS product_count,
+              SUM(CASE WHEN quantity = 0 THEN 1 ELSE 0 END)             AS out_count,
+              SUM(CASE WHEN quantity > 0
+                         AND quantity <= reorder_level
+                       THEN 1 ELSE 0 END)                               AS low_count,
+              (SELECT COUNT(*) FROM suppliers)                          AS supplier_count,
+              (SELECT COUNT(*) FROM stock_movements)                    AS movement_count
+            FROM products
+        """).fetchone()
+    return jsonify(row_to_dict(row))</pre>
+<script type="text/plain" id="raw-code-sol4">@app.route("/api/stats", methods=["GET"])
+def stats():
+    with get_db() as conn:
+        row = conn.execute("""
+            SELECT
+              COALESCE(SUM(quantity * cost), 0)                         AS total_value,
+              COUNT(*)                                                   AS product_count,
+              SUM(CASE WHEN quantity = 0 THEN 1 ELSE 0 END)             AS out_count,
+              SUM(CASE WHEN quantity > 0
+                         AND quantity <= reorder_level
+                       THEN 1 ELSE 0 END)                               AS low_count,
+              (SELECT COUNT(*) FROM suppliers)                          AS supplier_count,
+              (SELECT COUNT(*) FROM stock_movements)                    AS movement_count
+            FROM products
+        """).fetchone()
+    return jsonify(row_to_dict(row))</script>
+        </div>
+        <div class="code-output-pane" data-pane="js">
+<pre>Why the client can no longer compute these:
+
+  Stage 02: the client had every product.
+    state.products.forEach(p => totalValue += p.quantity * p.cost)
+  → correct because state.products was the full list.
+
+  Stage 04: the client has 20 of 60,000.
+    state.products.forEach(...)  → sums 20 rows
+  → WRONG. The total would be 0.03% of the real value.
+
+  The aggregate must run where all the data lives:
+  the database. One SELECT, four numbers, any
+  dataset size. The client sends no query, gets
+  the summary, renders it.
+
+  This is the fundamental shift from "client
+  computes" to "server computes." Stage 02's
+  derived state was a convenience. Stage 04's
+  is a necessity.
+
+Why COALESCE(SUM(...), 0):
+
+  SUM() returns NULL when the table is empty.
+  COALESCE turns that NULL into 0 so the
+  frontend's formatMoney() doesn't crash on
+  NaN. Defensive — cheap, clear.
+
+Why SUM(CASE WHEN ... THEN 1 ELSE 0 END):
+
+  This is the portable "conditional count."
+  COUNT(*) FILTER (WHERE ...) is cleaner
+  but SQLite only added FILTER in 3.30 (2019).
+  The CASE form works everywhere, including
+  older SQLite and most other databases.
+
+Why scalar subqueries for supplier_count:
+
+  (SELECT COUNT(*) FROM suppliers)  is a
+  scalar subquery — it returns one row, one
+  column, and is evaluated once. It runs in
+  the same round-trip as the main aggregate.
+
+  Could you do separate queries? Yes, three
+  round-trips instead of one. For a demo, the
+  difference is imperceptible. For a
+  latency-sensitive API, every round-trip
+  counts. One query, all the numbers.
+
+The cross-check:
+
+  SUM(quantity * cost) — the KPI
+  SUM(stock_movements.delta) per product — the
+  source of truth for quantity
+
+  If these disagree, there's a bug. The
+  transaction guarantee says they can't. In
+  production, you'd run a nightly reconciliation:
+    SELECT p.id, p.quantity, COALESCE(SUM(m.delta), 0) AS computed
+    FROM products p LEFT JOIN stock_movements m ON m.product_id = p.id
+    GROUP BY p.id
+    HAVING p.quantity != computed
+  Empty result = healthy. Non-empty = investigate.
+
+  This is how you trust a denormalized cache:
+  you have a way to recompute it and compare.</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="suppliers">
+      <h2 class="section-title">✅ Supplier CRUD — the full resource</h2>
+      <p class="section-sub">Four routes. One FK action that matters.</p>
+
+      <div class="code-block" id="sol5">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">suppliers.py</span>
+          <button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+        </div>
+        <div class="code-output-tabs">
+          <button class="active" onclick="switchCodeOutput('sol5', 'ts', this)">Python</button>
+          <button onclick="switchCodeOutput('sol5', 'js', this)">Why SET NULL</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">@app.route("/api/suppliers", methods=["GET"])
+def list_suppliers():
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT s.*, COUNT(p.id) AS product_count
+            FROM suppliers s
+            LEFT JOIN products p ON p.supplier_id = s.id
+            GROUP BY s.id
+            ORDER BY s.name
+        """).fetchall()
+    return jsonify(rows_to_list(rows))
+
+
+@app.route("/api/suppliers/&lt;int:sid&gt;", methods=["DELETE"])
+def delete_supplier(sid):
+    with get_db() as conn:
+        existing = conn.execute(
+            "SELECT id FROM suppliers WHERE id = ?", (sid,)
+        ).fetchone()
+        if not existing:
+            return jsonify({"error": "Supplier not found"}), 404
+
+        # Count products that will be unlinked — useful for the UI
+        n_affected = conn.execute(
+            "SELECT COUNT(*) FROM products WHERE supplier_id = ?", (sid,)
+        ).fetchone()[0]
+
+        conn.execute("DELETE FROM suppliers WHERE id = ?", (sid,))
+        conn.commit()
+
+    return jsonify({"ok": True, "productsUnlinked": n_affected})</pre>
+<script type="text/plain" id="raw-code-sol5">@app.route("/api/suppliers", methods=["GET"])
+def list_suppliers():
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT s.*, COUNT(p.id) AS product_count
+            FROM suppliers s
+            LEFT JOIN products p ON p.supplier_id = s.id
+            GROUP BY s.id
+            ORDER BY s.name
+        """).fetchall()
+    return jsonify(rows_to_list(rows))
+
+
+@app.route("/api/suppliers/<int:sid>", methods=["DELETE"])
+def delete_supplier(sid):
+    with get_db() as conn:
+        existing = conn.execute(
+            "SELECT id FROM suppliers WHERE id = ?", (sid,)
+        ).fetchone()
+        if not existing:
+            return jsonify({"error": "Supplier not found"}), 404
+
+        # Count products that will be unlinked — useful for the UI
+        n_affected = conn.execute(
+            "SELECT COUNT(*) FROM products WHERE supplier_id = ?", (sid,)
+        ).fetchone()[0]
+
+        conn.execute("DELETE FROM suppliers WHERE id = ?", (sid,))
+        conn.commit()
+
+    return jsonify({"ok": True, "productsUnlinked": n_affected})</script>
+        </div>
+        <div class="code-output-pane" data-pane="js">
+<pre>What ON DELETE SET NULL actually does:
+
+  Before DELETE:
+    suppliers(id=1, name='Acme')
+    products(id=10, supplier_id=1)
+    products(id=11, supplier_id=1)
+
+  DELETE FROM suppliers WHERE id = 1
+
+  With SET NULL, the FK action fires:
+    products(id=10, supplier_id=NULL)
+    products(id=11, supplier_id=NULL)
+    suppliers(id=1)  ← gone
+
+  Products 10 and 11 still exist. They just
+  have no supplier. The UI renders "—" for
+  the supplier column.
+
+  With RESTRICT, the DELETE would fail:
+    "FOREIGN KEY constraint failed"
+
+  With CASCADE, products 10 and 11 would be
+  deleted too — usually catastrophic for
+  inventory. Deleting a supplier should never
+  delete stock.
+
+Why count products before deleting:
+
+  The UI shows a confirm dialog:
+    "Delete supplier Acme? 5 products use this
+     supplier. They will be unlinked (supplier
+     set to none) but not deleted."
+
+  The count comes from the API response —
+  productsUnlinked. The user sees exactly what
+  will happen before clicking yes.
+
+  This is a UX principle: destructive actions
+  tell you what they'll do. The count makes
+  the consequence concrete.
+
+The GROUP BY in list_suppliers:
+
+  SELECT s.*, COUNT(p.id) AS product_count
+  FROM suppliers s
+  LEFT JOIN products p ON p.supplier_id = s.id
+  GROUP BY s.id
+
+  LEFT JOIN — every supplier appears, even
+  those with no products. COUNT(p.id) counts
+  non-NULL matches; a supplier with no
+  products gets COUNT = 0.
+
+  If you used INNER JOIN, suppliers with no
+  products would vanish from the list. Wrong —
+  the supplier page should show all suppliers.
+
+  This is the same LEFT JOIN logic as the
+  products list (Stage 03). Preserve the
+  entity even when the joined data is absent.</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="run">
+      <h2 class="section-title">✅ Run it</h2>
+      <p class="section-sub">Reseed. Restart. Same three commands.</p>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+        <div class="text-sm text-slate-300 mb-3"><strong class="text-white">Folder structure:</strong></div>
+<pre class="text-xs text-slate-400 leading-relaxed">apps/inventory/downloads/backend/
+├── app.py                  ← supplier CRUD, movements, pagination, stats
+├── database.py             ← unchanged from Stage 03
+├── schema.sql              ← three tables
+├── seed.py                 ← seed movements
+├── requirements.txt        ← unchanged
+├── README.md               ← updated
+└── static/
+    └── inventory-stage-04.html   ← updated frontend</pre>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+        <div class="text-sm text-slate-300 mb-3"><strong class="text-white">Commands — note the reseed:</strong></div>
+<pre class="text-xs text-slate-400 leading-relaxed">cd apps/inventory/downloads/backend
+python seed.py        # WIPES inventory.db and reseeds — required for the new schema
+python app.py         # http://localhost:5000</pre>
+      </div>
+
+      <p class="text-sm text-slate-300 leading-relaxed mt-4">
+        <strong>You must reseed.</strong> The Stage 03 database has two tables; Stage 04 expects three. <code>seed.py</code> drops and recreates everything. Any data you added in Stage 03 will be lost — that's fine, it was sample data. In a real migration you'd write an <code>ALTER TABLE</code> script; here, reseeding is the honest reset.
+      </p>
+
+      <div class="concept-grid mt-6">
+        <div class="concept-card">
+          <h4>Test the movement log</h4>
+          <p>Click ± on any product. Record "sold 5". The row's qty drops by 5. Open the product's edit modal — the movement appears in the history panel with a timestamp.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Test the negative guard</h4>
+          <p>Try to sell 999 of a product with 8 in stock. The API returns 400 with "stock would go negative." The toast shows it. Nothing changes.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Test pagination</h4>
+          <p>Set <code>perPage=20</code> in the code (or add more seed products). Click Next. The pager shows "Showing 21–40 of…" and the KPIs stay constant — they're computed over the full table, not the page.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Test the FK action</h4>
+          <p>Go to Suppliers, delete "Acme Peripherals" (which supplies 3 products). The confirm says "3 product(s) will be unlinked." After deletion, those products still exist with "—" in the Supplier column.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">⚠️ Common mistakes</h2>
+      <p class="section-sub">What to check if Stage 04 doesn't work.</p>
+
+      <div class="mistake">
+        <div class="mtitle">1. Not reseeding after the schema change</div>
+        <p>The old two-table DB doesn't have <code>stock_movements</code>. Every movement query fails. Fix: <code>python seed.py</code> (destructive — recreates the DB).</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">2. Updating quantity without a transaction</div>
+        <p>If the INSERT fails after the UPDATE, the cache and log disagree. Fix: both writes inside <code>with get_db() as conn:</code>.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">3. Interpolating sort params into ORDER BY</div>
+        <p><code>f"ORDER BY {sort}"</code> is SQL injection — placeholders don't work in ORDER BY. Fix: the <code>SORT_COLUMNS</code> whitelist.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">4. Computing KPIs from the current page</div>
+        <p>The client has 20 rows, not all of them. Summing <code>state.products</code> gives the wrong total. Fix: <code>GET /api/stats</code>.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">5. Using INNER JOIN for suppliers</div>
+        <p>Suppliers with no products vanish. Fix: <code>LEFT JOIN</code> + <code>GROUP BY</code>.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">6. Forgetting the negative-stock guard</div>
+        <p>Selling more than you have drives quantity negative, violating the CHECK constraint (500) or corrupting the cache. Fix: check <code>new_qty &lt; 0</code> and return 400.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">7. Not logging quantity changes from the edit form</div>
+        <p>If you edit quantity directly in the product modal, the audit log misses it. Fix: compare <code>old_qty</code> vs <code>new_qty</code> in <code>update_product</code> and insert an "adjustment" movement.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">8. Forgetting CASCADE means data loss</div>
+        <p>Deleting a product deletes its movements permanently. The confirm dialog should warn: "Its stock movement history will also be deleted."</p>
+      </div>
+    </section>
+
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+      <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+      <div class="space-y-3">
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why add a third table (stock_movements)?</summary>
+          <p class="mt-2 text-sm text-slate-300">Because quantity is not enough. A number like 42 tells you what's on the shelf, but not how it got there. Did 50 arrive and 8 sell? Or did 100 arrive and 58 get damaged? The stock_movements table logs each change as a row. The products.quantity column becomes a cached total updated transactionally. The audit log answers questions the single number can't.</p>
+        </details>
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why CASCADE for movements but SET NULL for suppliers?</summary>
+          <p class="mt-2 text-sm text-slate-300">The two relationships have different semantics. A stock movement is about its product — it has no meaning without it, so it goes with the product (CASCADE). A supplier is a separate entity that products reference — if the supplier disappears, the products still exist, they just have no supplier (SET NULL). The FK action should match what the relationship actually means.</p>
+        </details>
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">What does "transactional" mean here?</summary>
+          <p class="mt-2 text-sm text-slate-300">Recording a movement touches two tables: it inserts a row in stock_movements and updates products.quantity. Both writes must succeed together, or neither should. A transaction wraps both statements: either both commit or both roll back. The `with get_db() as conn:` context manager provides this.</p>
+        </details>
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why compute the KPIs in SQL instead of JavaScript?</summary>
+          <p class="mt-2 text-sm text-slate-300">Because the frontend is paginated — it only holds 20 products at a time. It cannot compute total inventory value from 20 of 60,000 products. The aggregate has to happen where all the data lives: the database. One SELECT computes all four KPIs in one round-trip, regardless of dataset size.</p>
+        </details>
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">How does server-side pagination change the frontend?</summary>
+          <p class="mt-2 text-sm text-slate-300">The client stops owning the full list. It sends page, perPage, sort, dir, and filters as query params; the server returns {items, page, perPage, total, pages}. Filtering, sorting, and slicing all happen in SQL. The client just displays the response.</p>
+        </details>
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">Is this the final stage?</summary>
+          <p class="mt-2 text-sm text-slate-300">Yes. The Inventory build is four stages: Interface, Interactions, Backend, Advanced. Stage 04 completes it. Authentication, deployment, and multi-user support are separate concept courses — they are not Stage 05 of this build. The four-stage arc mirrors the CRM build: shell, then client logic, then a backend, then the advanced data layer. Each stage adds exactly one layer and stops.</p>
+        </details>
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">What should I build next?</summary>
+          <p class="mt-2 text-sm text-slate-300">Not another stage of this app. Either take one of the concept courses (deployment, auth, SQL problem solvers), or build something new that reuses this pattern — the four-stage arc (shell → client logic → backend → advanced data layer) applies to any CRUD app: a task tracker, a booking system, a contacts manager. The inventory app is a template, not a starting point for infinite expansion.</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="done" class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+      <h2 class="text-white font-bold text-xl mb-2">🏁 You're done — the build is complete</h2>
+      <p class="text-sm text-slate-300 leading-relaxed mb-4">
+        Four stages. Three tables. Two foreign keys. A working Flask + SQLite backend with transactions, pagination, and an audit log. The inventory app is finished.
+      </p>
+
+      <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-4">
+        <div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">The full build</div>
+        <div class="space-y-2">
+          <div class="flex items-center gap-3 text-sm">
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span class="text-slate-300"><strong class="text-white">Stage 01 — Interface</strong> · static shell, layout, KPI markup, modal structure</span>
+          </div>
+          <div class="flex items-center gap-3 text-sm">
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span class="text-slate-300"><strong class="text-white">Stage 02 — Interactions</strong> · CRUD + localStorage, derived state, XSS-safe rendering, duplicate-SKU check</span>
+          </div>
+          <div class="flex items-center gap-3 text-sm">
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span class="text-slate-300"><strong class="text-white">Stage 03 — Backend</strong> · Flask + SQLite, two tables, six REST routes, client check repeated server-side</span>
+          </div>
+          <div class="flex items-center gap-3 text-sm">
+            <span class="text-emerald-400 font-bold">✓</span>
+            <span class="text-slate-300"><strong class="text-white">Stage 04 — Advanced</strong> · third table, transactions, pagination, SQL KPIs, full supplier CRUD</span>
+          </div>
+        </div>
+      </div>
+
+      <a href="/apps/inventory/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all mb-3">
+        <div class="font-semibold text-cyan-400 text-sm">📦 Back to the Inventory hub</div>
+        <div class="text-xs text-slate-400 mt-1">All four stages in one place, with the download links for each stage's working demo and the full backend source.</div>
+      </a>
+
+      <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-2">
+        <div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Where to go from here — separate tracks, not Stage 05</div>
+        <a href="/courses/flask/deployment.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors mb-2">
+          <div class="font-semibold text-white text-sm">🚀 Deploying Flask + SQLite</div>
+          <div class="text-xs text-slate-400 mt-1">Gunicorn, a reverse proxy, file permissions, backups. The app works on your laptop — this is how it works on a server.</div>
+        </a>
+        <a href="/courses/flask/auth.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors mb-2">
+          <div class="font-semibold text-white text-sm">🔐 Authentication as a concept</div>
+          <div class="text-xs text-slate-400 mt-1">Sessions, password hashing, roles — taught standalone, then applied to whichever app you're building. Not tied to the inventory build.</div>
+        </a>
+        <a href="/courses/sql/problems/index.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors">
+          <div class="font-semibold text-white text-sm">🗄️ SQL problem solvers</div>
+          <div class="text-xs text-slate-400 mt-1">JOINs, aggregates, window functions, transactions, indexing — 20 real queries with answers.</div>
+        </a>
+      </div>
+
+      <p class="text-xs text-slate-500 leading-relaxed mt-4">
+        <strong class="text-slate-400">Build something new.</strong> The four-stage arc — shell → client logic → backend → advanced data layer — is a template, not an inventory-specific one. Apply it to a task tracker, a booking system, a contacts manager, a reading list. The pattern is the reusable thing.
+      </p>
+    </section>
+
+    <a href="/apps/inventory/index.html" class="back-link">← Back to Inventory build hub</a>
+
+    <div class="lang-signature">
+      <span class="dot"></span> Inventory Stage 04 · Advanced · Final <span class="dot"></span>
+    </div>
+  </main>
+
+  <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+    <div class="flex justify-between items-center max-w-md mx-auto">
+      <div class="flex flex-col items-center gap-1 text-blue-500">
+        <i class="fa-solid fa-house text-xl"></i>
+        <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-slate-500">
+        <i class="fa-solid fa-book-open text-xl"></i>
+        <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-slate-500">
+        <i class="fa-solid fa-envelope text-xl"></i>
+        <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-slate-500">
+        <i class="fa-solid fa-circle-user text-xl"></i>
+        <span class="text-[10px] font-bold uppercase">Profile</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/assets/courses.js" defer></script>
+  <script>
+    (function () {
+      if (typeof window.switchCodeOutput !== 'function') {
+        window.switchCodeOutput = function (blockId, paneName, btn) {
+          var block = document.getElementById(blockId);
+          if (!block) block = btn.closest('.code-block');
+          if (!block) return;
+          block.querySelectorAll('.code-output-tabs button').forEach(function (t) {
+            t.classList.remove('active');
+          });
+          btn.classList.add('active');
+          block.querySelectorAll('.code-output-pane').forEach(function (p) {
+            p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+          });
+        };
+      }
+      if (typeof window.copyCode !== 'function') {
+        window.copyCode = function (id, btn) {
+          var raw = document.getElementById('raw-' + id);
+          var text = raw ? raw.textContent : document.getElementById(id).textContent;
+          var done = function () {
+            var o = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(function () {
+              btn.textContent = o;
+            }, 1500);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done);
+          } else {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+              document.execCommand('copy');
+            } catch (e) {}
+            document.body.removeChild(ta);
+            done();
+          }
+        };
+      }
+    })();
+  </script>
+</body>
+</html>
