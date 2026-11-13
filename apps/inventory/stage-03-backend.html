@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Inventory Stage 03 — Backend (Flask + SQLite, two tables) (2026)</title>
+    <meta name="description" content="Stage 03 of the Inventory build: move the data to Python Flask + SQLite. Two tables (products, suppliers) with a foreign key. Six REST routes, server-side SKU integrity, and a fetch-based frontend.">
+    <meta name="keywords" content="flask sqlite tutorial, flask crud api, foreign key sqlite, fetch api javascript, python backend tutorial">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    
+    <!-- Open Graph Metadata -->
+    <meta property="og:title" content="Inventory Stage 03 — Backend">
+    <meta property="og:description" content="Flask + SQLite, two tables, six REST routes, fetch-based frontend.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/apps/inventory/stage-03-backend.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <meta property="og:site_name" content="MAK UI Studio">
+    
+    <!-- Twitter Metadata -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Inventory Stage 03 — Backend">
+    <meta name="twitter:description" content="Flask + SQLite, two tables, six REST routes, fetch-based frontend.">
+    <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+    
+    <link href="/favicon.png" rel="icon" type="image/png">
+    <link rel="canonical" href="https://makuistudio.com/apps/inventory/stage-03-backend.html">
+
+    <!-- Structured Data Scripts -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "TechArticle",
+        "headline": "Inventory Stage 03 — Backend",
+        "description": "Move the inventory data to Python Flask + SQLite. Two tables with a foreign key, six REST routes, server-side SKU integrity, fetch-based frontend.",
+        "author": {
+            "@type": "Organization",
+            "name": "MAK Studio"
+        },
+        "datePublished": "2026-11-12",
+        "dateModified": "2026-11-12",
+        "proficiencyLevel": "Intermediate",
+        "dependencies": "Python, Flask, SQLite, JavaScript"
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+            {
+                "@type": "Question",
+                "name": "What changes from Stage 02 to Stage 03?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "The UI barely changes. The derived-state logic (stockStatus, renderKPIs, getFiltered) is identical. What changes is where the data lives: localStorage.getItem/setItem is replaced with fetch() calls to Flask. The CRUD functions become async, and every state change re-fetches from the server. That's the whole transition."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why two tables instead of one?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Products have a supplier. If you stored the supplier name as a string on each product, you'd repeat it dozens of times and risk inconsistency ('Acme Peripherals' vs 'Acme Peripherals Inc'). A suppliers table with products.supplier_id as a foreign key stores each supplier once. This is normalization — the first normal form of database design. The CRM only had contacts because there was nothing to join to. Inventory has suppliers."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why keep the client-side SKU check if the server enforces UNIQUE?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Two different jobs. The client check is UX: it gives instant feedback without a round-trip. The server UNIQUE constraint is integrity: it's the last line of defense. If someone opens DevTools and calls the API directly, the client check is bypassed — only the server check holds. Both are needed. Never trust the client."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "What is CORS and why is flask-cors needed here?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "CORS (Cross-Origin Resource Sharing) is a browser security rule: by default, a page from one origin cannot fetch from a different origin. If you open the demo HTML as a file:// URL and it tries to fetch http://localhost:5000, the browser blocks it unless the server sends Access-Control-Allow-Origin headers. flask-cors adds those headers. If you serve the HTML from Flask itself (the default here, via the static folder), CORS isn't strictly needed — but it doesn't hurt, and it supports the file:// workflow."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why ON DELETE SET NULL on the foreign key?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "If a supplier is deleted, its products shouldn't be deleted too — they still exist, they just have no supplier. ON DELETE SET NULL makes products.supplier_id become NULL when the supplier disappears. The alternatives are ON DELETE CASCADE (deletes the products — usually wrong for inventory) and RESTRICT (refuses to delete the supplier — sometimes right, but inconvenient here). SET NULL is the safest default for a nullable relationship."
+                }
+            },
+            {
+                "@type": "Question",
+                "name": "Why debounce the search input?",
+                "acceptedAnswer": {
+                    "@type": "Answer",
+                    "text": "Without debouncing, every keystroke fires a fetch request. Typing 'keyboard' would fire 8 requests. With a 250ms debounce, only the final keystroke fires. This is the same debounce pattern from the JavaScript problem solvers — now applied to network requests instead of DOM updates. The cost of a keystroke is no longer a network round-trip."
+                }
+            }
+        ]
+    }
+    </script>
+
+    <!-- UI Core Assets -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="/style.css" rel="stylesheet">
+    <link href="/assets/courses.css" rel="stylesheet">
+    <link href="/assets/language-react.css" rel="stylesheet">
+    
+    <style>
+        .code-output-tabs {
+            display: flex;
+            gap: 4px;
+            padding: 0 12px;
+            background: #0f172a;
+            border-bottom: 1px solid #1e293b;
+        }
+        .code-output-tabs button {
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #94a3b8;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+        }
+        .code-output-tabs button.active {
+            color: #61dafb;
+            border-bottom-color: #61dafb;
+        }
+        .code-output-pane {
+            display: none;
+        }
+        .code-output-pane.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+
+    <nav class="navbar">
+        <div class="nav-container">
+            <a class="logo" href="index.html">✨ MAK UI Studio</a>
+            <div id="navbar-placeholder"></div>
+            <script src="/navbar.js"></script>
+        </div>
+    </nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Inventory Build</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 03 · Backend</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <div class="text-xs" style="color:#7d8fa9;">
+            <a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+            <a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+            <a href="/apps/inventory/index.html" style="color:#7ee8fc;">Inventory</a> ›
+            <span style="color:#FFFFFF; font-weight:700;">Stage 03</span>
+        </div>
+
+        <div class="py-hero">
+            <div class="badge">🐍 Stage 03 · 2–3 hours</div>
+            <h1>Give it a server.<br><span class="py-accent">Two tables. One foreign key.</span></h1>
+            <p class="lead">
+                The inventory app moves to <strong>Python Flask + SQLite</strong>. Products get a supplier — a second table, a foreign key, a JOIN. The UI barely changes: <code>localStorage</code> becomes <code>fetch()</code>, and every CRUD function becomes <code>async</code>. The derived-state logic (stock status, KPIs) is identical. This is where you learn that the frontend's job is the same whether the data is on the device or across a network — only the transport changes.
+            </p>
+            <div class="meta">
+                <span><i class="fa-solid fa-clock"></i> 2–3 hours</span>
+                <span><i class="fa-solid fa-signal"></i> Intermediate</span>
+                <span><i class="fa-solid fa-code"></i> Python · Flask · SQLite · fetch</span>
+            </div>
+        </div>
+
+        <div class="quick-nav">
+            <a href="/apps/inventory/index.html">Inventory hub</a>
+            <a href="#schema">Schema (2 tables)</a>
+            <a href="#api">The 6 routes</a>
+            <a href="#sku">SKU rule, twice</a>
+            <a href="#fetch">Frontend → fetch</a>
+            <a href="#run">Run it</a>
+        </div>
+
+        <div class="info-box">
+            <p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+                <strong>Short answer:</strong> Two tables. <code>suppliers(id, name, email, created_at)</code> and <code>products(id, sku UNIQUE, name, category, price, cost, quantity, reorder_level, supplier_id FK → suppliers.id, created_at, updated_at)</code>. Six routes: list products, get one, create, update, delete, list suppliers (+ a categories helper). The client's <code>localStorage</code> becomes <code>fetch()</code>. The client's duplicate-SKU check is repeated as a <code>UNIQUE</code> constraint plus a <code>409</code> on the server. Everything else — derived state, KPIs, filter logic — is unchanged.
+            </p>
+        </div>
+
+        <section id="schema">
+            <h2 class="section-title">✅ The schema — two tables, one foreign key</h2>
+            <p class="section-sub">Each supplier is stored once. Products point to it.</p>
+
+            <div class="code-block" id="sol1">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">schema.sql</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">SQL</button>
+                    <button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol1">CREATE TABLE suppliers (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL UNIQUE,
+  email      TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE products (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  sku           TEXT NOT NULL UNIQUE,
+  name          TEXT NOT NULL,
+  category      TEXT NOT NULL DEFAULT 'Uncategorized',
+  price         REAL NOT NULL CHECK (price &gt;= 0),
+  cost          REAL NOT NULL CHECK (cost &gt;= 0),
+  quantity      INTEGER NOT NULL DEFAULT 0 CHECK (quantity &gt;= 0),
+  reorder_level INTEGER NOT NULL DEFAULT 10 CHECK (reorder_level &gt;= 0),
+  supplier_id   INTEGER,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_products_category ON products(category);
+CREATE INDEX idx_products_supplier ON products(supplier_id);</pre>
+                    <script type="text/plain" id="raw-code-sol1">CREATE TABLE suppliers (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL UNIQUE,
+  email      TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE products (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  sku           TEXT NOT NULL UNIQUE,
+  name          TEXT NOT NULL,
+  category      TEXT NOT NULL DEFAULT 'Uncategorized',
+  price         REAL NOT NULL CHECK (price >= 0),
+  cost          REAL NOT NULL CHECK (cost >= 0),
+  quantity      INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+  reorder_level INTEGER NOT NULL DEFAULT 10 CHECK (reorder_level >= 0),
+  supplier_id   INTEGER,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
+);
+
+CREATE INDEX idx_products_category ON products(category);
+CREATE INDEX idx_products_supplier ON products(supplier_id);</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>Why two tables, not one:
+
+  Bad design — everything in products:
+  
+    products
+    ├── id
+    ├── sku
+    ├── name
+    ├── supplier_name      ← repeated on every row
+    ├── supplier_email     ← repeated on every row
+    └── ...
+  
+  If Acme supplies 20 products, "Acme Peripherals"
+  is stored 20 times. Change one and you have to
+  change all 20. One typo and the data disagrees
+  with itself.
+
+  Good design — normalized:
+  
+    suppliers
+    ├── id (PK)
+    ├── name (UNIQUE)
+    └── email
+  
+    products
+    ├── id (PK)
+    ├── sku (UNIQUE)
+    ├── ...
+    └── supplier_id (FK → suppliers.id)
+  
+  Acme is stored once. Twenty products point
+  to it. Change the name once, all twenty see
+  the new name.
+
+The UNIQUE constraint on sku:
+
+  Stage 02 enforced "SKU must be unique" in
+  the form submit handler. That check lives in
+  JavaScript — anyone with DevTools can bypass it.
+
+  Stage 03 adds UNIQUE on the column. SQLite
+  refuses the INSERT. The check now lives in the
+  database — it holds regardless of the client.
+
+  Both stay. The client check is UX (instant
+  feedback). The schema check is integrity (the
+  last line of defense).
+
+The CHECK constraints:
+
+  price &gt;= 0, cost &gt;= 0, quantity &gt;= 0,
+  reorder_level &gt;= 0
+
+  Same idea. The client form has min="0" on
+  those inputs. The schema refuses bad data even
+  if the client lies. Defense in depth — every
+  boundary validates.
+
+The foreign key and ON DELETE:
+
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
+  ON DELETE SET NULL
+
+  Delete a supplier → products.supplier_id becomes
+  NULL. Products survive. The product still exists;
+  it just has no supplier listed. This is the safe
+  default for a nullable relationship.
+
+  The alternatives:
+    ON DELETE CASCADE — deletes the products too.
+                        Usually wrong for inventory.
+    ON DELETE RESTRICT — refuses the delete if any
+                        product uses that supplier.
+                        Sometimes right, inconvenient here.
+
+  SQLite requires PRAGMA foreign_keys = ON per
+  connection. The schema has it, and both app.py
+  and database.py set it on every connect().
+
+The indexes:
+
+  idx_products_category
+  idx_products_supplier
+
+  Both columns are used in WHERE clauses:
+  filter by category, join by supplier. Without
+  an index, every filter is a full table scan.
+  For 6 products, irrelevant. For 60,000, the
+  index is the difference between 1ms and 50ms.
+
+  You add them now because it's a habit. Index
+  the columns you filter and join on.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="api">
+            <h2 class="section-title">✅ The 6 REST routes</h2>
+            <p class="section-sub">Six endpoints. Same shape as the data.</p>
+
+            <div class="concept-grid">
+                <div class="concept-card">
+                    <h4>GET /api/products</h4>
+                    <p>List, with <code>?q=</code> and <code>?category=</code>. JOINs suppliers for the <code>supplier_name</code> field.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>POST /api/products</h4>
+                    <p>Create. Validates input. Checks SKU uniqueness. Returns 201 + new row.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>PUT /api/products/&lt;id&gt;</h4>
+                    <p>Update. Same validation, same SKU check, excluding self. Returns updated row.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>DELETE /api/products/&lt;id&gt;</h4>
+                    <p>Delete. Returns <code>{"ok": true}</code> or 404 if not found.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>GET /api/suppliers</h4>
+                    <p>List for the dropdown. Returns <code>[{id, name}]</code>.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>GET /api/categories</h4>
+                    <p>Distinct categories. Used if you want to build filter chips dynamically.</p>
+                </div>
+            </div>
+
+            <div class="code-block mt-6" id="sol2">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">app.py (excerpt)</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+                    <button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol2">@app.route("/api/products", methods=["GET"])
+def list_products():
+    q = (request.args.get("q") or "").strip().lower()
+    category = (request.args.get("category") or "").strip().lower()
+
+    sql = """
+        SELECT p.*, s.name AS supplier_name
+        FROM products p
+        LEFT JOIN suppliers s ON s.id = p.supplier_id
+    """
+    clauses, params = [], []
+    if q:
+        clauses.append("(LOWER(p.name) LIKE ? OR LOWER(p.sku) LIKE ?)")
+        params += [f"%{q}%", f"%{q}%"]
+    if category and category != "all":
+        clauses.append("LOWER(p.category) = ?")
+        params.append(category)
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
+    sql += " ORDER BY p.created_at DESC"
+
+    with get_db() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return jsonify([row_to_dict(r) for r in rows])
+
+
+@app.route("/api/products", methods=["POST"])
+def create_product():
+    data = request.get_json(silent=True) or {}
+    error = validate_product(data, require_sku=True)
+    if error:
+        return jsonify({"error": error}), 400
+
+    sku = data["sku"].strip()
+
+    with get_db() as conn:
+        # Server-side duplicate SKU check — the client check
+        # from Stage 02, repeated at the boundary.
+        dup = conn.execute(
+            "SELECT id FROM products WHERE LOWER(sku) = LOWER(?)", (sku,)
+        ).fetchone()
+        if dup:
+            return jsonify({"error": f'SKU "{sku}" already exists.'}), 409
+
+        cur = conn.execute(
+            """INSERT INTO products
+               (sku, name, category, price, cost, quantity, reorder_level,
+                supplier_id, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                sku, data["name"].strip(),
+                (data.get("category") or "Uncategorized").strip(),
+                float(data["price"]), float(data["cost"]),
+                int(data["quantity"]), int(data.get("reorderLevel") or 0),
+                data.get("supplierId") or None,
+                now_iso(), now_iso(),
+            ),
+        )
+        conn.commit()
+        # re-fetch to include supplier_name
+        row = conn.execute(
+            """SELECT p.*, s.name AS supplier_name
+               FROM products p LEFT JOIN suppliers s ON s.id = p.supplier_id
+               WHERE p.id = ?""",
+            (cur.lastrowid,),
+        ).fetchone()
+
+    return jsonify(row_to_dict(row)), 201</pre>
+                    <script type="text/plain" id="raw-code-sol2">@app.route("/api/products", methods=["GET"])
+def list_products():
+    q = (request.args.get("q") or "").strip().lower()
+    category = (request.args.get("category") or "").strip().lower()
+
+    sql = """
+        SELECT p.*, s.name AS supplier_name
+        FROM products p
+        LEFT JOIN suppliers s ON s.id = p.supplier_id
+    """
+    clauses, params = [], []
+    if q:
+        clauses.append("(LOWER(p.name) LIKE ? OR LOWER(p.sku) LIKE ?)")
+        params += [f"%{q}%", f"%{q}%"]
+    if category and category != "all":
+        clauses.append("LOWER(p.category) = ?")
+        params.append(category)
+    if clauses:
+        sql += " WHERE " + " AND ".join(clauses)
+    sql += " ORDER BY p.created_at DESC"
+
+    with get_db() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return jsonify([row_to_dict(r) for r in rows])
+
+
+@app.route("/api/products", methods=["POST"])
+def create_product():
+    data = request.get_json(silent=True) or {}
+    error = validate_product(data, require_sku=True)
+    if error:
+        return jsonify({"error": error}), 400
+
+    sku = data["sku"].strip()
+
+    with get_db() as conn:
+        # Server-side duplicate SKU check — the client check
+        # from Stage 02, repeated at the boundary.
+        dup = conn.execute(
+            "SELECT id FROM products WHERE LOWER(sku) = LOWER(?)", (sku,)
+        ).fetchone()
+        if dup:
+            return jsonify({"error": f'SKU "{sku}" already exists.'}), 409
+
+        cur = conn.execute(
+            """INSERT INTO products
+               (sku, name, category, price, cost, quantity, reorder_level,
+                supplier_id, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                sku, data["name"].strip(),
+                (data.get("category") or "Uncategorized").strip(),
+                float(data["price"]), float(data["cost"]),
+                int(data["quantity"]), int(data.get("reorderLevel") or 0),
+                data.get("supplierId") or None,
+                now_iso(), now_iso(),
+            ),
+        )
+        conn.commit()
+        # re-fetch to include supplier_name
+        row = conn.execute(
+            """SELECT p.*, s.name AS supplier_name
+               FROM products p LEFT JOIN suppliers s ON s.id = p.supplier_id
+               WHERE p.id = ?""",
+            (cur.lastrowid,),
+        ).fetchone()
+
+    return jsonify(row_to_dict(row)), 201</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>Why a LEFT JOIN, not an INNER JOIN:
+
+  INNER JOIN returns only products that HAVE
+  a supplier. Products with supplier_id NULL
+  disappear from the list.
+
+  LEFT JOIN returns every product, and fills
+  supplier_name with NULL if there's no match.
+  The frontend renders "—" for NULL.
+
+  Inventory products may legitimately have no
+  supplier yet. LEFT JOIN preserves them.
+
+Why filter server-side, not client-side:
+
+  Stage 02 filtered in the browser:
+    state.products.filter(...)
+
+  That only works because all products were
+  already in memory. With 60,000 products,
+  shipping them all to the browser on every
+  page load is wasteful.
+
+  Stage 03 filters on the server:
+    GET /api/products?q=mouse&amp;category=electronics
+
+  The database does the WHERE. Only matching
+  rows cross the wire.
+
+  The "low stock" filter is the exception —
+  it's derived from quantity vs reorder_level,
+  not a stored column, so it can't be a WHERE
+  clause without computing it in SQL. For 6
+  products, filtering client-side is fine.
+  For 60,000, you'd add a computed column or
+  a view. That's Stage 04+.
+
+Why parameterized queries (? placeholders):
+
+  NEVER interpolate user input into SQL:
+
+    sql = f"SELECT * FROM products WHERE sku = '{sku}'"  ← SQL injection
+
+  A user typing  ' OR '1'='1  as a SKU breaks
+  the query. Use ? placeholders and pass a
+  tuple. SQLite escapes them.
+
+Why 409 for duplicate SKU, not 400:
+
+  HTTP status codes tell the client what kind
+  of error it is:
+    400 = bad request (validation failure)
+    404 = not found
+    409 = conflict (the request is valid, but
+          the server's current state conflicts)
+  
+  A duplicate SKU is a conflict: "you asked
+  to create SKU-001, but SKU-001 already
+  exists." 409 is the right code.
+
+Why re-fetch after INSERT:
+
+  The new row's supplier_name isn't in the
+  INSERT payload — it comes from the JOIN.
+  So we SELECT it back, including the JOIN,
+  and return the full shape to the client.
+  The client gets exactly what a subsequent
+  GET would return.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="sku">
+            <h2 class="section-title">✅ The SKU rule, twice</h2>
+            <p class="section-sub">Client check for UX. Schema constraint for integrity.</p>
+
+            <div class="concept-grid">
+                <div class="concept-card">
+                    <h4>Client (Stage 02)</h4>
+                    <p>Form submit handler checks <code>state.products.find(...)</code>. Shows a toast. Blocks the save. Instant, no network round-trip.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Server (Stage 03)</h4>
+                    <p><code>UNIQUE</code> on the column + explicit <code>SELECT</code> check + <code>409</code>. Holds even if someone bypasses the client.</p>
+                </div>
+            </div>
+
+            <div class="info-box mt-4">
+                <p class="text-sm text-slate-300 leading-relaxed">
+                    <strong>The rule:</strong> validation at every boundary. The client validates for UX. The server validates for integrity. The schema validates for absolute truth. If any one of the three is missing, the data can still be corrupted — but all three together make it very hard.
+                </p>
+            </div>
+        </section>
+
+        <section id="fetch">
+            <h2 class="section-title">✅ Frontend → <code>fetch()</code></h2>
+            <p class="section-sub">Same UI. Data layer swapped.</p>
+
+            <div class="code-block" id="sol3">
+                <div class="code-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <span class="lang">frontend.js</span>
+                    <button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+                </div>
+                <div class="code-output-tabs">
+                    <button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+                    <button onclick="switchCodeOutput('sol3', 'js', this)">Stage 02 vs Stage 03</button>
+                </div>
+                <div class="code-output-pane active" data-pane="ts">
+                    <pre id="code-sol3">// ─── Stage 02: localStorage ───
+function loadProducts() {
+  const raw = localStorage.getItem('mak-inventory-products');
+  state.products = raw ? JSON.parse(raw) : SAMPLE_DATA.slice();
+}
+function saveProducts() {
+  localStorage.setItem('mak-inventory-products', JSON.stringify(state.products));
+}
+
+// ─── Stage 03: fetch ───
+async function refreshProducts() {
+  try {
+    state.products = await apiListProducts();
+    render();
+  } catch (err) {
+    showToast('Could not load products: ' + err.message, true);
+  }
+}
+
+async function apiCreateProduct(data) {
+  return apiFetch('/api/products', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+async function apiFetch(path, options) {
+  const res = await fetch(API + path, Object.assign({
+    headers: { 'Content-Type': 'application/json' }
+  }, options || {}));
+  let body = null;
+  try { body = await res.json(); } catch (_) {}
+  if (!res.ok) {
+    const msg = (body &amp;&amp; body.error) ? body.error : ('Request failed (' + res.status + ')');
+    throw new Error(msg);
+  }
+  return body;
+}
+
+// ─── The CRUD call becomes async ───
+form.addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const data = { /* same object as Stage 02 */ };
+  if (!data.sku || !data.name) return;
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving…';
+  try {
+    if (fieldId.value) await apiUpdateProduct(fieldId.value, data);
+    else await apiCreateProduct(data);
+    closeModal();
+    await refreshProducts();   // re-fetch — the server is the source of truth now
+    showToast('Product saved.');
+  } catch (err) {
+    showToast(err.message, true);  // 409 duplicate SKU, 400 validation, etc.
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Save product';
+  }
+});
+
+// ─── Debounced search hits the server ───
+let searchTimer = null;
+document.getElementById('search-input').addEventListener('input', function (e) {
+  state.query = e.target.value;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(refreshProducts, 250);
+});</pre>
+                    <script type="text/plain" id="raw-code-sol3">// ─── Stage 02: localStorage ───
+function loadProducts() {
+  const raw = localStorage.getItem('mak-inventory-products');
+  state.products = raw ? JSON.parse(raw) : SAMPLE_DATA.slice();
+}
+function saveProducts() {
+  localStorage.setItem('mak-inventory-products', JSON.stringify(state.products));
+}
+
+// ─── Stage 03: fetch ───
+async function refreshProducts() {
+  try {
+    state.products = await apiListProducts();
+    render();
+  } catch (err) {
+    showToast('Could not load products: ' + err.message, true);
+  }
+}
+
+async function apiCreateProduct(data) {
+  return apiFetch('/api/products', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+async function apiFetch(path, options) {
+  const res = await fetch(API + path, Object.assign({
+    headers: { 'Content-Type': 'application/json' }
+  }, options || {}));
+  let body = null;
+  try { body = await res.json(); } catch (_) {}
+  if (!res.ok) {
+    const msg = (body && body.error) ? body.error : ('Request failed (' + res.status + ')');
+    throw new Error(msg);
+  }
+  return body;
+}
+
+// ─── The CRUD call becomes async ───
+form.addEventListener('submit', async function (e) {
+  e.preventDefault();
+  const data = { /* same object as Stage 02 */ };
+  if (!data.sku || !data.name) return;
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Saving…';
+  try {
+    if (fieldId.value) await apiUpdateProduct(fieldId.value, data);
+    else await apiCreateProduct(data);
+    closeModal();
+    await refreshProducts();   // re-fetch — the server is the source of truth now
+    showToast('Product saved.');
+  } catch (err) {
+    showToast(err.message, true);  // 409 duplicate SKU, 400 validation, etc.
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Save product';
+  }
+});
+
+// ─── Debounced search hits the server ───
+let searchTimer = null;
+document.getElementById('search-input').addEventListener('input', function (e) {
+  state.query = e.target.value;
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(refreshProducts, 250);
+});</script>
+                </div>
+                <div class="code-output-pane" data-pane="js">
+                    <pre>What changed:
+
+  Stage 02                    Stage 03
+  ─────────────────────────   ──────────────────────────
+  loadProducts() sync          refreshProducts() async
+  saveProducts() sync          await apiCreateProduct()
+  localStorage.getItem        fetch('/api/products')
+  JSON.parse                  res.json()
+  No error handling           try/catch around every call
+  Client is source of truth   Server is source of truth
+
+What did NOT change:
+
+  stockStatus(product)        ← identical
+  stockLabel(product)         ← identical
+  renderTable()               ← identical (one extra &lt;td&gt; for supplier)
+  renderKPIs()                ← identical math
+  formatMoney / formatNumber  ← identical
+  escapeHtml                  ← identical
+  The modal open/close logic  ← identical
+  The toast                   ← identical
+
+  Every piece of derived-state logic is
+  untouched. Only the transport layer moved.
+
+Why re-fetch after save:
+
+  Stage 02 mutated state.products in place:
+    state.products.unshift(newProduct);
+    render();
+
+  Stage 03 does not trust its own mutation.
+  The server may have:
+    → Generated the id
+    → Added created_at / updated_at
+    → Joined supplier_name
+    → Applied a UNIQUE conflict
+    → Normalized a category
+
+  So the client re-fetches and renders what
+  the server says is true. This is the
+  "server as source of truth" pattern. It's
+  one extra round-trip, but it guarantees
+  the UI matches reality.
+
+Why debounce the search:
+
+  Without debounce, typing "keyboard" fires
+  8 fetches. With a 250ms debounce, one fetch
+  fires after the user stops typing.
+
+  This is the same debounce pattern from the
+  JS problem solvers, applied to the network.
+  The cost of a keystroke is no longer a
+  round-trip.
+
+Error handling — the new requirement:
+
+  In Stage 02, localStorage almost never fails.
+  In Stage 03, the network can fail:
+    → Flask not running → connection refused
+    → 400 validation error
+    → 404 product deleted by someone else
+    → 409 duplicate SKU
+    → 500 server bug
+
+  Every fetch is wrapped in try/catch.
+  Every error shows a toast. The UI never
+  silently fails.
+
+  This is the real difference between a
+  demo and an app: the app handles failure.</pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="run">
+            <h2 class="section-title">✅ Run it</h2>
+            <p class="section-sub">Six files. Three commands.</p>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+                <div class="text-sm text-slate-300 mb-3"><strong class="text-white">Folder structure:</strong></div>
+                <pre class="text-xs text-slate-400 leading-relaxed">apps/inventory/downloads/backend/
+├── app.py                  ← Flask routes
+├── database.py             ← connection helpers
+├── schema.sql              ← two tables
+├── seed.py                 ← sample data
+├── requirements.txt        ← Flask + flask-cors
+├── README.md
+└── static/
+    └── inventory-stage-03.html   ← the frontend</pre>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+                <div class="text-sm text-slate-300 mb-3"><strong class="text-white">Commands:</strong></div>
+                <pre class="text-xs text-slate-400 leading-relaxed">cd apps/inventory/downloads/backend
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scriptsctivate
+pip install -r requirements.txt
+python seed.py                    # creates inventory.db
+python app.py                     # http://localhost:5000</pre>
+            </div>
+
+            <p class="text-sm text-slate-300 leading-relaxed mt-4">
+                Open <code>http://localhost:5000/</code> — Flask serves the frontend from <code>static/</code>. The demo talks to the same origin, so no CORS issues. If you open the HTML directly as a <code>file://</code> URL, the <code>API</code> constant in the frontend falls back to <code>http://localhost:5000</code>, and <code>flask-cors</code> allows the cross-origin request.
+            </p>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-4">
+                <div class="text-sm text-slate-300 mb-3"><strong class="text-white">Download the full backend:</strong></div>
+                <a href="/apps/inventory/downloads/backend/app.py" download class="inline-block bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:bg-cyan-400 transition-colors mr-2 mb-2">
+                    app.py →
+                </a>
+                <a href="/apps/inventory/downloads/backend/schema.sql" download class="inline-block bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:bg-cyan-400 transition-colors mr-2 mb-2">
+                    schema.sql →
+                </a>
+                <a href="/apps/inventory/downloads/backend/seed.py" download class="inline-block bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:bg-cyan-400 transition-colors mr-2 mb-2">
+                    seed.py →
+                </a>
+                <a href="/apps/inventory/downloads/backend/requirements.txt" download class="inline-block bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:bg-cyan-400 transition-colors mr-2 mb-2">
+                    requirements.txt →
+                </a>
+                <a href="/apps/inventory/downloads/backend/README.md" download class="inline-block bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:bg-cyan-400 transition-colors mb-2">
+                    README.md →
+                </a>
+            </div>
+
+            <div class="concept-grid mt-6">
+                <div class="concept-card">
+                    <h4>Test the API directly</h4>
+                    <p><code>curl http://localhost:5000/api/products</code>. Then <code>curl -X POST ... </code>. The API works without the UI — that's the point of a backend.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Test the SKU rule server-side</h4>
+                    <p>POST a product with SKU <code>SKU-001</code> twice via curl. The second returns <code>409</code> with an error message. The client check is bypassed; the server holds.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Test the foreign key</h4>
+                    <p>Delete a supplier row directly in SQLite. Products that referenced it now show <code>supplier_id = NULL</code> and render "—" in the Supplier column.</p>
+                </div>
+                <div class="concept-card">
+                    <h4>Break it</h4>
+                    <p>Stop Flask. Reload the frontend. You should see a toast "Could not load products". No silent failure. That's the error handling from this stage.</p>
+                </div>
+            </div>
+        </section>
+
+        <section>
+            <h2 class="section-title">⚠️ Common mistakes</h2>
+            <p class="section-sub">What to check if the app doesn't work.</p>
+
+            <div class="mistake">
+                <div class="mtitle">1. Forgetting <code>PRAGMA foreign_keys = ON</code></div>
+                <p>SQLite doesn't enforce foreign keys by default. Without the pragma, <code>ON DELETE SET NULL</code> doesn't fire. Fix: set it on every connection.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">2. Not wrapping fetch in try/catch</div>
+                <p>Connection refused, 400, 409, 500 — all need handling. Fix: every <code>await</code> is inside <code>try/catch</code>, every error shows a toast.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">3. Trusting the client check alone</div>
+                <p>Anyone can bypass the form with DevTools. Fix: <code>UNIQUE</code> on <code>sku</code> + server-side <code>SELECT</code> check + <code>409</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">4. Interpolating user input into SQL</div>
+                <p><code>f"WHERE sku = '{sku}'"</code> is SQL injection. Fix: <code>?</code> placeholders + tuple params.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">5. Mutating local state after save</div>
+                <p>The server may normalize, generate IDs, or reject. Fix: re-fetch after every successful write.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">6. Not debouncing the search</div>
+                <p>Every keystroke fires a fetch. Fix: 250ms debounce before calling <code>refreshProducts</code>.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">7. Forgetting <code>Content-Type: application/json</code></div>
+                <p><code>request.get_json()</code> returns <code>None</code> and validation fails. Fix: the <code>apiFetch</code> helper sets the header on every call.</p>
+            </div>
+            <div class="mistake">
+                <div class="mtitle">8. Running <code>app.py</code> before <code>seed.py</code></div>
+                <p>The DB doesn't exist; queries fail. Fix: <code>python seed.py</code> first. The app prints a warning if <code>inventory.db</code> is missing.</p>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What changes from Stage 02 to Stage 03?</summary>
+                    <p class="mt-2 text-sm text-slate-300">The UI barely changes. The derived-state logic (stockStatus, renderKPIs, getFiltered) is identical. What changes is where the data lives: localStorage.getItem/setItem is replaced with fetch() calls to Flask. The CRUD functions become async, and every state change re-fetches from the server.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why two tables instead of one?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Products have a supplier. Storing the supplier name on every product row repeats it dozens of times and risks inconsistency. A suppliers table with products.supplier_id as a foreign key stores each supplier once. This is normalization — the first normal form of database design. The CRM only had contacts because there was nothing to join to. Inventory has suppliers.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why keep the client-side SKU check if the server enforces UNIQUE?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Two different jobs. The client check is UX: instant feedback without a round-trip. The server UNIQUE constraint is integrity: it's the last line of defense. If someone opens DevTools and calls the API directly, the client check is bypassed — only the server check holds. Both are needed.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">What is CORS and why is flask-cors needed here?</summary>
+                    <p class="mt-2 text-sm text-slate-300">CORS is a browser security rule: a page from one origin cannot fetch from a different origin by default. If you open the demo HTML as a file:// URL and it tries to fetch http://localhost:5000, the browser blocks it unless the server sends Access-Control-Allow-Origin headers. flask-cors adds those headers. If you serve the HTML from Flask itself, CORS isn't strictly needed — but it supports the file:// workflow.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why ON DELETE SET NULL on the foreign key?</summary>
+                    <p class="mt-2 text-sm text-slate-300">If a supplier is deleted, its products shouldn't be deleted too — they still exist, they just have no supplier. ON DELETE SET NULL makes products.supplier_id become NULL when the supplier disappears. ON DELETE CASCADE would delete the products (usually wrong for inventory). ON DELETE RESTRICT would refuse the delete (inconvenient). SET NULL is the safest default for a nullable relationship.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why debounce the search input?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Without debouncing, every keystroke fires a fetch request. Typing "keyboard" would fire 8 requests. With a 250ms debounce, only the final keystroke fires. This is the same debounce pattern from the JavaScript problem solvers — now applied to network requests instead of DOM updates.</p>
+                </details>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Continue learning</h2>
+            <a href="/apps/inventory/stage-04-advanced.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+                <div class="font-semibold text-white text-sm">📊 Next: Stage 04 — Advanced queries &amp; supplier CRUD</div>
+                <div class="text-xs text-slate-400 mt-1">Full supplier management, a paginated product list, server-side sorting, a stock-movement log table (a third table, a second FK), and aggregate endpoints for the KPIs. 3–4 hours.</div>
+            </a>
+            <p class="text-xs text-slate-400 mb-2">Or explore related backend concepts:</p>
+            <a href="/courses/python/problems/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">🐍 Python problem solvers</div>
+                <div class="text-xs text-slate-400 mt-1">Real answers to real queries — decorators, generators, context managers, Flask patterns, and more</div>
+            </a>
+        </section>
+
+        <a href="/apps/inventory/index.html" class="back-link">← Back to Inventory build hub</a>
+
+        <div class="lang-signature">
+            <span class="dot"></span> Inventory Stage 03 · Backend <span class="dot"></span>
+        </div>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/assets/courses.js" defer></script>
+    <script>
+    (function () {
+        if (typeof window.switchCodeOutput !== 'function') {
+            window.switchCodeOutput = function (blockId, paneName, btn) {
+                var block = document.getElementById(blockId);
+                if (!block) block = btn.closest('.code-block');
+                if (!block) return;
+                block.querySelectorAll('.code-output-tabs button').forEach(function (t) {
+                    t.classList.remove('active');
+                });
+                btn.classList.add('active');
+                block.querySelectorAll('.code-output-pane').forEach(function (p) {
+                    p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+                });
+            };
+        }
+        if (typeof window.copyCode !== 'function') {
+            window.copyCode = function (id, btn) {
+                var raw = document.getElementById('raw-' + id);
+                var text = raw ? raw.textContent : document.getElementById(id).textContent;
+                var done = function () {
+                    var o = btn.textContent;
+                    btn.textContent = 'Copied!';
+                    setTimeout(function () { btn.textContent = o; }, 1500);
+                };
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(done);
+                } else {
+                    var ta = document.createElement('textarea');
+                    ta.value = text;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    try { document.execCommand('copy'); } catch (e) {}
+                    document.body.removeChild(ta);
+                    done();
+                }
+            };
+        }
+    })();
+    </script>
+</body>
+</html>
