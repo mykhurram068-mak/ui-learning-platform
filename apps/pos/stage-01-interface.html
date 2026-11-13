@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>POS Stage 01 — Interface (Static Shell) (2026)</title>
+<meta name="description" content="Stage 01 of the POS & Billing build: the static shell. A product grid, a live-looking cart, totals, a Charge button, and an 80mm receipt modal. Layout only — no data, no logic.">
+<meta name="keywords" content="pos app tutorial, point of sale ui, cashier interface design, receipt layout 80mm, static shell html css">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="POS Stage 01 — Interface">
+<meta property="og:description" content="The static POS shell: product grid, cart, totals, Charge button, 80mm receipt modal.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/apps/pos/stage-01-interface.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="POS Stage 01 — Interface">
+<meta name="twitter:description" content="The static POS shell — product grid, cart, totals, receipt modal.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/apps/pos/stage-01-interface.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "POS Stage 01 — Interface",
+"description": "The static shell of a POS app: product grid, cart panel, totals block, Charge button, and an 80mm thermal receipt modal. Layout only.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-13",
+"dateModified": "2026-11-13",
+"proficiencyLevel": "Beginner",
+"dependencies": "HTML, CSS"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why a two-column layout instead of a dashboard?","acceptedAnswer":{"@type":"Answer","text":"A POS screen has one job: let a cashier build a cart in seconds. A dashboard is for browsing and reading. The POS layout puts the product grid on the left (where the cashier's eye scans for items) and the cart on the right (where the cashier confirms what's been added). The cart is always visible — never behind a tab or a modal — because the cashier needs to see the running total at all times. This is the opposite of a dashboard, which can hide panels behind navigation."}},
+{"@type":"Question","name":"Why is the barcode input always focused?","acceptedAnswer":{"@type":"Answer","text":"Because a barcode scanner is a keyboard. It types the barcode characters followed by Enter. If the barcode input isn't focused, the scanner types into nothing (or worse, into the wrong field). The POS must keep focus on the barcode input at all times — after every sale, after every modal close, after every button click. In Stage 02, we add focus management: every action that completes re-focuses the barcode input so the next scan lands correctly. This is the single most important UX rule of a POS."}},
+{"@type":"Question","name":"Why is the cart populated with sample lines in Stage 01?","acceptedAnswer":{"@type":"Answer","text":"Because an empty cart lies about the layout. Building the shell with real line items forces you to get spacing, alignment, and typography right at the sizes that matter — 3 lines, 6 lines, 12 lines. An empty cart makes the shell look correct when it isn't. The lesson page shows the empty state separately so you can see both. This is the same reason the Inventory Stage 01 shell used sample products in the table."}},
+{"@type":"Question","name":"Why is the Charge button labeled 'Charge · $202.33' instead of just 'Charge'?","acceptedAnswer":{"@type":"Answer","text":"Because the cashier must confirm the amount before charging. A button that says 'Charge' forces the cashier to look at the total separately, then look back at the button, then click. A button that says 'Charge · $202.33' lets the cashier confirm the amount and the action in the same glance. This is a POS convention borrowed from card terminals, which show the amount on the confirm button for exactly the same reason."}},
+{"@type":"Question","name":"Why does the receipt use monospace on white?","acceptedAnswer":{"@type":"Answer","text":"Because the receipt is a paper metaphor, not a dark-theme card. Thermal receipt printers use monospace fonts (each character is the same width, which makes columns align). The on-screen receipt mimics this so the cashier sees what the printed receipt will look like. In Stage 04, we add @media print rules so window.print() produces an actual 80mm receipt with the same layout."}},
+{"@type":"Question","name":"What does Stage 01 NOT do?","acceptedAnswer":{"@type":"Answer","text":"No data loading, no cart state, no totals recomputation, no sale submission. The sample cart lines are static HTML. Pressing Enter in the barcode field opens the receipt modal as a demo — that's the only JavaScript in the file, and Stage 02 replaces it entirely. Stage 01 is a layout exercise: build the shell that Stage 02 fills in."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">POS &amp; Billing Build</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 01 · Interface</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+<a href="/apps/pos/index.html" style="color:#7ee8fc;">POS &amp; Billing</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Stage 01</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🧾 Stage 01 · 2 hours</div>
+<h1>Build the counter.<br><span class="py-accent">Grid. Cart. Charge.</span></h1>
+<p class="lead">
+The static shell of a POS app. A product grid on the left, a cart on the right, totals at the bottom, a big Charge button, and an 80mm thermal receipt modal. No data, no logic, no JavaScript beyond a demo focus ring. Just the layout that Stage 02 will bring to life.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 2 hours</span>
+<span><i class="fa-solid fa-signal"></i> Beginner</span>
+<span><i class="fa-solid fa-code"></i> HTML · CSS</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/apps/pos/index.html">POS hub</a>
+<a href="#layout">The layout</a>
+<a href="#why">Why POS is different</a>
+<a href="#parts">The four parts</a>
+<a href="#receipt">The receipt</a>
+<a href="#full">Full file</a>
+<a href="#next">Next: Stage 02</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> A two-column CSS grid. Left: a scrollable product grid with category chips and a product count. Right: a fixed-width cart panel with line items (name, qty ±, unit price, line total, remove), a totals block (subtotal, editable tax rate, tax amount, grand total), and a Charge button whose label includes the amount. A top bar with a barcode input that's always focused. A receipt modal styled as 80mm thermal paper. That's Stage 01 — the shell, built to be filled.
+</p>
+</div>
+
+<section id="layout">
+<h2 class="section-title">✅ The layout</h2>
+<p class="section-sub">Two columns. One job.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Top bar (56px)</h4>
+<p>Brand mark, register name, barcode input (flexes to fill space, max 480px), cashier chip, history button. One row. No navigation.</p>
+</div>
+<div class="concept-card">
+<h4>Catalog (left, flexes)</h4>
+<p>Category chips at the top, product count on the right, then an auto-fill grid of product cards. Scrolls independently. Min card width 160px, so a 900px screen shows 4–5 cards per row.</p>
+</div>
+<div class="concept-card">
+<h4>Cart (right, 400px)</h4>
+<p>Fixed width. Header with item count. Scrollable lines. Totals block pinned to the bottom. Action bar below the totals.</p>
+</div>
+<div class="concept-card">
+<h4>Nothing else</h4>
+<p>No sidebar. No footer. No floating action button. The screen is the app. Every pixel is either a product, a cart line, or an action.</p>
+</div>
+</div>
+
+<div class="code-block mt-6" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">shell.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">.pos-shell {
+  display: grid;
+  grid-template-rows: var(--topbar-height) 1fr;
+  grid-template-columns: 1fr var(--cart-width);
+  grid-template-areas:
+    "topbar topbar"
+    "catalog cart";
+  height: 100vh;
+}
+
+.pos-topbar  { grid-area: topbar;  }
+.pos-catalog { grid-area: catalog; overflow-y: auto; }
+.pos-cart    { grid-area: cart;    display: flex; flex-direction: column; min-height: 0; }
+
+/* Cart is a flex column: header (fixed), lines (flex + scroll),
+   totals (fixed), actions (fixed). Only the lines scroll. */
+.pos-cart-header { flex-shrink: 0; }
+.pos-cart-lines  { flex: 1; overflow-y: auto; min-height: 0; }
+.pos-totals      { flex-shrink: 0; }
+.pos-actions     { flex-shrink: 0; }</pre>
+<script type="text/plain" id="raw-code-sol1">.pos-shell {
+  display: grid;
+  grid-template-rows: var(--topbar-height) 1fr;
+  grid-template-columns: 1fr var(--cart-width);
+  grid-template-areas:
+    "topbar topbar"
+    "catalog cart";
+  height: 100vh;
+}
+
+.pos-topbar  { grid-area: topbar;  }
+.pos-catalog { grid-area: catalog; overflow-y: auto; }
+.pos-cart    { grid-area: cart;    display: flex; flex-direction: column; min-height: 0; }
+
+/* Cart is a flex column: header (fixed), lines (flex + scroll),
+   totals (fixed), actions (fixed). Only the lines scroll. */
+.pos-cart-header { flex-shrink: 0; }
+.pos-cart-lines  { flex: 1; overflow-y: auto; min-height: 0; }
+.pos-totals      { flex-shrink: 0; }
+.pos-actions     { flex-shrink: 0; }</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why grid for the shell, flex for the cart:
+
+  The shell has two axes that matter:
+    rows    → topbar (fixed) + content (flex)
+    columns → catalog (flex) + cart (fixed)
+
+  CSS grid expresses both in one place. No
+  wrapper divs, no calc(), no media-query
+  hacks. Just:
+    grid-template-rows:    56px 1fr
+    grid-template-columns: 1fr 400px
+
+  The cart interior is the opposite problem:
+  one axis (vertical), four zones, and only
+  one zone scrolls. Flex column with a
+  flex:1 middle is the correct tool:
+    header    flex-shrink: 0
+    lines     flex: 1; overflow-y: auto
+    totals    flex-shrink: 0
+    actions   flex-shrink: 0
+
+  If the lines didn't have min-height: 0,
+  the flex item would refuse to shrink below
+  its content height and the scroll wouldn't
+  kick in. This is the classic flex-overflow
+  gotcha — the min-height: 0 is the fix.
+
+Why height: 100vh on the shell:
+
+  A POS screen fills the viewport. It's not
+  a document you scroll — it's an app you
+  operate. The catalog scrolls internally;
+  the page itself does not. So:
+    html, body { height: 100%; overflow: hidden; }
+    .pos-shell { height: 100vh; }
+
+  The alternative — a scrolling page with a
+  sticky cart — wastes vertical space and
+  makes the cart jump as you scroll. Wrong
+  for a POS.
+
+Why var(--cart-width) and var(--topbar-height):
+
+  Both dimensions are used in more than one
+  place. The cart width is referenced by the
+  grid and by the responsive breakpoint. The
+  topbar height is used by the grid and by
+  any sticky/fixed child that needs to offset
+  for it. Custom properties make that one
+  edit, not two.
+
+The responsive collapse:
+
+  Below 900px, the shell becomes one column:
+    grid-template-columns: 1fr
+    grid-template-rows: 56px 1fr auto
+    areas: "topbar" "catalog" "cart"
+
+  The cart moves below the catalog and caps
+  at 50vh so both are visible. This is a
+  tablet-in-landscape layout — small screens
+  aren't the primary POS target, but they
+  shouldn't break.
+
+  Below 600px, the register label and the
+  cashier name hide (icons only). The product
+  grid drops to 140px minimum. Still usable.</pre>
+</div>
+</div>
+</section>
+
+<section id="why">
+<h2 class="section-title">✅ Why POS is different from Inventory</h2>
+<p class="section-sub">Same palette. Different physics.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Inventory reads</h4>
+<p>The stock manager browses tables, sorts, filters, edits. Seconds per action is fine. The screen is a document.</p>
+</div>
+<div class="concept-card">
+<h4>POS taps</h4>
+<p>The cashier scans, taps, charges. A queue is forming. Milliseconds matter. The screen is a control panel.</p>
+</div>
+<div class="concept-card">
+<h4>Inventory hides</h4>
+<p>Panels live behind tabs. The table paginates. There's always more to explore.</p>
+</div>
+<div class="concept-card">
+<h4>POS shows</h4>
+<p>The cart is always visible. The total is always visible. The Charge button is always visible. No navigation during a sale.</p>
+</div>
+</div>
+
+<div class="info-box mt-4">
+<p class="text-sm text-slate-300 leading-relaxed">
+<strong>The rule:</strong> the POS screen has exactly three persistent regions — products, cart, actions — and none of them can be hidden during a sale. If a layout decision would require the cashier to navigate away from the cart to complete a transaction, it's the wrong decision. This is why POS apps don't have sidebars.
+</p>
+</div>
+</section>
+
+<section id="parts">
+<h2 class="section-title">✅ The four parts</h2>
+<p class="section-sub">Top bar, product grid, cart, receipt.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>1. The top bar</h4>
+<p>56px. Brand (28px mark + text), register label, barcode input (flex, max 480px, monospace, autofocus), cashier chip, history button. The barcode input is the most important element — see below.</p>
+</div>
+<div class="concept-card">
+<h4>2. The product grid</h4>
+<p><code>repeat(auto-fill, minmax(160px, 1fr))</code>. Each card: SKU (mono, dim), name (bold, flex-1), price (large, accent), stock count. Out-of-stock cards get <code>.is-out</code> (opacity 0.4, disabled) plus an "Out" tag in the corner.</p>
+</div>
+<div class="concept-card">
+<h4>3. The cart</h4>
+<p>Header with item count. Lines with name, qty ±, unit price as <code>&lt;small&gt;</code>, line total. Remove button as a small × in the top right of each line. Empty state with an icon, title, and hint.</p>
+</div>
+<div class="concept-card">
+<h4>4. The receipt</h4>
+<p>White background, monospace, 80mm-width metaphor. Header (store name, address, date, sale #, cashier), line items, totals with a heavy top border on the grand total, payment lines, footer message.</p>
+</div>
+</div>
+
+<h3 class="text-lg font-bold text-white mt-6 mb-2">The barcode input, and why focus matters</h3>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+A barcode scanner is a keyboard. It types the barcode characters and presses Enter. If the input isn't focused, the scanner types into nothing. The POS must keep focus on the barcode input <em>at all times</em> — after every sale, after every modal close, after every button click.
+</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">barcode.html</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">&lt;label class="pos-barcode" id="barcode-wrap"&gt;
+  &lt;span class="pos-barcode-icon"&gt;⌗&lt;/span&gt;
+  &lt;input
+    id="barcode-input"
+    type="text"
+    placeholder="Scan barcode or type SKU…"
+    autocomplete="off"
+    autofocus
+  &gt;
+&lt;/label&gt;</pre>
+<script type="text/plain" id="raw-code-sol2"><label class="pos-barcode" id="barcode-wrap">
+  <span class="pos-barcode-icon">⌗</span>
+  <input
+    id="barcode-input"
+    type="text"
+    placeholder="Scan barcode or type SKU…"
+    autocomplete="off"
+    autofocus
+  >
+</label></script>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>Why <code>autocomplete="off"</code>:</strong> browsers love to autofill. A POS barcode field that autofills a previous value is a disaster — the cashier scans an item and gets a stale barcode. Explicit <code>off</code> on this field is non-negotiable.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mt-2">
+<strong>Why <code>autofocus</code>:</strong> so the first scan after page load lands correctly. In Stage 02, we add explicit re-focus after every action — <code>autofocus</code> only fires once.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mt-2">
+<strong>Why the wrapper has <code>.is-focused</code>:</strong> the input itself is transparent inside a styled label. The focus ring belongs to the label, not the input. A tiny <code>focus</code>/<code>blur</code> listener toggles the class. This is a Stage 01 convenience — Stage 02 uses the focus state to decide whether a keystroke should go to the barcode buffer or to a search field.
+</p>
+</section>
+
+<section id="receipt">
+<h2 class="section-title">✅ The receipt — a paper metaphor</h2>
+<p class="section-sub">White. Monospace. Print-ready.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The receipt modal is not a dark-theme card with a white background. It's a <em>paper</em> metaphor — monospace font on white, dashed rules, a heavy top border above the grand total, and a centered footer. It looks like what it will print.
+</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">receipt.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">.pos-receipt {
+  padding: 1.5rem;
+  background: white;
+  color: #000;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 1rem;
+  border-radius: 4px;
+}
+
+.pos-receipt-hr {
+  border: none;
+  border-top: 1px dashed #999;
+  margin: 0.75rem 0;
+}
+
+.pos-receipt-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.pos-receipt-line span:last-child {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.pos-receipt-line.is-grand {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #000;
+}</pre>
+<script type="text/plain" id="raw-code-sol3">.pos-receipt {
+  padding: 1.5rem;
+  background: white;
+  color: #000;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 1rem;
+  border-radius: 4px;
+}
+
+.pos-receipt-hr {
+  border: none;
+  border-top: 1px dashed #999;
+  margin: 0.75rem 0;
+}
+
+.pos-receipt-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.pos-receipt-line span:last-child {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.pos-receipt-line.is-grand {
+  font-size: 0.9375rem;
+  font-weight: 800;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #000;
+}</script>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>Why monospace:</strong> thermal printers use fixed-width fonts. A proportional font on screen would show a receipt the printer can't reproduce. The on-screen receipt is a preview, not a decoration.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mt-2">
+<strong>Why <code>font-variant-numeric: tabular-nums</code>:</strong> even within monospace, prices should align column-perfect. <code>tabular-nums</code> forces digits to equal widths so <code>$9.99</code> and <code>$89.00</code> line up on the decimal. This applies everywhere prices appear — cart lines, totals, receipt.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mt-2">
+<strong>Why the <code>margin: 1rem</code>:</strong> the receipt is a card inside the modal, not the modal itself. The margin creates a paper-inside-a-frame look. In Stage 04, <code>@media print</code> removes the margin so the receipt fills the printed page at 80mm width.
+</p>
+</section>
+
+<section id="full">
+<h2 class="section-title">✅ The full file</h2>
+<p class="section-sub">One HTML file, ready to open.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The complete file is at <code>/apps/pos/downloads/pos-stage-01.html</code>. It's the same file the earlier sections described, fully assembled. Open it in a browser — the barcode input takes focus on load, pressing Enter opens the receipt modal, everything else is static.
+</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-4">
+<div class="text-sm text-slate-300 mb-3"><strong class="text-white">Download:</strong></div>
+<a href="/apps/pos/downloads/pos-stage-01.html" download class="inline-block bg-cyan-500 text-slate-950 font-bold px-4 py-2 rounded-lg text-sm hover:bg-cyan-400 transition-colors">
+Download pos-stage-01.html →
+</a>
+<p class="text-xs text-slate-500 mt-3">Right-click, save link as. Or open in a new tab and use File → Save Page.</p>
+</div>
+
+<div class="concept-grid mt-6">
+<div class="concept-card">
+<h4>Look at it</h4>
+<p>Open the file. Notice the cart is populated — this is intentional. An empty cart lies about the layout. The empty state is behind the Remove buttons.</p>
+</div>
+<div class="concept-card">
+<h4>Click around</h4>
+<p>Press Enter in the barcode field. The receipt modal opens. Close it with × or by clicking outside. Notice the receipt looks like paper, not a dark card.</p>
+</div>
+<div class="concept-card">
+<h4>Resize it</h4>
+<p>Narrow the window to under 900px. The cart drops below the catalog and caps at 50vh. Under 600px, the register label and cashier name hide. No broken layout.</p>
+</div>
+<div class="concept-card">
+<h4>Break it (intentionally)</h4>
+<p>Tab away from the barcode field. The focus ring goes away. Press Enter — nothing happens. This is the failure mode Stage 02 fixes: focus is always restored.</p>
+</div>
+</div>
+</section>
+
+<section id="next">
+<h2 class="section-title">➡️ Next: Stage 02 — Interactions</h2>
+<p class="section-sub">The shell comes alive.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stage 02 makes the cart real. Tap a product → it's added. Adjust qty → line total and grand total update. Remove → the line goes away. Charge → a payment modal with cash tendered and change due. Complete sale → the cart clears, a receipt prints, the cart persists in <code>localStorage</code> across reloads.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The hard problems in Stage 02:
+</p>
+<ul class="text-sm text-slate-300 leading-relaxed space-y-1" style="padding-left: 1.5rem; list-style: disc;">
+<li>Cart state as a single object, not scattered DOM mutations</li>
+<li>Derived totals — subtotal, tax, grand total computed from lines, never stored</li>
+<li>Focus management — the barcode input regains focus after every action</li>
+<li>Barcode scan handling — a full string + Enter in one burst, indistinguishable from typing</li>
+<li><code>localStorage</code> persistence — close the tab mid-sale, reopen, cart is still there</li>
+<li>Tax rounding — per line or on the subtotal? Pick one, document it, be consistent</li>
+</ul>
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+That's Stage 02. Ready when you are.
+</p>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue the build</h2>
+<a href="/apps/pos/stage-02-interactions.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">⚡ Next: Stage 02 — Interactions</div>
+<div class="text-xs text-slate-400 mt-1">Client-side cart with live totals, <code>localStorage</code> persistence, payment modal, receipt preview. 3–4 hours.</div>
+</a>
+<a href="/apps/pos/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">🧾 Back to the POS hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages in one place, with the roadmap and the data model.</div>
+</a>
+</section>
+
+<a href="/apps/pos/index.html" class="back-link">← Back to POS &amp; Billing hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> POS Stage 01 · Interface <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
