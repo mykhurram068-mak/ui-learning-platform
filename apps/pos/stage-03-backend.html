@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>POS Stage 03 — Backend (Atomic Checkout + Flask + SQLite) (2026)</title>
+  <meta name="description" content="Stage 03 of the POS &amp; Billing build: a Flask + SQLite backend with three tables (sales, sale_lines, payments), an atomic checkout that either fully commits or fully rolls back, price snapshotting on sale lines, and RESTRICT on sold products.">
+  <meta name="keywords" content="pos backend flask, atomic checkout transaction, sqlite sales schema, price snapshot accounting, flask sqlite transaction">
+  <meta name="author" content="MAK Studio">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="POS Stage 03 — Backend">
+  <meta property="og:description" content="Atomic checkout, three tables, price snapshotting, shared catalog with Inventory.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://makuistudio.com/apps/pos/stage-03-backend.html">
+  <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+  <meta property="og:site_name" content="MAK UI Studio">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="POS Stage 03 — Backend">
+  <meta name="twitter:description" content="Atomic checkout, three tables, price snapshotting.">
+  <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+  <link href="/favicon.png" rel="icon" type="image/png">
+  <link rel="canonical" href="https://makuistudio.com/apps/pos/stage-03-backend.html">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "headline": "POS Stage 03 — Backend",
+    "description": "Flask + SQLite backend: three POS tables with two FKs, atomic checkout, price snapshotting, RESTRICT on sold products.",
+    "author": { "@type": "Organization", "name": "MAK Studio" },
+    "datePublished": "2026-11-14",
+    "dateModified": "2026-11-14",
+    "proficiencyLevel": "Intermediate",
+    "dependencies": "Python, Flask, SQLite, JavaScript"
+  }
+  </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {"@type":"Question","name":"Why is the checkout one transaction instead of separate API calls?","acceptedAnswer":{"@type":"Answer","text":"Because a sale touches five tables: sales, sale_lines, payments, stock_movements, and products. If you split them into separate API calls — create sale, then add lines, then add payment, then update stock — a failure halfway through leaves the database in a corrupt state. A sale with no payment, or a payment with no sale, or stock decremented with no sale to explain it. One transaction means all five writes commit together or none of them do. The invariant is: a sale in the database is a complete sale."}},
+      {"@type":"Question","name":"Why snapshot unit_price on the sale line instead of looking it up?","acceptedAnswer":{"@type":"Answer","text":"Because prices change. If you store only product_id and look up the price at report time, then raising a product's price tomorrow rewrites every past report — yesterday's sale suddenly shows today's price. That's a financial data integrity bug. The sale_line stores unit_price at the moment of sale. The receipt, the report, the refund calculation all use that snapshot. The current catalog price is irrelevant to a completed sale. Same reasoning for product_name — if the product is renamed, the receipt still shows what the customer bought."}},
+      {"@type":"Question","name":"Why RESTRICT on sale_lines.product_id?","acceptedAnswer":{"@type":"Answer","text":"You cannot delete a product that has been sold. If you could, the sale_line would reference a nonexistent product_id — every report, refund, and receipt rebuild would break. RESTRICT refuses the DELETE with a foreign key error. Products can be archived instead (a flag on the products table) but not deleted once sold. This is the opposite of stock_movements (CASCADE) — a stock movement has no meaning without its product, but a sale line is a financial record that must survive."}},
+      {"@type":"Question","name":"Why does the client still compute totals if the server also computes them?","acceptedAnswer":{"@type":"Answer","text":"The client computes totals for display — the running cart subtotal, the tax amount, the Charge button label. It needs those numbers in real time, on every keystroke. The server computes totals for the actual sale — the values that go into the database, the receipt, and every report. The client values are a preview; the server values are the truth. If they disagree (rare, but possible if the client's catalog is stale), the server wins — the receipt shows the server's number, not the client's. This is 'never trust the client with money math.'"}},
+      {"@type":"Question","name":"What happens to the cart if the checkout fails?","acceptedAnswer":{"@type":"Answer","text":"The cart survives. This is the critical UX of a POS. If the server returns 409 because a product sold out while the cashier was in the payment modal, the cart is preserved, the catalog is refreshed, and the cart is reconciled against the new stock — sold-out lines are removed with a toast explaining why, and quantities are capped at the new stock. The cashier can retry with the corrected cart. The worst possible UX is 'checkout failed, cart cleared, start over.' That's what Stage 02 did (silently) and what Stage 03 explicitly fixes."}},
+      {"@type":"Question","name":"Why does the POS share inventory's database instead of having its own?","acceptedAnswer":{"@type":"Answer","text":"Because the catalog is the same. If the POS had its own products table, changing a price in the inventory app wouldn't affect the POS — you'd have two catalogs that drift. Sharing the database means one source of truth: the inventory owns the catalog, the POS reads it. And the POS writes stock_movements rows on every sale, so the inventory app's audit log shows POS sales alongside manual adjustments. This is the honest architecture for a real system where a store has both a back-office inventory app and a front-of-house POS."}}
+    ]
+  }
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="/style.css" rel="stylesheet">
+  <link href="/assets/courses.css" rel="stylesheet">
+  <link href="/assets/language-react.css" rel="stylesheet">
+  <style>
+    .code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+    .code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+    .code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+    .code-output-pane { display: none; }
+    .code-output-pane.active { display: block; }
+  </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+  <nav class="navbar">
+    <div class="nav-container">
+      <a class="logo" href="index.html">✨ MAK UI Studio</a>
+      <div id="navbar-placeholder"></div>
+      <script src="/navbar.js"></script>
+    </div>
+  </nav>
+
+  <section class="p-8 text-center">
+    <h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">POS &amp; Billing Build</h2>
+    <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 03 · Backend</p>
+  </section>
+
+  <main class="p-6 max-w-4xl mx-auto space-y-6">
+    <div class="text-xs" style="color:#7d8fa9;">
+      <a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+      <a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+      <a href="/apps/pos/index.html" style="color:#7ee8fc;">POS &amp; Billing</a> ›
+      <span style="color:#FFFFFF; font-weight:700;">Stage 03</span>
+    </div>
+
+    <div class="py-hero">
+      <div class="badge">🐍 Stage 03 · 3–4 hours</div>
+      <h1>Make the sale real.<br><span class="py-accent">Atomic checkout. Or nothing.</span></h1>
+      <p class="lead">
+        The cart moves to the server. Three new tables — <code>sales</code>, <code>sale_lines</code>, <code>payments</code> — with two foreign keys. The checkout is a <strong>single transaction</strong> that either commits all five writes (sale, lines, payment, stock movements, quantity updates) or rolls back every one. Prices and names are <strong>snapshotted</strong> on each line, so yesterday's receipts don't change when today's prices do. The catalog is read from the same database the inventory app uses. And if the network fails mid-checkout, the cart survives — the cashier retries, the cart reconciles, nothing vanishes.
+      </p>
+      <div class="meta">
+        <span><i class="fa-solid fa-clock"></i> 3–4 hours</span>
+        <span><i class="fa-solid fa-signal"></i> Intermediate</span>
+        <span><i class="fa-solid fa-code"></i> Python · Flask · SQLite · transactions</span>
+      </div>
+    </div>
+
+    <div class="quick-nav">
+      <a href="/apps/pos/index.html">POS hub</a>
+      <a href="#schema">The 3 tables</a>
+      <a href="#checkout">The atomic checkout</a>
+      <a href="#snapshot">Price snapshotting</a>
+      <a href="#restrict">RESTRICT vs CASCADE</a>
+      <a href="#shared">Shared catalog</a>
+      <a href="#failure">Failure handling</a>
+      <a href="#run">Run it</a>
+      <a href="#next">Next: Stage 04</a>
+    </div>
+
+    <div class="info-box">
+      <p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+        <strong>Short answer:</strong> Three tables. <code>sales(id, cashier, subtotal, tax_rate, tax_total, grand_total, status, created_at, paid_at)</code>, <code>sale_lines(id, sale_id FK, product_id FK, product_name, qty, unit_price, line_total, created_at)</code> with <code>ON DELETE RESTRICT</code> on <code>product_id</code>, and <code>payments(id, sale_id FK, method, amount, tendered, change, created_at)</code>. The checkout is <code>with get_db() as conn:</code> — validate lines, compute totals server-side, insert sale → lines → payment → movements → quantity updates, commit. Any failure rolls back. The frontend posts the cart, gets a sale back, shows the receipt from the server response.
+      </p>
+    </div>
+
+    <section id="schema">
+      <h2 class="section-title">✅ The three tables</h2>
+      <p class="section-sub">Two foreign keys. One financial record.</p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>sales</h4>
+          <p>One row per transaction. Cached totals (<code>subtotal</code>, <code>tax_total</code>, <code>grand_total</code>) for fast history queries. <code>status</code> is <code>'paid'</code> now; Stage 04 adds <code>'held'</code> and <code>'voided'</code>.</p>
+        </div>
+        <div class="concept-card">
+          <h4>sale_lines</h4>
+          <p>One row per line item. <code>product_id</code> FK with <strong>RESTRICT</strong>. <code>product_name</code> and <code>unit_price</code> are <strong>snapshots</strong>. This is the third table — non-negotiable.</p>
+        </div>
+        <div class="concept-card">
+          <h4>payments</h4>
+          <p>One row per payment. <code>method</code> (cash/card/other), <code>amount</code>, plus <code>tendered</code> and <code>change</code> for cash sales. Stage 04 adds split payments.</p>
+        </div>
+      </div>
+
+      <div class="code-block mt-6" id="sol1">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">schema.sql</span>
+          <button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+        </div>
+        <div class="code-output-tabs">
+          <button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">SQL</button>
+          <button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">CREATE TABLE sales (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  cashier      TEXT NOT NULL DEFAULT 'Alex Rivera',
+  subtotal     REAL NOT NULL CHECK (subtotal >= 0),
+  tax_rate     REAL NOT NULL CHECK (tax_rate >= 0),
+  tax_total    REAL NOT NULL CHECK (tax_total >= 0),
+  grand_total  REAL NOT NULL CHECK (grand_total >= 0),
+  status       TEXT NOT NULL DEFAULT 'paid'
+               CHECK (status IN ('open', 'paid', 'voided', 'held')),
+  created_at   TEXT NOT NULL,
+  paid_at      TEXT
+);
+
+CREATE TABLE sale_lines (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  sale_id      INTEGER NOT NULL,
+  product_id   INTEGER NOT NULL,
+  product_name TEXT NOT NULL,              -- snapshot
+  qty          INTEGER NOT NULL CHECK (qty > 0),
+  unit_price   REAL NOT NULL CHECK (unit_price >= 0),   -- snapshot
+  line_total   REAL NOT NULL CHECK (line_total >= 0),   -- snapshot
+  created_at   TEXT NOT NULL,
+  FOREIGN KEY (sale_id)    REFERENCES sales(id)    ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE payments (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  sale_id    INTEGER NOT NULL,
+  method     TEXT NOT NULL CHECK (method IN ('cash', 'card', 'other')),
+  amount     REAL NOT NULL CHECK (amount >= 0),
+  tendered   REAL NOT NULL DEFAULT 0 CHECK (tendered >= 0),
+  change     REAL NOT NULL DEFAULT 0 CHECK (change >= 0),
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE
+);</pre>
+<script type="text/plain" id="raw-code-sol1">CREATE TABLE sales (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  cashier      TEXT NOT NULL DEFAULT 'Alex Rivera',
+  subtotal     REAL NOT NULL CHECK (subtotal >= 0),
+  tax_rate     REAL NOT NULL CHECK (tax_rate >= 0),
+  tax_total    REAL NOT NULL CHECK (tax_total >= 0),
+  grand_total  REAL NOT NULL CHECK (grand_total >= 0),
+  status       TEXT NOT NULL DEFAULT 'paid'
+               CHECK (status IN ('open', 'paid', 'voided', 'held')),
+  created_at   TEXT NOT NULL,
+  paid_at      TEXT
+);
+
+CREATE TABLE sale_lines (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  sale_id      INTEGER NOT NULL,
+  product_id   INTEGER NOT NULL,
+  product_name TEXT NOT NULL,              -- snapshot
+  qty          INTEGER NOT NULL CHECK (qty > 0),
+  unit_price   REAL NOT NULL CHECK (unit_price >= 0),   -- snapshot
+  line_total   REAL NOT NULL CHECK (line_total >= 0),   -- snapshot
+  created_at   TEXT NOT NULL,
+  FOREIGN KEY (sale_id)    REFERENCES sales(id)    ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE payments (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  sale_id    INTEGER NOT NULL,
+  method     TEXT NOT NULL CHECK (method IN ('cash', 'card', 'other')),
+  amount     REAL NOT NULL CHECK (amount >= 0),
+  tendered   REAL NOT NULL DEFAULT 0 CHECK (tendered >= 0),
+  change     REAL NOT NULL DEFAULT 0 CHECK (change >= 0),
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE
+);</script>
+        </div>
+        <div class="code-output-pane" data-pane="js">
+<pre>Why three tables, not one fat "sales" table:
+
+  A sale with 5 items is not one row. It's
+  one sale + five lines. If you cram the lines
+  into columns:
+    product_1, qty_1, price_1, product_2, ...
+  you cap the line count, can't index by
+  product, and every query is awful.
+
+  Three tables is the normalized shape:
+    sales       → one row per transaction
+    sale_lines  → one row per line item
+    payments    → one row per payment
+
+  Query "what did we sell today" — one query
+  against sales WHERE created_at >= today.
+
+  Query "how many keyboards sold this month" —
+  JOIN sale_lines ON sales, GROUP BY product_id.
+  Impossible with a fat table.
+
+Why the CASCADE vs RESTRICT split:
+
+  sales    ←─ CASCADE ── sale_lines
+                           ←─ RESTRICT ── products
+
+  Delete a sale → its lines and payments go
+  too. The sale is the aggregate root; the
+  lines have no meaning without it. CASCADE.
+
+  Delete a product → RESTRICT. The DELETE
+  fails because sale_lines reference it. The
+  product can be archived, not deleted. The
+  sale line is a financial record that must
+  survive.
+
+  Two FKs, two actions, two meanings. Each
+  matches the relationship.
+
+Why cached totals on sales:
+
+  subtotal, tax_total, grand_total are all
+  derivable from the lines (SUM(line_total),
+  SUM(line_total) * tax_rate / 100, etc.).
+
+  But the history page needs them for every
+  row. Recomputing them means joining lines
+  on every list query. For a sale list of
+  20 rows, that's 20 joins. For 10,000, it's
+  10,000 joins.
+
+  So we cache them. The transaction guarantees
+  they stay in sync with the lines — the same
+  INSERT that creates the lines writes the
+  totals. The cache and the source of truth
+  cannot disagree.
+
+  Same trade-off as Inventory's cached
+  products.quantity: pay on writes (in a
+  transaction) to save on reads. Correct
+  only when writes are atomic.
+
+The CHECK constraints:
+
+  qty > 0           ← no zero-quantity lines
+  unit_price >= 0   ← no negative prices
+  line_total >= 0   ← no negative totals
+  subtotal >= 0     ← no negative subtotals
+  grand_total >= 0  ← no negative totals
+  status IN (...)   ← no typo'd statuses
+  method IN (...)   ← no typo'd payment methods
+
+  Every one of these is defense in depth.
+  The app validates before INSERT; the schema
+  validates again. If you bypass the app
+  (curl, direct SQL), the schema still holds.
+  Never trust any single boundary.</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="checkout">
+      <h2 class="section-title">✅ The atomic checkout</h2>
+      <p class="section-sub">Five writes. One transaction. Or nothing.</p>
+
+      <p class="text-sm text-slate-300 leading-relaxed mb-3">
+        The checkout endpoint does five things, and they all succeed together or none of them do:
+      </p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>1. INSERT sales</h4>
+          <p>One row with cached totals computed server-side from the resolved lines.</p>
+        </div>
+        <div class="concept-card">
+          <h4>2. INSERT sale_lines</h4>
+          <p>One row per cart line, with <code>product_name</code> and <code>unit_price</code> snapshotted from the products table at this moment.</p>
+        </div>
+        <div class="concept-card">
+          <h4>3. INSERT payments</h4>
+          <p>One row. Cash: tendered + change. Card: amount only.</p>
+        </div>
+        <div class="concept-card">
+          <h4>4. INSERT stock_movements</h4>
+          <p>One row per line with <code>reason='sold'</code> and negative delta. This is what Inventory's audit log sees.</p>
+        </div>
+        <div class="concept-card">
+          <h4>5. UPDATE products.quantity</h4>
+          <p>Decrement per line. If the CHECK constraint fires (qty would go negative), the whole transaction rolls back.</p>
+        </div>
+        <div class="concept-card">
+          <h4>COMMIT</h4>
+          <p>The <code>with get_db() as conn:</code> block exits cleanly → COMMIT. If any statement above raised → ROLLBACK.</p>
+        </div>
+      </div>
+
+      <div class="code-block mt-6" id="sol2">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">checkout.py</span>
+          <button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+        </div>
+        <div class="code-output-tabs">
+          <button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+          <button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">@app.route("/api/sales", methods=["POST"])
+def create_sale():
+    data = request.get_json(silent=True) or {}
+    cashier = (data.get("cashier") or "Alex Rivera").strip()
+    tax_rate = float(data.get("taxRate", 8.5))
+    lines = data.get("lines") or []
+    payment = data.get("payment") or {}
+
+    if not lines:
+        return jsonify({"error": "Cart is empty."}), 400
+    if tax_rate < 0:
+        return jsonify({"error": "Tax rate cannot be negative."}), 400
+
+    method = (payment.get("method") or "cash").lower()
+    if method not in ("cash", "card", "other"):
+        return jsonify({"error": "Invalid payment method."}), 400
+
+    # ── BEGIN TRANSACTION ──
+    # Every write below shares one transaction.
+    # Any exception → sqlite3 rolls back everything.
+    with get_db() as conn:
+
+        # 1. Validate lines + build price snapshot
+        resolved_lines = []
+        for raw in lines:
+            pid = int(raw["productId"])
+            qty = int(raw["qty"])
+            if qty <= 0:
+                return jsonify({"error": "Quantity must be positive."}), 400
+
+            product = conn.execute(
+                "SELECT id, name, price, quantity FROM products WHERE id = ?",
+                (pid,),
+            ).fetchone()
+
+            if not product:
+                return jsonify({"error": f"Product {pid} not found."}), 404
+            if product["quantity"] < qty:
+                return jsonify({
+                    "error": f'Only {product["quantity"]} of "{product["name"]}" '
+                             f'in stock (tried {qty}).'
+                }), 409
+
+            resolved_lines.append({
+                "product_id":   product["id"],
+                "product_name": product["name"],
+                "qty":          qty,
+                "unit_price":   product["price"],
+                "line_total":   round(product["price"] * qty, 2),
+            })
+
+        # 2. Compute totals SERVER-SIDE
+        subtotal    = round(sum(r["line_total"] for r in resolved_lines), 2)
+        tax_total   = round(subtotal * tax_rate / 100, 2)
+        grand_total = round(subtotal + tax_total, 2)
+
+        # 3. Payment guard
+        tendered = float(payment.get("tendered", 0)) if method == "cash" else grand_total
+        if method == "cash" and tendered < grand_total:
+            return jsonify({
+                "error": f"Cash tendered ({tendered:.2f}) is less "
+                         f"than total ({grand_total:.2f})."
+            }), 400
+        change = round(max(0, tendered - grand_total), 2) if method == "cash" else 0
+
+        timestamp = now_iso()
+
+        # 4. INSERT sale
+        cur = conn.execute(
+            """INSERT INTO sales
+               (cashier, subtotal, tax_rate, tax_total, grand_total,
+                status, created_at, paid_at)
+               VALUES (?, ?, ?, ?, ?, 'paid', ?, ?)""",
+            (cashier, subtotal, tax_rate, tax_total, grand_total,
+             timestamp, timestamp),
+        )
+        sale_id = cur.lastrowid
+
+        # 5. INSERT lines (with price snapshot)
+        for r in resolved_lines:
+            conn.execute(
+                """INSERT INTO sale_lines
+                   (sale_id, product_id, product_name, qty,
+                    unit_price, line_total, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (sale_id, r["product_id"], r["product_name"],
+                 r["qty"], r["unit_price"], r["line_total"], timestamp),
+            )
+
+        # 6. INSERT payment
+        conn.execute(
+            """INSERT INTO payments
+               (sale_id, method, amount, tendered, change, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (sale_id, method, grand_total, tendered, change, timestamp),
+        )
+
+        # 7. Stock movements + quantity updates
+        for r in resolved_lines:
+            conn.execute(
+                """INSERT INTO stock_movements
+                   (product_id, delta, reason, note, created_at)
+                   VALUES (?, ?, 'sold', ?, ?)""",
+                (r["product_id"], -r["qty"], f"POS sale #{sale_id}", timestamp),
+            )
+            conn.execute(
+                """UPDATE products
+                   SET quantity = quantity - ?, updated_at = ?
+                   WHERE id = ?""",
+                (r["qty"], timestamp, r["product_id"]),
+            )
+
+        # Exit block cleanly → COMMIT
+        # Re-fetch the complete sale to return
+        sale = _fetch_sale(conn, sale_id)
+
+    return jsonify(sale), 201</pre>
+<script type="text/plain" id="raw-code-sol2">@app.route("/api/sales", methods=["POST"])
+def create_sale():
+    data = request.get_json(silent=True) or {}
+    cashier = (data.get("cashier") or "Alex Rivera").strip()
+    tax_rate = float(data.get("taxRate", 8.5))
+    lines = data.get("lines") or []
+    payment = data.get("payment") or {}
+
+    if not lines:
+        return jsonify({"error": "Cart is empty."}), 400
+    if tax_rate < 0:
+        return jsonify({"error": "Tax rate cannot be negative."}), 400
+
+    method = (payment.get("method") or "cash").lower()
+    if method not in ("cash", "card", "other"):
+        return jsonify({"error": "Invalid payment method."}), 400
+
+    # ── BEGIN TRANSACTION ──
+    # Every write below shares one transaction.
+    # Any exception → sqlite3 rolls back everything.
+    with get_db() as conn:
+
+        # 1. Validate lines + build price snapshot
+        resolved_lines = []
+        for raw in lines:
+            pid = int(raw["productId"])
+            qty = int(raw["qty"])
+            if qty <= 0:
+                return jsonify({"error": "Quantity must be positive."}), 400
+
+            product = conn.execute(
+                "SELECT id, name, price, quantity FROM products WHERE id = ?",
+                (pid,),
+            ).fetchone()
+
+            if not product:
+                return jsonify({"error": f"Product {pid} not found."}), 404
+            if product["quantity"] < qty:
+                return jsonify({
+                    "error": f'Only {product["quantity"]} of "{product["name"]}" '
+                             f'in stock (tried {qty}).'
+                }), 409
+
+            resolved_lines.append({
+                "product_id":   product["id"],
+                "product_name": product["name"],
+                "qty":          qty,
+                "unit_price":   product["price"],
+                "line_total":   round(product["price"] * qty, 2),
+            })
+
+        # 2. Compute totals SERVER-SIDE
+        subtotal    = round(sum(r["line_total"] for r in resolved_lines), 2)
+        tax_total   = round(subtotal * tax_rate / 100, 2)
+        grand_total = round(subtotal + tax_total, 2)
+
+        # 3. Payment guard
+        tendered = float(payment.get("tendered", 0)) if method == "cash" else grand_total
+        if method == "cash" and tendered < grand_total:
+            return jsonify({
+                "error": f"Cash tendered ({tendered:.2f}) is less "
+                         f"than total ({grand_total:.2f})."
+            }), 400
+        change = round(max(0, tendered - grand_total), 2) if method == "cash" else 0
+
+        timestamp = now_iso()
+
+        # 4. INSERT sale
+        cur = conn.execute(
+            """INSERT INTO sales
+               (cashier, subtotal, tax_rate, tax_total, grand_total,
+                status, created_at, paid_at)
+               VALUES (?, ?, ?, ?, ?, 'paid', ?, ?)""",
+            (cashier, subtotal, tax_rate, tax_total, grand_total,
+             timestamp, timestamp),
+        )
+        sale_id = cur.lastrowid
+
+        # 5. INSERT lines (with price snapshot)
+        for r in resolved_lines:
+            conn.execute(
+                """INSERT INTO sale_lines
+                   (sale_id, product_id, product_name, qty,
+                    unit_price, line_total, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (sale_id, r["product_id"], r["product_name"],
+                 r["qty"], r["unit_price"], r["line_total"], timestamp),
+            )
+
+        # 6. INSERT payment
+        conn.execute(
+            """INSERT INTO payments
+               (sale_id, method, amount, tendered, change, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (sale_id, method, grand_total, tendered, change, timestamp),
+        )
+
+        # 7. Stock movements + quantity updates
+        for r in resolved_lines:
+            conn.execute(
+                """INSERT INTO stock_movements
+                   (product_id, delta, reason, note, created_at)
+                   VALUES (?, ?, 'sold', ?, ?)""",
+                (r["product_id"], -r["qty"], f"POS sale #{sale_id}", timestamp),
+            )
+            conn.execute(
+                """UPDATE products
+                   SET quantity = quantity - ?, updated_at = ?
+                   WHERE id = ?""",
+                (r["qty"], timestamp, r["product_id"]),
+            )
+
+        # Exit block cleanly → COMMIT
+        # Re-fetch the complete sale to return
+        sale = _fetch_sale(conn, sale_id)
+
+    return jsonify(sale), 201</script>
+        </div>
+        <div class="code-output-pane" data-pane="js">
+<pre>What could go wrong without a transaction:
+
+  Scenario: 3-item sale, failure on item 3.
+
+  Without a transaction:
+    ✓ INSERT sale
+    ✓ INSERT line 1
+    ✓ INSERT line 2
+    ✓ INSERT line 3
+    ✓ INSERT payment
+    ✓ UPDATE products qty (item 1)
+    ✓ UPDATE products qty (item 2)
+    ✗ UPDATE products qty (item 3) — CHECK fails
+
+  Result: the sale exists with 3 lines,
+  the payment exists, stock was decremented
+  for items 1 and 2 but not item 3. The
+  inventory is wrong forever. Every report
+  that queries SUM(quantity) is wrong.
+
+  With a transaction:
+    All writes succeed
+    Item 3 UPDATE fails → ROLLBACK
+    sale, lines, payment, movements — all gone
+    products.quantity unchanged for items 1, 2
+    Response: 500 with the error
+
+  The cashier sees "checkout failed." The
+  cart is still there. Nothing was lost. The
+  customer can be told to retry. No silent
+  data corruption.
+
+Why validate inside the transaction:
+
+  There's a check-then-act race here. Two
+  cashiers sell the last monitor stand at the
+  same time:
+
+    Cashier A reads quantity = 1
+    Cashier B reads quantity = 1
+    Both compute new_qty = 0
+    Both write 0
+    Result: 2 sold, quantity 0 — oversold by 1
+
+  A true fix uses SELECT ... FOR UPDATE or
+  SQLite's BEGIN IMMEDIATE to lock the row.
+  We're not adding that here — for a
+  single-register demo it's not a concern.
+  The lesson: transactions guarantee atomicity
+  (all-or-nothing), not isolation (no
+  interleaving). Those are two of the four
+  ACID properties, and isolation is a bigger
+  topic than Stage 03 needs.
+
+  What we DO get from the transaction: no
+  half-committed sale. If the qty UPDATE
+  fails the CHECK constraint, the whole thing
+  rolls back — the sale is simply not created.
+  The cashier retries with a smaller qty.
+  Clean recovery.
+
+Why the server recomputes the totals:
+
+  The client sends:
+    { lines: [{productId: 1, qty: 2}], taxRate: 8.5 }
+
+  It does NOT send prices. It does NOT send
+  subtotal, tax, or grand total. Those are
+  computed here, from the products table's
+  current prices.
+
+  If the client sent prices, a malicious
+  cashier could POST {productId: 1, qty: 1,
+  unit_price: 0.01} and get an 89-dollar
+  keyboard for a penny. The server would
+  happily store it because it trusted the
+  client.
+
+  "Never trust the client with money math"
+  isn't paranoia. It's the most basic rule
+  of any billing system. The client is a
+  preview; the server is the truth.
+
+Why 409 for insufficient stock:
+
+  400 is "bad request" — the client sent
+  something malformed.
+  409 is "conflict" — the request was valid,
+  but the server's current state conflicts
+  with it.
+
+  "You asked to sell 5 of a product with 2
+  in stock" is a conflict, not a bad request.
+  The line item was well-formed. The
+  inventory just doesn't support it right
+  now. 409 tells the client "this is a
+  reconciliation issue, not a bug."
+
+  The frontend's catch block sees err.status
+  === 409 and knows to reload the catalog
+  and reconcile the cart, rather than
+  showing a generic error.</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="snapshot">
+      <h2 class="section-title">✅ Price snapshotting</h2>
+      <p class="section-sub">The sale line is immutable. Tomorrow's price doesn't rewrite yesterday.</p>
+
+      <p class="text-sm text-slate-300 leading-relaxed mb-3">
+        The most important schema decision in this stage is that <code>sale_lines</code> stores <strong>three snapshots</strong>:
+      </p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>product_name</h4>
+          <p>What the product was called when sold. If the product is renamed later, the receipt still shows the original name.</p>
+        </div>
+        <div class="concept-card">
+          <h4>unit_price</h4>
+          <p>What the customer was actually charged per unit. If the price goes up tomorrow, yesterday's receipts don't change.</p>
+        </div>
+        <div class="concept-card">
+          <h4>line_total</h4>
+          <p><code>qty × unit_price</code>, stored rather than recomputed. Faster queries, and protected from any future reinterpretation.</p>
+        </div>
+      </div>
+
+      <div class="info-box mt-4">
+        <p class="text-sm text-slate-300 leading-relaxed">
+          <strong>Why this matters:</strong> imagine a year-end report that sums revenue by month. If <code>sale_lines</code> referenced the current product price, raising a price in December would retroactively change November's revenue. The report would be wrong — not "reflecting current prices," just wrong. Financial records must be immutable. The line captures what happened; the catalog reflects what's true now. Two different truths, two different places.
+        </p>
+      </div>
+
+      <div class="code-block mt-6" id="sol3">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">snapshot.py</span>
+          <button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3"># When the sale is created, snapshot the product's state:
+
+product = conn.execute(
+    "SELECT id, name, price, quantity FROM products WHERE id = ?",
+    (pid,),
+).fetchone()
+
+conn.execute(
+    """INSERT INTO sale_lines
+       (sale_id, product_id, product_name, qty,
+        unit_price, line_total, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+    (
+        sale_id,
+        product["id"],
+        product["name"],                       # ← snapshot
+        qty,
+        product["price"],                      # ← snapshot
+        round(product["price"] * qty, 2),      # ← snapshot
+        timestamp,
+    ),
+)
+
+# Later, if the product price changes:
+#   UPDATE products SET price = 99.99 WHERE id = ?
+#
+# The existing sale_lines rows do NOT change.
+# The receipt for sale #42 still shows $89.00.
+# That's correct — the customer paid $89.00.</pre>
+<script type="text/plain" id="raw-code-sol3"># When the sale is created, snapshot the product's state:
+
+product = conn.execute(
+    "SELECT id, name, price, quantity FROM products WHERE id = ?",
+    (pid,),
+).fetchone()
+
+conn.execute(
+    """INSERT INTO sale_lines
+       (sale_id, product_id, product_name, qty,
+        unit_price, line_total, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+    (
+        sale_id,
+        product["id"],
+        product["name"],                       # ← snapshot
+        qty,
+        product["price"],                      # ← snapshot
+        round(product["price"] * qty, 2),      # ← snapshot
+        timestamp,
+    ),
+)
+
+# Later, if the product price changes:
+#   UPDATE products SET price = 99.99 WHERE id = ?
+#
+# The existing sale_lines rows do NOT change.
+# The receipt for sale #42 still shows $89.00.
+# That's correct — the customer paid $89.00.</script>
+        </div>
+      </div>
+    </section>
+
+    <section id="restrict">
+      <h2 class="section-title">✅ RESTRICT vs CASCADE — the two FKs disagree</h2>
+      <p class="section-sub">Because the two relationships mean different things.</p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>sale_lines.sale_id</h4>
+          <p><strong>ON DELETE CASCADE.</strong> A line item has no meaning without its sale. Delete the sale, the lines go too.</p>
+        </div>
+        <div class="concept-card">
+          <h4>sale_lines.product_id</h4>
+          <p><strong>ON DELETE RESTRICT.</strong> A product that has been sold cannot be deleted. The financial record must survive.</p>
+        </div>
+      </div>
+
+      <p class="text-sm text-slate-300 leading-relaxed mt-4">
+        This is the opposite of Inventory Stage 04, where <code>stock_movements.product_id</code> uses <code>CASCADE</code>. That's not an inconsistency — it's the correct semantics for each case:
+      </p>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-2">
+<pre class="text-xs text-slate-400 leading-relaxed" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; line-height: 1.6;">A stock movement is ABOUT a product.
+  "8 units sold on Tuesday" — only meaningful
+  if you know which product. Delete the product
+  and the movement is noise. CASCADE.
+
+A sale line REFERENCES a product but is
+  ALSO a financial record.
+  "Customer #1234 paid $89 for item SKU-002"
+  — that fact is true independent of whether
+  SKU-002 is still in the catalog. Delete the
+  product and the record must survive. RESTRICT.
+
+The FK action encodes what the relationship
+means, not a global default.</pre>
+      </div>
+
+      <p class="text-sm text-slate-300 leading-relaxed mt-3">
+        <strong>Stage 04 will add <code>products.archived_at</code>.</strong> A product that has been sold can be archived — removed from the POS catalog, hidden from the inventory list, but not deleted. The <code>RESTRICT</code> constraint is what forces that design. Without it, the app would happily let an admin delete a product and break a year of sales history.
+      </p>
+    </section>
+
+    <section id="shared">
+      <h2 class="section-title">✅ Shared catalog — one database, two apps</h2>
+      <p class="section-sub">The POS reads what Inventory owns.</p>
+
+      <p class="text-sm text-slate-300 leading-relaxed mb-3">
+        The POS does not have its own <code>products</code> table. It reads from the same <code>inventory.db</code> that the inventory app uses:
+      </p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>Catalog</h4>
+          <p><code>GET /api/products</code> from the inventory schema. Same endpoint the inventory app uses. One catalog.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Stock ledger</h4>
+          <p>Every POS sale writes to <code>stock_movements</code> with <code>reason='sold'</code>. The inventory audit log shows the sale.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Quantity</h4>
+          <p>Every POS sale decrements <code>products.quantity</code>. The inventory dashboard updates after a sale.</p>
+        </div>
+      </div>
+
+      <div class="info-box mt-4">
+        <p class="text-sm text-slate-300 leading-relaxed">
+          <strong>Prerequisite:</strong> the POS backend expects <code>inventory.db</code> to exist. If you built Inventory Stage 04, it does — the POS seed leaves your <code>products</code> alone. If you didn't, the POS seed creates a minimal inventory schema (products + stock_movements) and seeds 8 sample products. Either way, one database, one catalog.
+        </p>
+      </div>
+    </section>
+
+    <section id="failure">
+      <h2 class="section-title">✅ When the checkout fails</h2>
+      <p class="section-sub">The cart survives. The cashier retries.</p>
+
+      <p class="text-sm text-slate-300 leading-relaxed mb-3">
+        This is the most important UX difference between Stage 02 and Stage 03. In Stage 02, checkout never fails — the cart is cleared and a sale "completes" without ever touching a server. In Stage 03, checkout can fail for real reasons:
+      </p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>Stock conflict</h4>
+          <p>409. Another register sold the last unit while this cart was open. The line item quantity is now invalid.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Network failure</h4>
+          <p>Fetch throws. The server was unreachable. The sale did not happen — but the cart is still valid.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Server error</h4>
+          <p>500. The transaction rolled back. The sale did not happen. The cart is intact.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Validation error</h4>
+          <p>400. Something the client sent was wrong (empty cart, invalid payment method). Usually indicates a bug — the client should have caught it.</p>
+        </div>
+      </div>
+
+      <div class="code-block mt-6" id="sol4">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">frontend.js</span>
+          <button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">try {
+  const sale = await api.createSale(payload);
+  // SUCCESS: clear the cart, close the modal, show the receipt
+  state.lines = [];
+  saveCart();
+  paymentBackdrop.classList.remove('is-open');
+  renderCart();
+  await loadCatalog();               // stock changed
+  showReceiptFromServer(sale);
+  showToast('Sale #' + sale.id + ' completed · ' + money(sale.grand_total));
+
+} catch (err) {
+  // FAILURE: cart SURVIVES. Never auto-clear on failure.
+  showToast(err.message, true);
+  await loadCatalog();               // stock may have changed
+  reconcileCartAgainstCatalog();     // drop sold-out lines, cap qty
+
+} finally {
+  state.checkoutInFlight = false;
+  paymentSubmit.textContent = 'Complete sale';
+  updateChange();
+  renderTotals();
+}</pre>
+<script type="text/plain" id="raw-code-sol4">try {
+  const sale = await api.createSale(payload);
+  // SUCCESS: clear the cart, close the modal, show the receipt
+  state.lines = [];
+  saveCart();
+  paymentBackdrop.classList.remove('is-open');
+  renderCart();
+  await loadCatalog();               // stock changed
+  showReceiptFromServer(sale);
+  showToast('Sale #' + sale.id + ' completed · ' + money(sale.grand_total));
+
+} catch (err) {
+  // FAILURE: cart SURVIVES. Never auto-clear on failure.
+  showToast(err.message, true);
+  await loadCatalog();               // stock may have changed
+  reconcileCartAgainstCatalog();     // drop sold-out lines, cap qty
+
+} finally {
+  state.checkoutInFlight = false;
+  paymentSubmit.textContent = 'Complete sale';
+  updateChange();
+  renderTotals();
+}</script>
+        </div>
+      </div>
+
+      <p class="text-sm text-slate-300 leading-relaxed mt-3">
+        <strong>The <code>checkoutInFlight</code> guard</strong> prevents double-clicks on "Complete sale" from submitting the sale twice. Without it, a fast double-click fires two POSTs — two sales created, two sets of stock movements. The flag disables the button for the duration of the request and unlocks in <code>finally</code>, whether the request succeeded or failed.
+      </p>
+    </section>
+
+    <section id="run">
+      <h2 class="section-title">✅ Run it</h2>
+      <p class="section-sub">Three commands. If Inventory exists, it's shared.</p>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+        <div class="text-sm text-slate-300 mb-3"><strong class="text-white">Folder structure:</strong></div>
+<pre class="text-xs text-slate-400 leading-relaxed">apps/pos/downloads/backend/
+├── app.py                  ← Flask routes + atomic checkout
+├── database.py             ← connection helpers
+├── schema.sql              ← 3 POS tables + shared inventory tables
+├── seed.py                 ← seeds products (if empty) + sample sales
+├── requirements.txt        ← Flask + flask-cors
+├── README.md
+└── static/
+    └── pos-stage-03.html   ← fetch-based frontend</pre>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+        <div class="text-sm text-slate-300 mb-3"><strong class="text-white">Commands:</strong></div>
+<pre class="text-xs text-slate-400 leading-relaxed">cd apps/pos/downloads/backend
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+python seed.py                    # creates inventory.db (or uses existing)
+python app.py                     # http://localhost:5000</pre>
+      </div>
+
+      <p class="text-sm text-slate-300 leading-relaxed mt-4">
+        Open <code>http://localhost:5000/</code> — Flask serves the frontend from <code>static/</code>. The catalog loads from <code>GET /api/products</code>. The charge button posts to <code>POST /api/sales</code>. The receipt is built from the server's response, not the client's snapshot.
+      </p>
+
+      <div class="concept-grid mt-6">
+        <div class="concept-card">
+          <h4>Test the happy path</h4>
+          <p>Add 2 items, Charge, pay exact cash, complete. The receipt shows the sale ID. Reload the page — the sale is in the database (visible via <code>GET /api/sales</code> or <code>sqlite3 inventory.db "SELECT * FROM sales"</code>).</p>
+        </div>
+        <div class="concept-card">
+          <h4>Test stock conflict</h4>
+          <p>Add 8 of the Mechanical Keyboard (8 in stock). Open a second browser tab and add 3. Complete sale in tab 2. Go back to tab 1 and complete sale. 409 error: "Only 5 of ... in stock." The cart reconciles to qty 5, toast explains.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Test transaction rollback</h4>
+          <p>With curl: <code>POST /api/sales</code> with an invalid line (product 9999). 404. Then check <code>SELECT COUNT(*) FROM sales</code> — the count is unchanged. The transaction rolled back cleanly.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Test price snapshot</h4>
+          <p>Complete a sale of SKU-002. Then update the product: <code>UPDATE products SET price = 99.99 WHERE id = 2</code>. The existing sale's <code>GET /api/sales/&lt;id&gt;</code> still shows the original price. The catalog in the POS shows the new price.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Test RESTRICT</h4>
+          <p>Try to delete a sold product: <code>DELETE FROM products WHERE id = 2</code>. SQLite refuses: "FOREIGN KEY constraint failed." The sale line protects the product.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Test network failure</h4>
+          <p>Stop the Flask server. Try to complete a sale. Toast shows "checkout failed." The cart is still there. Start the server. Retry — it succeeds.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section-title">⚠️ Common mistakes</h2>
+      <p class="section-sub">What to check if Stage 03 doesn't work.</p>
+
+      <div class="mistake">
+        <div class="mtitle">1. Not wrapping the checkout in one transaction</div>
+        <p>If you split the five writes across multiple commits, a failure halfway leaves a corrupt sale. Fix: <code>with get_db() as conn:</code> around everything.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">2. Trusting client-supplied prices</div>
+        <p>The client sends <code>{productId, qty}</code>, not prices. The server looks up the price. If you accept client prices, a malicious cashier sells a $89 keyboard for $0.01.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">3. Not snapshotting product_name and unit_price</div>
+        <p>Storing only <code>product_id</code> means tomorrow's price change rewrites yesterday's receipts. Fix: snapshot the three fields on the line.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">4. Using CASCADE instead of RESTRICT on sale_lines.product_id</div>
+        <p>Deleting a product would orphan its sales. Fix: <code>ON DELETE RESTRICT</code>. Add <code>archived_at</code> in Stage 04 for the "delete" use case.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">5. Clearing the cart on a failed checkout</div>
+        <p>The cashier loses their work. Fix: on failure, cart survives, catalog reloads, cart reconciles against new stock.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">6. No <code>checkoutInFlight</code> guard</div>
+        <p>Double-clicks create two sales. Fix: disable the button for the duration of the request, unlock in <code>finally</code>.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">7. Not decrementing products.quantity</div>
+        <p>Stock never goes down. The POS sells phantom inventory. Fix: <code>UPDATE products SET quantity = quantity - ?</code> in the transaction.</p>
+      </div>
+      <div class="mistake">
+        <div class="mtitle">8. Not writing stock_movements</div>
+        <p>Inventory's audit log doesn't see POS sales. Fix: one <code>INSERT stock_movements</code> per line with <code>reason='sold'</code>.</p>
+      </div>
+    </section>
+
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+      <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+      <div class="space-y-3">
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is the checkout one transaction instead of separate API calls?</summary>
+          <p class="mt-2 text-sm text-slate-300">Because a sale touches five tables. If you split them into separate API calls, a failure halfway leaves the database corrupt — a sale with no payment, or stock decremented with no sale to explain it. One transaction means all five writes commit together or none do. A sale in the database is a complete sale.</p>
+        </details>
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why snapshot unit_price on the sale line instead of looking it up?</summary>
+          <p class="mt-2 text-sm text-slate-300">Because prices change. If you store only product_id and look up the price at report time, then raising a product's price tomorrow rewrites every past report. The sale_line stores unit_price at the moment of sale. The receipt, the report, the refund calculation all use that snapshot.</p>
+        </details>
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why RESTRICT on sale_lines.product_id?</summary>
+          <p class="mt-2 text-sm text-slate-300">You cannot delete a product that has been sold. If you could, the sale_line would reference a nonexistent product_id — every report, refund, and receipt rebuild would break. Products can be archived instead. This is the opposite of stock_movements (CASCADE) — a stock movement has no meaning without its product, but a sale line is a financial record that must survive.</p>
+        </details>
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does the client still compute totals if the server also computes them?</summary>
+          <p class="mt-2 text-sm text-slate-300">The client computes totals for display — the running cart subtotal, the tax amount, the Charge button label. The server computes totals for the actual sale — the values that go into the database. The client values are a preview; the server values are the truth. Never trust the client with money math.</p>
+        </details>
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">What happens to the cart if the checkout fails?</summary>
+          <p class="mt-2 text-sm text-slate-300">The cart survives. If the server returns 409 because a product sold out while the cashier was in the payment modal, the cart is preserved, the catalog is refreshed, and the cart is reconciled against the new stock. The cashier can retry with the corrected cart.</p>
+        </details>
+        <details class="bg-slate-950 p-3 rounded-xl">
+          <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does the POS share inventory's database instead of having its own?</summary>
+          <p class="mt-2 text-sm text-slate-300">Because the catalog is the same. If the POS had its own products table, changing a price in the inventory app wouldn't affect the POS — you'd have two catalogs that drift. Sharing the database means one source of truth. The inventory owns the catalog, the POS reads it and writes stock_movements.</p>
+        </details>
+      </div>
+    </section>
+
+    <section id="next" class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+      <h2 class="text-white font-bold mb-3">🔗 Continue the build</h2>
+      <a href="/apps/pos/stage-04-advanced.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+        <div class="font-semibold text-white text-sm">📊 Next: Stage 04 — Advanced (Final)</div>
+        <div class="text-xs text-slate-400 mt-1">Printable receipts via @media print. Sales history with filters and pagination. Refunds as reversal sales. A Z-report. Hold/resume via sales.status. Product archiving. 3–4 hours.</div>
+      </a>
+      <a href="/apps/pos/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+        <div class="font-semibold text-white text-sm">🧾 Back to the POS hub</div>
+        <div class="text-xs text-slate-400 mt-1">All four stages and the data model.</div>
+      </a>
+    </section>
+
+    <a href="/apps/pos/index.html" class="back-link">← Back to POS &amp; Billing hub</a>
+
+    <div class="lang-signature">
+      <span class="dot"></span> POS Stage 03 · Backend <span class="dot"></span>
+    </div>
+  </main>
+
+  <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+    <div class="flex justify-between items-center max-w-md mx-auto">
+      <div class="flex flex-col items-center gap-1 text-blue-500">
+        <i class="fa-solid fa-house text-xl"></i>
+        <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-slate-500">
+        <i class="fa-solid fa-book-open text-xl"></i>
+        <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-slate-500">
+        <i class="fa-solid fa-envelope text-xl"></i>
+        <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-slate-500">
+        <i class="fa-solid fa-circle-user text-xl"></i>
+        <span class="text-[10px] font-bold uppercase">Profile</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/assets/courses.js" defer></script>
+  <script>
+    (function () {
+      if (typeof window.switchCodeOutput !== 'function') {
+        window.switchCodeOutput = function (blockId, paneName, btn) {
+          var block = document.getElementById(blockId);
+          if (!block) block = btn.closest('.code-block');
+          if (!block) return;
+          block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+          btn.classList.add('active');
+          block.querySelectorAll('.code-output-pane').forEach(function (p) {
+            p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+          });
+        };
+      }
+      if (typeof window.copyCode !== 'function') {
+        window.copyCode = function (id, btn) {
+          var raw = document.getElementById('raw-' + id);
+          var text = raw ? raw.textContent : document.getElementById(id).textContent;
+          var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+          if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+          else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+        };
+      }
+    })();
+  </script>
+</body>
+</html>
