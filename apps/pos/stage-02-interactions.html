@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>POS Stage 02 — Interactions (Cart + Payments + localStorage) (2026)</title>
+  <meta name="description" content="Stage 02 of the POS & Billing build: client-side cart state, live totals, tap-to-add, qty controls, a payment modal, an 80mm receipt preview, barcode scan handling, focus management, and localStorage persistence.">
+  <meta name="keywords" content="pos javascript cart, point of sale javascript, barcode scan detection, receipt layout, localStorage cart, tax rounding">
+  <meta name="author" content="MAK Studio">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="POS Stage 02 — Interactions">
+  <meta property="og:description" content="Client-side cart, live totals, payment modal, receipt preview, barcode focus, localStorage.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://makuistudio.com/apps/pos/stage-02-interactions.html">
+  <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+  <meta property="og:site_name" content="MAK UI Studio">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="POS Stage 02 — Interactions">
+  <meta name="twitter:description" content="Client-side cart, live totals, payment modal, receipt preview.">
+  <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+  <link href="/favicon.png" rel="icon" type="image/png">
+  <link rel="canonical" href="https://makuistudio.com/apps/pos/stage-02-interactions.html">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    "headline": "POS Stage 02 — Interactions",
+    "description": "Client-side cart state, live totals, tap-to-add, payment modal, receipt preview, barcode scan handling, focus management, localStorage.",
+    "author": { "@type": "Organization", "name": "MAK Studio" },
+    "datePublished": "2026-11-13",
+    "dateModified": "2026-11-13",
+    "proficiencyLevel": "Intermediate",
+    "dependencies": "JavaScript"
+  }
+  </script>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Why is the cart state a single object instead of direct DOM mutations?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Because a POS cart has multiple views of the same truth: the line list, the totals block, the Charge button label, the catalog badges showing in-cart counts, and the disabled states on out-of-stock products. If you mutate the DOM directly, every mutation has to update every view. Miss one and the UI desyncs. With a single state object and a render() function, every view is recomputed from the same source. This is the same discipline as Inventory Stage 02 — store the truth, derive the display."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why compute tax on the subtotal, not per line?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Three rounding strategies exist: per-line rounding, subtotal rounding, and no-rounding-until-display. Per-line rounding can overcharge by a cent when many small lines are involved. No-rounding-until-display breaks the identity subtotal + tax = grandTotal. Subtotal rounding — compute tax once on the subtotal, round to cents — always satisfies subtotal + tax = grandTotal, matches most retail POS systems, and is simple to verify. Pick one and document it; the worst answer is being inconsistent."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "How do you detect a barcode scan versus human typing?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "A barcode scanner types a burst of characters followed by Enter. A human types slower, with pauses. The heuristic: if keystrokes are less than 50ms apart, it's a scan. The visual feedback (the input border turns amber) tells the cashier the scanner fired. The Enter key submits regardless of source — the timing check is cosmetic, not functional. Humans typing a SKU manually also work; the toast confirms the match either way."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why does focus return to the barcode input after every action?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Because the scanner needs a target. If the cashier scans an item and the focus moved to the cart line they just touched, the next scan goes nowhere (or into a number field). Every action — add, remove, qty change, modal close, payment complete — calls focusBarcode() which defers 30ms (so the modal transition finishes) then focuses and selects the barcode input. This is the single most important UX rule of a POS. Stage 01 established it; Stage 02 enforces it."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why does the cart persist in localStorage across reloads?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "Because a dropped connection or an accidental reload mid-sale must not lose the cart. In Stage 02, localStorage is the only persistence available. In Stage 03, the server takes over for completed sales, but an in-progress cart is still client-side until the cashier charges. Stage 04 adds hold/resume — a server-side held sale — but the localStorage cart is the fast-path crash recovery, and it stays."
+        }
+      },
+      {
+        "@type": "Question",
+        "name": "Why does the price live in the catalog, not the cart line?",
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": "In Stage 02, the cart line stores only productId and qty. Price is looked up at render time from the catalog. This is fine for a single-user demo, but it has a subtle bug: if the price changes while the cart is open, the line total updates. Stage 03 fixes this by snapshotting the unit_price on the sale_line at checkout — the price the customer was actually charged. The Stage 02 approach is deliberately naive so the lesson can explain why the snapshot matters."
+        }
+      }
+    ]
+  }
+  </script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <link href="/style.css" rel="stylesheet">
+  <link href="/assets/courses.css" rel="stylesheet">
+  <link href="/assets/language-react.css" rel="stylesheet">
+  <style>
+    .code-output-tabs {
+      display: flex;
+      gap: 4px;
+      padding: 0 12px;
+      background: #0f172a;
+      border-bottom: 1px solid #1e293b;
+    }
+    .code-output-tabs button {
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94a3b8;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+    }
+    .code-output-tabs button.active {
+      color: #61dafb;
+      border-bottom-color: #61dafb;
+    }
+    .code-output-pane {
+      display: none;
+    }
+    .code-output-pane.active {
+      display: block;
+    }
+  </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+
+  <nav class="navbar">
+    <div class="nav-container">
+      <a class="logo" href="index.html">✨ MAK UI Studio</a>
+      <div id="navbar-placeholder"></div>
+      <script src="/navbar.js"></script>
+    </div>
+  </nav>
+
+  <section class="p-8 text-center">
+    <h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">POS &amp; Billing Build</h2>
+    <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 02 · Interactions</p>
+  </section>
+
+  <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+    <div class="text-xs" style="color:#7d8fa9;">
+      <a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+      <a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+      <a href="/apps/pos/index.html" style="color:#7ee8fc;">POS &amp; Billing</a> ›
+      <span style="color:#FFFFFF; font-weight:700;">Stage 02</span>
+    </div>
+
+    <div class="py-hero">
+      <div class="badge">⚡ Stage 02 · 3–4 hours</div>
+      <h1>Bring the counter to life.<br><span class="py-accent">Tap. Scan. Pay.</span></h1>
+      <p class="lead">
+        The shell from Stage 01 becomes a working POS. A single cart state object, tap-to-add from the product grid, live totals, a payment modal with cash tendered and change due, an 80mm receipt preview, barcode scan detection, focus management, and a cart that survives a page reload. The cart isn't persisted to a server yet — that's Stage 03 — but it survives a browser crash, which is the first thing a real POS needs.
+      </p>
+      <div class="meta">
+        <span><i class="fa-solid fa-clock"></i> 3–4 hours</span>
+        <span><i class="fa-solid fa-signal"></i> Intermediate</span>
+        <span><i class="fa-solid fa-code"></i> JavaScript · DOM · localStorage</span>
+      </div>
+    </div>
+
+    <div class="quick-nav">
+      <a href="/apps/pos/index.html">POS hub</a>
+      <a href="#state">Cart state</a>
+      <a href="#totals">Derived totals</a>
+      <a href="#tax">Tax rounding</a>
+      <a href="#barcode">Barcode + focus</a>
+      <a href="#payment">Payment flow</a>
+      <a href="#persistence">localStorage</a>
+      <a href="#next">Next: Stage 03</a>
+    </div>
+
+    <div class="info-box">
+      <p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+        <strong>Short answer:</strong> One <code>state</code> object with <code>lines: [{productId, qty}]</code> and <code>taxRate</code>. One <code>renderCart()</code> that rebuilds the cart lines, totals, Charge label, catalog badges, and disabled states. <code>totals()</code> derives <code>subtotal</code>, <code>taxAmount</code>, <code>grandTotal</code> from <code>lines</code> — never stored. Every action (add, inc, dec, remove, tax change, sale complete) calls <code>saveCart()</code> then <code>renderCart()</code> then <code>focusBarcode()</code>. Barcode input differentiates scans from typing by keystroke timing.
+      </p>
+    </div>
+
+    <section id="state">
+      <h2 class="section-title">✅ Cart state — one object, five views</h2>
+      <p class="section-sub">Store the truth. Derive everything else.</p>
+
+      <p class="text-sm text-slate-300 leading-relaxed mb-3">
+        The cart state is the single source of truth. Every other UI region is a view of it:
+      </p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>State</h4>
+          <p><code>lines: [{productId, qty}]</code> · <code>taxRate: 8.5</code></p>
+        </div>
+        <div class="concept-card">
+          <h4>View 1 — Cart lines</h4>
+          <p>Mapped from <code>lines</code>, joined with the catalog to get name + price.</p>
+        </div>
+        <div class="concept-card">
+          <h4>View 2 — Totals</h4>
+          <p>Derived from <code>lines</code> via <code>totals()</code>. Recomputed on every render.</p>
+        </div>
+        <div class="concept-card">
+          <h4>View 3 — Charge button</h4>
+          <p>Label is <code>"Charge · " + totals().grandTotal</code>. Disabled when <code>lines.length === 0</code>.</p>
+        </div>
+        <div class="concept-card">
+          <h4>View 4 — Catalog badges</h4>
+          <p>Each product card shows the in-cart qty via <code>qtyInCart(productId)</code>.</p>
+        </div>
+        <div class="concept-card">
+          <h4>View 5 — Product disabled states</h4>
+          <p>A product is disabled when <code>inCart &gt;= stock</code>. Recomputed on every cart change.</p>
+        </div>
+      </div>
+
+      <div class="code-block mt-6" id="sol1">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">state.js</span>
+          <button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+        </div>
+        <div class="code-output-tabs">
+          <button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+          <button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">// The only state. Everything else is derived.
+const state = {
+  lines: [],          // [{ productId, qty }]
+  taxRate: 8.5,
+  categoryFilter: 'All'
+};
+
+// ─── Derived: totals ───
+function lineTotal(line) {
+  const p = getProduct(line.productId);
+  return p ? p.price * line.qty : 0;
+}
+
+function totals() {
+  const subtotal = state.lines.reduce(function (sum, l) {
+    return sum + lineTotal(l);
+  }, 0);
+  // Tax on the subtotal, rounded once. See the tax section.
+  const taxAmount = Math.round(subtotal * state.taxRate) / 100;
+  const grandTotal = Math.round((subtotal + taxAmount) * 100) / 100;
+  return { subtotal, taxAmount, grandTotal };
+}
+
+// ─── Derived: counts ───
+function itemCount() {
+  return state.lines.reduce(function (n, l) { return n + l.qty; }, 0);
+}
+
+function qtyInCart(productId) {
+  const line = state.lines.find(function (l) {
+    return l.productId === productId;
+  });
+  return line ? line.qty : 0;
+}
+
+// ─── Every mutation ends the same way ───
+function addToCart(productId) {
+  /* ... validate stock, mutate state.lines ... */
+  saveCart();
+  renderCart();          // rebuilds lines, totals, catalog, buttons
+}
+
+function incQty(productId) {
+  /* ... */
+  saveCart();
+  renderCart();
+}
+
+function removeLine(productId) {
+  state.lines = state.lines.filter(function (l) {
+    return l.productId !== productId;
+  });
+  saveCart();
+  renderCart();
+}</pre>
+<script type="text/plain" id="raw-code-sol1">// The only state. Everything else is derived.
+const state = {
+  lines: [],          // [{ productId, qty }]
+  taxRate: 8.5,
+  categoryFilter: 'All'
+};
+
+// ─── Derived: totals ───
+function lineTotal(line) {
+  const p = getProduct(line.productId);
+  return p ? p.price * line.qty : 0;
+}
+
+function totals() {
+  const subtotal = state.lines.reduce(function (sum, l) {
+    return sum + lineTotal(l);
+  }, 0);
+  // Tax on the subtotal, rounded once. See the tax section.
+  const taxAmount = Math.round(subtotal * state.taxRate) / 100;
+  const grandTotal = Math.round((subtotal + taxAmount) * 100) / 100;
+  return { subtotal, taxAmount, grandTotal };
+}
+
+// ─── Derived: counts ───
+function itemCount() {
+  return state.lines.reduce(function (n, l) { return n + l.qty; }, 0);
+}
+
+function qtyInCart(productId) {
+  const line = state.lines.find(function (l) {
+    return l.productId === productId;
+  });
+  return line ? line.qty : 0;
+}
+
+// ─── Every mutation ends the same way ───
+function addToCart(productId) {
+  /* ... validate stock, mutate state.lines ... */
+  saveCart();
+  renderCart();          // rebuilds lines, totals, catalog, buttons
+}
+
+function incQty(productId) {
+  /* ... */
+  saveCart();
+  renderCart();
+}
+
+function removeLine(productId) {
+  state.lines = state.lines.filter(function (l) {
+    return l.productId !== productId;
+  });
+  saveCart();
+  renderCart();
+}</script>
+        </div>
+        <div class="code-output-pane" data-pane="js">
+<pre>Why "lines: [{productId, qty}]" and not the full product:
+
+  The cart line needs to know:
+    → which product (id)
+    → how many (qty)
+
+  Everything else — name, price, stock —
+  already lives in CATALOG. Duplicating it
+  into the line creates two sources of truth.
+
+  If the price changes while the cart is open,
+  the line total updates automatically (because
+  lineTotal() looks up the price at render time).
+  Is that the right behavior? For Stage 02, yes —
+  it's a teaching choice. Stage 03 will snapshot
+  the price server-side at sale time, because
+  once a customer has paid, the price is fixed.
+
+  The lesson: in Stage 02, the cart is a
+  *view* over the catalog. In Stage 03, the
+  cart becomes a *transaction* with its own
+  snapshot. The shift is the whole point of
+  the backend stage.
+
+Why every mutation ends with saveCart() + renderCart():
+
+  This is the discipline that prevents 90% of
+  cart bugs. Every path that changes state.lines
+  does the same three things in the same order:
+    1. mutate state.lines
+    2. saveCart()        (persist to localStorage)
+    3. renderCart()      (rebuild every view)
+
+  No path skips the render. No path mutates
+  the DOM directly. No path updates just one
+  view. If you find yourself writing
+  "document.querySelector('.subtotal').textContent = ..."
+  outside renderCart(), you've broken the pattern.
+
+  The same rule as Inventory Stage 02:
+  store the truth, derive the display,
+  render after every change.
+
+Why renderCart() re-renders the catalog too:
+
+  The catalog shows an "in cart" badge on
+  products that are in the cart, and it
+  disables products whose stock is exhausted
+  by the current cart quantity. Both of those
+  depend on state.lines, which just changed.
+
+  So renderCart() calls renderCatalog() at
+  the end. The name is slightly misleading —
+  it rebuilds everything that depends on the
+  cart — but the behavior is correct. If it
+  didn't, the in-cart badge would go stale
+  every time you added an item.</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="totals">
+      <h2 class="section-title">✅ Derived totals</h2>
+      <p class="section-sub">Compute on every render. Never store.</p>
+
+      <p class="text-sm text-slate-300 leading-relaxed mb-3">
+        There are three values the cart displays below the lines:
+      </p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>Subtotal</h4>
+          <p><code>sum(line.price × line.qty)</code> over all lines. Derived from the catalog + lines.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Tax amount</h4>
+          <p><code>round(subtotal × taxRate / 100, 2)</code>. Rounded <em>once</em>, on the subtotal. See below.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Grand total</h4>
+          <p><code>subtotal + taxAmount</code>. Always exactly these two values, not a third round.</p>
+        </div>
+      </div>
+
+      <div class="info-box mt-4">
+        <p class="text-sm text-slate-300 leading-relaxed">
+          <strong>The invariant:</strong> <code>grandTotal === subtotal + taxAmount</code>. The receipt shows all three values and they must sum correctly. This is why the tax amount is computed once on the subtotal, not per line.
+        </p>
+      </div>
+
+      <div class="code-block mt-6" id="sol2">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">totals.js</span>
+          <button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">function totals() {
+  const subtotal = state.lines.reduce(function (sum, l) {
+    return sum + lineTotal(l);
+  }, 0);
+
+  // Math.round(x * 100) / 100 is "round to 2 decimal places."
+  // taxAmount = subtotal * taxRate / 100, but written to round
+  // on the way there: round(subtotal * taxRate) / 100
+  // is equivalent and avoids accumulating float error.
+  const taxAmount = Math.round(subtotal * state.taxRate) / 100;
+  const grandTotal = Math.round((subtotal + taxAmount) * 100) / 100;
+
+  return { subtotal, taxAmount, grandTotal };
+}</pre>
+<script type="text/plain" id="raw-code-sol2">function totals() {
+  const subtotal = state.lines.reduce(function (sum, l) {
+    return sum + lineTotal(l);
+  }, 0);
+
+  // Math.round(x * 100) / 100 is "round to 2 decimal places."
+  // taxAmount = subtotal * taxRate / 100, but written to round
+  // on the way there: round(subtotal * taxRate) / 100
+  // is equivalent and avoids accumulating float error.
+  const taxAmount = Math.round(subtotal * state.taxRate) / 100;
+  const grandTotal = Math.round((subtotal + taxAmount) * 100) / 100;
+
+  return { subtotal, taxAmount, grandTotal };
+}</script>
+        </div>
+      </div>
+
+      <p class="text-sm text-slate-300 leading-relaxed mt-3">
+        <strong>Why not <code>subtotal * taxRate / 100</code> directly?</strong> Because floating-point multiplication accumulates error. <code>0.1 + 0.2</code> is <code>0.30000000000000004</code> in JavaScript. Rounding on the way to cents (multiply by 100, round, divide by 100) keeps every intermediate value representable as cents. The receipt shows cents; the math should too.
+      </p>
+      <p class="text-sm text-slate-300 leading-relaxed mt-2">
+        <strong>Why not <code>grandTotal = round(subtotal × (1 + taxRate / 100), 2)</code>?</strong> Because that computes a third rounded value, and <code>subtotal + taxAmount</code> can then differ from <code>grandTotal</code> by a cent. The invariant breaks. The three values must sum.
+      </p>
+    </section>
+
+    <section id="tax">
+      <h2 class="section-title">✅ Tax rounding — three options, one choice</h2>
+      <p class="section-sub">Pick one. Document it. Be consistent.</p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>Per-line rounding</h4>
+          <p>Compute tax per line, round each to cents, sum. Matches some jurisdictions' invoice rules. Can overcharge vs subtotal method when many small lines.</p>
+        </div>
+        <div class="concept-card">
+          <h4>Subtotal rounding ✱</h4>
+          <p>Compute tax once on the subtotal, round to cents. <strong>What Stage 02 uses.</strong> Simple, defensible, invariant-safe.</p>
+        </div>
+        <div class="concept-card">
+          <h4>No rounding until display</h4>
+          <p>Keep full precision internally, round only at display time. <code>subtotal + tax</code> can differ from <code>grandTotal</code> by a cent. The invariant breaks.</p>
+        </div>
+      </div>
+
+      <div class="info-box mt-4">
+        <p class="text-sm text-slate-300 leading-relaxed">
+          <strong>Why subtotal rounding:</strong> the receipt must satisfy <code>subtotal + tax = total</code>. Subtotal rounding guarantees it by construction. Per-line rounding can break it. No-rounding-until-display definitely breaks it. Subtotal rounding is also what most retail POS systems do — if you switch to a jurisdiction that requires per-line rounding, you change the function and document it. The wrong answer is being inconsistent.
+        </p>
+      </div>
+    </section>
+
+    <section id="barcode">
+      <h2 class="section-title">✅ Barcode input — scan detection + focus</h2>
+      <p class="section-sub">A scanner is a fast keyboard. Treat it like one.</p>
+
+      <p class="text-sm text-slate-300 leading-relaxed mb-3">
+        Two things must be true for the barcode input to work in a real POS:
+      </p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>1. Focus is always there</h4>
+          <p>After every action — add, remove, qty change, modal close, sale complete — the barcode input regains focus. Otherwise the next scan goes nowhere.</p>
+        </div>
+        <div class="concept-card">
+          <h4>2. Scans look different from typing</h4>
+          <p>A scanner types keystrokes &lt; 50ms apart. A human types slower. The timing distinguishes them and gives visual feedback.</p>
+        </div>
+      </div>
+
+      <div class="code-block mt-6" id="sol3">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">barcode.js</span>
+          <button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+        </div>
+        <div class="code-output-tabs">
+          <button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+          <button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">// ─── Focus management ───
+function focusBarcode() {
+  // Defer so the modal close transition finishes first
+  setTimeout(function () {
+    barcodeInput.focus();
+    barcodeInput.select();
+  }, 30);
+}
+
+// After every action that isn't typing in a field:
+//   addToCart()  →  focusBarcode()
+//   removeLine() →  focusBarcode()
+//   closeModal() →  focusBarcode()
+//   paymentSuccess() → focusBarcode()
+
+// ─── Scan vs typing detection ───
+let scanTimer = null;
+const lastScan = { value: '', startedAt: 0 };
+
+barcodeInput.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const value = barcodeInput.value;
+    barcodeWrap.classList.remove('is-scanning');
+    clearTimeout(scanTimer);
+    handleBarcodeSubmit(value);
+    focusBarcode();
+    return;
+  }
+
+  // Heuristic: keystrokes &lt; 50ms apart = scan
+  const now = Date.now();
+  if (lastScan.value && (now - lastScan.startedAt) &lt; 50) {
+    barcodeWrap.classList.add('is-scanning');
+  }
+  lastScan.value = barcodeInput.value;
+  lastScan.startedAt = now;
+
+  clearTimeout(scanTimer);
+  scanTimer = setTimeout(function () {
+    barcodeWrap.classList.remove('is-scanning');
+  }, 200);
+});
+
+function handleBarcodeSubmit(rawValue) {
+  const value = rawValue.trim();
+  if (!value) return;
+
+  const product = CATALOG.find(function (p) {
+    return p.sku.toLowerCase() === value.toLowerCase();
+  });
+
+  if (!product) {
+    showToast('No product matches "' + value + '".', true);
+    barcodeInput.value = '';
+    return;
+  }
+
+  addToCart(product.id);
+  barcodeInput.value = '';
+}</pre>
+<script type="text/plain" id="raw-code-sol3">// ─── Focus management ───
+function focusBarcode() {
+  // Defer so the modal close transition finishes first
+  setTimeout(function () {
+    barcodeInput.focus();
+    barcodeInput.select();
+  }, 30);
+}
+
+// After every action that isn't typing in a field:
+//   addToCart()  →  focusBarcode()
+//   removeLine() →  focusBarcode()
+//   closeModal() →  focusBarcode()
+//   paymentSuccess() → focusBarcode()
+
+// ─── Scan vs typing detection ───
+let scanTimer = null;
+const lastScan = { value: '', startedAt: 0 };
+
+barcodeInput.addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const value = barcodeInput.value;
+    barcodeWrap.classList.remove('is-scanning');
+    clearTimeout(scanTimer);
+    handleBarcodeSubmit(value);
+    focusBarcode();
+    return;
+  }
+
+  // Heuristic: keystrokes < 50ms apart = scan
+  const now = Date.now();
+  if (lastScan.value && (now - lastScan.startedAt) < 50) {
+    barcodeWrap.classList.add('is-scanning');
+  }
+  lastScan.value = barcodeInput.value;
+  lastScan.startedAt = now;
+
+  clearTimeout(scanTimer);
+  scanTimer = setTimeout(function () {
+    barcodeWrap.classList.remove('is-scanning');
+  }, 200);
+});
+
+function handleBarcodeSubmit(rawValue) {
+  const value = rawValue.trim();
+  if (!value) return;
+
+  const product = CATALOG.find(function (p) {
+    return p.sku.toLowerCase() === value.toLowerCase();
+  });
+
+  if (!product) {
+    showToast('No product matches "' + value + '".', true);
+    barcodeInput.value = '';
+    return;
+  }
+
+  addToCart(product.id);
+  barcodeInput.value = '';
+}</script>
+        </div>
+        <div class="code-output-pane" data-pane="js">
+<pre>Why setTimeout(30) in focusBarcode:
+
+  When a modal closes, its display property flips
+  from "flex" to "none" on the backdrop. If you
+  try to focus the barcode input immediately, the
+  browser is still processing the display change
+  and the focus can get lost.
+
+  Deferring 30ms lets the browser finish. The
+  exact delay doesn't matter much — 0 might work
+  in some browsers, 30 is safe everywhere. This
+  is the same "let the browser catch up" pattern
+  you've seen in Stage 01 of the Inventory build.
+
+Why .select() after .focus():
+
+  The barcode input might have text in it from
+  a partial scan or a manual entry the cashier
+  abandoned. .select() highlights whatever's
+  there, so the next keystroke replaces it.
+  Without .select(), the scanner appends to
+  the stale value and the barcode is wrong.
+
+  This is a subtle but critical detail. "Focus"
+  isn't enough — "focus with selection" is.
+
+Why the scan heuristic isn't used functionally:
+
+  The Enter key triggers handleBarcodeSubmit
+  regardless of typing speed. A human typing
+  SKU-003 slowly and pressing Enter works fine.
+  The scan detection only drives the visual
+  feedback (border turns amber).
+
+  Why? Because the heuristic is imperfect.
+  A fast typist hits keys under 50ms apart.
+  A slow scanner (rare) hits keys over 50ms
+  apart. The visual tells the cashier "the
+  scanner fired" but the functional behavior
+  is identical. No keyboard user is ever
+  penalized for typing speed.
+
+  This is the right trade-off for a POS: the
+  scanner is the common case and it works
+  every time; the human is the fallback and
+  it also works every time. The visual feedback
+  is a bonus for the scanner case.
+
+Why focusBarcode() after every action:
+
+  A real POS has a queue. The cashier scans
+  item 1, item 2, item 3 in rapid succession.
+  If focus moves to a button after item 1's
+  add, item 2's scan goes into the void.
+
+  So: addToCart() calls focusBarcode() at the
+  end. removeLine() does. clearCart() does.
+  The receipt modal's close button does.
+  The payment form's submit handler does.
+
+  This is the single most important UX rule
+  of a POS. It's also the one most tutorials
+  skip, because in a demo everything happens
+  one at a time. In a real queue, it's the
+  difference between 20 seconds and 60 seconds
+  per customer.
+
+The escape hatch:
+
+  If the cashier needs to interact with the
+  catalog (browse categories, scroll for a
+  slow-moving item), they click elsewhere and
+  the barcode input loses focus. That's fine —
+  they're not scanning. When they're done,
+  clicking a product card calls focusBarcode()
+  again. Focus follows intent.</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="payment">
+      <h2 class="section-title">✅ Payment flow</h2>
+      <p class="section-sub">Charge → tender → change → complete.</p>
+
+      <div class="concept-grid">
+        <div class="concept-card">
+          <h4>1. Open</h4>
+          <p>Click Charge. The modal opens with the total due, the payment method (default cash), and the cash tendered field empty.</p>
+        </div>
+        <div class="concept-card">
+          <h4>2. Tender</h4>
+          <p>Type a cash amount, or click a quick-cash button. The change due updates live. If tendered &lt; total, "Complete sale" is disabled and the change row turns red.</p>
+        </div>
+        <div class="concept-card">
+          <h4>3. Complete</h4>
+          <p>Click "Complete sale." A sale snapshot is built (id, lines, totals, payment). The cart is cleared. The receipt modal opens with the sale.</p>
+        </div>
+        <div class="concept-card">
+          <h4>4. Close</h4>
+          <p>Close the receipt. The barcode input regains focus. The next customer's sale can begin.</p>
+        </div>
+      </div>
+
+      <div class="code-block mt-6" id="sol4">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">payment.js</span>
+          <button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">paymentForm.addEventListener('submit', function (e) {
+  e.preventDefault();
+  const t = totals();
+
+  const tendered = paymentMethod.value === 'cash'
+    ? (parseFloat(cashTendered.value) || 0)
+    : t.grandTotal;
+
+  // Guard: cash must cover the total
+  if (paymentMethod.value === 'cash' && tendered &lt; t.grandTotal) {
+    showToast('Cash tendered is less than the total.', true);
+    return;
+  }
+
+  // Build the immutable sale snapshot
+  const sale = {
+    id: 'S-' + Date.now().toString(36).toUpperCase(),
+    date: new Date(),
+    cashier: 'Alex Rivera',
+    lines: state.lines.map(function (l) {
+      const p = getProduct(l.productId);
+      return {
+        name: p.name,
+        qty: l.qty,
+        unitPrice: p.price,
+        lineTotal: p.price * l.qty
+      };
+    }),
+    subtotal: t.subtotal,
+    taxRate: state.taxRate,
+    taxAmount: t.taxAmount,
+    grandTotal: t.grandTotal,
+    payment: {
+      method: paymentMethod.value,
+      tendered: tendered,
+      change: Math.max(0, tendered - t.grandTotal)
+    }
+  };
+
+  // Commit: clear cart, close modal, show receipt
+  state.lines = [];
+  saveCart();
+  renderCart();
+  paymentBackdrop.classList.remove('is-open');
+
+  showReceipt(sale);
+  showToast('Sale completed · ' + money(t.grandTotal));
+  focusBarcode();
+});</pre>
+<script type="text/plain" id="raw-code-sol4">paymentForm.addEventListener('submit', function (e) {
+  e.preventDefault();
+  const t = totals();
+
+  const tendered = paymentMethod.value === 'cash'
+    ? (parseFloat(cashTendered.value) || 0)
+    : t.grandTotal;
+
+  // Guard: cash must cover the total
+  if (paymentMethod.value === 'cash' && tendered < t.grandTotal) {
+    showToast('Cash tendered is less than the total.', true);
+    return;
+  }
+
+  // Build the immutable sale snapshot
+  const sale = {
+    id: 'S-' + Date.now().toString(36).toUpperCase(),
+    date: new Date(),
+    cashier: 'Alex Rivera',
+    lines: state.lines.map(function (l) {
+      const p = getProduct(l.productId);
+      return {
+        name: p.name,
+        qty: l.qty,
+        unitPrice: p.price,
+        lineTotal: p.price * l.qty
+      };
+    }),
+    subtotal: t.subtotal,
+    taxRate: state.taxRate,
+    taxAmount: t.taxAmount,
+    grandTotal: t.grandTotal,
+    payment: {
+      method: paymentMethod.value,
+      tendered: tendered,
+      change: Math.max(0, tendered - t.grandTotal)
+    }
+  };
+
+  // Commit: clear cart, close modal, show receipt
+  state.lines = [];
+  saveCart();
+  renderCart();
+  paymentBackdrop.classList.remove('is-open');
+
+  showReceipt(sale);
+  showToast('Sale completed · ' + money(t.grandTotal));
+  focusBarcode();
+});</script>
+        </div>
+      </div>
+
+      <p class="text-sm text-slate-300 leading-relaxed mt-3">
+        <strong>The <code>sale</code> object is a snapshot.</strong> It captures the cart at the moment of sale — names, prices, quantities, totals. The cart is then cleared, but the receipt shows what the customer actually bought. This is exactly the behavior Stage 03 formalizes on the server: the sale_line stores <code>unit_price</code> at sale time, never looked up from the catalog afterwards.
+      </p>
+      <p class="text-sm text-slate-300 leading-relaxed mt-2">
+        <strong>Why the cash-tendered guard exists:</strong> if the tendered amount is less than the total, the change due is negative. That's not a valid sale — the customer hasn't paid enough. The submit button is disabled in that state, but the guard in the handler is the last line of defense against a race (keyboard Enter, autofill, etc.).
+      </p>
+    </section>
+
+    <section id="persistence">
+      <h2 class="section-title">✅ localStorage — survive the crash</h2>
+      <p class="section-sub">Close the tab mid-sale. Reopen. Cart is there.</p>
+
+      <div class="code-block" id="sol5">
+        <div class="code-header">
+          <div class="dots"><span></span><span></span><span></span></div>
+          <span class="lang">persistence.js</span>
+          <button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+        </div>
+        <div class="code-output-tabs">
+          <button class="active" onclick="switchCodeOutput('sol5', 'ts', this)">JavaScript</button>
+          <button onclick="switchCodeOutput('sol5', 'js', this)">Why</button>
+        </div>
+        <div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">const CART_KEY = 'mak-pos-cart';
+const TAX_KEY  = 'mak-pos-tax';
+
+function saveCart() {
+  try {
+    localStorage.setItem(CART_KEY, JSON.stringify(state.lines));
+    localStorage.setItem(TAX_KEY, String(state.taxRate));
+  } catch (_) {
+    // Quota exceeded or private mode — ignore.
+    // The cart works in-memory; it just won't survive reload.
+  }
+}
+
+function loadCart() {
+  try {
+    const raw = localStorage.getItem(CART_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        // Filter to products that still exist in the catalog
+        state.lines = parsed.filter(function (l) {
+          return l && CATALOG.some(function (p) {
+            return p.id === l.productId;
+          });
+        });
+      }
+    }
+    const tax = localStorage.getItem(TAX_KEY);
+    if (tax !== null && !isNaN(parseFloat(tax))) {
+      state.taxRate = parseFloat(tax);
+      document.getElementById('tax-rate').value = state.taxRate;
+    }
+  } catch (_) {
+    state.lines = [];
+  }
+}</pre>
+<script type="text/plain" id="raw-code-sol5">const CART_KEY = 'mak-pos-cart';
+const TAX_KEY  = 'mak-pos-tax';
+
+function saveCart() {
+  try {
+    localStorage.setItem(CART_KEY, JSON.stringify(state.lines));
+    localStorage.setItem(TAX_KEY, String(state.taxRate));
+  } catch (_) {
+    // Quota exceeded or private mode — ignore.
+    // The cart works in-memory; it just won't survive reload.
+  }
+}
+
+function loadCart() {
+  try {
+    const raw = localStorage.getItem(CART_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        // Filter to products that still exist in the catalog
+        state.lines = parsed.filter(function (l) {
+          return l && CATALOG.some(function (p) {
+            return p.id === l.productId;
+          });
+        });
+      }
+    }
+    const tax = localStorage.getItem(TAX_KEY);
+    if (tax !== null && !isNaN(parseFloat(tax))) {
+      state.taxRate = parseFloat(tax);
+      document.getElementById('tax-rate').value = state.taxRate;
+    }
+  } catch (_) {
+    state.lines = [];
+  }
+}</script>
+        </div>
+        <div class="code-output-pane" data-pane="js">
+<pre>Why filter on load:
+
+  localStorage can hold productIds that no
+  longer exist in the catalog — because the
+  catalog changed between sessions. In
+  Stage 02 the catalog is static, so this
+  never fires, but the guard is cheap and
+  correct.
+
+  In Stage 03, the catalog comes from the
+  server. A product the cashier added
+  yesterday might be deleted today. The
+  filter protects against that: the cart
+  loads with only products that still exist.
+  The cashier might notice a missing line,
+  but the cart doesn't crash on a stale
+  productId.
+
+  This is the "always validate on load"
+  rule: localStorage is user-writable, and
+  you can't trust user-writable data.
+
+Why two keys, not one:
+
+  The cart (CART_KEY) and the tax rate
+  (TAX_KEY) change at different frequencies.
+  The cart changes on every add/remove; the
+  tax rate changes rarely. Splitting them
+  means writing one doesn't touch the other,
+  which is slightly faster and more readable.
+
+  Alternatively, store { cart, tax } under a
+  single key. That's fine too — the split is
+  a preference, not a requirement.
+
+Why try/catch on both save and load:
+
+  localStorage can throw in two cases:
+    → private mode with quota 0
+    → quota exceeded (5MB limit)
+
+  A cart with 50 items is a few KB — the
+  quota is never the issue here. But private
+  mode on iOS Safari still throws on setItem
+  in some versions.
+
+  The try/catch doesn't fix the problem — it
+  makes the cart work in-memory and silently
+  fail to persist. That's the right behavior:
+  a cashier shouldn't see "couldn't save"
+  toasts for a local persistence issue. The
+  sale still completes; only the crash-recovery
+  is unavailable.
+
+Why loadCart() runs before renderCart():
+
+  If you render first and load second, the
+  cart shows empty for a frame, then populates.
+  If you load first, the first render is
+  correct. Order matters:
+    loadCart();
+    renderCategories();
+    renderCart();       ← includes totals
+    focusBarcode();</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="next">
+      <h2 class="section-title">➡️ Next: Stage 03 — Backend</h2>
+      <p class="section-sub">Sales get a home.</p>
+
+      <p class="text-sm text-slate-300 leading-relaxed mb-3">
+        Stage 02 loses every sale on refresh. That's fine for a client demo — but a POS without a database isn't a POS. Stage 03 adds one:
+      </p>
+
+      <ul class="text-sm text-slate-300 leading-relaxed space-y-1" style="padding-left: 1.5rem; list-style: disc;">
+        <li><strong>Three tables</strong> — <code>sales</code>, <code>sale_lines</code>, <code>payments</code> — with two foreign keys</li>
+        <li><strong>The atomic checkout</strong> — insert sale, insert lines, insert payment, write <code>stock_movements</code> rows, update <code>products.quantity</code> — all in one transaction, or none of it</li>
+        <li><strong>Price snapshotting</strong> — the line stores <code>unit_price</code> at sale time, so tomorrow's price change doesn't rewrite yesterday's receipts</li>
+        <li><strong>RESTRICT on sold products</strong> — you can't delete a product that has been sold; Stage 04 adds archive</li>
+        <li><strong>Reading Inventory's products</strong> — the POS shares the inventory database; the catalog in Stage 02 becomes <code>GET /api/products</code></li>
+        <li><strong>Client changes</strong> — cart stays in localStorage until checkout; on Charge, the cart is sent to <code>POST /api/sales</code>; on success, clear; on failure, cart survives and the toast explains why</li>
+      </ul>
+
+      <p class="text-sm text-slate-300 leading-relaxed mt-3">
+        That's Stage 03. The UI barely changes; only where the cart goes on Charge.
+      </p>
+    </section>
+
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+      <h2 class="text-white font-bold mb-3">🔗 Continue the build</h2>
+      <a href="/apps/pos/stage-03-backend.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+        <div class="font-semibold text-white text-sm">🐍 Next: Stage 03 — Backend</div>
+        <div class="text-xs text-slate-400 mt-1">Flask + SQLite. Three tables, atomic checkout, price snapshotting, shared catalog with Inventory. 3–4 hours.</div>
+      </a>
+      <a href="/apps/pos/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+        <div class="font-semibold text-white text-sm">🧾 Back to the POS hub</div>
+        <div class="text-xs text-slate-400 mt-1">All four stages, the data model, and the roadmap.</div>
+      </a>
+    </section>
+
+    <a href="/apps/pos/index.html" class="back-link">← Back to POS &amp; Billing hub</a>
+
+    <div class="lang-signature">
+      <span class="dot"></span> POS Stage 02 · Interactions <span class="dot"></span>
+    </div>
+
+  </main>
+
+  <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+    <div class="flex justify-between items-center max-w-md mx-auto">
+      <div class="flex flex-col items-center gap-1 text-blue-500">
+        <i class="fa-solid fa-house text-xl"></i>
+        <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-slate-500">
+        <i class="fa-solid fa-book-open text-xl"></i>
+        <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-slate-500">
+        <i class="fa-solid fa-envelope text-xl"></i>
+        <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+      </div>
+      <div class="flex flex-col items-center gap-1 text-slate-500">
+        <i class="fa-solid fa-circle-user text-xl"></i>
+        <span class="text-[10px] font-bold uppercase">Profile</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/assets/courses.js" defer></script>
+  <script>
+    (function () {
+      if (typeof window.switchCodeOutput !== 'function') {
+        window.switchCodeOutput = function (blockId, paneName, btn) {
+          var block = document.getElementById(blockId);
+          if (!block) block = btn.closest('.code-block');
+          if (!block) return;
+          block.querySelectorAll('.code-output-tabs button').forEach(function (t) {
+            t.classList.remove('active');
+          });
+          btn.classList.add('active');
+          block.querySelectorAll('.code-output-pane').forEach(function (p) {
+            p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+          });
+        };
+      }
+      if (typeof window.copyCode !== 'function') {
+        window.copyCode = function (id, btn) {
+          var raw = document.getElementById('raw-' + id);
+          var text = raw ? raw.textContent : document.getElementById(id).textContent;
+          var done = function () {
+            var o = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(function () {
+              btn.textContent = o;
+            }, 1500);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done);
+          } else {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+              document.execCommand('copy');
+            } catch (e) {}
+            document.body.removeChild(ta);
+            done();
+          }
+        };
+      }
+    })();
+  </script>
+</body>
+</html>
