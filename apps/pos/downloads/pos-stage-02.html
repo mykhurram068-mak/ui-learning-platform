@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POS — Stage 02: Interactions</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --bg-elevated: #1e293b;
+    --bg-hover: #334155;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --accent: #61dafb;
+    --accent-dark: #0891b2;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --radius: 8px;
+    --topbar-height: 56px;
+    --cart-width: 400px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    overflow: hidden;
+  }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; }
+  button { cursor: pointer; }
+
+  /* ─── Shell ─── */
+  .pos-shell {
+    display: grid;
+    grid-template-rows: var(--topbar-height) 1fr;
+    grid-template-columns: 1fr var(--cart-width);
+    grid-template-areas: "topbar topbar" "catalog cart";
+    height: 100vh;
+  }
+
+  /* ─── Top bar ─── */
+  .pos-topbar {
+    grid-area: topbar;
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .pos-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 800;
+    font-size: 0.9375rem;
+    color: var(--text);
+    text-decoration: none;
+    flex-shrink: 0;
+  }
+  .pos-brand-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bg);
+    font-weight: 900;
+    font-size: 0.75rem;
+  }
+  .pos-register {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    padding-left: 1rem;
+    border-left: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .pos-barcode {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0 0.75rem;
+    height: 36px;
+    max-width: 480px;
+    transition: border-color 0.15s;
+  }
+  .pos-barcode.is-focused { border-color: var(--accent); }
+  .pos-barcode.is-scanning { border-color: var(--warning); background: rgba(245, 158, 11, 0.08); }
+  .pos-barcode-icon { color: var(--text-dim); font-size: 0.875rem; }
+  .pos-barcode input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 0.875rem;
+    width: 100%;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .pos-barcode input::placeholder {
+    color: var(--text-dim);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .pos-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: auto;
+  }
+  .pos-cashier {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+  .pos-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    font-size: 0.75rem;
+  }
+
+  /* ─── Catalog ─── */
+  .pos-catalog {
+    grid-area: catalog;
+    overflow-y: auto;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .pos-catalog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .pos-categories { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+  .pos-category {
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .pos-category:hover { background: var(--bg-hover); color: var(--text); }
+  .pos-category.is-active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .pos-product-count { font-size: 0.75rem; color: var(--text-dim); font-weight: 600; }
+
+  .pos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+  }
+  .pos-product {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 130px;
+    position: relative;
+    transition: border-color 0.15s, transform 0.05s, background 0.15s;
+  }
+  .pos-product:hover { border-color: var(--accent); }
+  .pos-product:active { transform: scale(0.98); }
+  .pos-product.is-flash {
+    background: rgba(97, 218, 251, 0.15);
+    border-color: var(--accent);
+  }
+  .pos-product-sku {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.6875rem;
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+  .pos-product-name {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+    flex: 1;
+  }
+  .pos-product-footer {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .pos-product-price {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .pos-product-stock {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--text-dim);
+  }
+  .pos-product-stock.low { color: var(--warning); }
+  .pos-product-stock.out { color: var(--danger); }
+  .pos-product.is-out { opacity: 0.4; cursor: not-allowed; }
+  .pos-product.is-out:hover { border-color: var(--border); }
+  .pos-product.is-out:active { transform: none; }
+  .pos-product-out-tag {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: var(--danger);
+    color: white;
+    font-size: 0.625rem;
+    font-weight: 800;
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .pos-product-in-cart {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 0.6875rem;
+    font-weight: 800;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.375rem;
+  }
+
+  /* ─── Cart ─── */
+  .pos-cart {
+    grid-area: cart;
+    background: var(--bg-elevated);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .pos-cart-header {
+    padding: 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+  .pos-cart-title {
+    font-size: 0.875rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+  .pos-cart-count {
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: var(--bg);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+  }
+  .pos-cart-lines {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    min-height: 0;
+  }
+  .pos-line {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.625rem 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+  .pos-line.is-at-max { border-color: var(--warning); }
+  .pos-line-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .pos-line-name {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.3;
+    flex: 1;
+  }
+  .pos-line-warning {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--warning);
+    margin-top: 0.125rem;
+  }
+  .pos-line-remove {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1rem;
+    line-height: 1;
+    padding: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .pos-line-remove:hover { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+  .pos-line-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .pos-qty {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .pos-qty-btn {
+    background: var(--bg-elevated);
+    border: none;
+    color: var(--text-muted);
+    width: 26px;
+    height: 26px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pos-qty-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
+  .pos-qty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pos-qty-value {
+    background: var(--bg-elevated);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    min-width: 32px;
+    text-align: center;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    padding: 0 0.25rem;
+    line-height: 26px;
+  }
+  .pos-line-price {
+    font-size: 0.875rem;
+    font-weight: 800;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  .pos-line-price small {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .pos-cart-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--text-dim);
+    gap: 0.5rem;
+  }
+  .pos-cart-empty-icon { font-size: 2.5rem; opacity: 0.4; }
+  .pos-cart-empty-title { font-size: 0.875rem; font-weight: 700; color: var(--text-muted); }
+  .pos-cart-empty-sub { font-size: 0.75rem; color: var(--text-dim); max-width: 220px; }
+
+  /* ─── Totals ─── */
+  .pos-totals {
+    padding: 1rem;
+    border-top: 1px solid var(--border);
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    flex-shrink: 0;
+  }
+  .pos-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+  .pos-total-row span:last-child {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .pos-total-row.is-tax input {
+    width: 60px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 0.75rem;
+    padding: 0.125rem 0.375rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+  }
+  .pos-total-row.is-tax input:focus { border-color: var(--accent); }
+  .pos-total-row.is-grand {
+    border-top: 1px solid var(--border);
+    padding-top: 0.75rem;
+    margin-top: 0.375rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+  }
+  .pos-total-row.is-grand span:last-child {
+    font-size: 1.75rem;
+    font-weight: 900;
+    color: var(--accent);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+
+  /* ─── Actions ─── */
+  .pos-actions {
+    padding: 1rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+  .pos-btn {
+    padding: 0.875rem 1rem;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.9375rem;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .pos-btn-charge {
+    background: var(--accent);
+    color: var(--bg);
+    padding: 1.125rem 1rem;
+    font-size: 1.0625rem;
+  }
+  .pos-btn-charge:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+  .pos-btn-charge:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pos-btn-hold {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .pos-btn-hold:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
+  .pos-btn-hold:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pos-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+
+  /* ─── Modals ─── */
+  .pos-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 100;
+  }
+  .pos-modal-backdrop.is-open { display: flex; }
+  .pos-modal {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    width: 100%;
+    max-width: 440px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .pos-modal-header {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .pos-modal-title { font-size: 1rem; font-weight: 800; }
+  .pos-modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.25rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+  }
+  .pos-modal-close:hover { background: var(--bg-hover); color: var(--text); }
+
+  .pos-form { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+  .pos-field { display: flex; flex-direction: column; gap: 0.375rem; }
+  .pos-field label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+  .pos-field input, .pos-field select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.625rem 0.75rem;
+    color: var(--text);
+    font-size: 0.9375rem;
+    outline: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .pos-field input:focus, .pos-field select:focus { border-color: var(--accent); }
+
+  .pos-pay-summary {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+  .pos-pay-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+  }
+  .pos-pay-row span:last-child {
+    font-weight: 700;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+  }
+  .pos-pay-row.is-grand span:last-child {
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: var(--accent);
+  }
+  .pos-pay-row.is-change span:last-child {
+    color: var(--success);
+    font-size: 1rem;
+  }
+  .pos-pay-row.is-short span:last-child { color: var(--danger); }
+
+  .pos-quick-cash {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.375rem;
+  }
+  .pos-quick-cash button {
+    padding: 0.625rem 0.25rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .pos-quick-cash button:hover { background: var(--bg-hover); color: var(--text); border-color: var(--accent); }
+
+  .pos-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+  }
+  .pos-modal-btn {
+    padding: 0.625rem 1rem;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.875rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  .pos-modal-btn-primary { background: var(--accent); color: var(--bg); }
+  .pos-modal-btn-primary:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+  .pos-modal-btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pos-modal-btn-secondary { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+  .pos-modal-btn-secondary:hover { background: var(--bg-hover); color: var(--text); }
+
+  /* ─── Receipt ─── */
+  .pos-receipt {
+    padding: 1.5rem;
+    background: white;
+    color: #000;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    margin: 1rem;
+    border-radius: 4px;
+  }
+  .pos-receipt-center { text-align: center; }
+  .pos-receipt-title { font-size: 1rem; font-weight: 800; letter-spacing: 0.05em; }
+  .pos-receipt-meta { color: #555; font-size: 0.6875rem; margin-top: 0.25rem; }
+  .pos-receipt-hr { border: none; border-top: 1px dashed #999; margin: 0.75rem 0; }
+  .pos-receipt-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+  .pos-receipt-line span:last-child {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+  .pos-receipt-line.is-grand {
+    font-size: 0.9375rem;
+    font-weight: 800;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #000;
+  }
+  .pos-receipt-footer {
+    text-align: center;
+    font-size: 0.6875rem;
+    color: #555;
+    margin-top: 0.75rem;
+  }
+  .pos-receipt-actions { padding: 0 1.25rem 1.25rem; display: flex; gap: 0.5rem; }
+  .pos-receipt-actions .pos-modal-btn { flex: 1; justify-content: center; }
+
+  /* ─── Toast ─── */
+  .pos-toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    color: var(--text);
+    opacity: 0;
+    transition: transform 0.2s, opacity 0.2s;
+    z-index: 300;
+    pointer-events: none;
+    max-width: 90vw;
+  }
+  .pos-toast.is-visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* ─── Responsive ─── */
+  @media (max-width: 900px) {
+    .pos-shell {
+      grid-template-columns: 1fr;
+      grid-template-rows: var(--topbar-height) 1fr auto;
+      grid-template-areas: "topbar" "catalog" "cart";
+    }
+    .pos-cart {
+      border-left: none;
+      border-top: 1px solid var(--border);
+      max-height: 50vh;
+    }
+  }
+  @media (max-width: 600px) {
+    .pos-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .pos-register { display: none; }
+    .pos-cashier span { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="pos-shell">
+
+  <header class="pos-topbar">
+    <a class="pos-brand" href="#">
+      <div class="pos-brand-mark">M</div>
+      <span>MAK POS</span>
+    </a>
+    <div class="pos-register">Register 01 · Open</div>
+    <label class="pos-barcode" id="barcode-wrap">
+      <span class="pos-barcode-icon">⌗</span>
+      <input
+        id="barcode-input"
+        type="text"
+        placeholder="Scan barcode or type SKU…"
+        autocomplete="off"
+        autofocus
+      >
+    </label>
+    <div class="pos-topbar-right">
+      <div class="pos-cashier">
+        <div class="pos-avatar">AR</div>
+        <span>Alex Rivera</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="pos-catalog">
+    <div class="pos-catalog-header">
+      <div class="pos-categories" id="categories"></div>
+      <div class="pos-product-count" id="product-count">—</div>
+    </div>
+    <div class="pos-grid" id="product-grid"></div>
+  </main>
+
+  <aside class="pos-cart">
+    <div class="pos-cart-header">
+      <div class="pos-cart-title">Cart</div>
+      <div class="pos-cart-count" id="cart-count">0 items</div>
+    </div>
+
+    <div class="pos-cart-lines" id="cart-lines"></div>
+
+    <div class="pos-cart-empty" id="cart-empty">
+      <div class="pos-cart-empty-icon">🛒</div>
+      <div class="pos-cart-empty-title">No items yet</div>
+      <div class="pos-cart-empty-sub">Tap a product or scan a barcode to start a sale.</div>
+    </div>
+
+    <div class="pos-totals">
+      <div class="pos-total-row">
+        <span>Subtotal</span>
+        <span id="total-subtotal">$0.00</span>
+      </div>
+      <div class="pos-total-row is-tax">
+        <span>Tax rate</span>
+        <span>
+          <input type="number" id="tax-rate" value="8.5" min="0" max="20" step="0.1" aria-label="Tax rate">
+          <span style="color:var(--text-dim); font-weight:600;">%</span>
+        </span>
+      </div>
+      <div class="pos-total-row">
+        <span>Tax amount</span>
+        <span id="total-tax">$0.00</span>
+      </div>
+      <div class="pos-total-row is-grand">
+        <span>Total</span>
+        <span id="total-grand">$0.00</span>
+      </div>
+    </div>
+
+    <div class="pos-actions">
+      <button class="pos-btn pos-btn-charge" id="charge-btn" type="button" disabled>
+        Charge · $0.00
+      </button>
+      <div class="pos-btn-row">
+        <button class="pos-btn pos-btn-hold" id="hold-btn" type="button" disabled>Hold</button>
+        <button class="pos-btn pos-btn-hold" id="clear-btn" type="button" disabled>Clear</button>
+      </div>
+    </div>
+  </aside>
+
+</div>
+
+<!-- ─── Payment modal ─── -->
+<div class="pos-modal-backdrop" id="payment-backdrop">
+  <div class="pos-modal" role="dialog" aria-modal="true">
+    <div class="pos-modal-header">
+      <h2 class="pos-modal-title">Payment</h2>
+      <button class="pos-modal-close" type="button" data-close="payment" aria-label="Close">×</button>
+    </div>
+    <form class="pos-form" id="payment-form">
+      <div class="pos-pay-summary">
+        <div class="pos-pay-row is-grand">
+          <span>Total due</span>
+          <span id="pay-total">$0.00</span>
+        </div>
+      </div>
+
+      <div class="pos-field">
+        <label for="payment-method">Payment method</label>
+        <select id="payment-method">
+          <option value="cash">Cash</option>
+          <option value="card">Card</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div id="cash-section">
+        <div class="pos-field">
+          <label for="cash-tendered">Cash tendered</label>
+          <input type="number" id="cash-tendered" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="pos-quick-cash" style="margin-top: 0.5rem;">
+          <button type="button" data-cash="exact">Exact</button>
+          <button type="button" data-cash="5">+$5</button>
+          <button type="button" data-cash="10">+$10</button>
+          <button type="button" data-cash="20">+$20</button>
+        </div>
+        <div class="pos-pay-summary" style="margin-top: 0.75rem;">
+          <div class="pos-pay-row" id="change-row">
+            <span>Change due</span>
+            <span id="pay-change">$0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="pos-form-actions">
+        <button type="button" class="pos-modal-btn pos-modal-btn-secondary" data-close="payment">Cancel</button>
+        <button type="submit" class="pos-modal-btn pos-modal-btn-primary" id="payment-submit">Complete sale</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ─── Receipt modal ─── -->
+<div class="pos-modal-backdrop" id="receipt-backdrop">
+  <div class="pos-modal" role="dialog" aria-modal="true">
+    <div class="pos-modal-header">
+      <h2 class="pos-modal-title">Receipt</h2>
+      <button class="pos-modal-close" type="button" data-close="receipt" aria-label="Close">×</button>
+    </div>
+    <div class="pos-receipt" id="receipt-content"></div>
+    <div class="pos-receipt-actions">
+      <button class="pos-modal-btn pos-modal-btn-secondary" type="button" data-close="receipt">Close</button>
+      <button class="pos-modal-btn pos-modal-btn-primary" type="button" id="print-btn">Print</button>
+    </div>
+  </div>
+</div>
+
+<div class="pos-toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ─────────────────────────────────────────────
+  // 1. PRODUCT CATALOG (static — Stage 03 loads from API)
+  // ─────────────────────────────────────────────
+  const CATALOG = [
+    { id: 1, sku: 'SKU-001', name: 'Wireless Mouse',       category: 'Electronics', price: 29.99, stock: 42 },
+    { id: 2, sku: 'SKU-002', name: 'Mechanical Keyboard',  category: 'Electronics', price: 89.00, stock: 8  },
+    { id: 3, sku: 'SKU-003', name: 'USB-C Cable (2m)',     category: 'Accessories', price: 12.50, stock: 156 },
+    { id: 4, sku: 'SKU-004', name: 'Monitor Stand',        category: 'Accessories', price: 45.00, stock: 0  },
+    { id: 5, sku: 'SKU-005', name: 'Webcam HD 1080p',      category: 'Electronics', price: 79.99, stock: 15 },
+    { id: 6, sku: 'SKU-006', name: 'Desk Lamp LED',        category: 'Accessories', price: 34.00, stock: 3  },
+    { id: 7, sku: 'SKU-007', name: 'HDMI Cable (1m)',      category: 'Cables',      price: 8.99,  stock: 88 },
+    { id: 8, sku: 'SKU-008', name: 'USB Hub 4-Port',       category: 'Accessories', price: 22.50, stock: 27 },
+  ];
+
+  const CART_KEY = 'mak-pos-cart';
+  const TAX_KEY  = 'mak-pos-tax';
+
+  // ─────────────────────────────────────────────
+  // 2. STATE
+  // ─────────────────────────────────────────────
+  // lines: [{ productId, qty }]
+  // Products live in CATALOG; the cart stores only productId + qty.
+  // Prices are looked up at render time — no snapshot in Stage 02.
+  // (Stage 03 snapshots the price server-side at sale time.)
+  const state = {
+    lines: [],
+    taxRate: 8.5,
+    categoryFilter: 'All',
+    lastScan: { value: '', startedAt: 0 }
+  };
+
+  // ─────────────────────────────────────────────
+  // 3. PERSISTENCE
+  // ─────────────────────────────────────────────
+  function saveCart() {
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify(state.lines));
+      localStorage.setItem(TAX_KEY, String(state.taxRate));
+    } catch (_) { /* quota or private mode — ignore */ }
+  }
+
+  function loadCart() {
+    try {
+      const raw = localStorage.getItem(CART_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          state.lines = parsed.filter(function (l) {
+            return l && CATALOG.some(function (p) { return p.id === l.productId; });
+          });
+        }
+      }
+      const tax = localStorage.getItem(TAX_KEY);
+      if (tax !== null && !isNaN(parseFloat(tax))) {
+        state.taxRate = parseFloat(tax);
+        document.getElementById('tax-rate').value = state.taxRate;
+      }
+    } catch (_) { state.lines = []; }
+  }
+
+  // ─────────────────────────────────────────────
+  // 4. DERIVED DATA
+  // ─────────────────────────────────────────────
+  function getProduct(id) {
+    return CATALOG.find(function (p) { return p.id === id; }) || null;
+  }
+
+  function lineTotal(line) {
+    const p = getProduct(line.productId);
+    return p ? p.price * line.qty : 0;
+  }
+
+  function totals() {
+    const subtotal = state.lines.reduce(function (sum, l) {
+      return sum + lineTotal(l);
+    }, 0);
+    // Tax computed on the subtotal, rounded once. (See lesson page.)
+    const taxAmount = Math.round(subtotal * state.taxRate) / 100;
+    const grandTotal = Math.round((subtotal + taxAmount) * 100) / 100;
+    return { subtotal, taxAmount, grandTotal };
+  }
+
+  function itemCount() {
+    return state.lines.reduce(function (n, l) { return n + l.qty; }, 0);
+  }
+
+  function qtyInCart(productId) {
+    const line = state.lines.find(function (l) { return l.productId === productId; });
+    return line ? line.qty : 0;
+  }
+
+  // ─────────────────────────────────────────────
+  // 5. FORMATTING
+  // ─────────────────────────────────────────────
+  function money(n) {
+    return '$' + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // 6. RENDER — CATALOG
+  // ─────────────────────────────────────────────
+  function renderCategories() {
+    const cats = ['All'].concat(
+      Array.from(new Set(CATALOG.map(function (p) { return p.category; }))).sort()
+    );
+    const el = document.getElementById('categories');
+    el.innerHTML = cats.map(function (c) {
+      const active = c === state.categoryFilter ? ' is-active' : '';
+      return '<button class="pos-category' + active + '" type="button" data-cat="' +
+        escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+    }).join('');
+  }
+
+  function renderCatalog() {
+    const filtered = state.categoryFilter === 'All'
+      ? CATALOG
+      : CATALOG.filter(function (p) { return p.category === state.categoryFilter; });
+
+    document.getElementById('product-count').textContent =
+      filtered.length + ' product' + (filtered.length === 1 ? '' : 's');
+
+    const grid = document.getElementById('product-grid');
+    grid.innerHTML = filtered.map(function (p) {
+      const inCart = qtyInCart(p.id);
+      const remaining = p.stock - inCart;
+      const isOut = p.stock === 0;
+      const canAdd = !isOut && remaining > 0;
+      const cls = 'pos-product' + (isOut ? ' is-out' : '');
+      const stockCls = p.stock === 0 ? 'out' : (p.stock <= 10 ? 'low' : '');
+      const badge = isOut
+        ? '<span class="pos-product-out-tag">Out</span>'
+        : (inCart > 0 ? '<span class="pos-product-in-cart">' + inCart + '</span>' : '');
+
+      return '<button class="' + cls + '" type="button" data-add="' + p.id + '"' +
+        (canAdd ? '' : ' disabled') + '>' +
+        badge +
+        '<div class="pos-product-sku">' + escapeHtml(p.sku) + '</div>' +
+        '<div class="pos-product-name">' + escapeHtml(p.name) + '</div>' +
+        '<div class="pos-product-footer">' +
+          '<span class="pos-product-price">' + money(p.price) + '</span>' +
+          '<span class="pos-product-stock ' + stockCls + '">' +
+            p.stock + ' in stock' +
+          '</span>' +
+        '</div>' +
+      '</button>';
+    }).join('');
+  }
+
+  // ─────────────────────────────────────────────
+  // 7. RENDER — CART
+  // ─────────────────────────────────────────────
+  function renderCart() {
+    const lines = document.getElementById('cart-lines');
+    const empty = document.getElementById('cart-empty');
+
+    document.getElementById('cart-count').textContent =
+      itemCount() + ' item' + (itemCount() === 1 ? '' : 's');
+
+    if (state.lines.length === 0) {
+      lines.innerHTML = '';
+      empty.style.display = 'flex';
+    } else {
+      empty.style.display = 'none';
+      lines.innerHTML = state.lines.map(function (l) {
+        const p = getProduct(l.productId);
+        if (!p) return '';
+        const atMax = l.qty >= p.stock;
+        return '<div class="pos-line' + (atMax ? ' is-at-max' : '') + '" data-line="' + p.id + '">' +
+          '<div class="pos-line-top">' +
+            '<div style="flex:1;">' +
+              '<div class="pos-line-name">' + escapeHtml(p.name) + '</div>' +
+              (atMax ? '<div class="pos-line-warning">Max stock reached</div>' : '') +
+            '</div>' +
+            '<button class="pos-line-remove" type="button" data-remove="' + p.id + '" aria-label="Remove">×</button>' +
+          '</div>' +
+          '<div class="pos-line-bottom">' +
+            '<div class="pos-qty">' +
+              '<button class="pos-qty-btn" type="button" data-dec="' + p.id + '" aria-label="Decrease">−</button>' +
+              '<div class="pos-qty-value">' + l.qty + '</div>' +
+              '<button class="pos-qty-btn" type="button" data-inc="' + p.id + '" aria-label="Increase"' +
+                (atMax ? ' disabled' : '') + '>+</button>' +
+            '</div>' +
+            '<div class="pos-line-price">' +
+              money(lineTotal(l)) +
+              '<small>' + money(p.price) + ' ea</small>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    renderTotals();
+    renderCatalog();   // re-render catalog to update in-cart badges + disabled states
+  }
+
+  // ─────────────────────────────────────────────
+  // 8. RENDER — TOTALS & ACTIONS
+  // ─────────────────────────────────────────────
+  function renderTotals() {
+    const t = totals();
+    document.getElementById('total-subtotal').textContent = money(t.subtotal);
+    document.getElementById('total-tax').textContent = money(t.taxAmount);
+    document.getElementById('total-grand').textContent = money(t.grandTotal);
+
+    const chargeBtn = document.getElementById('charge-btn');
+    const hasItems = state.lines.length > 0;
+    chargeBtn.disabled = !hasItems;
+    chargeBtn.textContent = 'Charge · ' + money(t.grandTotal);
+    document.getElementById('clear-btn').disabled = !hasItems;
+    document.getElementById('hold-btn').disabled = !hasItems;
+  }
+
+  // ─────────────────────────────────────────────
+  // 9. CART MUTATIONS
+  // ─────────────────────────────────────────────
+  function addToCart(productId) {
+    const p = getProduct(productId);
+    if (!p) return;
+    const existing = state.lines.find(function (l) { return l.productId === productId; });
+    if (existing) {
+      if (existing.qty >= p.stock) {
+        showToast('Only ' + p.stock + ' of "' + p.name + '" in stock.', true);
+        return;
+      }
+      existing.qty += 1;
+    } else {
+      if (p.stock <= 0) {
+        showToast('"' + p.name + '" is out of stock.', true);
+        return;
+      }
+      state.lines.push({ productId: productId, qty: 1 });
+    }
+    saveCart();
+    renderCart();
+    flashProduct(productId);
+  }
+
+  function incQty(productId) {
+    const p = getProduct(productId);
+    const line = state.lines.find(function (l) { return l.productId === productId; });
+    if (!line || !p) return;
+    if (line.qty >= p.stock) {
+      showToast('Only ' + p.stock + ' in stock.', true);
+      return;
+    }
+    line.qty += 1;
+    saveCart();
+    renderCart();
+  }
+
+  function decQty(productId) {
+    const line = state.lines.find(function (l) { return l.productId === productId; });
+    if (!line) return;
+    if (line.qty <= 1) {
+      removeLine(productId);
+      return;
+    }
+    line.qty -= 1;
+    saveCart();
+    renderCart();
+  }
+
+  function removeLine(productId) {
+    state.lines = state.lines.filter(function (l) { return l.productId !== productId; });
+    saveCart();
+    renderCart();
+  }
+
+  function clearCart() {
+    if (state.lines.length === 0) return;
+    if (!confirm('Clear the cart? This cannot be undone.')) return;
+    state.lines = [];
+    saveCart();
+    renderCart();
+    focusBarcode();
+    showToast('Cart cleared.');
+  }
+
+  // ─────────────────────────────────────────────
+  // 10. FLASH FEEDBACK ON ADD
+  // ─────────────────────────────────────────────
+  function flashProduct(productId) {
+    const btn = document.querySelector('[data-add="' + productId + '"]');
+    if (!btn) return;
+    btn.classList.add('is-flash');
+    setTimeout(function () { btn.classList.remove('is-flash'); }, 200);
+  }
+
+  // ─────────────────────────────────────────────
+  // 11. BARCODE INPUT — scan detection + focus
+  // ─────────────────────────────────────────────
+  const barcodeWrap = document.getElementById('barcode-wrap');
+  const barcodeInput = document.getElementById('barcode-input');
+  let scanTimer = null;
+
+  function focusBarcode() {
+    // Defer so the modal close transition finishes first
+    setTimeout(function () {
+      barcodeInput.focus();
+      barcodeInput.select();
+    }, 30);
+  }
+
+  function handleBarcodeSubmit(rawValue) {
+    const value = rawValue.trim();
+    if (!value) return;
+    const product = CATALOG.find(function (p) {
+      return p.sku.toLowerCase() === value.toLowerCase();
+    });
+    if (!product) {
+      showToast('No product matches "' + value + '".', true);
+      barcodeInput.value = '';
+      return;
+    }
+    addToCart(product.id);
+    barcodeInput.value = '';
+  }
+
+  barcodeInput.addEventListener('focus', function () { barcodeWrap.classList.add('is-focused'); });
+  barcodeInput.addEventListener('blur', function () { barcodeWrap.classList.remove('is-focused'); });
+
+  // Detect scanner-style input: keystrokes < 50ms apart.
+  // A human types slower than that. The heuristic is not perfect
+  // (fast typists exist) but it's good enough to trigger visual
+  // feedback and skip premature Enter handling.
+  barcodeInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = barcodeInput.value;
+      barcodeWrap.classList.remove('is-scanning');
+      clearTimeout(scanTimer);
+      handleBarcodeSubmit(value);
+      focusBarcode();
+      return;
+    }
+    const now = Date.now();
+    if (state.lastScan.value && (now - state.lastScan.startedAt) < 50) {
+      barcodeWrap.classList.add('is-scanning');
+    }
+    state.lastScan.value = barcodeInput.value;
+    state.lastScan.startedAt = now;
+    clearTimeout(scanTimer);
+    scanTimer = setTimeout(function () {
+      barcodeWrap.classList.remove('is-scanning');
+    }, 200);
+  });
+
+  // ─────────────────────────────────────────────
+  // 12. PAYMENT MODAL
+  // ─────────────────────────────────────────────
+  const paymentBackdrop = document.getElementById('payment-backdrop');
+  const paymentForm = document.getElementById('payment-form');
+  const paymentMethod = document.getElementById('payment-method');
+  const cashSection = document.getElementById('cash-section');
+  const cashTendered = document.getElementById('cash-tendered');
+  const payTotal = document.getElementById('pay-total');
+  const payChange = document.getElementById('pay-change');
+  const changeRow = document.getElementById('change-row');
+  const paymentSubmit = document.getElementById('payment-submit');
+
+  function openPayment() {
+    if (state.lines.length === 0) return;
+    const t = totals();
+    payTotal.textContent = money(t.grandTotal);
+    cashTendered.value = '';
+    paymentMethod.value = 'cash';
+    cashSection.style.display = 'block';
+    paymentSubmit.disabled = true;
+    updateChange();
+    paymentBackdrop.classList.add('is-open');
+    setTimeout(function () { cashTendered.focus(); }, 50);
+  }
+
+  function updateChange() {
+    const t = totals();
+    if (paymentMethod.value !== 'cash') {
+      paymentSubmit.disabled = false;
+      return;
+    }
+    const tendered = parseFloat(cashTendered.value) || 0;
+    const change = tendered - t.grandTotal;
+    payChange.textContent = money(Math.max(0, change));
+    if (change < 0) {
+      changeRow.classList.remove('is-change');
+      changeRow.classList.add('is-short');
+      paymentSubmit.disabled = true;
+    } else {
+      changeRow.classList.add('is-change');
+      changeRow.classList.remove('is-short');
+      paymentSubmit.disabled = false;
+    }
+  }
+
+  paymentMethod.addEventListener('change', function () {
+    cashSection.style.display = paymentMethod.value === 'cash' ? 'block' : 'none';
+    updateChange();
+  });
+
+  cashTendered.addEventListener('input', updateChange);
+
+  document.querySelectorAll('[data-cash]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const t = totals();
+      let amount = 0;
+      if (btn.getAttribute('data-cash') === 'exact') {
+        amount = t.grandTotal;
+      } else {
+        amount = (parseFloat(cashTendered.value) || t.grandTotal) + parseFloat(btn.getAttribute('data-cash'));
+      }
+      cashTendered.value = amount.toFixed(2);
+      updateChange();
+    });
+  });
+
+  paymentForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const t = totals();
+
+    const payment = {
+      method: paymentMethod.value,
+      tendered: paymentMethod.value === 'cash' ? (parseFloat(cashTendered.value) || 0) : t.grandTotal,
+      change: paymentMethod.value === 'cash'
+        ? Math.max(0, (parseFloat(cashTendered.value) || 0) - t.grandTotal)
+        : 0
+    };
+
+    if (paymentMethod.value === 'cash' && payment.tendered < t.grandTotal) {
+      showToast('Cash tendered is less than the total.', true);
+      return;
+    }
+
+    // Build a sale snapshot for the receipt
+    const sale = {
+      id: 'S-' + Date.now().toString(36).toUpperCase(),
+      date: new Date(),
+      cashier: 'Alex Rivera',
+      lines: state.lines.map(function (l) {
+        const p = getProduct(l.productId);
+        return {
+          name: p.name,
+          qty: l.qty,
+          unitPrice: p.price,
+          lineTotal: p.price * l.qty
+        };
+      }),
+      subtotal: t.subtotal,
+      taxRate: state.taxRate,
+      taxAmount: t.taxAmount,
+      grandTotal: t.grandTotal,
+      payment: payment
+    };
+
+    // Complete the sale: clear cart, close payment, show receipt
+    state.lines = [];
+    saveCart();
+    renderCart();
+    paymentBackdrop.classList.remove('is-open');
+
+    showReceipt(sale);
+    showToast('Sale completed · ' + money(t.grandTotal));
+    focusBarcode();
+  });
+
+  // ─────────────────────────────────────────────
+  // 13. RECEIPT
+  // ─────────────────────────────────────────────
+  const receiptBackdrop = document.getElementById('receipt-backdrop');
+  const receiptContent = document.getElementById('receipt-content');
+
+  function showReceipt(sale) {
+    const d = sale.date;
+    const dateStr = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const timeStr = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+    receiptContent.innerHTML =
+      '<div class="pos-receipt-center">' +
+        '<div class="pos-receipt-title">MAK STORE</div>' +
+        '<div class="pos-receipt-meta">' +
+          '123 Main St · Springfield<br>' +
+          '(555) 010-0100' +
+        '</div>' +
+        '<div class="pos-receipt-meta" style="margin-top:0.5rem;">' +
+          dateStr + ' · ' + timeStr + '<br>' +
+          'Sale ' + escapeHtml(sale.id) + ' · Cashier: ' + escapeHtml(sale.cashier) +
+        '</div>' +
+      '</div>' +
+
+      '<hr class="pos-receipt-hr">' +
+
+      sale.lines.map(function (l) {
+        return '<div class="pos-receipt-line">' +
+          '<span>' + escapeHtml(l.name) + ' × ' + l.qty + '</span>' +
+          '<span>' + money(l.lineTotal) + '</span>' +
+        '</div>';
+      }).join('') +
+
+      '<hr class="pos-receipt-hr">' +
+
+      '<div class="pos-receipt-line"><span>Subtotal</span><span>' + money(sale.subtotal) + '</span></div>' +
+      '<div class="pos-receipt-line"><span>Tax (' + sale.taxRate + '%)</span><span>' + money(sale.taxAmount) + '</span></div>' +
+      '<div class="pos-receipt-line is-grand"><span>TOTAL</span><span>' + money(sale.grandTotal) + '</span></div>' +
+
+      '<hr class="pos-receipt-hr">' +
+
+      '<div class="pos-receipt-line"><span>Method</span><span>' + escapeHtml(sale.payment.method.toUpperCase()) + '</span></div>' +
+      (sale.payment.method === 'cash'
+        ? '<div class="pos-receipt-line"><span>Cash tendered</span><span>' + money(sale.payment.tendered) + '</span></div>' +
+          '<div class="pos-receipt-line"><span>Change</span><span>' + money(sale.payment.change) + '</span></div>'
+        : '') +
+
+      '<div class="pos-receipt-footer">' +
+        'Thank you for your purchase!<br>' +
+        'Returns accepted within 30 days with receipt.' +
+      '</div>';
+
+    receiptBackdrop.classList.add('is-open');
+  }
+
+  document.getElementById('print-btn').addEventListener('click', function () {
+    showToast('Print will be implemented in Stage 04.');
+  });
+
+  // ─────────────────────────────────────────────
+  // 14. MODAL CLOSE
+  // ─────────────────────────────────────────────
+  document.querySelectorAll('[data-close]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const which = btn.getAttribute('data-close');
+      if (which === 'payment') paymentBackdrop.classList.remove('is-open');
+      if (which === 'receipt') receiptBackdrop.classList.remove('is-open');
+      focusBarcode();
+    });
+  });
+  [paymentBackdrop, receiptBackdrop].forEach(function (b) {
+    b.addEventListener('click', function (e) {
+      if (e.target === b) {
+        b.classList.remove('is-open');
+        focusBarcode();
+      }
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // 15. EVENT WIRING
+  // ─────────────────────────────────────────────
+  // Catalog — event delegation
+  document.getElementById('product-grid').addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-add]');
+    if (!btn || btn.disabled) return;
+    addToCart(parseInt(btn.getAttribute('data-add'), 10));
+  });
+
+  // Category chips
+  document.getElementById('categories').addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-cat]');
+    if (!btn) return;
+    state.categoryFilter = btn.getAttribute('data-cat');
+    renderCategories();
+    renderCatalog();
+  });
+
+  // Cart — event delegation
+  document.getElementById('cart-lines').addEventListener('click', function (e) {
+    const inc = e.target.closest('[data-inc]');
+    const dec = e.target.closest('[data-dec]');
+    const rem = e.target.closest('[data-remove]');
+    if (inc) incQty(parseInt(inc.getAttribute('data-inc'), 10));
+    else if (dec) decQty(parseInt(dec.getAttribute('data-dec'), 10));
+    else if (rem) removeLine(parseInt(rem.getAttribute('data-remove'), 10));
+  });
+
+  // Tax rate change
+  document.getElementById('tax-rate').addEventListener('input', function (e) {
+    const v = parseFloat(e.target.value);
+    state.taxRate = isNaN(v) ? 0 : Math.max(0, Math.min(20, v));
+    saveCart();
+    renderTotals();
+  });
+
+  // Charge
+  document.getElementById('charge-btn').addEventListener('click', openPayment);
+  // Hold (Stage 04 will persist held sales)
+  document.getElementById('hold-btn').addEventListener('click', function () {
+    showToast('Hold will be implemented in Stage 04.');
+  });
+  // Clear
+  document.getElementById('clear-btn').addEventListener('click', clearCart);
+
+  // ─────────────────────────────────────────────
+  // 16. TOAST
+  // ─────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(message, isError) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.style.borderLeftColor = isError ? '#ef4444' : '#61dafb';
+    toast.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove('is-visible'); }, 2600);
+  }
+
+  // ─────────────────────────────────────────────
+  // 17. INIT
+  // ─────────────────────────────────────────────
+  loadCart();
+  renderCategories();
+  renderCart();     // renders catalog + cart + totals together
+  focusBarcode();
+
+})();
+</script>
+</body>
+</html>
