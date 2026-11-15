@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Delivery Tracking Stage 02 - Interactions (State Machine + Derived Status) (2026)</title>
+<meta name="description" content="Stage 02 of the Delivery Tracking build: a client-side state machine, derived delivery status from an event log, idempotent event recording, and localStorage persistence. The shell becomes a working tracking system.">
+<meta name="keywords" content="delivery state machine javascript, event log derivation, idempotent event recording, localStorage delivery tracking, parcel status transitions">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Delivery Tracking Stage 02 - Interactions">
+<meta property="og:description" content="State machine, derived status, idempotent events, localStorage.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/apps/delivery/stage-02-interactions.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Delivery Tracking Stage 02 - Interactions">
+<meta name="twitter:description" content="State machine, derived status, idempotent events, localStorage.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/apps/delivery/stage-02-interactions.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Delivery Tracking Stage 02 - Interactions",
+"description": "Client-side state machine, derived delivery status from an event log, idempotent event recording, localStorage persistence.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-15",
+"dateModified": "2026-11-15",
+"proficiencyLevel": "Intermediate",
+"dependencies": "JavaScript"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What is a state machine and why does delivery tracking need one?","acceptedAnswer":{"@type":"Answer","text":"A state machine is a graph of states and the allowed transitions between them. For a delivery, the states are pending, assigned, picked_up, in_transit, out_for_delivery, delivered, failed, and cancelled. The transitions are directional: you can go from assigned to picked_up, but not from pending to delivered. The reason delivery tracking needs one is that a delivery is not just a sequence of events - it's a sequence of events where only certain sequences make sense. If you allow any transition, the customer tracking page shows nonsense ('your parcel was delivered before it was picked up'). The state machine enforces that only valid journeys are recorded."}},
+{"@type":"Question","name":"Why is delivery status derived from events instead of stored?","acceptedAnswer":{"@type":"Answer","text":"Because storing status creates two sources of truth. If status is a field on the delivery, every event that changes the status must also update the field, and any path that forgets creates a mismatch. If status is derived from the latest relevant event, there is one source of truth: the events themselves. The derivation walks the events in chronological order, applies the state machine, and produces the current status. Same reasoning as stockStatus in Inventory and deriveShift in HR. Store the facts; derive the display."}},
+{"@type":"Question","name":"What does idempotent event recording mean here?","acceptedAnswer":{"@type":"Answer","text":"The courier taps 'delivered' twice. Only one delivered event should exist. If two events are recorded, the customer's timeline shows 'delivered' twice, the KPI 'delivered today' counts the parcel twice, and any downstream automation (email, SMS) fires twice. Idempotent recording means the same logical action produces one event, regardless of how many times the button is tapped or the network retries. Stage 02 uses three guards: a transitioning flag that disables the button during the write, a state check that rejects events the current state doesn't allow, and a time-based dedupe that rejects an identical event within 5 seconds of the last one."}},
+{"@type":"Question","name":"What does the customer timeline look like in code?","acceptedAnswer":{"@type":"Answer","text":"The timeline is a reverse-chronological list of events for the delivery. The customer sees it as a vertical stack with the most recent at top. In code, it is a map over the delivery's events sorted by occurred_at descending. Each event has a timestamp, a type, a display label (delivered -> 'Delivered', out_for_delivery -> 'Out for delivery'), and optional location or note. The timeline is a pure function of the events: same events, same timeline, always. No stored 'current timeline' - the derivation runs on every render."}},
+{"@type":"Question","name":"How does the dispatcher assign a courier?","acceptedAnswer":{"@type":"Answer","text":"The dispatcher taps a row in the active deliveries table, sees a detail panel with the delivery's info, and picks a courier from a dropdown of available couriers. The assignment is recorded as an event: { type: 'assigned', courier_id: 42, occurred_at: now }. The derivation sees this event and moves the delivery from 'pending' to 'assigned'. The courier's view now shows the delivery. No field on the delivery is updated directly - the assignment is just another event in the log, and the status follows from it."}},
+{"@type":"Question","name":"What is the biggest difference between Stage 02 and Stage 03?","acceptedAnswer":{"@type":"Answer","text":"In Stage 02, all state lives in localStorage and all derivation runs in the browser. In Stage 03, the events live in SQLite and the derivation runs on the server (or on both, with the server as the source of truth). The state machine, the idempotency guards, and the derived status pattern all carry over directly. Stage 02's deriveDeliveryStatus function becomes the specification for the server's derivation. Stage 03's job is to make the same logic work across a network, with atomic writes and a public tracking endpoint."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+.snippet-meta { font-size: 11px; color: #64748b; padding: 0 12px 8px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Delivery Tracking Build</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 02 · Interactions</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+<a href="/apps/delivery/index.html" style="color:#7ee8fc;">Delivery Tracking</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Stage 02</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">Stage 02 · 3–4 hours</div>
+<h1>Make the tracking real.<br><span class="py-accent">State machine. Event log. Derived status.</span></h1>
+<p class="lead">
+The shell becomes a working tracking system. Deliveries move through states: <code>pending</code>, <code>assigned</code>, <code>picked_up</code>, <code>in_transit</code>, <code>out_for_delivery</code>, <code>delivered</code>. Each transition is an event. The current status is derived from the event log, not stored. The state machine rejects invalid transitions. Tapping "delivered" twice does not create two events. The customer timeline derives from the same events. Everything persists in <code>localStorage</code>.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 3–4 hours</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> JavaScript · DOM · localStorage · state machine</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/apps/delivery/index.html">Delivery hub</a>
+<a href="#state">State shape</a>
+<a href="#machine">The state machine</a>
+<a href="#derive">Derived status</a>
+<a href="#idempotent">Idempotent events</a>
+<a href="#timeline">Customer timeline</a>
+<a href="#persist">localStorage</a>
+<a href="#next">Next: Stage 03</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> One <code>state</code> object with <code>deliveries</code>, <code>events</code>, <code>couriers</code>, and <code>view</code>. One <code>TRANSITIONS</code> map that encodes which event types are valid from which statuses. One <code>deriveDeliveryStatus(events)</code> that walks the event log and produces the current status. One <code>recordEvent(deliveryId, type)</code> with three idempotency guards. One <code>render()</code> that rebuilds all three views from state. One <code>saveState()</code> called on every mutation.
+</p>
+</div>
+
+<section id="state">
+<h2 class="section-title">State shape - facts, not conclusions</h2>
+<p class="section-sub">Deliveries, events, couriers. Nothing derived.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The state object holds only the raw facts: who the couriers are, which deliveries exist, and what events have happened. Every other value — current status, timeline, KPI counts — is a function of these three arrays.
+</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">state.js</span>
+<span class="snippet-meta">delivery-stage-02.html · lines 480–505</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">const state = {
+deliveries: [], // [{ id, trackingCode, customer, address, destination }]
+events: [], // [{ id, deliveryId, type, location, note, occurredAt }]
+couriers: [], // [{ id, name, status }]
+view: 'customer' // 'customer' | 'courier' | 'dispatcher'
+};
+
+// The state machine. For each event type, which current statuses
+// make it a valid transition.
+const TRANSITIONS = {
+'assigned': ['pending'],
+'picked_up': ['assigned'],
+'in_transit': ['picked_up'],
+'out_for_delivery': ['in_transit'],
+'delivered': ['out_for_delivery'],
+'failed': ['assigned', 'picked_up', 'in_transit', 'out_for_delivery']
+};
+
+// What status results from each event type
+const EVENT_RESULT = {
+'assigned': 'assigned',
+'picked_up': 'picked_up',
+'in_transit': 'in_transit',
+'out_for_delivery': 'out_for_delivery',
+'delivered': 'delivered',
+'failed': 'failed'
+};</pre>
+<script type="text/plain" id="raw-code-sol1">const state = {
+deliveries: [], // [{ id, trackingCode, customer, address, destination }]
+events: [], // [{ id, deliveryId, type, location, note, occurredAt }]
+couriers: [], // [{ id, name, status }]
+view: 'customer' // 'customer' | 'courier' | 'dispatcher'
+};
+
+// The state machine. For each event type, which current statuses
+// make it a valid transition.
+const TRANSITIONS = {
+'assigned': ['pending'],
+'picked_up': ['assigned'],
+'in_transit': ['picked_up'],
+'out_for_delivery': ['in_transit'],
+'delivered': ['out_for_delivery'],
+'failed': ['assigned', 'picked_up', 'in_transit', 'out_for_delivery']
+};
+
+// What status results from each event type
+const EVENT_RESULT = {
+'assigned': 'assigned',
+'picked_up': 'picked_up',
+'in_transit': 'in_transit',
+'out_for_delivery': 'out_for_delivery',
+'delivered': 'delivered',
+'failed': 'failed'
+};</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the transitions map lives outside the state:
+
+The transitions are a business rule, not
+user data. They don't change per delivery,
+per courier, or per session. They're the
+same for every delivery, always.
+
+Putting them in state would imply they
+could change. They can't. They live at
+module level, frozen, shared by every
+derivation and every guard.
+
+Same reasoning as OVERTIME_THRESHOLD_MINUTES
+in HR: a business rule, not a data point.
+
+Why 'failed' has four allowed from-statuses:
+
+A delivery can fail at any point after
+it's been assigned: the courier can't find
+the address (fails from 'assigned'),
+the customer isn't home (fails from
+'out_for_delivery'), the vehicle breaks
+down in transit (fails from 'in_transit'),
+the package is damaged (fails from
+'picked_up').
+
+These are all legitimate failure modes.
+Restricting to only one from-status
+would force the code to reclassify
+failures as some other event, which is
+dishonest.
+
+Why no 'pending' in any to-status:
+
+Pending is the initial state. Nothing
+transitions TO pending. Once a delivery
+has been assigned, it never goes back to
+unassigned. Reassignment is a different
+event type (not modeled in Stage 02 -
+a later addition for Stage 04's bulk
+dispatch workflow).
+
+The state machine is directional. That's
+what makes it useful - it tells you both
+what's allowed and what's impossible.
+
+Why EVENT_RESULT is a separate map:
+
+TRANSITIONS answers "can this event fire
+given the current status?" EVENT_RESULT
+answers "what status results from this
+event?" Two different questions, two
+different maps.
+
+They happen to be the same shape for most
+events (assigned -> assigned, delivered ->
+delivered), but they're conceptually
+distinct. In Stage 04, a 'reassigned'
+event might transition from 'assigned' to
+'assigned' (a lateral move) - same result,
+different transition rule. Keeping the
+maps separate allows that kind of addition
+without confusion.</pre>
+</div>
+</div>
+</section>
+
+<section id="machine">
+<h2 class="section-title">The state machine - only valid journeys</h2>
+<p class="section-sub">A delivery is a sequence, not a bag of events.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The state machine is the core of Stage 02. Without it, any event could be recorded at any time — a courier could mark a parcel delivered before picking it up, or a dispatcher could assign a courier to a delivery that was already delivered. With it, only valid transitions are allowed, and invalid ones are rejected with a clear error.
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>The states</h4>
+<p><code>pending</code> → <code>assigned</code> → <code>picked_up</code> → <code>in_transit</code> → <code>out_for_delivery</code> → <code>delivered</code>. Plus <code>failed</code> as an exit from any assigned-or-later state.</p>
+</div>
+<div class="concept-card">
+<h4>The rule</h4>
+<p>An event is valid if the current status is in its from-list. Otherwise, it's a <code>409 Conflict</code> — the request is well-formed but the state doesn't allow it.</p>
+</div>
+<div class="concept-card">
+<h4>The consequence</h4>
+<p>The customer's tracking page can never show "delivered at 2 PM" before "picked up at 9 AM". The state machine makes invalid timelines impossible.</p>
+</div>
+<div class="concept-card">
+<h4>The cost</h4>
+<p>Every event recording must read the current status first. That's one extra derivation per event. For a single delivery, negligible. For a batch, precompute the current statuses.</p>
+</div>
+</div>
+
+<div class="code-block mt-6" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">machine.js</span>
+<span class="snippet-meta">delivery-stage-02.html · lines 540–565</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">function canTransition(currentStatus, eventType) {
+var allowedFrom = TRANSITIONS[eventType];
+if (!allowedFrom) return false;
+return allowedFrom.indexOf(currentStatus) !== -1;
+}
+
+function recordEvent(deliveryId, eventType, note) {
+var delivery = state.deliveries.find(function (d) { return d.id === deliveryId; });
+if (!delivery) return { ok: false, error: 'Delivery not found' };
+
+// The state machine checks
+var currentStatus = deriveDeliveryStatus(deliveryId);
+if (!canTransition(currentStatus, eventType)) {
+return {
+ok: false,
+error: 'Cannot ' + eventType.replace('_', ' ') +
+' from status "' + currentStatus + '"'
+};
+}
+
+var newEvent = {
+id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+deliveryId: deliveryId,
+type: eventType,
+note: note || null,
+occurredAt: new Date().toISOString()
+};
+
+state.events.push(newEvent);
+saveState();
+render();
+return { ok: true, event: newEvent };
+}</pre>
+<script type="text/plain" id="raw-code-sol2">function canTransition(currentStatus, eventType) {
+var allowedFrom = TRANSITIONS[eventType];
+if (!allowedFrom) return false;
+return allowedFrom.indexOf(currentStatus) !== -1;
+}
+
+function recordEvent(deliveryId, eventType, note) {
+var delivery = state.deliveries.find(function (d) { return d.id === deliveryId; });
+if (!delivery) return { ok: false, error: 'Delivery not found' };
+
+// The state machine checks
+var currentStatus = deriveDeliveryStatus(deliveryId);
+if (!canTransition(currentStatus, eventType)) {
+return {
+ok: false,
+error: 'Cannot ' + eventType.replace('_', ' ') +
+' from status "' + currentStatus + '"'
+};
+}
+
+var newEvent = {
+id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+deliveryId: deliveryId,
+type: eventType,
+note: note || null,
+occurredAt: new Date().toISOString()
+};
+
+state.events.push(newEvent);
+saveState();
+render();
+return { ok: true, event: newEvent };
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why canTransition is a separate function:
+
+The check happens in three places:
+1. Before recording an event (recordEvent)
+2. When rendering the courier view (to
+decide which button to show)
+3. When rendering the dispatcher table
+(to gray out invalid actions)
+
+A single function means one source of
+truth. If the transition rules change
+(Stage 04 adds 'reassigned'), the change
+is in TRANSITIONS and canTransition
+automatically follows.
+
+Why recordEvent returns {ok, error} instead
+of throwing:
+
+Throwing is fine within a single function
+call, but event recording crosses the UI
+boundary. The courier taps a button, and
+the UI needs to decide: proceed to the
+next screen, or show a toast with the
+error.
+
+Returning a result object gives the caller
+what it needs without an exception
+unwinding the render cycle. Same pattern
+as fetch's res.ok - not throwing, giving
+the caller the information to decide.
+
+Why the error message spells out both sides:
+
+"Cannot pick up from status 'pending'"
+tells the user what's wrong AND what
+would be needed. Just "Invalid transition"
+is technically correct but unhelpful.
+
+Error messages that name the current
+state and the attempted action are a
+small UX win that shows up in every
+support ticket as "oh, I see, I need to
+assign it first."
+
+Same discipline as HR's "Cannot approve -
+3 shifts still open." Specific, actionable,
+correct.</pre>
+</div>
+</div>
+</section>
+
+<section id="derive">
+<h2 class="section-title">Derived status - walk the events, apply the machine</h2>
+<p class="section-sub">The current status is a function of the event log.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The current status of a delivery is not stored. It's derived by walking the events in chronological order and applying the state machine to each. This is the same pattern as HR's <code>deriveShift</code> — the events are the truth, the status is the summary.
+</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">derive.js</span>
+<span class="snippet-meta">delivery-stage-02.html · lines 590–620</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">function deriveDeliveryStatus(deliveryId) {
+var deliveryEvents = state.events
+.filter(function (e) { return e.deliveryId === deliveryId; })
+.sort(function (a, b) { return a.occurredAt.localeCompare(b.occurredAt); });
+
+if (deliveryEvents.length === 0) return 'pending';
+
+var status = 'pending';
+for (var i = 0; i < deliveryEvents.length; i++) {
+var ev = deliveryEvents[i];
+var nextStatus = EVENT_RESULT[ev.type];
+if (nextStatus) status = nextStatus;
+}
+return status;
+}
+
+function deriveDeliveryTimeline(deliveryId) {
+return state.events
+.filter(function (e) { return e.deliveryId === deliveryId; })
+.sort(function (a, b) { return b.occurredAt.localeCompare(a.occurredAt); });
+}</pre>
+<script type="text/plain" id="raw-code-sol3">function deriveDeliveryStatus(deliveryId) {
+var deliveryEvents = state.events
+.filter(function (e) { return e.deliveryId === deliveryId; })
+.sort(function (a, b) { return a.occurredAt.localeCompare(b.occurredAt); });
+
+if (deliveryEvents.length === 0) return 'pending';
+
+var status = 'pending';
+for (var i = 0; i < deliveryEvents.length; i++) {
+var ev = deliveryEvents[i];
+var nextStatus = EVENT_RESULT[ev.type];
+if (nextStatus) status = nextStatus;
+}
+return status;
+}
+
+function deriveDeliveryTimeline(deliveryId) {
+return state.events
+.filter(function (e) { return e.deliveryId === deliveryId; })
+.sort(function (a, b) { return b.occurredAt.localeCompare(a.occurredAt); });
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the derivation is so simple:
+
+The events are already valid. recordEvent
+rejected invalid transitions before they
+were recorded. So the derivation doesn't
+need to re-validate - it can trust the
+log and just apply each event's result.
+
+This is the same principle as HR's
+deriveShift: the events are pre-validated
+(a second 'in' without an 'out' is rejected
+at the API), so the derivation is a
+straightforward walk.
+
+If the log could contain invalid events
+(say, from a corrupted localStorage), the
+derivation would need to check
+canTransition at each step. Stage 02
+doesn't, because it controls every write.
+Stage 03 will, because the server receives
+events from multiple clients.
+
+Why deriveDeliveryStatus and
+deriveDeliveryTimeline are separate:
+
+Status answers "where is the parcel right
+now?" (one string). Timeline answers "what
+happened to the parcel, in order?" (an
+array). They're different questions about
+the same data.
+
+Merging them into one function would force
+every caller to compute both, even when
+they only need one. The dispatcher table
+needs status but not timeline. The customer
+page needs timeline but not status. Two
+functions, each called where it's needed.
+
+Why sort by occurredAt, not id:
+
+An event's id is assigned at creation time,
+which matches insertion order. But events
+could arrive out of order from a network,
+or from a device with a slow clock. Sorting
+by occurredAt guarantees chronological
+order regardless of insertion order.
+
+Same reasoning as HR's overnight shifts.
+The timestamp is the semantic truth; the
+id is an implementation detail.</pre>
+</div>
+</div>
+</section>
+
+<section id="idempotent">
+<h2 class="section-title">Idempotent events - tap once, event once</h2>
+<p class="section-sub">Three guards. Same discipline as POS and HR.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The courier taps "delivered" twice. The dispatcher double-clicks an assignment. A network retry fires the same request twice. All three scenarios must result in one event, not two. Stage 02 uses three guards, each catching a different failure mode.
+</p>
+
+<div class="code-block" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">idempotent.js</span>
+<span class="snippet-meta">delivery-stage-02.html · lines 650–680</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol4', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">var transitioning = false;
+
+function recordEvent(deliveryId, eventType, note) {
+// Guard 1: prevent double-click
+if (transitioning) return { ok: false, error: 'Processing' };
+
+// Guard 2: state check (also handles duplicate clicks
+// from another tab)
+var current = deriveDeliveryStatus(deliveryId);
+if (!canTransition(current, eventType)) {
+return { ok: false, error: 'Cannot ' + eventType + ' from "' + current + '"' };
+}
+
+// Guard 3: time-based dedupe - reject an identical event
+// within 5 seconds of the last one
+var last = state.events
+.filter(function (e) { return e.deliveryId === deliveryId && e.type === eventType; })
+.sort(function (a, b) { return b.occurredAt.localeCompare(a.occurredAt); })[0];
+if (last) {
+var secSince = (Date.now() - new Date(last.occurredAt).getTime()) / 1000;
+if (secSince < 5) return { ok: false, error: 'Already recorded' };
+}
+
+transitioning = true;
+try {
+var newEvent = {
+id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+deliveryId: deliveryId,
+type: eventType,
+note: note || null,
+occurredAt: new Date().toISOString()
+};
+state.events.push(newEvent);
+saveState();
+render();
+return { ok: true, event: newEvent };
+} finally {
+transitioning = false;
+}
+}</pre>
+<script type="text/plain" id="raw-code-sol4">var transitioning = false;
+
+function recordEvent(deliveryId, eventType, note) {
+// Guard 1: prevent double-click
+if (transitioning) return { ok: false, error: 'Processing' };
+
+// Guard 2: state check (also handles duplicate clicks
+// from another tab)
+var current = deriveDeliveryStatus(deliveryId);
+if (!canTransition(current, eventType)) {
+return { ok: false, error: 'Cannot ' + eventType + ' from "' + current + '"' };
+}
+
+// Guard 3: time-based dedupe - reject an identical event
+// within 5 seconds of the last one
+var last = state.events
+.filter(function (e) { return e.deliveryId === deliveryId && e.type === eventType; })
+.sort(function (a, b) { return b.occurredAt.localeCompare(a.occurredAt); })[0];
+if (last) {
+var secSince = (Date.now() - new Date(last.occurredAt).getTime()) / 1000;
+if (secSince < 5) return { ok: false, error: 'Already recorded' };
+}
+
+transitioning = true;
+try {
+var newEvent = {
+id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+deliveryId: deliveryId,
+type: eventType,
+note: note || null,
+occurredAt: new Date().toISOString()
+};
+state.events.push(newEvent);
+saveState();
+render();
+return { ok: true, event: newEvent };
+} finally {
+transitioning = false;
+}
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why three guards, not one:
+
+Each catches a different failure mode.
+
+Guard 1 (transitioning flag) - the user's
+finger. A fast double-tap fires two click
+events. The first sets transitioning = true,
+the second returns immediately. One event.
+
+Guard 2 (state check) - the app's logic.
+Even with Guard 1, if two browser tabs are
+open, one tab's event won't know about the
+other tab's state. Guard 2 reads the current
+status from the shared event log, sees the
+transition isn't valid, and rejects. Correct
+behavior across tabs.
+
+Guard 3 (time dedupe) - the network / retry.
+If Stage 03 introduces a network call and
+the first request times out but actually
+succeeded, the retry would create a second
+event. The time dedupe (5 seconds) prevents
+that. It's a Stage 03 safety net - overkill
+for Stage 02, but harmless and instructive.
+
+All three are cheap. None of them slows the
+happy path. Together they make event
+recording idempotent in every failure mode.
+
+Why 5 seconds:
+
+A real courier might legitimately mark
+two different deliveries as delivered
+within 5 seconds. But those are different
+deliveryIds, so the filter excludes them.
+The dedupe only applies to the SAME
+delivery and SAME event type within 5
+seconds - which is always a duplicate.
+
+Same reasoning as HR's 5-second dedupe
+for clock-in.
+
+Why transitioning is cleared in finally:
+
+If the mutation throws (rare, but possible
+if localStorage is in a bad state), the
+flag must still be cleared. A finally
+block guarantees it, regardless of whether
+the body succeeded or failed.
+
+Without finally, a throw in saveState
+would leave transitioning = true forever,
+and every subsequent event recording would
+be rejected. That's a subtle bug that
+manifests as "the app works, except after
+the first error, nothing can be recorded."
+
+The finally block is one line and prevents
+a whole class of stuck-state bugs.</pre>
+</div>
+</div>
+</section>
+
+<section id="timeline">
+<h2 class="section-title">Customer timeline - derived from the same events</h2>
+<p class="section-sub">One log, three views.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The customer's tracking timeline, the courier's button state, and the dispatcher's active table all read from the same event log. This is the payoff of the derived-status pattern: one source of truth, three views that always agree.
+</p>
+
+<div class="code-block" id="sol5">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">timeline.js</span>
+<span class="snippet-meta">delivery-stage-02.html · lines 720–750</span>
+<button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol5', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol5', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">var TIMELINE_LABELS = {
+'assigned': 'Assigned to courier',
+'picked_up': 'Picked up',
+'in_transit': 'In transit',
+'out_for_delivery': 'Out for delivery',
+'delivered': 'Delivered',
+'failed': 'Delivery failed'
+};
+
+function renderCustomerTimeline(deliveryId) {
+var events = deriveDeliveryTimeline(deliveryId);
+var currentStatus = deriveDeliveryStatus(deliveryId);
+var container = document.getElementById('timeline');
+
+container.innerHTML = events.map(function (ev, i) {
+var isCurrent = (i === 0);
+var cls = 'dl-tl-event' + (isCurrent ? ' is-current' : ' is-complete');
+return '<div class="' + cls + '">' +
+'<div class="dl-tl-dot"></div>' +
+'<div class="dl-tl-time">' + formatTime(ev.occurredAt) + '</div>' +
+'<div class="dl-tl-body">' +
+'<strong>' + escapeHtml(TIMELINE_LABELS[ev.type] || ev.type) + '</strong>' +
+(ev.note ? '<p>' + escapeHtml(ev.note) + '</p>' : '') +
+'</div>' +
+'</div>';
+}).join('');
+}</pre>
+<script type="text/plain" id="raw-code-sol5">var TIMELINE_LABELS = {
+'assigned': 'Assigned to courier',
+'picked_up': 'Picked up',
+'in_transit': 'In transit',
+'out_for_delivery': 'Out for delivery',
+'delivered': 'Delivered',
+'failed': 'Delivery failed'
+};
+
+function renderCustomerTimeline(deliveryId) {
+var events = deriveDeliveryTimeline(deliveryId);
+var currentStatus = deriveDeliveryStatus(deliveryId);
+var container = document.getElementById('timeline');
+
+container.innerHTML = events.map(function (ev, i) {
+var isCurrent = (i === 0);
+var cls = 'dl-tl-event' + (isCurrent ? ' is-current' : ' is-complete');
+return '<div class="' + cls + '">' +
+'<div class="dl-tl-dot"></div>' +
+'<div class="dl-tl-time">' + formatTime(ev.occurredAt) + '</div>' +
+'<div class="dl-tl-body">' +
+'<strong>' + escapeHtml(TIMELINE_LABELS[ev.type] || ev.type) + '</strong>' +
+(ev.note ? '<p>' + escapeHtml(ev.note) + '</p>' : '') +
+'</div>' +
+'</div>';
+}).join('');
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the labels map lives outside the render:
+
+Labels are content, not logic. They'll
+change when marketing rewrites them, when
+the app gets localized, when a typo is
+found. Keeping them in a data map means
+those changes are one-line edits, not
+edits buried in template strings.
+
+Same reasoning as the icons map in HR's
+timeline. Data lives in data; templates
+reference it.
+
+Why isCurrent is (i === 0):
+
+deriveDeliveryTimeline sorts newest-first.
+So index 0 is the most recent event, which
+is the one that produced the current status.
+
+The styling difference: the most recent
+event has a bright cyan dot (is-current);
+earlier events have green dots (is-complete).
+The customer sees at a glance "this is
+where it is now, these are the steps that
+got it there."
+
+The alternative - newest at bottom - is
+how email works, but for a tracking page
+the customer wants to see the current
+state first, then trace back. Newest-first
+is the right choice.
+
+Why escapeHtml is applied to labels and notes:
+
+TIMELINE_LABELS values are controlled by
+the app - they're hardcoded strings, no XSS
+risk. But applying escapeHtml is cheap and
+consistent.
+
+ev.note is user-controlled (the courier
+can type anything). The escapeHtml is
+mandatory here. Without it, a courier
+typing '<script>alert(1)</script>' as a
+note would inject script into the customer
+page.
+
+Applying escapeHtml to both is the safe
+default. If it's ever unclear whether a
+value is user-controlled, escape it. Same
+discipline as POS Stage 02.</pre>
+</div>
+</div>
+</section>
+
+<section id="persist">
+<h2 class="section-title">localStorage - survive the reload</h2>
+<p class="section-sub">Save on every mutation. Restore on load.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The state persists under three keys: <code>mak-delivery-deliveries</code>, <code>mak-delivery-events</code>, and <code>mak-delivery-view</code>. On load, if they exist, they're restored. If not, the seed data runs.
+</p>
+
+<div class="code-block" id="sol6">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">persist.js</span>
+<span class="snippet-meta">delivery-stage-02.html · lines 790–820</span>
+<button class="copy-btn" onclick="copyCode('code-sol6', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol6', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol6', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol6">var DELIVERIES_KEY = 'mak-delivery-deliveries';
+var EVENTS_KEY = 'mak-delivery-events';
+var VIEW_KEY = 'mak-delivery-view';
+
+function saveState() {
+try {
+localStorage.setItem(DELIVERIES_KEY, JSON.stringify(state.deliveries));
+localStorage.setItem(EVENTS_KEY, JSON.stringify(state.events));
+localStorage.setItem(VIEW_KEY, state.view);
+} catch (_) {
+// Quota or private mode - app works in-memory
+}
+}
+
+function loadState() {
+var deliveries = null, events = null, view = 'customer';
+try {
+var dRaw = localStorage.getItem(DELIVERIES_KEY);
+var eRaw = localStorage.getItem(EVENTS_KEY);
+var vRaw = localStorage.getItem(VIEW_KEY);
+if (dRaw && eRaw) {
+var dParsed = JSON.parse(dRaw);
+var eParsed = JSON.parse(eRaw);
+if (Array.isArray(dParsed) && dParsed.length > 0) {
+deliveries = dParsed;
+events = Array.isArray(eParsed) ? eParsed : [];
+}
+}
+if (vRaw === 'customer' || vRaw === 'courier' || vRaw === 'dispatcher') {
+view = vRaw;
+}
+} catch (_) { /* fall through to seed */ }
+
+if (deliveries && events) {
+state.deliveries = deliveries;
+state.events = events;
+} else {
+state.deliveries = SEED_DELIVERIES.slice();
+state.events = seedEvents();
+saveState();
+}
+state.view = view;
+}</pre>
+<pre id="code-sol6">var DELIVERIES_KEY = 'mak-delivery-deliveries';
+var EVENTS_KEY = 'mak-delivery-events';
+var VIEW_KEY = 'mak-delivery-view';
+
+function saveState() {
+try {
+localStorage.setItem(DELIVERIES_KEY, JSON.stringify(state.deliveries));
+localStorage.setItem(EVENTS_KEY, JSON.stringify(state.events));
+localStorage.setItem(VIEW_KEY, state.view);
+} catch (_) {
+// Quota or private mode - app works in-memory
+}
+}
+
+function loadState() {
+var deliveries = null, events = null, view = 'customer';
+try {
+var dRaw = localStorage.getItem(DELIVERIES_KEY);
+var eRaw = localStorage.getItem(EVENTS_KEY);
+var vRaw = localStorage.getItem(VIEW_KEY);
+if (dRaw && eRaw) {
+var dParsed = JSON.parse(dRaw);
+var eParsed = JSON.parse(eRaw);
+if (Array.isArray(dParsed) && dParsed.length > 0) {
+deliveries = dParsed;
+events = Array.isArray(eParsed) ? eParsed : [];
+}
+}
+if (vRaw === 'customer' || vRaw === 'courier' || vRaw === 'dispatcher') {
+view = vRaw;
+}
+} catch (_) { /* fall through to seed */ }
+
+if (deliveries && events) {
+state.deliveries = deliveries;
+state.events = events;
+} else {
+state.deliveries = SEED_DELIVERIES.slice();
+state.events = seedEvents();
+saveState();
+}
+state.view = view;
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why three keys, not one:
+
+Deliveries are set once and rarely edited.
+Events change every time an event is
+recorded. The view changes on every tab
+click.
+
+Three keys means three writes on every
+mutation, but each write is small. If the
+events write fails (rare), the deliveries
+write already succeeded - the delivery
+list isn't corrupted.
+
+One key with { deliveries, events, view }
+would also work. The split mirrors the
+three tables the data will live in on the
+server in Stage 03.
+
+Why the defensive check:
+
+If localStorage has '[]' (empty array)
+from a previous failed attempt, the naive
+code takes the "data exists" branch,
+parses it to an empty array, and never
+falls back to the seed. Everything shows
+zero.
+
+This is the exact bug that bit us in HR
+Stage 02. The check Array.isArray(dParsed) && dParsed.length &gt; 0 treats an empty
+array as "no data" and falls through to
+the seed.
+
+If dRaw is '[]', dParsed.length === 0, the
+condition fails, deliveries stays null,
+the else branch runs and seeds. Correct
+behavior in every case.
+
+Why view is validated explicitly:
+
+The view must be one of three known values.
+If localStorage has 'garbage' (user edited
+it, or a previous version used a different
+name), the validation falls back to
+'customer'.
+
+Validating user-writable data is a discipline.
+localStorage is user-editable; you can't
+trust it. Same rule as POS Stage 02's cart
+filtering and HR Stage 02's event filtering.
+
+The order matters:
+
+loadState runs before any render, and it
+must complete before render is called. If
+render ran first, it would render empty
+state, then loadState would populate it,
+then render would need to run again.
+
+loadState at the top of init guarantees
+the first render sees real data. Same
+pattern as every Stage 02 so far.</pre>
+</div>
+</div>
+</section>
+
+<section id="next">
+<h2 class="section-title">Next: Stage 03 - Backend</h2>
+<p class="section-sub">Events get a home. The state machine goes server-side.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stage 02 loses every event on localStorage clear. That's fine for a client demo - but a delivery tracking system without a server isn't a delivery tracking system. Stage 03 adds one:
+</p>
+
+<ul class="text-sm text-slate-300 leading-relaxed space-y-1" style="padding-left: 1.5rem; list-style: disc;">
+<li><strong>Five tables</strong> - <code>customers</code>, <code>couriers</code>, <code>deliveries</code>, <code>delivery_events</code>, <code>delivery_legs</code> - with three foreign keys</li>
+<li><strong>The server-side state machine</strong> - the same <code>TRANSITIONS</code> map in Python, enforced at the API</li>
+<li><strong>Atomic event recording</strong> - <code>POST /api/deliveries/<id>/events</code> does the event insert, the status update, and the leg refresh in one transaction</li>
+<li><strong>Public tracking endpoint</strong> - <code>GET /api/track/<code></code> returns the timeline without requiring auth, redacting PII</li>
+<li><strong>The delivery_legs cache</strong> - materialized from events, updated on every write. The tracking page shows a progress bar without walking events</li>
+<li><strong>Idempotent at the API</strong> - a duplicate event within the deduplication window returns the existing event, not a new one</li>
+<li><strong>The client rewired</strong> - same UI, <code>fetch()</code> instead of <code>localStorage</code>. The client still derives locally for the live UI, but the server's derivation is the source of truth on load.</li>
+</ul>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+The client-side state machine from Stage 02 becomes the specification for the server-side state machine. Both must produce the same result. Stage 03's test is: run the same events through both, compare.
+</p>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">Continue the build</h2>
+<a href="/apps/delivery/stage-03-backend.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">Next: Stage 03 - Backend</div>
+<div class="text-xs text-slate-400 mt-1">Five tables, server-side state machine, atomic events, public tracking. 3–4 hours.</div>
+</a>
+<a href="/apps/delivery/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Back to the Delivery Tracking hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages, the data model, and the roadmap.</div>
+</a>
+</section>
+
+<a href="/apps/delivery/index.html" class="back-link">← Back to Delivery Tracking hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Delivery Tracking Stage 02 · Interactions <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
