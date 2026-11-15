@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>HR Stage 03 — Backend (Event Log + Server Derivation + Idempotent Clock-in) (2026)</title>
+<meta name="description" content="Stage 03 of the HR & Attendance build: Flask + SQLite. Three tables — employees, attendance_events, shifts — with the server-side derivation that pairs events into shifts. Idempotent clock-in at the API. Overnight shifts, break pairing, RESTRICT on events.">
+<meta name="keywords" content="flask attendance api, event log derivation, idempotent clock in, sqlite shifts cache, overnight shift handling">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="HR Stage 03 — Backend">
+<meta property="og:description" content="Event log, server-side derivation, idempotent clock-in, overnight shifts.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/apps/hr/stage-03-backend.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="HR Stage 03 — Backend">
+<meta name="twitter:description" content="Event log, server-side derivation, idempotent clock-in.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/apps/hr/stage-03-backend.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "HR Stage 03 — Backend",
+"description": "Flask + SQLite. Three tables with an event log and a derived shifts cache. Server-side derivation. Idempotent clock-in.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-15",
+"dateModified": "2026-11-15",
+"proficiencyLevel": "Intermediate",
+"dependencies": "Python, Flask, SQLite, JavaScript"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why is shifts a separate table if it can be derived from events?","acceptedAnswer":{"@type":"Answer","text":"It is a cache. The derivation walks events, pairs in with out, subtracts breaks, and produces one row per shift. That is correct but O(events) on every read. For the manager dashboard, the timesheet view, and every report, we need to query shifts directly: 'give me all shifts for employee 5 this week'. Storing the derivation result means those queries are a simple WHERE instead of a walk. The events remain the source of truth; the shifts row can always be recomputed. Same trade-off as products.quantity in Inventory: pay on writes (in a transaction) to save on reads."}},
+{"@type":"Question","name":"What does the server do when clock-in is requested twice?","acceptedAnswer":{"@type":"Answer","text":"It checks whether the employee already has an open shift. If the last event for that employee is an in without a following out, the clock-in is a no-op. The API returns 409 Conflict with the existing open shift. The client sees 'already clocked in since 9:02' and updates the UI without creating a duplicate. This is idempotency at the boundary: the same request sent twice produces one event. The client-side dedupe from Stage 02 becomes a server-side check, and both agree."}},
+{"@type":"Question","name":"How does an overnight shift work?","acceptedAnswer":{"@type":"Answer","text":"A shift that starts at 22:00 Monday and ends at 06:00 Tuesday is one shift. The date field on the shifts row is the start date (Monday), not the end date. The derivation uses the first event's date as the shift date, and the minutes_worked computation uses the raw timestamps: (clock_out - clock_in) - break_minutes. The date is for grouping; the timestamps are for the math. When you query 'shifts for Monday', you get the overnight shift. When you query 'shifts for Tuesday', you do not — because the shift belongs to the day it started."}},
+{"@type":"Question","name":"Why RESTRICT on attendance_events.employee_id?","acceptedAnswer":{"@type":"Answer","text":"An employee who has ever clocked in cannot be deleted. Their events are a payroll record, and payroll records survive. If you could delete an employee, every shift they ever worked would either cascade-delete (losing history) or orphan (losing the employee link). RESTRICT refuses both. Employees can be archived via archived_at, same pattern as POS products that have been sold. History is immutable; the employee is hidden but their record remains."}},
+{"@type":"Question","name":"Why break_start with no break_end is valid?","acceptedAnswer":{"@type":"Answer","text":"Because the employee is currently on break. The break started at 12:15 and hasn't ended yet. The shift's status is on-break, and break_minutes is computed using now as the end. The moment the break_end event arrives, the duration freezes. The derivation has to handle a trailing break_start the same way it handles a trailing in without an out: as an ongoing state, not an error. The same principle applies if the employee forgot to end the break and clocked out — the out event closes the open break with the out timestamp as the end."}},
+{"@type":"Question","name":"What does the frontend keep doing after Stage 03?","acceptedAnswer":{"@type":"Answer","text":"The frontend still derives shifts locally for the live clock. The ticking 'working for 4h 12m' counter has to update every second — a network round-trip per second would be absurd. So the client continues to run deriveShift on the events it has, and the server runs the same derivation for the shifts table. They agree because they operate on the same events. This is the same pattern as POS: the client computes totals for the display, the server computes totals for the actual sale. The client's version is a preview; the server's version is the source of truth on load."}},
+{"@type":"Question","name":"What does the loading sequence look like?","acceptedAnswer":{"@type":"Answer","text":"On page load, the client calls GET /api/state. That endpoint returns {employees, events, shifts} where events are today's events and shifts are today's derived shifts. The client stores them in state, calls render() to populate the UI, and starts the clock. On clock-in/out/break, the client POSTs to the appropriate endpoint. The server writes the event, re-runs the derivation, updates or creates the shifts row for that employee and date, and returns the new state. The client replaces its state with the response and re-renders. One round-trip per action, one source of truth per response."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+.snippet-meta { font-size: 11px; color: #64748b; padding: 0 12px 8px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">HR &amp; Attendance Build</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 03 · Backend</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> &rsaquo;
+<a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> &rsaquo;
+<a href="/apps/hr/index.html" style="color:#7ee8fc;">HR &amp; Attendance</a> &rsaquo;
+<span style="color:#FFFFFF; font-weight:700;">Stage 03</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">🐍 Stage 03 · 3–4 hours</div>
+<h1>Give it a memory.<br><span class="py-accent">Event log. Derived shifts.</span></h1>
+<p class="lead">
+The events move to SQLite. Three tables: <code>employees</code>, <code>attendance_events</code> (append-only, the source of truth), <code>shifts</code> (a derived cache, one row per shift). The server runs the same derivation as the client and materializes the result. Clock-in becomes idempotent at the API boundary — a second <code>in</code> without an intervening <code>out</code> returns 409. Overnight shifts, break pairing, and the <code>RESTRICT</code> foreign key that makes employee deletion impossible once they've clocked in. The client keeps deriving locally for the live clock, but the server's derivation is the source of truth on load.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 3–4 hours</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> Python · Flask · SQLite · event derivation</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/apps/hr/index.html">HR hub</a>
+<a href="#schema">The 3 tables</a>
+<a href="#derivation">Server derivation</a>
+<a href="#idempotent">Idempotent clock-in</a>
+<a href="#overnight">Overnight shifts</a>
+<a href="#api">The 5 routes</a>
+<a href="#client">Client rewired</a>
+<a href="#next">Next: Stage 04</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Three tables. <code>employees(id, name, email UNIQUE, role, hourly_rate, hired_at, archived_at)</code>, <code>attendance_events(id, employee_id FK RESTRICT, type, occurred_at, note, created_at)</code> — append-only — and <code>shifts(id, employee_id FK RESTRICT, date, clock_in_at, clock_out_at, break_minutes, minutes_worked, status)</code> — a derived cache. The server walks events per employee, pairs <code>in</code> with <code>out</code>, sums <code>break_start</code>&rarr;<code>break_end</code> intervals, and upserts one <code>shifts</code> row. Clock-in checks whether an open shift exists; if so, 409. Clock-out closes it. Break start/end toggle state. On every mutation, the derivation re-runs inside the same transaction. The client calls <code>GET /api/state</code> on load, <code>POST /api/clock-in</code> on clock-in, and re-renders from each response.
+</p>
+</div>
+
+<section id="schema">
+<h2 class="section-title">✅ The three tables</h2>
+<p class="section-sub">Facts in events. Derived in shifts. RESTRICT on both.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The schema has two jobs: record what happened (events), and serve what's summarized (shifts). Events are the truth; shifts are the cache. Both reference the employee, and both refuse deletion.
+</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">schema.sql</span>
+<span class="snippet-meta">backend/schema.sql &middot; lines 1&ndash;32</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">SQL</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">CREATE TABLE employees (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT NOT NULL,
+  email       TEXT NOT NULL UNIQUE,
+  role        TEXT NOT NULL DEFAULT 'employee'
+              CHECK (role IN ('employee', 'manager')),
+  hourly_rate REAL NOT NULL DEFAULT 0 CHECK (hourly_rate &gt;= 0),
+  hired_at    TEXT NOT NULL,
+  archived_at TEXT
+);
+
+CREATE TABLE attendance_events (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  employee_id INTEGER NOT NULL,
+  type        TEXT NOT NULL
+              CHECK (type IN ('in', 'out', 'break_start', 'break_end',
+                              'manual_in', 'manual_out')),
+  occurred_at TEXT NOT NULL,
+  note        TEXT,
+  created_at  TEXT NOT NULL,
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE shifts (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  employee_id    INTEGER NOT NULL,
+  date           TEXT NOT NULL,
+  clock_in_at    TEXT,
+  clock_out_at   TEXT,
+  break_minutes  INTEGER NOT NULL DEFAULT 0,
+  minutes_worked INTEGER NOT NULL DEFAULT 0,
+  status         TEXT NOT NULL DEFAULT 'open'
+                 CHECK (status IN ('open', 'closed', 'approved')),
+  created_at     TEXT NOT NULL,
+  UNIQUE (employee_id, date),
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE RESTRICT
+);</pre>
+<script type="text/plain" id="raw-code-sol1">CREATE TABLE employees (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  name        TEXT NOT NULL,
+  email       TEXT NOT NULL UNIQUE,
+  role        TEXT NOT NULL DEFAULT 'employee'
+              CHECK (role IN ('employee', 'manager')),
+  hourly_rate REAL NOT NULL DEFAULT 0 CHECK (hourly_rate &gt;= 0),
+  hired_at    TEXT NOT NULL,
+  archived_at TEXT
+);
+
+CREATE TABLE attendance_events (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  employee_id INTEGER NOT NULL,
+  type        TEXT NOT NULL
+              CHECK (type IN ('in', 'out', 'break_start', 'break_end',
+                              'manual_in', 'manual_out')),
+  occurred_at TEXT NOT NULL,
+  note        TEXT,
+  created_at  TEXT NOT NULL,
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE shifts (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  employee_id    INTEGER NOT NULL,
+  date           TEXT NOT NULL,
+  clock_in_at    TEXT,
+  clock_out_at   TEXT,
+  break_minutes  INTEGER NOT NULL DEFAULT 0,
+  minutes_worked INTEGER NOT NULL DEFAULT 0,
+  status         TEXT NOT NULL DEFAULT 'open'
+                 CHECK (status IN ('open', 'closed', 'approved')),
+  created_at     TEXT NOT NULL,
+  UNIQUE (employee_id, date),
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE RESTRICT
+);</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why UNIQUE (employee_id, date) on shifts:
+
+  A shift is per employee per day. There cannot
+  be two shifts rows for the same person on the
+  same date. The UNIQUE constraint guarantees
+  it at the schema level.
+
+  This means the derivation uses INSERT OR
+  UPDATE — upsert. If a shift row exists for
+  (employee, date), it's updated. If not, it's
+  inserted. The UNIQUE is what makes upsert
+  safe: the database refuses a duplicate, so
+  the code path is always "find and update,
+  or insert if missing."
+
+  Without the UNIQUE, two concurrent clock-ins
+  could create two shift rows for the same day.
+  With it, the second insert fails and the
+  transaction rolls back. That's correct.
+
+Why status has three values, not two:
+
+  'open'    — clocked in, no out yet
+  'closed'  — clocked out, hours computed
+  'approved' — manager has signed off
+
+  Stage 03 uses 'open' and 'closed'. Stage 04
+  adds 'approved' and the workflow that sets it.
+  The CHECK constraint lists all three now so
+  Stage 04 is an additive change, not a schema
+  migration for the CHECK itself.
+
+  The alternative — adding 'approved' to the
+  CHECK in Stage 04 — requires dropping and
+  recreating the table in SQLite. Listing it
+  now avoids that.
+
+Why RESTRICT on attendance_events:
+
+  An employee with events cannot be deleted.
+  The DELETE fails with FOREIGN KEY constraint
+  failed. Their payroll history survives.
+
+  The alternative — CASCADE — would delete all
+  events when the employee is deleted. That
+  destroys the record. Wrong for HR.
+
+  The alternative — SET NULL — would orphan
+  the events. Every report that says "Jane
+  worked 40 hours" becomes "someone worked
+  40 hours." Useless.
+
+  RESTRICT is the only correct action for a
+  payroll record. Archive the employee instead,
+  using archived_at.
+
+Why created_at is separate from occurred_at:
+
+  occurred_at — when the event happened (the
+                clock-in time).
+  created_at  — when the row was written (the
+                API call time).
+
+  For a normal clock-in, they're within
+  milliseconds. For a manual correction (Stage
+  04), they're different: the manual_out event
+  has an occurred_at of "yesterday 5 PM" but a
+  created_at of "today 10 AM" (when the manager
+  fixed it).
+
+  The distinction matters for audit. "When did
+  this fact become true?" and "When did the
+  system learn about it?" are different
+  questions, and payroll auditors ask both.
+
+Why shifts is materialized, not a VIEW:
+
+  A VIEW would compute the shift on every
+  SELECT. That's correct but slow: the timesheet
+  view needs 40 shifts (5 employees × 8 days),
+  which means 40 derivations per page load,
+  each walking that employee's full event list.
+
+  A materialized table costs one derivation per
+  write. Reads are free. For a write-once-read-many
+  workload (which attendance is), the cache wins.
+
+  The invariant: every shifts row can be
+  recomputed from attendance_events. If you
+  ever suspect corruption, drop the row and
+  re-derive. That's the safety net.</pre>
+</div>
+</div>
+</section>
+
+<section id="derivation">
+<h2 class="section-title">✅ The server-side derivation</h2>
+<p class="section-sub">Same logic as Stage 02. Now it writes rows.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The <code>derive_shift</code> function in Python is the same state machine as the JavaScript version. It walks events in chronological order, tracks <code>working</code> / <code>on-break</code> / <code>finished</code>, and returns a dict with the shift's summary. The difference from Stage 02 is what happens next: the result is written to the <code>shifts</code> table.
+</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">derive.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 60&ndash;90</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">def derive_shift(events, employee_id):
+    """Walk events in chronological order, produce a shift summary."""
+    evs = sorted(
+        [e for e in events if e["employee_id"] == employee_id],
+        key=lambda e: e["occurred_at"],
+    )
+
+    clock_in = None
+    clock_out = None
+    break_minutes = 0
+    break_start = None
+    status = "not-started"
+
+    for e in evs:
+        t = e["type"]
+        if t in ("in", "manual_in"):
+            if status in ("not-started", "finished"):
+                clock_in = e["occurred_at"]
+                clock_out = None
+                status = "working"
+        elif t == "break_start":
+            if status == "working":
+                break_start = e["occurred_at"]
+                status = "on-break"
+        elif t == "break_end":
+            if status == "on-break" and break_start:
+                break_minutes += diff_minutes(break_start, e["occurred_at"])
+                break_start = None
+                status = "working"
+        elif t in ("out", "manual_out"):
+            if status in ("working", "on-break"):
+                if break_start:
+                    break_minutes += diff_minutes(break_start, e["occurred_at"])
+                    break_start = None
+                clock_out = e["occurred_at"]
+                status = "finished"
+
+    minutes_worked = 0
+    if clock_in:
+        end = clock_out or now_iso()
+        minutes_worked = diff_minutes(clock_in, end) - break_minutes
+        if minutes_worked &lt; 0:
+            minutes_worked = 0
+
+    shift_date = evs[0]["occurred_at"][:10] if evs else None
+    return {
+        "date": shift_date,
+        "clock_in_at": clock_in,
+        "clock_out_at": clock_out,
+        "break_minutes": break_minutes,
+        "minutes_worked": minutes_worked,
+        "status": status,
+    }</pre>
+<script type="text/plain" id="raw-code-sol2">def derive_shift(events, employee_id):
+    """Walk events in chronological order, produce a shift summary."""
+    evs = sorted(
+        [e for e in events if e["employee_id"] == employee_id],
+        key=lambda e: e["occurred_at"],
+    )
+
+    clock_in = None
+    clock_out = None
+    break_minutes = 0
+    break_start = None
+    status = "not-started"
+
+    for e in evs:
+        t = e["type"]
+        if t in ("in", "manual_in"):
+            if status in ("not-started", "finished"):
+                clock_in = e["occurred_at"]
+                clock_out = None
+                status = "working"
+        elif t == "break_start":
+            if status == "working":
+                break_start = e["occurred_at"]
+                status = "on-break"
+        elif t == "break_end":
+            if status == "on-break" and break_start:
+                break_minutes += diff_minutes(break_start, e["occurred_at"])
+                break_start = None
+                status = "working"
+        elif t in ("out", "manual_out"):
+            if status in ("working", "on-break"):
+                if break_start:
+                    break_minutes += diff_minutes(break_start, e["occurred_at"])
+                    break_start = None
+                clock_out = e["occurred_at"]
+                status = "finished"
+
+    minutes_worked = 0
+    if clock_in:
+        end = clock_out or now_iso()
+        minutes_worked = diff_minutes(clock_in, end) - break_minutes
+        if minutes_worked &lt; 0:
+            minutes_worked = 0
+
+    shift_date = evs[0]["occurred_at"][:10] if evs else None
+    return {
+        "date": shift_date,
+        "clock_in_at": clock_in,
+        "clock_out_at": clock_out,
+        "break_minutes": break_minutes,
+        "minutes_worked": minutes_worked,
+        "status": status,
+    }</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The status values here are internal:
+
+  'not-started'  → no events yet
+  'working'      → clocked in, not on break
+  'on-break'     → break_start without break_end
+  'finished'     → clocked out
+
+  These are DIFFERENT from the shifts table's
+  status ('open', 'closed', 'approved'). The
+  derivation's status is the state machine's
+  internal state. The table's status is the
+  business state.
+
+  Mapping:
+    derivation 'working'   → table 'open'
+    derivation 'on-break'  → table 'open'
+    derivation 'finished'  → table 'closed'
+    derivation 'not-started' → no row (no shift)
+
+  Why the difference? A shift that's currently
+  on break is still 'open' from the business's
+  perspective — the employee hasn't clocked out.
+  The break is an internal state within the open
+  shift. Collapsing 'working' and 'on-break' to
+  'open' keeps the table's status meaningful to
+  a manager ('is anyone still clocked in?').
+
+Why sorting is inside the function:
+
+  events come from the DB in insertion order
+  (which matches chronological order in the
+  happy path). But a manual correction (Stage
+  04) has an occurred_at in the past but a
+  created_at of now — so it's inserted after
+  events that happened later.
+
+  Sorting by occurred_at inside the derivation
+  guarantees chronological order regardless of
+  insertion order. The function never trusts
+  the DB's row order.
+
+Why 'manual_in' is treated as 'in':
+
+  A manual correction is a clock-in that a
+  manager recorded on the employee's behalf.
+  For derivation purposes, it's identical —
+  the employee started working at that time.
+
+  The distinction matters for audit (who
+  created it, with what note) but not for
+  the math. Collapsing them in the derivation
+  keeps the state machine simple and correct.
+
+  Same for 'manual_out' vs 'out'.
+
+Why shift_date is the first event's date:
+
+  An overnight shift (22:00 Monday to 06:00
+  Tuesday) has two dates in its timestamps.
+  Which one is the shift's date?
+
+  The start date. Monday. Because that's when
+  the work began. The fact that some of it
+  happened Tuesday doesn't make it a Tuesday
+  shift — the employee signed in for Monday's
+  shift and worked through the night.
+
+  evs[0] is the chronologically first event,
+  so evs[0]["occurred_at"][:10] is the start
+  date. For a shift that starts at 23:59 and
+  ends at 00:01, this correctly assigns it to
+  the day it started, not the day it ended.</pre>
+</div>
+</div>
+</section>
+
+<section id="idempotent">
+<h2 class="section-title">✅ Idempotent clock-in — at the API</h2>
+<p class="section-sub">Same request twice → one event.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stage 02 had three guards in the browser. Stage 03 adds the fourth and final one on the server: an explicit check that the employee doesn't already have an open shift. If they do, the request is a no-op — with a <code>409 Conflict</code> response that tells the client the current state.
+</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">clock-in.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 145&ndash;175</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">@app.route("/api/clock-in", methods=["POST"])
+def clock_in():
+    data = request.get_json(silent=True) or {}
+    employee_id = int(data.get("employeeId") or 0)
+    if not employee_id:
+        return jsonify({"error": "employeeId is required."}), 400
+
+    with get_db() as conn:
+        emp = conn.execute(
+            "SELECT id FROM employees WHERE id = ? AND archived_at IS NULL",
+            (employee_id,),
+        ).fetchone()
+        if not emp:
+            return jsonify({"error": "Employee not found."}), 404
+
+        # Compute current shift from events
+        events = conn.execute(
+            "SELECT * FROM attendance_events WHERE employee_id = ? ORDER BY occurred_at",
+            (employee_id,),
+        ).fetchall()
+        current = derive_shift([dict(e) for e in events], employee_id)
+
+        # Guard: reject if already working or on break
+        if current["status"] in ("working", "on-break"):
+            return jsonify({
+                "error": "Already clocked in.",
+                "shift": current,
+            }), 409
+
+        # Insert the event
+        ts = now_iso()
+        conn.execute(
+            """INSERT INTO attendance_events
+               (employee_id, type, occurred_at, note, created_at)
+               VALUES (?, 'in', ?, NULL, ?)""",
+            (employee_id, ts, ts),
+        )
+
+        # Re-derive and upsert the shifts row
+        _refresh_shift(conn, employee_id)
+        conn.commit()
+        return jsonify(_state_payload(conn)), 201</pre>
+<pre id="code-sol3">@app.route("/api/clock-in", methods=["POST"])
+def clock_in():
+    data = request.get_json(silent=True) or {}
+    employee_id = int(data.get("employeeId") or 0)
+    if not employee_id:
+        return jsonify({"error": "employeeId is required."}), 400
+
+    with get_db() as conn:
+        emp = conn.execute(
+            "SELECT id FROM employees WHERE id = ? AND archived_at IS NULL",
+            (employee_id,),
+        ).fetchone()
+        if not emp:
+            return jsonify({"error": "Employee not found."}), 404
+
+        # Compute current shift from events
+        events = conn.execute(
+            "SELECT * FROM attendance_events WHERE employee_id = ? ORDER BY occurred_at",
+            (employee_id,),
+        ).fetchall()
+        current = derive_shift([dict(e) for e in events], employee_id)
+
+        # Guard: reject if already working or on break
+        if current["status"] in ("working", "on-break"):
+            return jsonify({
+                "error": "Already clocked in.",
+                "shift": current,
+            }), 409
+
+        # Insert the event
+        ts = now_iso()
+        conn.execute(
+            """INSERT INTO attendance_events
+               (employee_id, type, occurred_at, note, created_at)
+               VALUES (?, 'in', ?, NULL, ?)""",
+            (employee_id, ts, ts),
+        )
+
+        # Re-derive and upsert the shifts row
+        _refresh_shift(conn, employee_id)
+        conn.commit()
+        return jsonify(_state_payload(conn)), 201</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why 409 and not 400:
+
+  400 Bad Request means the client sent
+  something malformed — a missing field, a
+  wrong type, an invalid value. The client
+  made a mistake.
+
+  409 Conflict means the request is valid but
+  conflicts with the current state of the
+  server. "You asked to clock in, but you're
+  already clocked in." Nothing is wrong with
+  the request; the state just doesn't allow it.
+
+  The client handles 409 differently from 400:
+  on 409, it doesn't show an error — it silently
+  updates its state to match the server's, so
+  the UI shows the correct current shift. On
+  400, it shows a real error.
+
+  The response body on 409 includes the current
+  shift. The client uses it to reconcile without
+  an extra GET. One round-trip, one truth.
+
+Why the whole state is returned on 201:
+
+  After the clock-in INSERT, the client needs
+  to know: the new event, the new shift, and
+  the updated KPIs. Returning the whole state
+  payload (employees, events, shifts) means the
+  client replaces its state wholesale and
+  re-renders. One call, everything in sync.
+
+  The alternative — returning just the new
+  event — requires the client to update its
+  local state manually: push to events, re-run
+  derivation, recompute KPIs, re-render. That's
+  exactly the logic the server just ran. Why
+  duplicate it?
+
+  Return the state, replace the state. The
+  client's derivation exists only for the live
+  clock (which needs to tick between API calls).
+  Everything else comes from the server.
+
+Why _refresh_shift is a separate function:
+
+  The clock-in, clock-out, break-start, and
+  break-end endpoints all do the same thing:
+  insert an event, re-derive the shift, upsert
+  the shifts row. That's four lines of logic
+  duplicated across four endpoints.
+
+  _refresh_shift encapsulates it. Each endpoint
+  just calls _refresh_shift after its INSERT.
+  If the derivation logic changes — say, adding
+  support for split shifts in Stage 04 — the
+  change is in one place.
+
+  This is the same factoring as renderKPIs in
+  Stage 02: one computation, called from every
+  path that needs it.
+
+The transaction:
+
+  The whole block is inside `with get_db() as conn:`.
+  If the INSERT succeeds but the upsert fails
+  (e.g., FK violation), the INSERT rolls back.
+  The state stays consistent: either both writes
+  landed or neither did.
+
+  This is the same discipline as POS's atomic
+  checkout. Two writes that must agree cannot
+  be split across two transactions. One
+  transaction, all or nothing.</pre>
+</div>
+</div>
+</section>
+
+<section id="overnight">
+<h2 class="section-title">✅ Overnight shifts</h2>
+<p class="section-sub">The date is the start date. The math uses timestamps.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+An employee clocks in at 22:00 on Monday and out at 06:00 on Tuesday. Which day's shift is it? The one that started. Here's how that falls out of the schema and the derivation:
+</p>
+
+<div class="code-block" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">overnight.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 100&ndash;120</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol4', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">def _refresh_shift(conn, employee_id):
+    """Re-derive this employee's current shift and upsert the shifts row."""
+    events = conn.execute(
+        "SELECT * FROM attendance_events WHERE employee_id = ? ORDER BY occurred_at",
+        (employee_id,),
+    ).fetchall()
+
+    shift = derive_shift([dict(e) for e in events], employee_id)
+
+    # No events → no shift row to write
+    if shift["status"] == "not-started" or not shift["date"]:
+        return
+
+    table_status = "open" if shift["status"] in ("working", "on-break") else "closed"
+    ts = now_iso()
+
+    conn.execute(
+        """INSERT INTO shifts
+           (employee_id, date, clock_in_at, clock_out_at,
+            break_minutes, minutes_worked, status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(employee_id, date) DO UPDATE SET
+             clock_in_at    = excluded.clock_in_at,
+             clock_out_at   = excluded.clock_out_at,
+             break_minutes  = excluded.break_minutes,
+             minutes_worked = excluded.minutes_worked,
+             status         = excluded.status""",
+        (
+            employee_id,
+            shift["date"],
+            shift["clock_in_at"],
+            shift["clock_out_at"],
+            shift["break_minutes"],
+            shift["minutes_worked"],
+            table_status,
+            ts,
+        ),
+    )</pre>
+<pre id="code-sol4">def _refresh_shift(conn, employee_id):
+    """Re-derive this employee's current shift and upsert the shifts row."""
+    events = conn.execute(
+        "SELECT * FROM attendance_events WHERE employee_id = ? ORDER BY occurred_at",
+        (employee_id,),
+    ).fetchall()
+
+    shift = derive_shift([dict(e) for e in events], employee_id)
+
+    # No events → no shift row to write
+    if shift["status"] == "not-started" or not shift["date"]:
+        return
+
+    table_status = "open" if shift["status"] in ("working", "on-break") else "closed"
+    ts = now_iso()
+
+    conn.execute(
+        """INSERT INTO shifts
+           (employee_id, date, clock_in_at, clock_out_at,
+            break_minutes, minutes_worked, status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(employee_id, date) DO UPDATE SET
+             clock_in_at    = excluded.clock_in_at,
+             clock_out_at   = excluded.clock_out_at,
+             break_minutes  = excluded.break_minutes,
+             minutes_worked = excluded.minutes_worked,
+             status         = excluded.status""",
+        (
+            employee_id,
+            shift["date"],
+            shift["clock_in_at"],
+            shift["clock_out_at"],
+            shift["break_minutes"],
+            shift["minutes_worked"],
+            table_status,
+            ts,
+        ),
+    )</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why ON CONFLICT (upsert):
+
+  SQLite (and Postgres, and MySQL 8+) support
+  "INSERT ... ON CONFLICT (cols) DO UPDATE".
+  This is the upsert: try to insert; if the
+  unique constraint fires, update the existing
+  row instead.
+
+  For shifts, the unique key is
+  (employee_id, date). If a row exists for
+  Jane on 2026-11-15, the clock-in's upsert
+  updates it. If not, it inserts a new one.
+
+  The alternative — SELECT then INSERT or
+  UPDATE — has a race: two concurrent
+  clock-ins could both SELECT nothing, both
+  INSERT, and one wins (the other fails with
+  UNIQUE constraint). The upsert is atomic:
+  the database serializes the conflict
+  resolution.
+
+Why excluded.clock_in_at and not shift.date:
+
+  In ON CONFLICT ... DO UPDATE, the special
+  table "excluded" holds the row that was
+  being inserted. So:
+
+    excluded.clock_in_at = the new value
+                           (from the INSERT VALUES)
+    shifts.clock_in_at   = the old value
+                           (already in the table)
+
+  We want the NEW value. So we use
+  excluded.clock_in_at on the right-hand side
+  of the SET.
+
+  This is the SQLite syntax. Postgres uses
+  the same. MySQL uses VALUES(clock_in_at)
+  or an alias. The pattern is universal, the
+  syntax varies.
+
+Why the shift's "date" is from the derivation:
+
+  Derivation returns shift["date"] = the
+  first event's date. For an overnight shift
+  (in Monday 22:00, out Tuesday 06:00), that's
+  Monday.
+
+  The upsert inserts a row with date=Monday,
+  clock_in=22:00 Monday, clock_out=06:00
+  Tuesday, minutes_worked=480, status=closed.
+
+  Query "shifts on Monday" finds it. Query
+  "shifts on Tuesday" does not. The shift
+  belongs to the day it started.
+
+  This is the business rule for payroll:
+  hours are attributed to the day the work
+  began. A night shift on Monday is Monday's
+  labor cost.
+
+  If you ever need a different rule — some
+  jurisdictions attribute hours to the day
+  the work ended — you'd add a derived
+  "attribution_date" field and use that in
+  reports. But the shift row itself is
+  Monday-based, because that's when the
+  employee clocked in.
+
+Why not-started returns without writing:
+
+  An employee with no events has no shift.
+  Writing a row with null clock_in would be
+  noise: every employee would have a zero-
+  hours shift row for every day. Reports would
+  have to filter them out.
+
+  The early return keeps the shifts table
+  sparse: one row per actual shift, not per
+  employee per day. Cleaner queries, less
+  data, no ambiguity.</pre>
+</div>
+</div>
+</section>
+
+<section id="api">
+<h2 class="section-title">✅ The five routes</h2>
+<p class="section-sub">One read, four writes. All state-shaped.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Every route follows the same shape: parse the request, run the mutation inside a transaction, re-derive and upsert, return the current state. The client never has to assemble state from partial responses.
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>GET /api/state</h4>
+<p>Returns <code>{employees, events, shifts, today}</code>. Called on page load. The one read.</p>
+</div>
+<div class="concept-card">
+<h4>POST /api/clock-in</h4>
+<p>Insert an <code>in</code> event. 409 if already working or on break. Returns the new state.</p>
+</div>
+<div class="concept-card">
+<h4>POST /api/clock-out</h4>
+<p>Insert an <code>out</code> event. 409 if not working or on break. Returns the new state.</p>
+</div>
+<div class="concept-card">
+<h4>POST /api/break</h4>
+<p>Insert <code>break_start</code> or <code>break_end</code> depending on current state. Returns the new state.</p>
+</div>
+<div class="concept-card">
+<h4>GET /api/employees</h4>
+<p>List active employees. Used by the picker in Stage 04 and by the frontend on first load if <code>/api/state</code> is unavailable.</p>
+</div>
+<div class="concept-card">
+<h4>The pattern</h4>
+<p>Read once. Write with 409-on-conflict. Return full state. The client replaces its state wholesale — no manual merging, no stale fragments.</p>
+</div>
+</div>
+</section>
+
+<section id="client">
+<h2 class="section-title">✅ Client rewired</h2>
+<p class="section-sub">Same UI. fetch() instead of localStorage.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The Stage 02 frontend is largely unchanged. The differences are:
+</p>
+
+<ul class="text-sm text-slate-300 leading-relaxed space-y-1 mb-3" style="padding-left: 1.5rem; list-style: disc;">
+<li><code>loadState()</code> calls <code>GET /api/state</code> instead of reading <code>localStorage</code></li>
+<li><code>saveState()</code> is gone — the server is the persistence layer now</li>
+<li><code>clockIn()</code> POSTs to <code>/api/clock-in</code> instead of pushing to <code>state.events</code> directly</li>
+<li>On 409 from any endpoint, the response's <code>state</code> is used to replace the client state — the UI reflects the server's truth, no error toast</li>
+<li>Everything else stays: the derivation, the render, the live clock</li>
+</ul>
+
+<div class="code-block" id="sol5">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">client.js</span>
+<span class="snippet-meta">backend/static/hr-stage-03.html &middot; lines 540&ndash;570</span>
+<button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol5', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol5', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">async function clockIn() {
+  if (transitioning) return;
+  transitioning = true;
+
+  try {
+    const res = await fetch(API + '/api/clock-in', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId: CURRENT_EMPLOYEE_ID })
+    });
+
+    const body = await res.json();
+
+    if (res.status === 409) {
+      // Already clocked in. Not an error — sync to the server's state.
+      if (body.shift) {
+        // Reconcile silently; the UI already shows the right state
+      }
+      await refreshState();
+      return;
+    }
+
+    if (!res.ok) {
+      showToast(body.error || 'Clock-in failed', true);
+      return;
+    }
+
+    applyState(body);  // replace state, re-render
+  } catch (err) {
+    showToast('Network error: ' + err.message, true);
+  } finally {
+    transitioning = false;
+  }
+}</pre>
+<pre id="code-sol5">async function clockIn() {
+  if (transitioning) return;
+  transitioning = true;
+
+  try {
+    const res = await fetch(API + '/api/clock-in', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employeeId: CURRENT_EMPLOYEE_ID })
+    });
+
+    const body = await res.json();
+
+    if (res.status === 409) {
+      // Already clocked in. Not an error — sync to the server's state.
+      if (body.shift) {
+        // Reconcile silently; the UI already shows the right state
+      }
+      await refreshState();
+      return;
+    }
+
+    if (!res.ok) {
+      showToast(body.error || 'Clock-in failed', true);
+      return;
+    }
+
+    applyState(body);  // replace state, re-render
+  } catch (err) {
+    showToast('Network error: ' + err.message, true);
+  } finally {
+    transitioning = false;
+  }
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why 409 is not shown as an error:
+
+  From the user's perspective, "I clicked
+  clock-in and the UI still shows I'm working"
+  is the expected outcome if they were already
+  working. Showing "Already clocked in" as a
+  toast is noise.
+
+  The 409 is a signal to the client, not to
+  the user. The client responds by syncing
+  its state (calling refreshState, or using
+  body.shift), then re-rendering. The user
+  sees no change because there is no change.
+
+  On 400 (bad request) or 500 (server error),
+  the client DOES show a toast. Those are
+  genuine failures the user should know about.
+
+Why applyState(body) instead of manual merge:
+
+  The server returns the full state: employees,
+  events, shifts. The client replaces its own
+  state wholesale. No merging, no partial
+  updates, no risk of a stale field surviving.
+
+  This is the same discipline as Inventory's
+  refresh after a sale: the server is the
+  source of truth, re-fetch it, don't trust
+  local mutation.
+
+Why transitioning is set outside try:
+
+  The guard flag must be set before any await.
+  If it's inside try, a synchronous throw
+  before the first await would skip the
+  finally cleanup. Setting it before try,
+  clearing it in finally, guarantees the flag
+  is always paired.
+
+  This is the same pattern as POS checkout's
+  checkoutInFlight. It's not new — it's the
+  same discipline applied to a different
+  endpoint.
+
+Why refreshState() on 409 but applyState() on 201:
+
+  201 (created) returns the full state. Use it.
+  409 (conflict) returns only the current shift
+  (a fragment). To get the full state, call
+  refreshState() — a GET /api/state.
+
+  The 409 could include full state, but it
+  usually doesn't need to: the client was just
+  working with the same state, and nothing has
+  changed except the shift confirmation. One
+  extra GET is cheap. Including full state in
+  409 would be redundant when the client
+  already has it.
+
+  If this becomes a latency issue, we'd add
+  full state to the 409 response. For now,
+  the split is clear: writes return state,
+  conflicts return fragments, reads return
+  state.</pre>
+</div>
+</div>
+</section>
+
+<section id="next">
+<h2 class="section-title">➡️ Next: Stage 04 — Advanced (Final)</h2>
+<p class="section-sub">The build becomes an HR system.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stage 03 gives the app a memory. Stage 04 turns it into a tool a manager uses:
+</p>
+
+<ul class="text-sm text-slate-300 leading-relaxed space-y-1 mb-3" style="padding-left: 1.5rem; list-style: disc;">
+<li><strong>Timesheets</strong> — a week grid, employees &times; days, with hours worked per cell and overtime flagged at 40h/week. The query is a <code>SUM(minutes_worked) GROUP BY employee_id, date</code> over the shifts table.</li>
+<li><strong>Manual corrections</strong> — a manager records a <code>manual_in</code> or <code>manual_out</code> event with a note. The original event stays; the correction is a new row. The derivation handles both, no special case.</li>
+<li><strong>The roster</strong> — a <code>scheduled_shifts</code> table (the "should have worked" plan) compared to the <code>shifts</code> table (the "did work" reality). The gap is what managers care about.</li>
+<li><strong>Approval workflow</strong> — a manager approves a week. <code>shifts.status = 'approved'</code>. Corrections on approved shifts require a re-open, which is another event.</li>
+<li><strong>The report</strong> — attendance summary: who's late, who's absent, who's over overtime. Same aggregate shape as the Z-report from POS.</li>
+<li><strong>Closeout</strong> — four stages, three tables, event log, derivation, idempotent clock-in, timesheet, corrections, roster, approval. No Stage 05.</li>
+</ul>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+The Stage 04 lesson page follows the same format: six sections, six snippets, all under 30 lines.
+</p>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue the build</h2>
+<a href="/apps/hr/stage-04-advanced.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">📊 Next: Stage 04 — Advanced (Final)</div>
+<div class="text-xs text-slate-400 mt-1">Timesheets, overtime, corrections, roster, approval, reports. 3&ndash;4 hours.</div>
+</a>
+<a href="/apps/hr/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">👥 Back to the HR hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages, the data model, and the roadmap.</div>
+</a>
+</section>
+
+<a href="/apps/hr/index.html" class="back-link">&larr; Back to HR &amp; Attendance hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> HR Stage 03 &middot; Backend <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
