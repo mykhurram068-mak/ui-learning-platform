@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>HR Stage 02 — Interactions (Live Clock + Idempotent Clock-in + localStorage) (2026)</title>
+<meta name="description" content="Stage 02 of the HR & Attendance build: a single state object, a live ticking clock, idempotent clock-in/out handlers, derived KPIs, derived shift hours, and localStorage persistence. The shell becomes a working time clock.">
+<meta name="keywords" content="javascript attendance clock, idempotent clock in, derived state javascript, live timer setInterval, localstorage attendance">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="HR Stage 02 — Interactions">
+<meta property="og:description" content="Live clock, idempotent clock-in, derived KPIs, localStorage.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/apps/hr/stage-02-interactions.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="HR Stage 02 — Interactions">
+<meta name="twitter:description" content="Live clock, idempotent clock-in, derived KPIs, localStorage.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/apps/hr/stage-02-interactions.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "HR Stage 02 — Interactions",
+"description": "A single state object, a live clock, idempotent clock-in/out, derived KPIs and shift hours, localStorage persistence.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-15",
+"dateModified": "2026-11-15",
+"proficiencyLevel": "Intermediate",
+"dependencies": "JavaScript"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why is the shift's hours-worked derived instead of stored?","acceptedAnswer":{"@type":"Answer","text":"Because the events are the source of truth. A shift is a summary of 'what events happened today for this employee.' If you stored minutes_worked as a field, it could drift from the events — an edited event, a deleted clock-out, a manual correction would all leave the stored number stale. If you derive it from events on every render, it's always correct by construction. Same rule as stockStatus in Inventory: store facts, derive display. Stage 04 will cache the derived hours on a shifts table for reporting speed — but the events remain the source of truth, and the cache can always be recomputed."}},
+{"@type":"Question","name":"What does 'idempotent clock-in' mean and why does it matter?","acceptedAnswer":{"@type":"Answer","text":"Idempotent means: doing it twice has the same effect as doing it once. If you click 'Clock in' twice in quick succession, the result should be one clock-in event, not two. Two reasons it matters: (1) UI — a double-click or an accidental tap shouldn't corrupt the data; (2) API — if Stage 03 gets a retried request (network blip), the server should return the existing state rather than creating a duplicate. The frontend enforces this by checking state before mutating and disabling the button during the transition. The backend enforces it by rejecting a second 'in' event that has no intervening 'out'."}},
+{"@type":"Question","name":"How does the live timer work without draining the battery?","acceptedAnswer":{"@type":"Answer","text":"setInterval(renderClock, 1000) runs once per second, but only when the tab is visible. When the tab is hidden, the browser throttles timers aggressively anyway — most modern browsers drop to once per minute or less. We also explicitly pause on visibilitychange (hidden) and resume on visible, which stops the timer entirely in the background. The render itself is cheap: it reads state, computes elapsed minutes from the shift's clock-in time, and updates two text nodes. No DOM rebuild, no re-render of the whole app."}},
+{"@type":"Question","name":"Why does the shift derivation walk events in order instead of filtering?","acceptedAnswer":{"@type":"Answer","text":"Because a shift is a state machine, not a bag of events. 'In, out, in, out' is two shifts, not one. 'In, break-start, break-end, out' is one shift with a break. Walking the events in chronological order, maintaining a current state (working / on-break / off), and recording transitions as they happen is the only correct way to handle every combination. A filter like events.filter(e => e.type === 'in') would pick the first clock-in but would miss that the employee clocked out and back in — potentially creating two shift records when the day should be one. The walk is the algorithm."}},
+{"@type":"Question","name":"Why is the state persisted to localStorage on every mutation?","acceptedAnswer":{"@type":"Answer","text":"Because a POS or a time clock runs on a device that can crash, lose power, or be closed at any moment. If the last clock-in wasn't persisted, the employee has no proof they clocked in. Saving on every mutation — not on a timer, not on unload — means the state on disk always matches the state in memory. The cost is tiny (localStorage writes are fast, and events are small). The benefit is that 'the app crashed' never means 'I lost my clock-in'."}},
+{"@type":"Question","name":"What's the biggest difference between Stage 02 and Stage 03?","acceptedAnswer":{"@type":"Answer","text":"In Stage 02, every event lives in localStorage and every derivation runs on the client. In Stage 03, events live in SQLite and the derivation runs on the server. The client still derives for the live UI (the ticking clock needs to compute 'working for 4h 12m' every second without a round-trip), but the server's derivation is the source of truth when the page loads. Stage 02's derivation function becomes the specification for the server's derivation — same logic, both sides, verified against each other."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+.snippet-meta { font-size: 11px; color: #64748b; padding: 0 12px 8px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">HR &amp; Attendance Build</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 02 · Interactions</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+<a href="/apps/hr/index.html" style="color:#7ee8fc;">HR &amp; Attendance</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Stage 02</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">⚡ Stage 02 · 3–4 hours</div>
+<h1>Make it tick.<br><span class="py-accent">Live clock. Real events.</span></h1>
+<p class="lead">
+The shell becomes a working time clock. One state object holds employees and events. The employee view ticks once per second — the current time, the "working for Xh Ym" counter. Clocking in creates a real event that the manager view's KPIs and timeline both reflect. Clicking "Clock in" twice does nothing the second time. Close the tab mid-shift, reopen — the shift is still running. Everything is derived: hours worked, employee status, KPI values. Nothing is stored except the events themselves.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 3–4 hours</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> JavaScript · DOM · localStorage</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/apps/hr/index.html">HR hub</a>
+<a href="#state">State shape</a>
+<a href="#derive">Shift derivation</a>
+<a href="#idempotent">Idempotent clock-in</a>
+<a href="#clock">The live timer</a>
+<a href="#kpis">Derived KPIs</a>
+<a href="#persist">localStorage</a>
+<a href="#next">Next: Stage 03</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> One <code>state = { employees: [], events: [], view: 'manager' }</code>. One <code>render()</code> that rebuilds the KPI cards, the employee list, the timeline, and the employee clock card. One <code>deriveShift(events, employeeId, date)</code> that walks events chronologically and produces <code>{ clockIn, clockOut, breakMinutes, minutesWorked, status }</code>. One <code>clockIn()</code> / <code>clockOut()</code> pair guarded by a <code>transitioning</code> flag and a state check. One <code>setInterval(renderClock, 1000)</code> that updates only the clock text — not the whole app. One <code>saveState()</code> on every mutation. Every derived value recomputes on every render; nothing computed is stored.
+</p>
+</div>
+
+<section id="state">
+<h2 class="section-title">✅ State shape — two arrays, one view</h2>
+<p class="section-sub">Employees and events. Nothing else.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The state object is intentionally small. It holds only <strong>facts</strong>: who the employees are, and what events have happened. Every other value — status, hours, KPIs — is a function of these two arrays.
+</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">state.js</span>
+<span class="snippet-meta">hr-stage-02.html · lines ~480–505</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">// The only state. Everything else is derived.
+const state = {
+  employees: [],   // [{ id, name, role, avatar, color }]
+  events: [],      // [{ id, employeeId, type, occurredAt }]
+  view: 'manager'  // 'manager' | 'employee'
+};
+
+// Who is currently logged in to the employee view?
+// In Stage 02, hardcoded to the first employee. Stage 04
+// will add a picker.
+const CURRENT_EMPLOYEE_ID = 1;
+
+// A single timestamp for "today" — every render uses this
+// so the derivation, KPIs, and timeline all agree on
+// which date is "today."
+function today() {
+  return new Date().toISOString().slice(0, 10);  // 'YYYY-MM-DD'
+}</pre>
+<pre id="code-sol1">// The only state. Everything else is derived.
+const state = {
+  employees: [],   // [{ id, name, role, avatar, color }]
+  events: [],      // [{ id, employeeId, type, occurredAt }]
+  view: 'manager'  // 'manager' | 'employee'
+};
+
+// Who is currently logged in to the employee view?
+// In Stage 02, hardcoded to the first employee. Stage 04
+// will add a picker.
+const CURRENT_EMPLOYEE_ID = 1;
+
+// A single timestamp for "today" — every render uses this
+// so the derivation, KPIs, and timeline all agree on
+// which date is "today."
+function today() {
+  return new Date().toISOString().slice(0, 10);  // 'YYYY-MM-DD'
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why employees and events, not shifts:
+
+  A shift is a derived thing — it's what you get
+  when you pair an 'in' event with an 'out' event.
+  If you stored shifts in state, you'd have to keep
+  them in sync with events on every clock-in and
+  clock-out. Two sources of truth.
+
+  By storing only events, the shift is a pure
+  function: deriveShift(events, emp, date). Run it
+  once, get the shift. Change an event, run it again,
+  get a different shift. Nothing to keep in sync.
+
+Why a single CURRENT_EMPLOYEE_ID:
+
+  In Stage 02 the employee view is a demo — one
+  hardcoded employee so you can see the clock-in flow.
+  Stage 04 will add a dropdown ('choose employee') or
+  a login, depending on whether we add auth or not.
+
+  Hardcoding it for now keeps the demo honest: it
+  shows the UI working without pretending to be a
+  real multi-user system. Adding a picker later is
+  a one-line change to where CURRENT_EMPLOYEE_ID is
+  read.
+
+Why today() is a function, not a constant:
+
+  'Today' changes at midnight. If we computed it once
+  at page load and stored it, an employee clocking in
+  at 23:59 and out at 00:01 would have their shift
+  split across two days in the derivation.
+
+  Calling today() fresh on every render means the
+  'current day' is always current. The derivation
+  for a shift that crosses midnight uses the START
+  date (the first event's date), not 'today' — we'll
+  see that in the derivation function.
+
+  The general rule: anything that could change while
+  the app is open should be a function or recomputed,
+  not captured once.</pre>
+</div>
+</div>
+</section>
+
+<section id="derive">
+<h2 class="section-title">✅ Shift derivation — walk events in order</h2>
+<p class="section-sub">The one function the whole build rests on.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+A shift is not "the first clock-in and the last clock-out." It's the result of walking the employee's events in chronological order, tracking a current state, and recording transitions:
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Not started</h4>
+<p>Before any event. The employee hasn't clocked in.</p>
+</div>
+<div class="concept-card">
+<h4>Working</h4>
+<p>After an <code>in</code> event, before the next <code>out</code>. The clock is running.</p>
+</div>
+<div class="concept-card">
+<h4>On break</h4>
+<p>After a <code>break_start</code> event, before the next <code>break_end</code>. The clock is paused.</p>
+</div>
+<div class="concept-card">
+<h4>Finished</h4>
+<p>After an <code>out</code> event. The shift is closed. Hours are fixed.</p>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+The derivation returns one object with everything the UI needs:
+</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">derive.js</span>
+<span class="snippet-meta">hr-stage-02.html · lines ~530–580</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">function deriveShift(events, employeeId, date) {
+  // Filter to this employee, sort chronologically
+  const evs = events
+    .filter(e => e.employeeId === employeeId)
+    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+
+  // Shift date is the date of the first event.
+  // Overnight shifts count toward the start date.
+  const firstDate = evs.length ? evs[0].occurredAt.slice(0, 10) : null;
+
+  let clockIn = null;
+  let clockOut = null;
+  let breakMinutes = 0;
+  let breakStart = null;
+  let status = 'not-started';
+
+  for (const e of evs) {
+    switch (e.type) {
+      case 'in':
+      case 'manual_in':
+        if (status === 'not-started' || status === 'finished') {
+          clockIn = e.occurredAt;
+          clockOut = null;
+          status = 'working';
+        }
+        break;
+      case 'break_start':
+        if (status === 'working') { breakStart = e.occurredAt; status = 'on-break'; }
+        break;
+      case 'break_end':
+        if (status === 'on-break' && breakStart) {
+          breakMinutes += diffMinutes(breakStart, e.occurredAt);
+          breakStart = null;
+          status = 'working';
+        }
+        break;
+      case 'out':
+      case 'manual_out':
+        if (status === 'working' || status === 'on-break') {
+          if (breakStart) { breakMinutes += diffMinutes(breakStart, e.occurredAt); breakStart = null; }
+          clockOut = e.occurredAt;
+          status = 'finished';
+        }
+        break;
+    }
+  }
+
+  let minutesWorked = 0;
+  if (clockIn) {
+    const end = clockOut || new Date().toISOString();
+    minutesWorked = diffMinutes(clockIn, end) - breakMinutes;
+    if (minutesWorked < 0) minutesWorked = 0;
+  }
+
+  return { clockIn, clockOut, breakMinutes, minutesWorked, status, date: firstDate };
+}
+
+function diffMinutes(aIso, bIso) {
+  return Math.round((new Date(bIso) - new Date(aIso)) / 60000);
+}</pre>
+<pre id="code-sol2">function deriveShift(events, employeeId, date) {
+  // Filter to this employee, sort chronologically
+  const evs = events
+    .filter(e => e.employeeId === employeeId)
+    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
+
+  // Shift date is the date of the first event.
+  // Overnight shifts count toward the start date.
+  const firstDate = evs.length ? evs[0].occurredAt.slice(0, 10) : null;
+
+  let clockIn = null;
+  let clockOut = null;
+  let breakMinutes = 0;
+  let breakStart = null;
+  let status = 'not-started';
+
+  for (const e of evs) {
+    switch (e.type) {
+      case 'in':
+      case 'manual_in':
+        if (status === 'not-started' || status === 'finished') {
+          clockIn = e.occurredAt;
+          clockOut = null;
+          status = 'working';
+        }
+        break;
+      case 'break_start':
+        if (status === 'working') { breakStart = e.occurredAt; status = 'on-break'; }
+        break;
+      case 'break_end':
+        if (status === 'on-break' && breakStart) {
+          breakMinutes += diffMinutes(breakStart, e.occurredAt);
+          breakStart = null;
+          status = 'working';
+        }
+        break;
+      case 'out':
+      case 'manual_out':
+        if (status === 'working' || status === 'on-break') {
+          if (breakStart) { breakMinutes += diffMinutes(breakStart, e.occurredAt); breakStart = null; }
+          clockOut = e.occurredAt;
+          status = 'finished';
+        }
+        break;
+    }
+  }
+
+  let minutesWorked = 0;
+  if (clockIn) {
+    const end = clockOut || new Date().toISOString();
+    minutesWorked = diffMinutes(clockIn, end) - breakMinutes;
+    if (minutesWorked < 0) minutesWorked = 0;
+  }
+
+  return { clockIn, clockOut, breakMinutes, minutesWorked, status, date: firstDate };
+}
+
+function diffMinutes(aIso, bIso) {
+  return Math.round((new Date(bIso) - new Date(aIso)) / 60000);
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the state machine, not a filter:
+
+  Consider events: in(9:00), out(12:00), in(13:00), out(17:00)
+
+  A naive filter:
+    clockIn = first 'in'  → 9:00
+    clockOut = last 'out' → 17:00
+    hours = 8h
+
+  Wrong. The employee took a 1-hour unpaid
+  lunch. Real hours = 7h.
+
+  The state machine sees four transitions:
+    in(9:00)   → working
+    out(12:00) → finished  (3h so far)
+    in(13:00)  → working   (clockIn resets)
+    out(17:00) → finished  (4h so far)
+    Total minutes_worked = the last segment
+    (13:00–17:00) + ... wait, that's wrong too.
+
+  Actually, Stage 02 doesn't handle the "two
+  separate shifts" case perfectly. It tracks
+  only the LAST clock-in and clock-out. If
+  the employee clocks in, out, in, out in
+  one day, the derivation returns the last
+  segment only.
+
+  This is a known limitation. Stage 03 fixes
+  it by splitting each in→out pair into its
+  own shift row. For Stage 02, the demo
+  shows one shift per day, and the derivation
+  is correct for that case.
+
+  The lesson here: the state machine is the
+  right SHAPE, but Stage 02 is a simplification.
+  Stage 03's version handles multi-shift days
+  by emitting one shift per pair. If you want
+  to see the full version now, it's the same
+  loop with an array push instead of a single
+  overwrite.
+
+Why manual_in / manual_out are treated as
+in / out:
+
+  In Stage 02 there are no manual events yet —
+  those come in Stage 04. But the derivation
+  already handles them because Stage 03 will
+  use the exact same logic. Recognizing both
+  types here means the derivation doesn't need
+  to change when Stage 04 introduces corrections.
+
+  The alternative — a separate code path for
+  manual events — would be two derivations,
+  two chances to drift, two things to test.
+  One code path that treats all clock-ins the
+  same is simpler.
+
+Why minutesWorked uses clockOut || now:
+
+  While the shift is open (status === 'working'
+  or 'on-break'), there is no clockOut. The
+  'minutes worked so far' is clockIn → now,
+  minus breaks.
+
+  Every second, the clock render updates, so
+  minutesWorked is recomputed with a fresh
+  'now'. The counter ticks.
+
+  Once the shift is closed (clockOut set),
+  'now' is irrelevant — the number is fixed.
+  Same function, same output, no branching
+  needed in the caller.
+
+Why status is 'not-started' before any event:
+
+  The four states (not-started, working,
+  on-break, finished) map to the four UI
+  badges:
+    not-started → grey dot, 'Off'
+    working     → green dot, 'Working since ...'
+    on-break    → amber dot, 'On break since ...'
+    finished    → grey dot, 'Off — clocked out ...'
+
+  Having an explicit 'not-started' state
+  avoids the ambiguity of null clockIn meaning
+  two things ('never worked' vs 'shift closed').
+  Stage 02 never revisits this state once
+  exited, but Stage 04 (with corrections)
+  might — the state machine handles it
+  cleanly.</pre>
+</div>
+</div>
+</section>
+
+<section id="idempotent">
+<h2 class="section-title">✅ Idempotent clock-in</h2>
+<p class="section-sub">Click twice, one event.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The clock-in handler has three guards, each doing a specific job:
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Guard 1 — transition lock</h4>
+<p>A <code>transitioning</code> flag disables the button during the async write. Prevents the double-click.</p>
+</div>
+<div class="concept-card">
+<h4>Guard 2 — state check</h4>
+<p>If the current shift is already <code>working</code>, reject the new clock-in. Prevents a "stuck" state that a fast click could create.</p>
+</div>
+<div class="concept-card">
+<h4>Guard 3 — event dedupe</h4>
+<p>If an identical event exists within the last 5 seconds (network retry, double-tap), skip the insert.</p>
+</div>
+</div>
+
+<div class="code-block mt-4" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">clockin.js</span>
+<span class="snippet-meta">hr-stage-02.html · lines ~610–655</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">let transitioning = false;
+
+function clockIn() {
+  // Guard 1: prevent double-click
+  if (transitioning) return;
+
+  const currentShift = deriveShift(
+    state.events, CURRENT_EMPLOYEE_ID, today()
+  );
+
+  // Guard 2: reject if already working or on break
+  if (currentShift.status === 'working' || currentShift.status === 'on-break') {
+    return;
+  }
+
+  // Guard 3: dedupe — reject an 'in' within 5s of the last one
+  const last = state.events
+    .filter(e => e.employeeId === CURRENT_EMPLOYEE_ID && e.type === 'in')
+    .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0];
+  if (last) {
+    const secondsSince = (Date.now() - new Date(last.occurredAt).getTime()) / 1000;
+    if (secondsSince < 5) return;
+  }
+
+  transitioning = true;
+  setClockButtonDisabled(true);
+
+  state.events.push({
+    id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    employeeId: CURRENT_EMPLOYEE_ID,
+    type: 'in',
+    occurredAt: new Date().toISOString()
+  });
+
+  saveState();
+  render();
+  transitioning = false;
+  setClockButtonDisabled(false);
+}</pre>
+<pre id="code-sol3">let transitioning = false;
+
+function clockIn() {
+  // Guard 1: prevent double-click
+  if (transitioning) return;
+
+  const currentShift = deriveShift(
+    state.events, CURRENT_EMPLOYEE_ID, today()
+  );
+
+  // Guard 2: reject if already working or on break
+  if (currentShift.status === 'working' || currentShift.status === 'on-break') {
+    return;
+  }
+
+  // Guard 3: dedupe — reject an 'in' within 5s of the last one
+  const last = state.events
+    .filter(e => e.employeeId === CURRENT_EMPLOYEE_ID && e.type === 'in')
+    .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))[0];
+  if (last) {
+    const secondsSince = (Date.now() - new Date(last.occurredAt).getTime()) / 1000;
+    if (secondsSince < 5) return;
+  }
+
+  transitioning = true;
+  setClockButtonDisabled(true);
+
+  state.events.push({
+    id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    employeeId: CURRENT_EMPLOYEE_ID,
+    type: 'in',
+    occurredAt: new Date().toISOString()
+  });
+
+  saveState();
+  render();
+  transitioning = false;
+  setClockButtonDisabled(false);
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why three guards, not one:
+
+  Each guard catches a different failure mode.
+
+  Guard 1 (transition lock) — the user's
+  finger. A fast double-tap fires two click
+  events. The first sets transitioning = true,
+  the second returns immediately. One event.
+
+  Guard 2 (state check) — the app's logic.
+  Even with Guard 1, if two tabs are open,
+  one tab's clock-in won't know about the
+  other tab's state. Guard 2 reads the current
+  shift from the events list, sees status is
+  already 'working', and rejects. Correct
+  behavior across tabs.
+
+  Guard 3 (time dedupe) — the network / retry.
+  If Stage 03 introduces a network call and the
+  first request times out but actually succeeded,
+  the retry would create a second event. The
+  time dedupe (5 seconds) prevents that. It's
+  a Stage 03 safety net — overkill for Stage 02,
+  but harmless and instructive.
+
+  All three are cheap. None of them makes the
+  happy path slower. Together they make clock-in
+  idempotent in every failure mode.
+
+Why 5 seconds, not 5 minutes:
+
+  A real employee might legitimately clock in,
+  realize they forgot something, clock out,
+  and clock back in — within 30 seconds. A
+  5-minute dedupe window would swallow that
+  legitimate sequence.
+
+  5 seconds is fast enough to catch double-clicks
+  and network retries, slow enough that no
+  legitimate action happens twice in that window.
+  The number is a heuristic, not a law.
+
+Why the flag resets in both success and error:
+
+  In Stage 02, there's no network, so the
+  reset happens only on the success path. But
+  the pattern is already shaped for Stage 03:
+  a real implementation would wrap the body in
+  try/finally so transitioning is set to false
+  regardless of whether the request succeeded.
+
+  Writing it correctly now means Stage 03's
+  change is one line (wrap in try/finally)
+  instead of a refactor. The pattern is the
+  same as POS Stage 03's checkoutInFlight.
+
+The order matters:
+
+  1. Check transitioning
+  2. Check current state
+  3. Check time dedupe
+  4. Set transitioning
+  5. Mutate
+  6. Save
+  7. Render
+  8. Clear transitioning
+
+  Guards 1-3 are cheap; they run first.
+  The actual mutation runs only if the guards
+  pass. The flag is set only after the guards
+  pass. This minimizes the window where
+  transitioning is true and something goes
+  wrong inside the mutation.
+
+  If you set transitioning before the guards,
+  a bug in the guard would leave it stuck true
+  forever, disabling the button permanently.
+  Order is: check, check, check, then set.</pre>
+</div>
+</div>
+</section>
+
+<section id="clock">
+<h2 class="section-title">✅ The live clock</h2>
+<p class="section-sub">Once per second. Only two text nodes updated.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The employee view ticks every second — the current time, the "working for Xh Ym" counter. But it doesn't re-render the whole app. It updates exactly two elements:
+</p>
+
+<div class="code-block mt-4" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">clock.js</span>
+<span class="snippet-meta">hr-stage-02.html · lines ~690–730</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol4', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">let clockTimer = null;
+
+function startClock() {
+  stopClock();
+  clockTimer = setInterval(renderClock, 1000);
+  renderClock();
+}
+
+function stopClock() {
+  if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+}
+
+function renderClock() {
+  // Only run when the employee view is visible.
+  // The manager view has no live clock.
+  if (state.view !== 'employee') return;
+
+  const now = new Date();
+  const timeEl = document.getElementById('clock-time');
+  const hoursEl = document.getElementById('clock-hours');
+
+  if (timeEl) {
+    timeEl.textContent = formatTime(now);
+  }
+
+  if (hoursEl) {
+    const shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID, today());
+    const mins = shift.minutesWorked;
+    hoursEl.innerHTML = 'Today: <strong>' + formatDuration(mins) + '</strong>';
+  }
+}
+
+// Pause when tab is hidden, resume when visible
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) stopClock();
+  else if (state.view === 'employee') startClock();
+});</pre>
+<pre id="code-sol4">let clockTimer = null;
+
+function startClock() {
+  stopClock();
+  clockTimer = setInterval(renderClock, 1000);
+  renderClock();
+}
+
+function stopClock() {
+  if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+}
+
+function renderClock() {
+  // Only run when the employee view is visible.
+  // The manager view has no live clock.
+  if (state.view !== 'employee') return;
+
+  const now = new Date();
+  const timeEl = document.getElementById('clock-time');
+  const hoursEl = document.getElementById('clock-hours');
+
+  if (timeEl) {
+    timeEl.textContent = formatTime(now);
+  }
+
+  if (hoursEl) {
+    const shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID, today());
+    const mins = shift.minutesWorked;
+    hoursEl.innerHTML = 'Today: <strong>' + formatDuration(mins) + '</strong>';
+  }
+}
+
+// Pause when tab is hidden, resume when visible
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) stopClock();
+  else if (state.view === 'employee') startClock();
+});</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why update two nodes, not the whole app:
+
+  A naive implementation would call render() every
+  second, which would rebuild the entire manager
+  view (KPI cards, employee list, timeline) even
+  though nothing in the manager view has changed.
+
+  That's wasteful — dozens of DOM elements
+  recreated every second. On a phone, it's
+  noticeable. On a laptop, it's silent but real.
+
+  Instead, renderClock() updates exactly the two
+  nodes that show time: the clock display and
+  the 'working for Xh Ym' line. Both are cheap.
+
+  The rest of the app re-renders only on state
+  changes (clock-in, clock-out, tab switch).
+  Every state change is an intentional event;
+  a clock tick is not a state change.
+
+Why startClock() calls renderClock() immediately:
+
+  setInterval(fn, 1000) fires the first time
+  AFTER one second. Without an immediate render,
+  the clock would show the stale value from the
+  previous render for up to a second.
+
+  Calling renderClock() right after setInterval
+  makes the display correct immediately. Same
+  pattern as calling render() at the end of
+  every CRUD function in previous builds.
+
+Why visibilitychange, not just setInterval:
+
+  Browsers throttle setInterval in background
+  tabs — sometimes to once per minute, sometimes
+  to zero. If the tab is hidden for an hour,
+  some browsers fire zero timers. When the user
+  comes back, the clock shows an hour-old time
+  until the next tick.
+
+  Explicitly stopping on hidden and starting on
+  visible makes the behavior deterministic. When
+  the user comes back, startClock() fires
+  renderClock() immediately, so the first frame
+  after returning is correct.
+
+  This is also battery-friendly. A phone with
+  the HR app open in a background tab shouldn't
+  wake up every second to update a hidden DOM.
+
+Why the clock is client-side, not server-driven:
+
+  In Stage 03, the state comes from the server,
+  but the clock still ticks on the client. The
+  server can't push a tick every second — that's
+  86400 requests per employee per day. Instead,
+  the client computes 'working for Xh Ym' locally
+  from the clock-in time it got from the server.
+
+  This is the rule: the server is the source of
+  truth for facts (what events exist), the
+  client is the source of truth for time-derived
+  display (how long ago the clock-in was). Both
+  compute the same derivation. They agree because
+  they use the same events.</pre>
+</div>
+</div>
+</section>
+
+<section id="kpis">
+<h2 class="section-title">✅ Derived KPIs</h2>
+<p class="section-sub">Four numbers, all from the event list.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The four KPI cards in the manager view are all derived. None of them is stored; every one recomputes from `state.events` and `state.employees` on every render:
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Clocked in now</h4>
+<p>Count employees whose current shift status is <code>working</code>. Doesn't count <code>on-break</code> — they're technically not working.</p>
+</div>
+<div class="concept-card">
+<h4>Hours today</h4>
+<p>Sum of <code>minutesWorked</code> across all employees' shifts today, divided by 60.</p>
+</div>
+<div class="concept-card">
+<h4>Pending approvals</h4>
+<p>Count weeks where some employee worked but no manager has approved. Stage 02 hardcodes this (3); Stage 04 computes it.</p>
+</div>
+<div class="concept-card">
+<h4>Active employees</h4>
+<p><code>state.employees.filter(e => !e.archivedAt).length</code>. The headcount on payroll.</p>
+</div>
+</div>
+
+<div class="code-block mt-4" id="sol5">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">kpis.js</span>
+<span class="snippet-meta">hr-stage-02.html · lines ~760–800</span>
+<button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol5', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol5', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">function computeKPIs() {
+  const d = today();
+
+  // 1. Clocked in now — employees currently 'working'
+  let clockedInNow = 0;
+  for (const emp of state.employees) {
+    const shift = deriveShift(state.events, emp.id, d);
+    if (shift.status === 'working') clockedInNow++;
+  }
+
+  // 2. Hours today — sum minutesWorked across all employees
+  let totalMinutes = 0;
+  for (const emp of state.employees) {
+    const shift = deriveShift(state.events, emp.id, d);
+    totalMinutes += shift.minutesWorked;
+  }
+  const hoursToday = (totalMinutes / 60).toFixed(1);
+
+  // 3. Pending approvals — hardcoded in Stage 02
+  const pendingApprovals = 3;
+
+  // 4. Active employees — non-archived
+  const activeEmployees = state.employees.filter(e => !e.archivedAt).length;
+
+  return { clockedInNow, hoursToday, pendingApprovals, activeEmployees };
+}</pre>
+<pre id="code-sol5">function computeKPIs() {
+  const d = today();
+
+  // 1. Clocked in now — employees currently 'working'
+  let clockedInNow = 0;
+  for (const emp of state.employees) {
+    const shift = deriveShift(state.events, emp.id, d);
+    if (shift.status === 'working') clockedInNow++;
+  }
+
+  // 2. Hours today — sum minutesWorked across all employees
+  let totalMinutes = 0;
+  for (const emp of state.employees) {
+    const shift = deriveShift(state.events, emp.id, d);
+    totalMinutes += shift.minutesWorked;
+  }
+  const hoursToday = (totalMinutes / 60).toFixed(1);
+
+  // 3. Pending approvals — hardcoded in Stage 02
+  const pendingApprovals = 3;
+
+  // 4. Active employees — non-archived
+  const activeEmployees = state.employees.filter(e => !e.archivedAt).length;
+
+  return { clockedInNow, hoursToday, pendingApprovals, activeEmployees };
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why one loop per KPI, not one loop total:
+
+  A single loop could compute all four at once:
+
+    let clockedInNow = 0, totalMinutes = 0;
+    for (const emp of state.employees) {
+      const s = deriveShift(state.events, emp.id, d);
+      if (s.status === 'working') clockedInNow++;
+      totalMinutes += s.minutesWorked;
+    }
+
+  That's marginally faster — one pass instead of
+  two. For 6 employees, the difference is
+  microseconds.
+
+  The two-loop version is preferred here because
+  each KPI is a self-contained computation. If
+  KPI 2 needs to exclude breaks (a future change),
+  you edit one loop. If KPI 1 changes to count
+  'on-break' as well (a definitional change),
+  you edit one loop. The two-loop version is
+  more change-friendly.
+
+  The general rule: prefer clarity over micro-
+  optimization. A six-employee loop is free
+  either way.
+
+Why deriveShift is called n times:
+
+  deriveShift filters events down to one employee
+  and walks them. Called once per employee, it's
+  O(events × employees). For 6 employees and 30
+  events, that's 180 iterations — instant.
+
+  If this were 10,000 employees and 1M events,
+  you'd pre-group events by employee, or cache
+  the derivation result per render. Neither is
+  needed here.
+
+  Stage 03 pushes the derivation to SQL:
+    SELECT employee_id, SUM(minutes_worked)
+    FROM shifts WHERE date = ? GROUP BY employee_id
+  One query, not n. Same result, different shape.
+  The client-side derivation and the SQL
+  derivation must agree — that's the invariant
+  Stage 03 tests.
+
+Why hoursToday is a string, not a number:
+
+  toFixed(1) returns a string ('28.5'). The KPI
+  card is going to display this string directly.
+  If we returned a number, the display layer
+  would need to call toFixed(1) or toLocaleString,
+  adding a formatting step at every render.
+
+  Returning the display-ready value from the
+  computation is a small convenience. But it's
+  also a warning: at some point you'll want the
+  raw number (e.g., to sum further). Stage 04
+  changes this function to return both:
+
+    return { hoursToday: 28.5, hoursTodayLabel: '28.5' };
+
+  Then display uses the label, computation uses
+  the number. For now, string is fine.
+
+Why pendingApprovals is hardcoded:
+
+  Stage 02 has no concept of 'approval' — that's
+  a Stage 04 feature. Hardcoding it to 3 shows
+  the card exists and where it will live, without
+  pretending the feature is real.
+
+  This is the same 'seed with honest fake data'
+  pattern as the hardcoded KPI values in Stage 01.
+  Stage 04 replaces the constant with a query.</pre>
+</div>
+</div>
+</section>
+
+<section id="persist">
+<h2 class="section-title">✅ localStorage — survive the crash</h2>
+<p class="section-sub">Save on every mutation. Restore on load.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The state persists under two keys: <code>mak-hr-employees</code> and <code>mak-hr-events</code>. On load, if both exist, they're restored. If not, the seed is used:
+</p>
+
+<div class="code-block mt-4" id="sol6">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">persist.js</span>
+<span class="snippet-meta">hr-stage-02.html · lines ~830–880</span>
+<button class="copy-btn" onclick="copyCode('code-sol6', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol6', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol6', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol6">const EMP_KEY = 'mak-hr-employees';
+const EV_KEY  = 'mak-hr-events';
+const VIEW_KEY = 'mak-hr-view';
+
+function saveState() {
+  try {
+    localStorage.setItem(EMP_KEY, JSON.stringify(state.employees));
+    localStorage.setItem(EV_KEY,  JSON.stringify(state.events));
+    localStorage.setItem(VIEW_KEY, state.view);
+  } catch (_) {
+    // Quota or private mode — app works in-memory
+  }
+}
+
+function loadState() {
+  try {
+    const empRaw = localStorage.getItem(EMP_KEY);
+    const evRaw  = localStorage.getItem(EV_KEY);
+    const viewRaw = localStorage.getItem(VIEW_KEY);
+
+    if (empRaw && evRaw) {
+      state.employees = JSON.parse(empRaw);
+      state.events    = JSON.parse(evRaw);
+    } else {
+      state.employees = SEED_EMPLOYEES.slice();
+      state.events    = SEED_EVENTS.slice();
+    }
+
+    if (viewRaw === 'manager' || viewRaw === 'employee') {
+      state.view = viewRaw;
+    }
+  } catch (_) {
+    state.employees = SEED_EMPLOYEES.slice();
+    state.events    = SEED_EVENTS.slice();
+  }
+}</pre>
+<pre id="code-sol6">const EMP_KEY = 'mak-hr-employees';
+const EV_KEY  = 'mak-hr-events';
+const VIEW_KEY = 'mak-hr-view';
+
+function saveState() {
+  try {
+    localStorage.setItem(EMP_KEY, JSON.stringify(state.employees));
+    localStorage.setItem(EV_KEY,  JSON.stringify(state.events));
+    localStorage.setItem(VIEW_KEY, state.view);
+  } catch (_) {
+    // Quota or private mode — app works in-memory
+  }
+}
+
+function loadState() {
+  try {
+    const empRaw = localStorage.getItem(EMP_KEY);
+    const evRaw  = localStorage.getItem(EV_KEY);
+    const viewRaw = localStorage.getItem(VIEW_KEY);
+
+    if (empRaw && evRaw) {
+      state.employees = JSON.parse(empRaw);
+      state.events    = JSON.parse(evRaw);
+    } else {
+      state.employees = SEED_EMPLOYEES.slice();
+      state.events    = SEED_EVENTS.slice();
+    }
+
+    if (viewRaw === 'manager' || viewRaw === 'employee') {
+      state.view = viewRaw;
+    }
+  } catch (_) {
+    state.employees = SEED_EMPLOYEES.slice();
+    state.events    = SEED_EVENTS.slice();
+  }
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why two keys, not one:
+
+  Employees and events change at different
+  frequencies. Employees are set once and rarely
+  edited. Events change every clock-in and
+  clock-out.
+
+  Two keys means two writes on every mutation,
+  but each write is smaller. If an event write
+  fails (rare), the employees write already
+  succeeded — the employee list isn't corrupted.
+
+  One key with { employees, events } would also
+  work. The split is a preference, not a
+  requirement. We split because it mirrors the
+  two tables the data will live in on the
+  server in Stage 03.
+
+Why the view is persisted too:
+
+  If a manager was looking at the manager view
+  and reloads, they should see the manager view.
+  If an employee was looking at the employee
+  view (kiosk mode), reload should return them
+  there.
+
+  Persisting the view is a small thing that makes
+  the app feel less like a demo. It's a one-line
+  write and a one-line read.
+
+Why the seed is a fallback, not a first-run
+trigger:
+
+  The simplest version: 'if localStorage is
+  empty, seed. Else load.' That's what this does.
+
+  A more complex version would track a 'has been
+  seeded' flag and offer a 'reset' button. Stage
+  02 doesn't need that — clearing localStorage
+  in DevTools is the reset.
+
+  The seed is intentionally small: 6 employees,
+  a handful of events representing 'this morning's
+  clock-ins.' Enough to show the manager view
+  with realistic content, not so much that the
+  file bloats.
+
+Why saveState is called on view changes too:
+
+  saveState() runs on clock-in, clock-out, and
+  view switch. The view switch doesn't change
+  any data, but it does change state.view, and
+  state.view is what gets persisted.
+
+  Alternatively, save only state.view on view
+  switch and save only events on clock-in. But
+  saving everything on every change is simpler
+  and the cost is negligible.
+
+  The rule: whenever state changes, save the
+  whole state. Partial saves invite bugs where
+  one field is updated but another isn't.</pre>
+</div>
+</div>
+</section>
+
+<section id="next">
+<h2 class="section-title">➡️ Next: Stage 03 — Backend</h2>
+<p class="section-sub">Events get a home.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stage 02 loses every event on localStorage clear. That's fine for a client demo — but a time clock without a server isn't a time clock. Stage 03 adds one:
+</p>
+
+<ul class="text-sm text-slate-300 leading-relaxed space-y-1" style="padding-left: 1.5rem; list-style: disc;">
+<li><strong>Three tables</strong> — <code>employees</code>, <code>attendance_events</code>, <code>shifts</code> — with two foreign keys</li>
+<li><strong>The server-side derivation</strong> — the same <code>deriveShift</code> logic, in Python, producing <code>shifts</code> rows on every clock-in/out</li>
+<li><strong>Idempotent clock-in at the API level</strong> — reject a second <code>in</code> without an intervening <code>out</code> (409)</li>
+<li><strong>Overnight shifts</strong> — the derivation uses the start date, not "today," so a shift that crosses midnight stays one row</li>
+<li><strong>Break pairing</strong> — <code>break_start</code> without <code>break_end</code> (still on break) is a valid intermediate state; the shift's <code>status</code> is <code>on-break</code></li>
+<li><strong><code>RESTRICT</code> on events</strong> — an employee with attendance can be archived, not deleted</li>
+<li><strong>Client changes</strong> — on load, <code>GET /api/state</code> returns employees + today's events + today's shifts. On clock-in, <code>POST /api/clock-in</code>. On clock-out, <code>POST /api/clock-out</code>. The client still derives locally for the ticking clock, but the server's derivation is the source of truth on load.</li>
+</ul>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+The client-side derivation from Stage 02 becomes the specification for the server-side derivation. Both must produce the same result. Stage 03's test is: run the same events through both, compare.
+</p>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue the build</h2>
+<a href="/apps/hr/stage-03-backend.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">🐍 Next: Stage 03 — Backend</div>
+<div class="text-xs text-slate-400 mt-1">Flask + SQLite. Three tables, event log, server-side derivation, idempotent clock-in. 3–4 hours.</div>
+</a>
+<a href="/apps/hr/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">👥 Back to the HR hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages, the data model, and the roadmap.</div>
+</a>
+</section>
+
+<a href="/apps/hr/index.html" class="back-link">← Back to HR &amp; Attendance hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> HR Stage 02 · Interactions <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
