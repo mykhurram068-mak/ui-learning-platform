@@ -34,7 +34,6 @@ overflow: hidden;
 button, input, select { font-family: inherit; font-size: inherit; }
 button { cursor: pointer; }
 
-/* ─── Header ─── */
 .hr-header {
 height: var(--header-h);
 background: var(--bg-elevated);
@@ -87,11 +86,9 @@ color: var(--accent);
 border-color: var(--border);
 }
 
-/* ─── View toggle ─── */
 body[data-view="manager"] .hr-employee { display: none; }
 body[data-view="employee"] .hr-manager { display: none; }
 
-/* ─── Manager layout ─── */
 .hr-manager {
 display: grid;
 grid-template-rows: auto 1fr;
@@ -173,7 +170,6 @@ min-height: 0;
 padding: 0.5rem;
 }
 
-/* ─── Employee list ─── */
 .hr-emp {
 display: flex;
 align-items: center;
@@ -229,7 +225,6 @@ letter-spacing: 0.05em;
 font-weight: 700;
 }
 
-/* ─── Timeline ─── */
 .hr-event {
 display: grid;
 grid-template-columns: 70px 24px 1fr;
@@ -267,8 +262,8 @@ color: var(--success);
 background: rgba(100, 116, 139, 0.2);
 color: var(--text-muted);
 }
-.hr-event[data-type="break-start"] .hr-event-icon,
-.hr-event[data-type="break-end"] .hr-event-icon {
+.hr-event[data-type="break_start"] .hr-event-icon,
+.hr-event[data-type="break_end"] .hr-event-icon {
 background: rgba(245, 158, 11, 0.15);
 color: var(--warning);
 }
@@ -292,7 +287,6 @@ color: var(--text-dim);
 font-size: 0.8125rem;
 }
 
-/* ─── Employee view ─── */
 .hr-employee {
 display: grid;
 place-items: center;
@@ -372,10 +366,9 @@ color: var(--text-muted);
 font-size: 0.8125rem;
 font-weight: 600;
 }
-.hr-clock-break:hover { background: var(--bg-hover); color: var(--text); }
+.hr-clock-break:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
 .hr-clock-break:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ─── Responsive ─── */
 @media (max-width: 900px) {
 .hr-kpis { grid-template-columns: repeat(2, 1fr); }
 .hr-content { grid-template-columns: 1fr; }
@@ -400,9 +393,7 @@ font-weight: 600;
 </div>
 </header>
 
-<!-- ═══ MANAGER VIEW ═══ -->
 <div class="hr-manager">
-
 <div class="hr-kpis">
 <div class="hr-kpi">
 <div class="hr-kpi-label">Clocked in now</div>
@@ -427,7 +418,6 @@ font-weight: 600;
 </div>
 
 <div class="hr-content">
-
 <div class="hr-panel">
 <div class="hr-panel-header">
 <div class="hr-panel-title">Employees</div>
@@ -443,11 +433,9 @@ font-weight: 600;
 </div>
 <div class="hr-panel-body" id="timeline"></div>
 </div>
-
 </div>
 </div>
 
-<!-- ═══ EMPLOYEE VIEW ═══ -->
 <div class="hr-employee">
 <div class="hr-clock-card">
 <div class="hr-clock-name" id="clock-name">—</div>
@@ -463,9 +451,7 @@ font-weight: 600;
 (function () {
 'use strict';
 
-// ─────────────────────────────────────────────
-// 1. CONSTANTS & SEED
-// ─────────────────────────────────────────────
+// ─── Constants ───
 const EMP_KEY = 'mak-hr-employees';
 const EV_KEY = 'mak-hr-events';
 const VIEW_KEY = 'mak-hr-view';
@@ -490,11 +476,17 @@ const SEED_EMPLOYEES = [
 { id: 6, name: 'Tariq Khan', role: 'Employee', initials: 'TK', color: AVATAR_COLORS[5], archivedAt: null }
 ];
 
-// Seed events: today's morning clock-ins
+// FIX 1: today() returns UTC date string to match seedEvents' ISO strings
+function today() {
+return new Date().toISOString().slice(0, 10);
+}
+
 function seedEvents() {
-const d = new Date();
-const base = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const at = (h, m) => new Date(base.getTime() + h * 3600000 + m * 60000).toISOString();
+const now = new Date();
+const base = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+const at = function (h, m) {
+return new Date(base.getTime() + h * 3600000 + m * 60000).toISOString();
+};
 return [
 { id: 'ev_seed_1', employeeId: 2, type: 'in', occurredAt: at(8, 58) },
 { id: 'ev_seed_2', employeeId: 4, type: 'in', occurredAt: at(9, 0) },
@@ -506,9 +498,7 @@ return [
 ];
 }
 
-// ─────────────────────────────────────────────
-// 2. STATE
-// ─────────────────────────────────────────────
+// ─── State ───
 const state = {
 employees: [],
 events: [],
@@ -517,17 +507,7 @@ view: 'manager'
 
 let transitioning = false;
 
-// ─────────────────────────────────────────────
-// 3. HELPERS
-// ─────────────────────────────────────────────
-function today() {
-const d = new Date();
-const y = d.getFullYear();
-const m = String(d.getMonth() + 1).padStart(2, '0');
-const dd = String(d.getDate()).padStart(2, '0');
-return y + '-' + m + '-' + dd;
-}
-
+// ─── Helpers ───
 function diffMinutes(aIso, bIso) {
 return Math.round((new Date(bIso) - new Date(aIso)) / 60000);
 }
@@ -550,9 +530,7 @@ return { '&': '&', '<': '<', '>': '>', '"': '"', "'": ''' }[c];
 });
 }
 
-// ─────────────────────────────────────────────
-// 4. DERIVATION — the heart of the app
-// ─────────────────────────────────────────────
+// ─── Derivation ───
 function deriveShift(events, employeeId, date) {
 const evs = events
 .filter(function (e) { return e.employeeId === employeeId; })
@@ -634,12 +612,9 @@ if (shift.status === 'on-break') return 'break';
 return 'out';
 }
 
-// ─────────────────────────────────────────────
-// 5. KPI COMPUTATION
-// ─────────────────────────────────────────────
+// ─── KPI computation ───
 function computeKPIs() {
 const d = today();
-
 let clockedInNow = 0;
 let totalMinutes = 0;
 
@@ -662,9 +637,7 @@ activeEmployees: activeEmployees
 };
 }
 
-// ─────────────────────────────────────────────
-// 6. RENDER — MANAGER
-// ─────────────────────────────────────────────
+// ─── Render — manager ───
 function renderKPIs() {
 const k = computeKPIs();
 document.getElementById('kpi-clocked-in').textContent = k.clockedInNow;
@@ -677,6 +650,11 @@ document.getElementById('kpi-active').textContent = k.activeEmployees;
 function renderEmployeeList() {
 const active = state.employees.filter(function (e) { return !e.archivedAt; });
 document.getElementById('emp-count').textContent = active.length + ' active';
+
+if (active.length === 0) {
+document.getElementById('employee-list').innerHTML = '<div class="hr-empty">No employees</div>';
+return;
+}
 
 const html = active.map(function (emp) {
 const shift = deriveShift(state.events, emp.id, today());
@@ -691,7 +669,7 @@ return '<div class="hr-emp">' +
 '</div>';
 }).join('');
 
-document.getElementById('employee-list').innerHTML = html || '<div class="hr-empty">No employees</div>';
+document.getElementById('employee-list').innerHTML = html;
 }
 
 function renderTimeline() {
@@ -710,14 +688,15 @@ return;
 const labels = {
 'in': 'Clocked in',
 'out': 'Clocked out',
-'break-start': 'Started break',
+'break_start': 'Started break',
 'break_end': 'Ended break',
 'manual_in': 'Clocked in (manual)',
 'manual_out': 'Clocked out (manual)'
 };
 
 const icons = {
-'in': '→', 'out': '←', 'break_start': '⏸', 'break_end': '▶',
+'in': '→', 'out': '←',
+'break_start': '⏸', 'break_end': '▶',
 'manual_in': '→', 'manual_out': '←'
 };
 
@@ -741,9 +720,7 @@ return '<div class="hr-event" data-type="' + escapeHtml(e.type) + '">' +
 }).join('');
 }
 
-// ─────────────────────────────────────────────
-// 7. RENDER — EMPLOYEE
-// ─────────────────────────────────────────────
+// ─── Render — employee ───
 function renderEmployeeCard() {
 const emp = state.employees.find(function (e) { return e.id === CURRENT_EMPLOYEE_ID; });
 if (!emp) return;
@@ -754,7 +731,6 @@ const shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID, today());
 const btn = document.getElementById('clock-btn');
 const breakBtn = document.getElementById('break-btn');
 
-// Button label + style based on status
 if (shift.status === 'not-started' || shift.status === 'finished') {
 btn.textContent = 'Clock in';
 btn.className = 'hr-clock-btn';
@@ -780,17 +756,14 @@ btn.disabled = false;
 breakBtn.disabled = false;
 breakBtn.textContent = 'End break';
 document.getElementById('clock-status').innerHTML =
-'<strong>On break</strong> since ' + formatTime(shift.clockIn);
+'<strong>On break</strong>';
 }
 
-// Hours
 document.getElementById('clock-hours').innerHTML =
 'Today: <strong>' + formatDuration(shift.minutesWorked) + '</strong>';
 }
 
-// ─────────────────────────────────────────────
-// 8. LIVE CLOCK
-// ─────────────────────────────────────────────
+// ─── Live clock ───
 let clockTimer = null;
 
 function startClock() {
@@ -808,8 +781,7 @@ if (state.view !== 'employee') return;
 
 const timeEl = document.getElementById('clock-time');
 if (timeEl) {
-const now = new Date();
-timeEl.textContent = now.toLocaleTimeString(undefined, {
+timeEl.textContent = new Date().toLocaleTimeString(undefined, {
 hour: 'numeric', minute: '2-digit'
 });
 }
@@ -821,9 +793,7 @@ hoursEl.innerHTML = 'Today: <strong>' + formatDuration(shift.minutesWorked) + '<
 }
 }
 
-// ─────────────────────────────────────────────
-// 9. PERSISTENCE
-// ─────────────────────────────────────────────
+// ─── Persistence (FIX 2: defensive) ───
 function saveState() {
 try {
 localStorage.setItem(EMP_KEY, JSON.stringify(state.employees));
@@ -833,32 +803,41 @@ localStorage.setItem(VIEW_KEY, state.view);
 }
 
 function loadState() {
+let emps = null, evs = null, viewRaw = null;
 try {
 const empRaw = localStorage.getItem(EMP_KEY);
 const evRaw = localStorage.getItem(EV_KEY);
-const viewRaw = localStorage.getItem(VIEW_KEY);
+viewRaw = localStorage.getItem(VIEW_KEY);
 
 if (empRaw && evRaw) {
-state.employees = JSON.parse(empRaw);
-state.events = JSON.parse(evRaw);
+try {
+const parsedEmps = JSON.parse(empRaw);
+const parsedEvs = JSON.parse(evRaw);
+if (Array.isArray(parsedEmps) && parsedEmps.length > 0) {
+emps = parsedEmps;
+evs = Array.isArray(parsedEvs) ? parsedEvs : [];
+}
+} catch () { /* fall through to seed */ }
+}
+} catch () { /* localStorage unavailable — fall through to seed */ }
+
+if (emps && evs) {
+state.employees = emps;
+state.events = evs;
 } else {
 state.employees = SEED_EMPLOYEES.slice();
 state.events = seedEvents();
+saveState();
 }
 
 if (viewRaw === 'manager' || viewRaw === 'employee') {
 state.view = viewRaw;
-}
-} catch (_) {
-state.employees = SEED_EMPLOYEES.slice();
-state.events = seedEvents();
+} else {
 state.view = 'manager';
 }
 }
 
-// ─────────────────────────────────────────────
-// 10. MUTATIONS
-// ─────────────────────────────────────────────
+// ─── Mutations ───
 function pushEvent(type) {
 state.events.push({
 id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
@@ -873,7 +852,6 @@ if (transitioning) return;
 const shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID, today());
 if (shift.status === 'working' || shift.status === 'on-break') return;
 
-// Dedupe: reject an 'in' within 5 seconds of the last one
 const last = state.events
 .filter(function (e) { return e.employeeId === CURRENT_EMPLOYEE_ID && e.type === 'in'; })
 .sort(function (a, b) { return b.occurredAt.localeCompare(a.occurredAt); })[0];
@@ -919,9 +897,7 @@ transitioning = false;
 }
 }
 
-// ─────────────────────────────────────────────
-// 11. VIEW SWITCHING
-// ─────────────────────────────────────────────
+// ─── View switching ───
 function switchView(view) {
 state.view = view;
 document.body.setAttribute('data-view', view);
@@ -933,9 +909,7 @@ if (view === 'employee') startClock();
 else stopClock();
 }
 
-// ─────────────────────────────────────────────
-// 12. RENDER (master)
-// ─────────────────────────────────────────────
+// ─── Master render ───
 function render() {
 renderKPIs();
 renderEmployeeList();
@@ -943,9 +917,7 @@ renderTimeline();
 renderEmployeeCard();
 }
 
-// ─────────────────────────────────────────────
-// 13. EVENT WIRING
-// ─────────────────────────────────────────────
+// ─── Events ───
 document.querySelectorAll('.hr-tab').forEach(function (tab) {
 tab.addEventListener('click', function () {
 switchView(tab.getAttribute('data-switch'));
@@ -965,9 +937,7 @@ if (document.hidden) stopClock();
 else if (state.view === 'employee') startClock();
 });
 
-// ─────────────────────────────────────────────
-// 14. INIT
-// ─────────────────────────────────────────────
+// ─── Init ───
 loadState();
 document.body.setAttribute('data-view', state.view);
 document.querySelectorAll('.hr-tab').forEach(function (t) {
