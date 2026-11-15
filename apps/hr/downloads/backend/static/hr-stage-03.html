@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HR &amp; Attendance - Stage 03: Backend</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --bg-elevated: #1e293b;
+    --bg-hover: #334155;
+    --border: #334155;
+    --text: #e2e8f0;
+    --text-muted: #94a3b8;
+    --text-dim: #64748b;
+    --accent: #61dafb;
+    --accent-dark: #0891b2;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --radius: 8px;
+    --header-h: 56px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    overflow: hidden;
+  }
+  button, input, select { font-family: inherit; font-size: inherit; }
+  button { cursor: pointer; }
+
+  .hr-header {
+    height: var(--header-h);
+    background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border);
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+  }
+  .hr-brand {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-weight: 800; font-size: 0.9375rem;
+    color: var(--text); text-decoration: none; flex-shrink: 0;
+  }
+  .hr-brand-mark {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bg); font-weight: 900; font-size: 0.75rem;
+  }
+  .hr-tabs { display: flex; gap: 2px; margin-left: auto; }
+  .hr-tab {
+    padding: 0.5rem 1rem; border-radius: 6px;
+    background: transparent; border: 1px solid transparent;
+    color: var(--text-muted); font-size: 0.8125rem; font-weight: 600;
+  }
+  .hr-tab:hover { background: var(--bg-hover); color: var(--text); }
+  .hr-tab.is-active {
+    background: var(--bg); color: var(--accent); border-color: var(--border);
+  }
+
+  body[data-view="manager"] .hr-employee { display: none; }
+  body[data-view="employee"] .hr-manager { display: none; }
+
+  .hr-manager {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-areas: "kpis" "content";
+    height: calc(100vh - var(--header-h));
+  }
+  .hr-kpis {
+    grid-area: kpis;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+  }
+  .hr-kpi {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+  }
+  .hr-kpi-label {
+    font-size: 0.6875rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim);
+    font-weight: 700; margin-bottom: 0.5rem;
+  }
+  .hr-kpi-value {
+    font-size: 1.875rem; font-weight: 800; color: var(--text);
+    line-height: 1; font-variant-numeric: tabular-nums; margin-bottom: 0.375rem;
+  }
+  .hr-kpi-context { font-size: 0.75rem; color: var(--text-muted); }
+
+  .hr-content {
+    grid-area: content;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    padding: 0 1.5rem 1.5rem;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .hr-panel {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .hr-panel-header {
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .hr-panel-title { font-size: 0.875rem; font-weight: 800; }
+  .hr-panel-meta { font-size: 0.75rem; color: var(--text-dim); font-weight: 600; }
+  .hr-panel-body { flex: 1; overflow-y: auto; min-height: 0; padding: 0.5rem; }
+
+  .hr-emp {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.75rem; border-radius: 6px;
+    border: 1px solid transparent;
+  }
+  .hr-emp:hover { background: var(--bg); border-color: var(--border); }
+  .hr-emp-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 800; font-size: 0.8125rem; flex-shrink: 0;
+  }
+  .hr-emp-body { flex: 1; min-width: 0; }
+  .hr-emp-name {
+    font-size: 0.875rem; font-weight: 700; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .hr-emp-status {
+    font-size: 0.75rem; color: var(--text-muted);
+    display: flex; align-items: center; gap: 0.375rem;
+  }
+  .hr-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text-dim); flex-shrink: 0;
+  }
+  .hr-dot.in { background: var(--success); }
+  .hr-dot.break { background: var(--warning); }
+  .hr-dot.out { background: var(--text-dim); }
+  .hr-emp-role {
+    font-size: 0.6875rem; color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;
+  }
+
+  .hr-event {
+    display: grid;
+    grid-template-columns: 70px 24px 1fr;
+    gap: 0.75rem; align-items: center;
+    padding: 0.625rem 0.75rem; border-radius: 6px;
+    border: 1px solid transparent;
+  }
+  .hr-event:hover { background: var(--bg); border-color: var(--border); }
+  .hr-event-time {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.75rem; color: var(--text-dim);
+    font-variant-numeric: tabular-nums; font-weight: 600;
+  }
+  .hr-event-icon {
+    width: 24px; height: 24px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem; font-weight: 800;
+  }
+  .hr-event[data-type="in"] .hr-event-icon,
+  .hr-event[data-type="manual_in"] .hr-event-icon {
+    background: rgba(16, 185, 129, 0.15); color: var(--success);
+  }
+  .hr-event[data-type="out"] .hr-event-icon,
+  .hr-event[data-type="manual_out"] .hr-event-icon {
+    background: rgba(100, 116, 139, 0.2); color: var(--text-muted);
+  }
+  .hr-event[data-type="break_start"] .hr-event-icon,
+  .hr-event[data-type="break_end"] .hr-event-icon {
+    background: rgba(245, 158, 11, 0.15); color: var(--warning);
+  }
+  .hr-event-body { min-width: 0; }
+  .hr-event-who {
+    font-size: 0.8125rem; font-weight: 700; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .hr-event-what { font-size: 0.75rem; color: var(--text-muted); }
+
+  .hr-empty {
+    padding: 3rem 1rem; text-align: center;
+    color: var(--text-dim); font-size: 0.8125rem;
+  }
+
+  .hr-employee {
+    display: grid; place-items: center;
+    height: calc(100vh - var(--header-h));
+    padding: 2rem;
+  }
+  .hr-clock-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 3rem 2.5rem;
+    max-width: 420px; width: 100%;
+    text-align: center;
+    display: flex; flex-direction: column; gap: 1.5rem; align-items: center;
+  }
+  .hr-clock-name { font-size: 0.875rem; color: var(--text-muted); font-weight: 600; }
+  .hr-clock-time {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 3rem; font-weight: 800; color: var(--text);
+    letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .hr-clock-status { font-size: 0.875rem; color: var(--text-muted); }
+  .hr-clock-status strong { color: var(--text); font-weight: 700; }
+  .hr-clock-btn {
+    width: 100%; padding: 1.5rem;
+    font-size: 1.5rem; font-weight: 800;
+    border-radius: 12px; border: none;
+    background: var(--accent); color: var(--bg);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    transition: background 0.15s, transform 0.05s;
+  }
+  .hr-clock-btn:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+  .hr-clock-btn:active:not(:disabled) { transform: scale(0.99); }
+  .hr-clock-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .hr-clock-btn.is-out { background: var(--success); color: var(--bg); }
+  .hr-clock-btn.is-out:hover:not(:disabled) { background: #059669; color: white; }
+  .hr-clock-hours {
+    font-size: 0.8125rem; color: var(--text-dim); font-variant-numeric: tabular-nums;
+  }
+  .hr-clock-hours strong { color: var(--text-muted); font-weight: 700; }
+  .hr-clock-break {
+    width: 100%; padding: 0.75rem;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    font-size: 0.8125rem; font-weight: 600;
+  }
+  .hr-clock-break:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
+  .hr-clock-break:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .hr-toast {
+    position: fixed; bottom: 1.5rem; left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 0.75rem 1rem; border-radius: 6px;
+    font-size: 0.875rem; color: var(--text);
+    opacity: 0; transition: transform 0.2s, opacity 0.2s;
+    z-index: 300; pointer-events: none; max-width: 90vw;
+  }
+  .hr-toast.is-visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  .hr-loading {
+    padding: 3rem 1rem; text-align: center;
+    color: var(--text-dim); font-size: 0.8125rem;
+  }
+
+  @media (max-width: 900px) {
+    .hr-kpis { grid-template-columns: repeat(2, 1fr); }
+    .hr-content { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 500px) {
+    .hr-kpis { grid-template-columns: 1fr; }
+    .hr-clock-card { padding: 2rem 1.5rem; }
+    .hr-clock-time { font-size: 2.5rem; }
+  }
+</style>
+</head>
+<body data-view="manager">
+
+<header class="hr-header">
+  <a class="hr-brand" href="#">
+    <div class="hr-brand-mark">M</div>
+    <span>MAK HR</span>
+  </a>
+  <div class="hr-tabs">
+    <button class="hr-tab is-active" type="button" data-switch="manager">Manager view</button>
+    <button class="hr-tab" type="button" data-switch="employee">Employee view</button>
+  </div>
+</header>
+
+<div class="hr-manager">
+  <div class="hr-kpis">
+    <div class="hr-kpi">
+      <div class="hr-kpi-label">Clocked in now</div>
+      <div class="hr-kpi-value" id="kpi-clocked-in">0</div>
+      <div class="hr-kpi-context" id="kpi-clocked-in-ctx">of 0 active employees</div>
+    </div>
+    <div class="hr-kpi">
+      <div class="hr-kpi-label">Hours today</div>
+      <div class="hr-kpi-value" id="kpi-hours-today">0.0</div>
+      <div class="hr-kpi-context">across all employees</div>
+    </div>
+    <div class="hr-kpi">
+      <div class="hr-kpi-label">Pending approvals</div>
+      <div class="hr-kpi-value" id="kpi-pending">0</div>
+      <div class="hr-kpi-context">timesheets to review</div>
+    </div>
+    <div class="hr-kpi">
+      <div class="hr-kpi-label">Active employees</div>
+      <div class="hr-kpi-value" id="kpi-active">0</div>
+      <div class="hr-kpi-context">on payroll</div>
+    </div>
+  </div>
+
+  <div class="hr-content">
+    <div class="hr-panel">
+      <div class="hr-panel-header">
+        <div class="hr-panel-title">Employees</div>
+        <div class="hr-panel-meta" id="emp-count">-</div>
+      </div>
+      <div class="hr-panel-body" id="employee-list">
+        <div class="hr-loading">Loading...</div>
+      </div>
+    </div>
+
+    <div class="hr-panel">
+      <div class="hr-panel-header">
+        <div class="hr-panel-title">Today's activity</div>
+        <div class="hr-panel-meta" id="event-count">-</div>
+      </div>
+      <div class="hr-panel-body" id="timeline">
+        <div class="hr-loading">Loading...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="hr-employee">
+  <div class="hr-clock-card">
+    <div class="hr-clock-name" id="clock-name">-</div>
+    <div class="hr-clock-time" id="clock-time">--:--</div>
+    <div class="hr-clock-status" id="clock-status">-</div>
+    <button class="hr-clock-btn" type="button" id="clock-btn" disabled>Clock in</button>
+    <button class="hr-clock-break" type="button" id="break-btn" disabled>Start break</button>
+    <div class="hr-clock-hours" id="clock-hours">Today: <strong>0h 0m</strong></div>
+  </div>
+</div>
+
+<div class="hr-toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var API = (location.protocol === 'file:') ? 'http://localhost:5000' : '';
+  var CURRENT_EMPLOYEE_ID = 1;
+
+  var state = {
+    employees: [],
+    events: [],
+    shifts: [],
+    view: 'manager'
+  };
+
+  var transitioning = false;
+  var clockTimer = null;
+
+  // ---------- API ----------
+  function apiFetch(path, opts) {
+    return fetch(API + path, Object.assign({
+      headers: { 'Content-Type': 'application/json' }
+    }, opts || {})).then(function (res) {
+      return res.json().catch(function () { return null; })
+        .then(function (body) {
+          return { ok: res.ok, status: res.status, body: body };
+        });
+    });
+  }
+
+  function refreshState() {
+    return apiFetch('/api/state').then(function (r) {
+      if (r.ok && r.body) {
+        applyState(r.body);
+      } else {
+        showToast('Could not load state', true);
+      }
+    }).catch(function (err) {
+      showToast('Network error: ' + err.message, true);
+    });
+  }
+
+  function applyState(payload) {
+    state.employees = payload.employees || [];
+    state.events = payload.events || [];
+    state.shifts = payload.shifts || [];
+    render();
+  }
+
+  // ---------- Helpers ----------
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      var n = c.charCodeAt(0);
+      if (n === 38) return '&amp;';
+      if (n === 60) return '&lt;';
+      if (n === 62) return '&gt;';
+      if (n === 34) return '&quot;';
+      if (n === 39) return '&#39;';
+      return c;
+    });
+  }
+
+  function diffMinutes(aIso, bIso) {
+    return Math.round((new Date(bIso) - new Date(aIso)) / 60000);
+  }
+
+  function formatTime(iso) {
+    if (!iso) return '-';
+    return new Date(iso).toLocaleTimeString(undefined, {
+      hour: 'numeric', minute: '2-digit'
+    });
+  }
+
+  function formatDuration(min) {
+    if (min < 0) min = 0;
+    var h = Math.floor(min / 60);
+    var m = Math.round(min % 60);
+    return h + 'h ' + m + 'm';
+  }
+
+  function today() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  // ---------- Derivation (mirrors server) ----------
+  function deriveShift(events, employeeId) {
+    var evs = events
+      .filter(function (e) { return e.employeeId === employeeId || e.employee_id === employeeId; })
+      .map(function (e) {
+        return {
+          type: e.type,
+          occurredAt: e.occurredAt || e.occurred_at
+        };
+      })
+      .sort(function (a, b) { return a.occurredAt.localeCompare(b.occurredAt); });
+
+    var firstDate = evs.length ? evs[0].occurredAt.slice(0, 10) : null;
+    var clockIn = null, clockOut = null;
+    var breakMinutes = 0, breakStart = null;
+    var status = 'not-started';
+
+    for (var i = 0; i < evs.length; i++) {
+      var e = evs[i];
+      if (e.type === 'in' || e.type === 'manual_in') {
+        if (status === 'not-started' || status === 'finished') {
+          clockIn = e.occurredAt; clockOut = null; status = 'working';
+        }
+      } else if (e.type === 'break_start') {
+        if (status === 'working') { breakStart = e.occurredAt; status = 'on-break'; }
+      } else if (e.type === 'break_end') {
+        if (status === 'on-break' && breakStart) {
+          breakMinutes += diffMinutes(breakStart, e.occurredAt);
+          breakStart = null; status = 'working';
+        }
+      } else if (e.type === 'out' || e.type === 'manual_out') {
+        if (status === 'working' || status === 'on-break') {
+          if (breakStart) {
+            breakMinutes += diffMinutes(breakStart, e.occurredAt);
+            breakStart = null;
+          }
+          clockOut = e.occurredAt; status = 'finished';
+        }
+      }
+    }
+
+    var minutesWorked = 0;
+    if (clockIn) {
+      var end = clockOut || new Date().toISOString();
+      minutesWorked = diffMinutes(clockIn, end) - breakMinutes;
+      if (minutesWorked < 0) minutesWorked = 0;
+    }
+
+    return {
+      date: firstDate,
+      clockIn: clockIn,
+      clockOut: clockOut,
+      breakMinutes: breakMinutes,
+      minutesWorked: minutesWorked,
+      status: status
+    };
+  }
+
+  function statusLabel(shift) {
+    if (!shift.clockIn) return 'Off - not clocked in';
+    if (shift.status === 'working') return 'Working since ' + formatTime(shift.clockIn);
+    if (shift.status === 'on-break') return 'On break';
+    if (shift.status === 'finished') return 'Off - clocked out ' + formatTime(shift.clockOut);
+    return 'Off';
+  }
+
+  function statusDotClass(shift) {
+    if (shift.status === 'working') return 'in';
+    if (shift.status === 'on-break') return 'break';
+    return 'out';
+  }
+
+  // ---------- KPIs ----------
+  function computeKPIs() {
+    var clockedInNow = 0, totalMinutes = 0;
+    var activeCount = 0;
+
+    for (var i = 0; i < state.employees.length; i++) {
+      var emp = state.employees[i];
+      if (emp.archived_at || emp.archivedAt) continue;
+      activeCount++;
+      var shift = deriveShift(state.events, emp.id);
+      if (shift.status === 'working') clockedInNow++;
+      totalMinutes += shift.minutesWorked;
+    }
+
+    return {
+      clockedInNow: clockedInNow,
+      hoursToday: (totalMinutes / 60).toFixed(1),
+      pendingApprovals: 3,
+      activeEmployees: activeCount
+    };
+  }
+
+  // ---------- Render ----------
+  function renderKPIs() {
+    var k = computeKPIs();
+    document.getElementById('kpi-clocked-in').textContent = k.clockedInNow;
+    document.getElementById('kpi-clocked-in-ctx').textContent =
+      'of ' + k.activeEmployees + ' active employees';
+    document.getElementById('kpi-hours-today').textContent = k.hoursToday;
+    document.getElementById('kpi-pending').textContent = k.pendingApprovals;
+    document.getElementById('kpi-active').textContent = k.activeEmployees;
+  }
+
+  var AVATAR_COLORS = [
+    'linear-gradient(135deg,#8b5cf6,#6366f1)',
+    'linear-gradient(135deg,#0891b2,#06b6d4)',
+    'linear-gradient(135deg,#10b981,#059669)',
+    'linear-gradient(135deg,#f59e0b,#d97706)',
+    'linear-gradient(135deg,#ef4444,#dc2626)',
+    'linear-gradient(135deg,#64748b,#475569)'
+  ];
+
+  function initials(name) {
+    return name.split(' ').map(function (p) { return p[0]; }).join('').slice(0, 2).toUpperCase();
+  }
+
+  function renderEmployeeList() {
+    var active = state.employees.filter(function (e) {
+      return !e.archived_at && !e.archivedAt;
+    });
+    document.getElementById('emp-count').textContent = active.length + ' active';
+
+    if (active.length === 0) {
+      document.getElementById('employee-list').innerHTML =
+        '<div class="hr-empty">No employees</div>';
+      return;
+    }
+
+    var html = active.map(function (emp, idx) {
+      var shift = deriveShift(state.events, emp.id);
+      var dot = statusDotClass(shift);
+      var color = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+      return '<div class="hr-emp">' +
+        '<div class="hr-emp-avatar" style="background:' + color + ';">' +
+          escapeHtml(initials(emp.name)) +
+        '</div>' +
+        '<div class="hr-emp-body">' +
+          '<div class="hr-emp-name">' + escapeHtml(emp.name) + '</div>' +
+          '<div class="hr-emp-status">' +
+            '<span class="hr-dot ' + dot + '"></span>' +
+            escapeHtml(statusLabel(shift)) +
+          '</div>' +
+        '</div>' +
+        '<div class="hr-emp-role">' + escapeHtml(emp.role) + '</div>' +
+      '</div>';
+    }).join('');
+
+    document.getElementById('employee-list').innerHTML = html;
+  }
+
+  function renderTimeline() {
+    var todayStr = today();
+    var todays = state.events
+      .filter(function (e) {
+        var at = e.occurredAt || e.occurred_at;
+        return at && at.slice(0, 10) === todayStr;
+      })
+      .sort(function (a, b) {
+        var at = a.occurredAt || a.occurred_at;
+        var bt = b.occurredAt || b.occurred_at;
+        return bt.localeCompare(at);
+      });
+
+    document.getElementById('event-count').textContent = todays.length + ' events';
+
+    if (todays.length === 0) {
+      document.getElementById('timeline').innerHTML =
+        '<div class="hr-empty">No activity today yet.</div>';
+      return;
+    }
+
+    var labels = {
+      'in': 'Clocked in',
+      'out': 'Clocked out',
+      'break_start': 'Started break',
+      'break_end': 'Ended break',
+      'manual_in': 'Clocked in (manual)',
+      'manual_out': 'Clocked out (manual)'
+    };
+
+    var icons = {
+      'in': '\u2192', 'out': '\u2190',
+      'break_start': '\u23F8', 'break_end': '\u25B6',
+      'manual_in': '\u2192', 'manual_out': '\u2190'
+    };
+
+    var empLookup = {};
+    state.employees.forEach(function (e) { empLookup[e.id] = e; });
+
+    document.getElementById('timeline').innerHTML = todays.map(function (e) {
+      var at = e.occurredAt || e.occurred_at;
+      var emp = empLookup[e.employeeId || e.employee_id];
+      var who = emp ? emp.name : 'Unknown';
+      var label = labels[e.type] || e.type;
+      var icon = icons[e.type] || '?';
+      var time = formatTime(at);
+      return '<div class="hr-event" data-type="' + escapeHtml(e.type) + '">' +
+        '<div class="hr-event-time">' + escapeHtml(time) + '</div>' +
+        '<div class="hr-event-icon">' + icon + '</div>' +
+        '<div class="hr-event-body">' +
+          '<div class="hr-event-who">' + escapeHtml(who) + '</div>' +
+          '<div class="hr-event-what">' + escapeHtml(label) + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function renderEmployeeCard() {
+    var emp = state.employees.find(function (e) { return e.id === CURRENT_EMPLOYEE_ID; });
+    if (!emp) return;
+
+    document.getElementById('clock-name').textContent = emp.name + ' - ' + emp.role;
+
+    var shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID);
+    var btn = document.getElementById('clock-btn');
+    var breakBtn = document.getElementById('break-btn');
+
+    if (shift.status === 'not-started' || shift.status === 'finished') {
+      btn.textContent = 'Clock in';
+      btn.className = 'hr-clock-btn';
+      btn.disabled = false;
+      breakBtn.disabled = true;
+      breakBtn.textContent = 'Start break';
+      document.getElementById('clock-status').innerHTML =
+        shift.status === 'finished'
+          ? 'Finished at <strong>' + formatTime(shift.clockOut) + '</strong>'
+          : '<strong>Off</strong> - not clocked in';
+    } else if (shift.status === 'working') {
+      btn.textContent = 'Clock out';
+      btn.className = 'hr-clock-btn is-out';
+      btn.disabled = false;
+      breakBtn.disabled = false;
+      breakBtn.textContent = 'Start break';
+      document.getElementById('clock-status').innerHTML =
+        '<strong>Working</strong> since ' + formatTime(shift.clockIn);
+    } else if (shift.status === 'on-break') {
+      btn.textContent = 'Clock out';
+      btn.className = 'hr-clock-btn is-out';
+      btn.disabled = false;
+      breakBtn.disabled = false;
+      breakBtn.textContent = 'End break';
+      document.getElementById('clock-status').innerHTML =
+        '<strong>On break</strong>';
+    }
+
+    document.getElementById('clock-hours').innerHTML =
+      'Today: <strong>' + formatDuration(shift.minutesWorked) + '</strong>';
+  }
+
+  function render() {
+    renderKPIs();
+    renderEmployeeList();
+    renderTimeline();
+    renderEmployeeCard();
+  }
+
+  // ---------- Live clock ----------
+  function startClock() {
+    stopClock();
+    clockTimer = setInterval(renderClock, 1000);
+    renderClock();
+  }
+  function stopClock() {
+    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+  }
+  function renderClock() {
+    if (state.view !== 'employee') return;
+    var timeEl = document.getElementById('clock-time');
+    if (timeEl) {
+      timeEl.textContent = new Date().toLocaleTimeString(undefined, {
+        hour: 'numeric', minute: '2-digit'
+      });
+    }
+    var hoursEl = document.getElementById('clock-hours');
+    if (hoursEl) {
+      var shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID);
+      hoursEl.innerHTML = 'Today: <strong>' + formatDuration(shift.minutesWorked) + '</strong>';
+    }
+  }
+
+  // ---------- Mutations ----------
+  function clockIn() {
+    if (transitioning) return;
+    transitioning = true;
+
+    apiFetch('/api/clock-in', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId: CURRENT_EMPLOYEE_ID })
+    }).then(function (r) {
+      if (r.status === 409) {
+        return refreshState();
+      }
+      if (!r.ok) {
+        showToast((r.body && r.body.error) || 'Clock-in failed', true);
+        return;
+      }
+      applyState(r.body);
+    }).catch(function (err) {
+      showToast('Network error: ' + err.message, true);
+    }).finally(function () {
+      transitioning = false;
+    });
+  }
+
+  function clockOut() {
+    if (transitioning) return;
+    transitioning = true;
+
+    apiFetch('/api/clock-out', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId: CURRENT_EMPLOYEE_ID })
+    }).then(function (r) {
+      if (r.status === 409) {
+        return refreshState();
+      }
+      if (!r.ok) {
+        showToast((r.body && r.body.error) || 'Clock-out failed', true);
+        return;
+      }
+      applyState(r.body);
+    }).catch(function (err) {
+      showToast('Network error: ' + err.message, true);
+    }).finally(function () {
+      transitioning = false;
+    });
+  }
+
+  function toggleBreak() {
+    if (transitioning) return;
+    transitioning = true;
+
+    apiFetch('/api/break', {
+      method: 'POST',
+      body: JSON.stringify({ employeeId: CURRENT_EMPLOYEE_ID })
+    }).then(function (r) {
+      if (r.status === 409) {
+        return refreshState();
+      }
+      if (!r.ok) {
+        showToast((r.body && r.body.error) || 'Break failed', true);
+        return;
+      }
+      applyState(r.body);
+    }).catch(function (err) {
+      showToast('Network error: ' + err.message, true);
+    }).finally(function () {
+      transitioning = false;
+    });
+  }
+
+  // ---------- View switching ----------
+  function switchView(view) {
+    state.view = view;
+    document.body.setAttribute('data-view', view);
+    document.querySelectorAll('.hr-tab').forEach(function (t) {
+      t.classList.toggle('is-active', t.getAttribute('data-switch') === view);
+    });
+    if (view === 'employee') startClock();
+    else stopClock();
+  }
+
+  // ---------- Toast ----------
+  var toastTimer = null;
+  function showToast(msg, isErr) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderLeftColor = isErr ? '#ef4444' : '#61dafb';
+    t.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      t.classList.remove('is-visible');
+    }, 3000);
+  }
+
+  // ---------- Events ----------
+  document.querySelectorAll('.hr-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      switchView(tab.getAttribute('data-switch'));
+    });
+  });
+
+  document.getElementById('clock-btn').addEventListener('click', function () {
+    var shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID);
+    if (shift.status === 'not-started' || shift.status === 'finished') clockIn();
+    else clockOut();
+  });
+
+  document.getElementById('break-btn').addEventListener('click', toggleBreak);
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) stopClock();
+    else if (state.view === 'employee') startClock();
+  });
+
+  // ---------- Init ----------
+  refreshState().then(function () {
+    switchView('manager');
+  });
+
+})();
+</script>
+</body>
+</html>
