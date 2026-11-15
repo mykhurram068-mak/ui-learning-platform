@@ -1,8 +1,7 @@
-# HR Attendance Backend - Stage 03
+# HR Attendance Backend - Stage 04 (Final)
 
-Flask + SQLite. Three tables: employees, attendance_events, shifts.
-The events are append-only. The shifts table is derived and upserted
-on every event.
+Flask + SQLite. Four tables: employees, attendance_events (append-only),
+shifts (derived cache), scheduled_shifts (the roster plan).
 
 ## Run it
 
@@ -15,41 +14,43 @@ python seed.py                      # creates hr.db with sample data
 python app.py                       # http://localhost:5000
 ```
 
-Then open `http://localhost:5000/` - Flask serves the Stage 03 demo
-from `static/hr-stage-03.html`.
+Then open `http://localhost:5000/` - Flask serves the Stage 04 demo.
 
 ## API
 
-| Method | Path                  | Purpose                                      |
-|--------|-----------------------|----------------------------------------------|
-| GET    | `/api/state`          | Everything: employees, today's events, today's shifts |
-| GET    | `/api/employees`      | Employee list                                |
-| POST   | `/api/clock-in`       | Insert an `in` event (409 if already working) |
-| POST   | `/api/clock-out`      | Insert an `out` event (409 if not working)   |
-| POST   | `/api/break`          | Insert `break_start` or `break_end` based on current state |
+| Method | Path                        | Purpose                                       |
+|--------|-----------------------------|-----------------------------------------------|
+| GET    | `/api/state`                | Full state: employees, today's events, today's shifts |
+| GET    | `/api/employees`            | Active employee list                          |
+| POST   | `/api/clock-in`             | Insert `in` (409 if already working)          |
+| POST   | `/api/clock-out`            | Insert `out` (409 if not working)             |
+| POST   | `/api/break`                | Toggle break (409 if not working)             |
+| POST   | `/api/correction`           | Insert manual_in/manual_out with a note       |
+| GET    | `/api/timesheet?week=`      | Week grid: employees x days x minutes         |
+| GET    | `/api/schedule?week=`       | Raw scheduled shifts                          |
+| GET    | `/api/roster/compare?week=` | Scheduled vs actual, with late minutes        |
+| POST   | `/api/approve-week`         | Flip closed shifts to approved (409 if any open) |
+| POST   | `/api/reopen-week`          | Flip approved shifts to closed                |
+| GET    | `/api/report?week=`         | Per-employee totals, overtime, late, absent   |
 
-## The derivation
+## Overtime
 
-`derive_shift(events, employee_id)` walks events chronologically,
-tracks working / on-break / finished, and returns a summary. The
-server calls it on every clock-in, clock-out, and break event, then
-upserts the shifts row (UNIQUE on employee_id + date).
+`OVERTIME_THRESHOLD_MINUTES = 40 * 60` at the top of `app.py`. Weekly
+threshold. Change it in one place if your jurisdiction differs.
 
-The client runs the same derivation locally for the live ticking
-clock. They agree because they operate on the same events.
+## Manual corrections
 
-## Idempotency
+Corrections are new `manual_in` or `manual_out` events with a note.
+They never edit existing events. The derivation handles both types
+identically. A correction on an approved week returns 409 - reopen
+the week first.
 
-POST /api/clock-in checks whether the employee already has an open
-shift (status working or on-break). If so, it returns 409 with the
-current shift. The client treats 409 as a no-op and syncs its state.
+## Approval workflow
 
-## Overnight shifts
-
-The shifts.date is the start date (the first event's date). An
-employee clocking in at 22:00 Monday and out at 06:00 Tuesday has
-a shift on Monday, not Tuesday. The minutes_worked computation uses
-the raw timestamps.
+`POST /api/approve-week` with `{weekStart: "YYYY-MM-DD"}` flips every
+closed shift in the week to approved. It returns 409 if any shift in
+the week is still open. `POST /api/reopen-week` reverts approved
+shifts back to closed so a correction can be made.
 
 ## Reset
 
