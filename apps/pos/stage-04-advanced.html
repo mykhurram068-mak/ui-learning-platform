@@ -1,0 +1,1862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>POS Stage 04 — Advanced (Final: Refunds, Z-Report, Hold, Print) (2026)</title>
+<meta name="description" content="Final stage of the POS & Billing build: refunds as reversal sales, a Z-report that reconciles the till, hold/resume via sales.status, printable 80mm receipts via @media print, product archiving, and in-place schema migrations. Four stages. Done.">
+<meta name="keywords" content="pos refund reversal sale, z report sql, flask sqlite migration alter table, thermal receipt print css, pos hold resume sale">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="POS Stage 04 — Advanced (Final)">
+<meta property="og:description" content="Refunds, Z-report, hold/resume, print CSS, archiving, migrations. Final stage.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/apps/pos/stage-04-advanced.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="POS Stage 04 — Advanced (Final)">
+<meta name="twitter:description" content="Refunds, Z-report, hold/resume, print CSS, archiving. Final stage.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/apps/pos/stage-04-advanced.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "POS Stage 04 — Advanced (Final Stage)",
+"description": "Refunds as reversal sales, a Z-report that reconciles the till, hold/resume, printable 80mm receipts, product archiving, and in-place schema migrations. The final stage of the POS & Billing build.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-14",
+"dateModified": "2026-11-14",
+"proficiencyLevel": "Intermediate",
+"dependencies": "Python, Flask, SQLite, JavaScript"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why is a refund a new sale instead of deleting the original?","acceptedAnswer":{"@type":"Answer","text":"Because financial records are immutable. If you delete a sale, every report that ever included it becomes wrong. If a customer returns item #1234 tomorrow, the fact that they bought it yesterday is still true — it's just been reversed today. A refund is a NEW sale with negative quantities and a negative payment, pointing at the original via refund_of_sale_id. The original stays untouched. This is how accounting works. It's also why the stock movement for a refund is reason='refunded' with a positive delta, not a deleted 'sold' movement."}},
+{"@type":"Question","name":"What does the Z-report actually reconcile?","acceptedAnswer":{"@type":"Answer","text":"The Z-report computes two independent sums for the day: the net sales total (SUM of grand_total for all paid sales including refunds — refunds are negative) and the payments total (SUM of amount across all payment rows for the day — refund payments are negative too). If these two match, the till reconciles. If they don't, there's a data integrity bug: a sale without a payment, a payment without a sale, or a payment that was modified outside the checkout. A green checkmark means 'the books match the money.' A red exclamation means 'investigate before closing.'"}},
+{"@type":"Question","name":"Why doesn't a held sale reserve stock?","acceptedAnswer":{"@type":"Answer","text":"Because a held sale is not a completed transaction. The customer hasn't paid. The item is still on the shelf. If holding a cart reserved stock, a cashier who parks a cart for a customer who walks away would lock inventory that could be sold to someone else. Held sales are just saved carts — they don't touch stock_movements or products.quantity. When a held sale is resumed and completed, it goes through the normal atomic checkout, which validates stock at that moment. If the item sold out in the meantime, the checkout fails with a stock error, and the cart reconciles."}},
+{"@type":"Question","name":"What does the @media print CSS actually do?","acceptedAnswer":{"@type":"Answer","text":"It hides everything on the page except the open receipt modal, sizes the receipt to 80mm thermal paper width, removes UI chrome (headers, action buttons, dark backgrounds), and sets @page { size: 80mm auto; margin: 0 }. When the cashier clicks Print, the browser's print dialog produces a page that fits an 80mm thermal printer exactly — no wasted paper, no clipped columns. The receipt content itself was already styled with monospace and tabular-nums; the print CSS just makes the paper metaphor real."}},
+{"@type":"Question","name":"Why is product archiving needed instead of deletion?","acceptedAnswer":{"@type":"Answer","text":"Because Stage 03 put ON DELETE RESTRICT on sale_lines.product_id. You literally cannot delete a product that has been sold — the database refuses with a foreign key error. That's correct: the sale line is a financial record and must survive. But an admin still needs a way to say 'we no longer sell this.' That's what archived_at does. A nullable timestamp; NULL means active, set means archived. Archived products disappear from the POS catalog but existing sale lines still reference them and render correctly. The constraint forces the design."}},
+{"@type":"Question","name":"What is the migration pattern and why does it matter?","acceptedAnswer":{"@type":"Answer","text":"Stage 03's seed.py dropped and recreated every table — fine for a fresh install, catastrophic for existing data. Stage 04's seed.py checks whether the new columns exist (via PRAGMA table_info) and only ALTER TABLEs them in if not. Existing sales, payments, and lines are preserved. This is the honest way to evolve a schema: additive changes with idempotent migrations. Drop-and-recreate works for a demo; ALTER TABLE with existence checks works for a database you can't afford to lose. Stage 04 is where the POS build stops being a demo."}},
+{"@type":"Question","name":"Is this the final stage?","acceptedAnswer":{"@type":"Answer","text":"Yes. The POS & Billing build is four stages: Interface, Interactions, Backend, Advanced. Stage 04 completes it. Authentication, deployment, hardware integration (cash drawer, card terminal), and offline-first sync are separate concept courses — they are not Stage 05 of this build. The four-stage arc mirrors the CRM and Inventory builds: shell, then client logic, then a backend, then the advanced data layer. Each stage adds exactly one layer and stops."}},
+{"@type":"Question","name":"What should I build next?","acceptedAnswer":{"@type":"Answer","text":"Not another stage of this app. Either take one of the concept courses (deployment, auth, POS hardware concepts), or build something new that reuses this pattern. The four-stage arc — shell → client logic → backend → advanced data layer — applies to any transactional app: ticketing, subscriptions, booking, invoicing. Same three tables (primary record, line items, payment), same atomic checkout, same reversal-based refunds. The POS is a template, not a starting point for infinite expansion."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">POS &amp; Billing Build</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 04 · Advanced — Final Stage</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+<a href="/apps/pos/index.html" style="color:#7ee8fc;">POS &amp; Billing</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Stage 04</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">📊 Stage 04 · 3–4 hours · FINAL</div>
+<h1>Make it a real register.<br><span class="py-accent">Refunds. Z-report. Print.</span></h1>
+<p class="lead">
+Stage 03 gave the POS a real transaction. Stage 04 gives it the rest of what a working register needs: <strong>refunds as reversal sales</strong> (never deletes — accounting), a <strong>Z-report</strong> that reconciles the till (sales total must equal payments total, or something is wrong), <strong>hold/resume</strong> so a cashier can park a cart, <strong>printable 80mm receipts</strong> via <code>@media print</code>, and <strong>product archiving</strong> — because the <code>RESTRICT</code> constraint from Stage 03 means you can't delete a sold product, so you hide it instead.
+</p>
+<p class="lead" style="margin-top:0.75rem;">
+<strong style="color:#61dafb;">This is the final stage.</strong> After it, the POS &amp; Billing build is complete: four stages, three tables, an atomic checkout, reversal-based refunds, and a till that balances. No Stage 05.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 3–4 hours</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> SQL · Flask · transactions · print CSS</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/apps/pos/index.html">POS hub</a>
+<a href="#refunds">Refunds</a>
+<a href="#zreport">Z-report</a>
+<a href="#hold">Hold/resume</a>
+<a href="#print">Print CSS</a>
+<a href="#archive">Archiving</a>
+<a href="#migrations">Migrations</a>
+<a href="#run">Run it</a>
+<a href="#done">Done — next steps</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Add <code>sales.refund_of_sale_id</code> (nullable FK to sales.id) and <code>products.archived_at</code> (nullable timestamp). A refund is a new sale with negative line quantities, negative payment amount, and <code>refund_of_sale_id</code> pointing at the original — the original is untouched. A Z-report sums <code>sales.grand_total</code> and <code>payments.amount</code> for the day and compares — if they match, the till reconciles. Hold/resume uses <code>status='held'</code> and does not touch stock. <code>@media print</code> sizes the receipt to 80mm and hides everything else. Archive via <code>archived_at</code> — do not delete, because <code>RESTRICT</code> from Stage 03 refuses. Migrate in place with <code>ALTER TABLE</code>, not drop-and-recreate.
+</p>
+</div>
+
+<section id="refunds">
+<h2 class="section-title">✅ Refunds — reversal, not deletion</h2>
+<p class="section-sub">You don't un-happen a transaction. You record its reversal.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>What a refund is</h4>
+<p>A <strong>new sale</strong> with negative quantities, negative totals, and a negative payment. It points at the original via <code>refund_of_sale_id</code>.</p>
+</div>
+<div class="concept-card">
+<h4>What a refund is not</h4>
+<p>A DELETE on the original. The customer really did buy the item yesterday. That fact is still true. Today it was returned.</p>
+</div>
+<div class="concept-card">
+<h4>The stock flow</h4>
+<p>A <code>stock_movements</code> row with <code>reason='refunded'</code> and a <strong>positive</strong> delta. Stock goes back up. Inventory's audit log shows the return.</p>
+</div>
+<div class="concept-card">
+<h4>The safeguards</h4>
+<p>Refund refuses if: the sale isn't <code>paid</code>, it's itself a refund, or it's already been refunded. Double-refunds are impossible.</p>
+</div>
+</div>
+
+<div class="code-block mt-6" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">refund.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">@app.route("/api/sales/&lt;int:sid&gt;/refund", methods=["POST"])
+def refund_sale(sid):
+    data = request.get_json(silent=True) or {}
+    note = (data.get("note") or "").strip() or f"Refund of sale #{sid}"
+
+    with get_db() as conn:
+        original = conn.execute(
+            "SELECT * FROM sales WHERE id = ?", (sid,)
+        ).fetchone()
+        if not original:
+            return jsonify({"error": "Sale not found."}), 404
+        if original["status"] != "paid":
+            return jsonify({
+                "error": f"Only paid sales can be refunded "
+                         f"(status is '{original['status']}')."
+            }), 400
+        if original["refund_of_sale_id"] is not None:
+            return jsonify({
+                "error": "This sale is itself a refund and cannot be refunded."
+            }), 400
+
+        # Guard: already refunded?
+        existing = conn.execute(
+            "SELECT id FROM sales WHERE refund_of_sale_id = ?", (sid,)
+        ).fetchone()
+        if existing:
+            return jsonify({
+                "error": f"Sale #{sid} already refunded "
+                         f"(refund #{existing['id']})."
+            }), 409
+
+        original_lines = conn.execute(
+            "SELECT * FROM sale_lines WHERE sale_id = ?", (sid,)
+        ).fetchall()
+        original_payment = conn.execute(
+            "SELECT * FROM payments WHERE sale_id = ?", (sid,)
+        ).fetchone()
+
+        timestamp = now_iso()
+
+        # Insert reversal sale — negative totals, points at the parent
+        cur = conn.execute(
+            """INSERT INTO sales
+               (cashier, subtotal, tax_rate, tax_total, grand_total,
+                status, refund_of_sale_id, created_at, paid_at)
+               VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, ?)""",
+            (
+                original["cashier"],
+                -original["subtotal"],
+                original["tax_rate"],
+                -original["tax_total"],
+                -original["grand_total"],
+                sid, timestamp, timestamp,
+            ),
+        )
+        refund_id = cur.lastrowid
+
+        # Reverse every line
+        for line in original_lines:
+            conn.execute(
+                """INSERT INTO sale_lines
+                   (sale_id, product_id, product_name, qty,
+                    unit_price, line_total, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (refund_id, line["product_id"], line["product_name"],
+                 -line["qty"], line["unit_price"], -line["line_total"], timestamp),
+            )
+            # Stock goes back up
+            conn.execute(
+                """INSERT INTO stock_movements
+                   (product_id, delta, reason, note, created_at)
+                   VALUES (?, ?, 'refunded', ?, ?)""",
+                (line["product_id"], line["qty"],
+                 f"Refund of sale #{sid}", timestamp),
+            )
+            conn.execute(
+                """UPDATE products
+                   SET quantity = quantity + ?, updated_at = ?
+                   WHERE id = ?""",
+                (line["qty"], timestamp, line["product_id"]),
+            )
+
+        # Reversal payment — negative amount
+        conn.execute(
+            """INSERT INTO payments
+               (sale_id, method, amount, tendered, change, created_at)
+               VALUES (?, ?, ?, ?, 0, ?)""",
+            (refund_id, original_payment["method"],
+             -original_payment["amount"], -original_payment["amount"], timestamp),
+        )
+
+        refund = _fetch_sale(conn, refund_id)
+
+    refund["refund_note"] = note
+    return jsonify(refund), 201</pre>
+
+  <pre id="code-sol1">@app.route("/api/sales/<int:sid>/refund", methods=["POST"])
+def refund_sale(sid):
+    data = request.get_json(silent=True) or {}
+    note = (data.get("note") or "").strip() or f"Refund of sale #{sid}"
+
+    with get_db() as conn:
+        original = conn.execute(
+            "SELECT * FROM sales WHERE id = ?", (sid,)
+        ).fetchone()
+        if not original:
+            return jsonify({"error": "Sale not found."}), 404
+        if original["status"] != "paid":
+            return jsonify({
+                "error": f"Only paid sales can be refunded "
+                         f"(status is '{original['status']}')."
+            }), 400
+        if original["refund_of_sale_id"] is not None:
+            return jsonify({
+                "error": "This sale is itself a refund and cannot be refunded."
+            }), 400
+
+        # Guard: already refunded?
+        existing = conn.execute(
+            "SELECT id FROM sales WHERE refund_of_sale_id = ?", (sid,)
+        ).fetchone()
+        if existing:
+            return jsonify({
+                "error": f"Sale #{sid} already refunded "
+                         f"(refund #{existing['id']})."
+            }), 409
+
+        original_lines = conn.execute(
+            "SELECT * FROM sale_lines WHERE sale_id = ?", (sid,)
+        ).fetchall()
+        original_payment = conn.execute(
+            "SELECT * FROM payments WHERE sale_id = ?", (sid,)
+        ).fetchone()
+
+        timestamp = now_iso()
+
+        # Insert reversal sale — negative totals, points at the parent
+        cur = conn.execute(
+            """INSERT INTO sales
+               (cashier, subtotal, tax_rate, tax_total, grand_total,
+                status, refund_of_sale_id, created_at, paid_at)
+               VALUES (?, ?, ?, ?, ?, 'paid', ?, ?, ?)""",
+            (
+                original["cashier"],
+                -original["subtotal"],
+                original["tax_rate"],
+                -original["tax_total"],
+                -original["grand_total"],
+                sid, timestamp, timestamp,
+            ),
+        )
+        refund_id = cur.lastrowid
+
+        # Reverse every line
+        for line in original_lines:
+            conn.execute(
+                """INSERT INTO sale_lines
+                   (sale_id, product_id, product_name, qty,
+                    unit_price, line_total, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (refund_id, line["product_id"], line["product_name"],
+                 -line["qty"], line["unit_price"], -line["line_total"], timestamp),
+            )
+            # Stock goes back up
+            conn.execute(
+                """INSERT INTO stock_movements
+                   (product_id, delta, reason, note, created_at)
+                   VALUES (?, ?, 'refunded', ?, ?)""",
+                (line["product_id"], line["qty"],
+                 f"Refund of sale #{sid}", timestamp),
+            )
+            conn.execute(
+                """UPDATE products
+                   SET quantity = quantity + ?, updated_at = ?
+                   WHERE id = ?""",
+                (line["qty"], timestamp, line["product_id"]),
+            )
+
+        # Reversal payment — negative amount
+        conn.execute(
+            """INSERT INTO payments
+               (sale_id, method, amount, tendered, change, created_at)
+               VALUES (?, ?, ?, ?, 0, ?)""",
+            (refund_id, original_payment["method"],
+             -original_payment["amount"], -original_payment["amount"], timestamp),
+        )
+
+        refund = _fetch_sale(conn, refund_id)
+
+    refund["refund_note"] = note
+    return jsonify(refund), 201</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why a refund is a NEW sale, not a modification:
+
+  Imagine you delete sale #42 because the
+  customer returned everything.
+
+    sale #42: GONE
+    lines: GONE
+    payment: GONE
+
+  Every report that ever included #42 is now
+  wrong. Yesterday's revenue was $500 — today
+  it's $410 because a sale vanished from the
+  books. The audit trail has a hole.
+
+  If a manager asks "who processed sale #42?"
+  the answer is "no one — it doesn't exist."
+  That's a compliance failure in any real
+  business.
+
+  Now imagine you create refund sale #88
+  pointing at #42:
+
+    sale #42: paid, $89.00, still there
+    sale #88: refund, -$89.00, refund_of_sale_id = 42
+    Net for the day: $0.00 (89 - 89)
+    Audit log: "Refund #88 reverses sale #42
+                on Nov 14, reason: damaged item."
+
+  Every report is correct. Every audit trail
+  is complete. Every query that sums
+  `sales.grand_total` for the day gets $0,
+  which is the truth.
+
+  This is the foundational rule of accounting:
+  records are immutable. You don't edit the
+  past. You record corrections as new
+  entries that reference the past.
+
+Why the three guards:
+
+  1. status != 'paid'
+     Can't refund a held sale (never paid)
+     Can't refund a voided sale (already gone)
+     Can't refund an already-refunded sale
+     (it's a refund, see guard 2)
+
+  2. refund_of_sale_id IS NOT NULL
+     This is a refund. Refunding a refund
+     would be refunding money the customer
+     never paid. Nonsense. 400.
+
+  3. existing refund with refund_of_sale_id = sid
+     Sale #42 has already been refunded by #88.
+     Trying to refund it again would create
+     #99 that also reverses #42 — the customer
+     would get double their money back.
+     409 conflict, include the refund #ID
+     so the cashier can look it up.
+
+Why the stock movement delta is positive:
+
+  A 'sold' movement has delta = -qty
+  (stock went down).
+
+  A 'refunded' movement has delta = +qty
+  (stock went back up).
+
+  Both are movements. Both are logged.
+  The sum of all movements for a product
+  equals its current quantity (the invariant
+  from Inventory Stage 04).
+
+  If you deleted the 'sold' movement instead
+  of adding a 'refunded' one, the audit log
+  would show the item was never sold. Wrong —
+  it WAS sold, then returned. Two events,
+  two log rows.
+
+Why the negative payment amount:
+
+  Same reason. The books need to net to zero.
+  Sale #42: +$89.00 payment.
+  Refund #88: -$89.00 payment.
+  Sum for the day: $0.
+
+  If you deleted the payment instead, the
+  sum would be $0 too — but the books would
+  show one payment instead of two opposite
+  ones. The audit trail loses the reversal.
+
+  Storing both is the correct approach for
+  reconciliation. The Z-report proves it.</pre>
+</div>
+</div>
+</section>
+
+<section id="zreport">
+<h2 class="section-title">✅ Z-report — reconcile the till</h2>
+<p class="section-sub">Two independent sums must match. If they don't, investigate.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+A Z-report answers one question: <strong>does the money in the till match the money the books say should be there?</strong> It computes two numbers independently and compares them:
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Net sales (books)</h4>
+<p><code>SUM(grand_total)</code> for all <code>paid</code> sales on the day. Includes refunds — refund sales have negative <code>grand_total</code>, so they subtract.</p>
+</div>
+<div class="concept-card">
+<h4>Payments total (money)</h4>
+<p><code>SUM(amount)</code> for all payment rows on the day. Refund payments have negative <code>amount</code> — they subtract too.</p>
+</div>
+<div class="concept-card">
+<h4>The check</h4>
+<p><code>payments_total == net_sales</code> → <code>reconciles: true</code>. If false, a sale or payment was written outside the checkout, or one was tampered with.</p>
+</div>
+</div>
+
+<div class="code-block mt-6" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">zreport.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">@app.route("/api/reports/z", methods=["GET"])
+def z_report():
+    d = request.args.get("date") or date.today().isoformat()
+    day_start = d + "T00:00:00"
+    day_end   = d + "T23:59:59"
+
+    with get_db() as conn:
+        # Books side: sales totals, split by refund vs original
+        row = conn.execute(
+            """SELECT
+                 COALESCE(SUM(CASE WHEN refund_of_sale_id IS NULL
+                                   THEN grand_total ELSE 0 END), 0) AS gross_sales,
+                 COALESCE(SUM(CASE WHEN refund_of_sale_id IS NOT NULL
+                                   THEN grand_total ELSE 0 END), 0) AS refunds,
+                 COALESCE(SUM(CASE WHEN refund_of_sale_id IS NULL
+                                   THEN tax_total ELSE 0 END), 0) AS tax_collected,
+                 COUNT(CASE WHEN refund_of_sale_id IS NULL
+                            AND status='paid' THEN 1 END) AS sale_count,
+                 COUNT(CASE WHEN refund_of_sale_id IS NOT NULL
+                            THEN 1 END) AS refund_count
+               FROM sales
+               WHERE status = 'paid'
+                 AND created_at BETWEEN ? AND ?""",
+            (day_start, day_end),
+        ).fetchone()
+
+        gross   = round_money(row["gross_sales"])
+        refunds = round_money(row["refunds"])
+        net     = round_money(gross + refunds)
+        tax     = round_money(row["tax_collected"])
+
+        # Money side: payments by method (gross only, no refunds)
+        method_rows = conn.execute(
+            """SELECT p.method, COALESCE(SUM(p.amount), 0) AS total
+               FROM payments p
+               JOIN sales s ON s.id = p.sale_id
+               WHERE s.status = 'paid'
+                 AND s.created_at BETWEEN ? AND ?
+                 AND s.refund_of_sale_id IS NULL
+               GROUP BY p.method""",
+            (day_start, day_end),
+        ).fetchall()
+        by_method = {r["method"]: round_money(r["total"]) for r in method_rows}
+
+        # Money side: ALL payments (gross + refund payments, netted)
+        payments_total_row = conn.execute(
+            """SELECT COALESCE(SUM(p.amount), 0) AS total
+               FROM payments p
+               JOIN sales s ON s.id = p.sale_id
+               WHERE s.status = 'paid'
+                 AND s.created_at BETWEEN ? AND ?""",
+            (day_start, day_end),
+        ).fetchone()
+        payments_total = round_money(payments_total_row["total"])
+
+    reconciles = abs(payments_total - net) &lt; 0.01
+
+    return jsonify({
+        "date": d,
+        "gross_sales": gross,
+        "refunds": refunds,
+        "net_sales": net,
+        "tax_collected": tax,
+        "sale_count": row["sale_count"],
+        "refund_count": row["refund_count"],
+        "by_method": by_method,
+        "payments_total": payments_total,
+        "reconciles": reconciles,
+    })</pre>
+ <pre id="code-sol2">@app.route("/api/reports/z", methods=["GET"])
+def z_report():
+    d = request.args.get("date") or date.today().isoformat()
+    day_start = d + "T00:00:00"
+    day_end   = d + "T23:59:59"
+
+    with get_db() as conn:
+        # Books side: sales totals, split by refund vs original
+        row = conn.execute(
+            """SELECT
+                 COALESCE(SUM(CASE WHEN refund_of_sale_id IS NULL
+                                   THEN grand_total ELSE 0 END), 0) AS gross_sales,
+                 COALESCE(SUM(CASE WHEN refund_of_sale_id IS NOT NULL
+                                   THEN grand_total ELSE 0 END), 0) AS refunds,
+                 COALESCE(SUM(CASE WHEN refund_of_sale_id IS NULL
+                                   THEN tax_total ELSE 0 END), 0) AS tax_collected,
+                 COUNT(CASE WHEN refund_of_sale_id IS NULL
+                            AND status='paid' THEN 1 END) AS sale_count,
+                 COUNT(CASE WHEN refund_of_sale_id IS NOT NULL
+                            THEN 1 END) AS refund_count
+               FROM sales
+               WHERE status = 'paid'
+                 AND created_at BETWEEN ? AND ?""",
+            (day_start, day_end),
+        ).fetchone()
+
+        gross   = round_money(row["gross_sales"])
+        refunds = round_money(row["refunds"])
+        net     = round_money(gross + refunds)
+        tax     = round_money(row["tax_collected"])
+
+        # Money side: payments by method (gross only, no refunds)
+        method_rows = conn.execute(
+            """SELECT p.method, COALESCE(SUM(p.amount), 0) AS total
+               FROM payments p
+               JOIN sales s ON s.id = p.sale_id
+               WHERE s.status = 'paid'
+                 AND s.created_at BETWEEN ? AND ?
+                 AND s.refund_of_sale_id IS NULL
+               GROUP BY p.method""",
+            (day_start, day_end),
+        ).fetchall()
+        by_method = {r["method"]: round_money(r["total"]) for r in method_rows}
+
+        # Money side: ALL payments (gross + refund payments, netted)
+        payments_total_row = conn.execute(
+            """SELECT COALESCE(SUM(p.amount), 0) AS total
+               FROM payments p
+               JOIN sales s ON s.id = p.sale_id
+               WHERE s.status = 'paid'
+                 AND s.created_at BETWEEN ? AND ?""",
+            (day_start, day_end),
+        ).fetchone()
+        payments_total = round_money(payments_total_row["total"])
+
+    reconciles = abs(payments_total - net) < 0.01
+
+    return jsonify({
+        "date": d,
+        "gross_sales": gross,
+        "refunds": refunds,
+        "net_sales": net,
+        "tax_collected": tax,
+        "sale_count": row["sale_count"],
+        "refund_count": row["refund_count"],
+        "by_method": by_method,
+        "payments_total": payments_total,
+        "reconciles": reconciles,
+    })</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why "net sales" and "payments total" must match:
+
+  Every sale that is paid MUST have a payment
+  row. Every payment row MUST belong to a sale.
+  This is enforced by the atomic checkout — both
+  INSERTs happen in one transaction, or neither
+  does.
+
+  So the sum of grand_total on paid sales should
+  always equal the sum of amount on payments for
+  those same sales. Same set of rows, same total.
+
+  When it doesn't, one of these happened:
+
+    → A sale was INSERTed without a payment
+      (manual SQL, bug in the checkout)
+    → A payment was INSERTed without a sale
+      (FK should prevent this, but check)
+    → Someone UPDATE'd a payment amount
+      (tampering, or a refund done wrong)
+    → Someone DELETE'd a payment
+      (should CASCADE with the sale, but check)
+    → A rounding bug in one of the two sums
+      (unlikely with round_money, but possible)
+
+  The Z-report can't tell you WHICH happened.
+  It just says "the books don't match the money."
+  The next step is a manual diff — find the
+  sale/payment pair that disagrees. The report
+  is the alarm; the investigation is the fire
+  drill.
+
+Why the tolerance is 0.01:
+
+  Floating-point money math isn't exact.
+  $89.00 stored as a float might be
+  88.99999999 or 89.00000001. The sums
+  across hundreds of rows can drift by a
+  fraction of a cent.
+
+  So "equal" means abs(diff) < 0.01. One
+  cent of tolerance. Anything within a penny
+  is rounding noise; anything beyond is a
+  real discrepancy.
+
+  In a strict system you'd store money as
+  INTEGER cents, not REAL dollars. That
+  eliminates float drift entirely. We used
+  REAL for simplicity — a real POS would
+  use integers. The lesson: know what you
+  chose and why.
+
+Why by_method excludes refunds:
+
+  The Z-report has two jobs:
+    1. Reconcile: does payments match sales?
+       (all payments, including refunds)
+    2. Cash handling: how much cash, how much
+       card? (gross only, before refunds)
+
+  Mixing them would be confusing. "Cash: $450
+  (net of $50 in refunds)" is harder to
+  reconcile against a physical till than
+  "Cash in: $500. Cash out (refunds): $50."
+
+  So by_method is gross-only, and refunds are
+  reported separately. The reconciliation uses
+  net (gross + refunds). Two views of the same
+  money, for two different purposes.
+
+  This is why Z-reports in real POS systems
+  have many columns. Each one answers a
+  specific cash-handling question.</pre>
+</div>
+</div>
+</section>
+
+<section id="hold">
+<h2 class="section-title">✅ Hold/resume — park a cart</h2>
+<p class="section-sub">A held sale is a saved cart. It does not reserve stock.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>The scenario</h4>
+<p>A cashier is building a cart. The customer realizes they forgot something and goes back. The cashier needs to serve the next person.</p>
+</div>
+<div class="concept-card">
+<h4>The hold</h4>
+<p>POST the cart to <code>/api/sales/hold</code>. Saved with <code>status='held'</code>. Stock untouched. The cashier's screen is now free.</p>
+</div>
+<div class="concept-card">
+<h4>The resume</h4>
+<p>Click Held → the list shows parked carts → Resume loads the lines into the current cart. The held sale is voided (it was never paid).</p>
+</div>
+<div class="concept-card">
+<h4>Why no stock reservation</h4>
+<p>Because a held sale is not a completed transaction. If holding reserved stock, an abandoned cart would lock inventory forever. Stock is checked at checkout time, not hold time.</p>
+</div>
+</div>
+
+<div class="code-block mt-6" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">hold.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">@app.route("/api/sales/hold", methods=["POST"])
+def hold_sale():
+    """
+    Park a cart. Unlike create_sale, this does NOT
+    touch stock — a held sale is not a completed
+    transaction.
+    """
+    data = request.get_json(silent=True) or {}
+    lines = data.get("lines") or []
+    tax_rate = float(data.get("taxRate", 8.5))
+    cashier = (data.get("cashier") or "Alex Rivera").strip()
+
+    if not lines:
+        return jsonify({"error": "Cannot hold an empty cart."}), 400
+
+    with get_db() as conn:
+        # Validate products exist; no stock check
+        resolved = []
+        subtotal = 0.0
+        for raw in lines:
+            pid = int(raw["productId"])
+            qty = int(raw["qty"])
+            if qty &lt;= 0:
+                return jsonify({"error": "Quantity must be positive."}), 400
+
+            p = conn.execute(
+                """SELECT id, name, price FROM products
+                   WHERE id = ? AND archived_at IS NULL""",
+                (pid,),
+            ).fetchone()
+            if not p:
+                return jsonify({
+                    "error": f"Product {pid} not found or archived."
+                }), 404
+
+            lt = round_money(p["price"] * qty)
+            subtotal += lt
+            resolved.append({
+                "product_id": p["id"], "name": p["name"],
+                "qty": qty, "unit_price": p["price"], "line_total": lt,
+            })
+
+        subtotal = round_money(subtotal)
+        tax_total = round_money(subtotal * tax_rate / 100)
+        grand_total = round_money(subtotal + tax_total)
+        timestamp = now_iso()
+
+        cur = conn.execute(
+            """INSERT INTO sales
+               (cashier, subtotal, tax_rate, tax_total, grand_total,
+                status, refund_of_sale_id, created_at, paid_at)
+               VALUES (?, ?, ?, ?, ?, 'held', NULL, ?, NULL)""",
+            (cashier, subtotal, tax_rate, tax_total, grand_total, timestamp),
+        )
+        sale_id = cur.lastrowid
+
+        for r in resolved:
+            conn.execute(
+                """INSERT INTO sale_lines
+                   (sale_id, product_id, product_name, qty,
+                    unit_price, line_total, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (sale_id, r["product_id"], r["name"], r["qty"],
+                 r["unit_price"], r["line_total"], timestamp),
+            )
+
+        sale = _fetch_sale(conn, sale_id)
+
+    return jsonify(sale), 201
+
+
+@app.route("/api/sales/&lt;int:sid&gt;/resume", methods=["POST"])
+def resume_sale(sid):
+    """Return a held sale's lines so the frontend can load them."""
+    with get_db() as conn:
+        sale = conn.execute(
+            "SELECT * FROM sales WHERE id = ?", (sid,)
+        ).fetchone()
+        if not sale:
+            return jsonify({"error": "Sale not found."}), 404
+        if sale["status"] != "held":
+            return jsonify({
+                "error": f"Sale #{sid} is not held "
+                         f"(status '{sale['status']}')."
+            }), 400
+
+        sale = _fetch_sale(conn, sid)
+
+    return jsonify(sale)
+
+
+@app.route("/api/sales/&lt;int:sid&gt;/void", methods=["POST"])
+def void_held_sale(sid):
+    """Delete a held sale. Safe: held sales never touched stock."""
+    with get_db() as conn:
+        sale = conn.execute(
+            "SELECT * FROM sales WHERE id = ?", (sid,)
+        ).fetchone()
+        if not sale:
+            return jsonify({"error": "Sale not found."}), 404
+        if sale["status"] != "held":
+            return jsonify({
+                "error": "Only held sales can be voided."
+            }), 400
+        conn.execute("DELETE FROM sales WHERE id = ?", (sid,))
+        conn.commit()
+
+    return jsonify({"ok": True})</pre>
+<pre id="code-sol3">@app.route("/api/sales/hold", methods=["POST"])
+def hold_sale():
+    """
+    Park a cart. Unlike create_sale, this does NOT
+    touch stock — a held sale is not a completed
+    transaction.
+    """
+    data = request.get_json(silent=True) or {}
+    lines = data.get("lines") or []
+    tax_rate = float(data.get("taxRate", 8.5))
+    cashier = (data.get("cashier") or "Alex Rivera").strip()
+
+    if not lines:
+        return jsonify({"error": "Cannot hold an empty cart."}), 400
+
+    with get_db() as conn:
+        # Validate products exist; no stock check
+        resolved = []
+        subtotal = 0.0
+        for raw in lines:
+            pid = int(raw["productId"])
+            qty = int(raw["qty"])
+            if qty <= 0:
+                return jsonify({"error": "Quantity must be positive."}), 400
+
+            p = conn.execute(
+                """SELECT id, name, price FROM products
+                   WHERE id = ? AND archived_at IS NULL""",
+                (pid,),
+            ).fetchone()
+            if not p:
+                return jsonify({
+                    "error": f"Product {pid} not found or archived."
+                }), 404
+
+            lt = round_money(p["price"] * qty)
+            subtotal += lt
+            resolved.append({
+                "product_id": p["id"], "name": p["name"],
+                "qty": qty, "unit_price": p["price"], "line_total": lt,
+            })
+
+        subtotal = round_money(subtotal)
+        tax_total = round_money(subtotal * tax_rate / 100)
+        grand_total = round_money(subtotal + tax_total)
+        timestamp = now_iso()
+
+        cur = conn.execute(
+            """INSERT INTO sales
+               (cashier, subtotal, tax_rate, tax_total, grand_total,
+                status, refund_of_sale_id, created_at, paid_at)
+               VALUES (?, ?, ?, ?, ?, 'held', NULL, ?, NULL)""",
+            (cashier, subtotal, tax_rate, tax_total, grand_total, timestamp),
+        )
+        sale_id = cur.lastrowid
+
+        for r in resolved:
+            conn.execute(
+                """INSERT INTO sale_lines
+                   (sale_id, product_id, product_name, qty,
+                    unit_price, line_total, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (sale_id, r["product_id"], r["name"], r["qty"],
+                 r["unit_price"], r["line_total"], timestamp),
+            )
+
+        sale = _fetch_sale(conn, sale_id)
+
+    return jsonify(sale), 201
+
+
+@app.route("/api/sales/<int:sid>/resume", methods=["POST"])
+def resume_sale(sid):
+    """Return a held sale's lines so the frontend can load them."""
+    with get_db() as conn:
+        sale = conn.execute(
+            "SELECT * FROM sales WHERE id = ?", (sid,)
+        ).fetchone()
+        if not sale:
+            return jsonify({"error": "Sale not found."}), 404
+        if sale["status"] != "held":
+            return jsonify({
+                "error": f"Sale #{sid} is not held "
+                         f"(status '{sale['status']}')."
+            }), 400
+
+        sale = _fetch_sale(conn, sid)
+
+    return jsonify(sale)
+
+
+@app.route("/api/sales/<int:sid>/void", methods=["POST"])
+def void_held_sale(sid):
+    """Delete a held sale. Safe: held sales never touched stock."""
+    with get_db() as conn:
+        sale = conn.execute(
+            "SELECT * FROM sales WHERE id = ?", (sid,)
+        ).fetchone()
+        if not sale:
+            return jsonify({"error": "Sale not found."}), 404
+        if sale["status"] != "held":
+            return jsonify({
+                "error": "Only held sales can be voided."
+            }), 400
+        conn.execute("DELETE FROM sales WHERE id = ?", (sid,))
+        conn.commit()
+
+    return jsonify({"ok": True})</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why hold doesn't touch stock:
+
+  Scenario A — hold reserves stock:
+    Cashier holds a cart with 2 keyboards.
+    Cashier forgets about it.
+    Customer walks away.
+    → 2 keyboards are "reserved" forever.
+    → Stock says 0 but the physical shelf
+       has 2 units. Inventory drifts.
+
+  Scenario B — hold does NOT reserve stock:
+    Cashier holds a cart with 2 keyboards.
+    Another cashier sells all 8 keyboards.
+    Cashier 1 resumes the held cart.
+    Checkout fails: "only 0 in stock."
+    Cashier 1 apologizes, cashier 2 already
+    sold the units. Correct behavior.
+
+  B is correct. A held cart is a bookmarked
+  shopping list. It has no reserved allocation.
+  Stock is checked at the moment of sale —
+  the atomic checkout — because that's when
+  the transaction becomes real.
+
+Why the resume flow voids the held sale:
+
+  The frontend does this sequence:
+    1. POST /api/sales/42/resume → get lines
+    2. Load lines into current cart
+    3. POST /api/sales/42/void → delete held sale
+
+  The held sale existed to hold the lines.
+  Once the lines are in the cashier's cart,
+  the held sale has done its job. Keeping it
+  would leave a stale "held" record that
+  looks like a parked cart nobody's working on.
+
+  Voiding it is idempotent — if it fails (race,
+  double-click), the held sale is still there
+  and the cashier can void it manually from
+  the Held panel. The cart doesn't lose state.
+
+Why only held sales can be voided:
+
+  A paid sale can't be voided — it needs a
+  refund instead (reversal). A void on a paid
+  sale would delete the record and break every
+  report.
+
+  A held sale has no payment and no stock
+  movements. Deleting it is safe — there's
+  nothing to reverse. The status check
+  enforces this: only <code>status='held'</code> allows DELETE.
+
+  This is the same "financial records are
+  immutable" principle, applied differently.
+  A held sale is a draft; drafts can be deleted.
+  A paid sale is a record; records can only
+  be reversed.</pre>
+</div>
+</div>
+</section>
+
+<section id="print">
+<h2 class="section-title">✅ Printable 80mm receipts</h2>
+<p class="section-sub">@media print isolates the receipt. Everything else disappears.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The receipt was already styled as an 80mm paper metaphor — white background, monospace, dashed rules. Stage 04 makes it actually print that way. The technique:
+</p>
+
+<div class="code-block" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">print.css</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol4', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">@media print {
+  /* Hide everything */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only the open receipt modal and its contents */
+  .pos-modal-backdrop.is-open,
+  .pos-modal-backdrop.is-open * {
+    visibility: visible;
+  }
+
+  /* Reposition the modal to the top-left, kill backdrop */
+  .pos-modal-backdrop.is-open {
+    position: absolute;
+    inset: 0;
+    background: white;
+    padding: 0;
+    display: block;
+  }
+
+  /* The modal itself becomes an 80mm page */
+  .pos-modal {
+    box-shadow: none;
+    border: none;
+    max-width: 80mm;
+    margin: 0 auto;
+    background: white;
+  }
+
+  /* Hide chrome: header, close, print button */
+  .pos-modal-header,
+  .pos-receipt-actions {
+    display: none;
+  }
+
+  /* The receipt: no margin, small padding, print font size */
+  .pos-receipt {
+    margin: 0;
+    padding: 4mm;
+    border-radius: 0;
+    font-size: 10pt;
+    line-height: 1.3;
+  }
+
+  /* Page setup: 80mm wide, auto tall */
+  @page {
+    margin: 0;
+    size: 80mm auto;
+  }
+}</pre>
+<pre id="code-sol4">@media print {
+  /* Hide everything */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show only the open receipt modal and its contents */
+  .pos-modal-backdrop.is-open,
+  .pos-modal-backdrop.is-open * {
+    visibility: visible;
+  }
+
+  /* Reposition the modal to the top-left, kill backdrop */
+  .pos-modal-backdrop.is-open {
+    position: absolute;
+    inset: 0;
+    background: white;
+    padding: 0;
+    display: block;
+  }
+
+  /* The modal itself becomes an 80mm page */
+  .pos-modal {
+    box-shadow: none;
+    border: none;
+    max-width: 80mm;
+    margin: 0 auto;
+    background: white;
+  }
+
+  /* Hide chrome: header, close, print button */
+  .pos-modal-header,
+  .pos-receipt-actions {
+    display: none;
+  }
+
+  /* The receipt: no margin, small padding, print font size */
+  .pos-receipt {
+    margin: 0;
+    padding: 4mm;
+    border-radius: 0;
+    font-size: 10pt;
+    line-height: 1.3;
+  }
+
+  /* Page setup: 80mm wide, auto tall */
+  @page {
+    margin: 0;
+    size: 80mm auto;
+  }
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why visibility:hidden, not display:none:
+
+  display:none would remove the receipt
+  from layout too, since it's inside
+  body. You'd have to be very careful
+  about which selectors re-show it.
+
+  visibility:hidden keeps everything in
+  layout but invisible. The receipt modal
+  gets visibility:visible, so it appears
+  exactly where it was — no layout shift,
+  no fighting with positioning.
+
+  This is the standard pattern for print-only
+  sections that need to isolate one element:
+  hide the root, show the target.
+
+Why @page { size: 80mm auto }:
+
+  Thermal receipt printers use 80mm paper
+  (sometimes 58mm). Without @page size,
+  the browser prints to the default paper
+  size — usually A4 or Letter — with the
+  80mm receipt content crammed into the
+  top-left corner.
+
+  With size:80mm auto, the browser asks
+  the printer "give me a 80mm-wide page,
+  however tall." Thermal printers accept
+  this and print a receipt exactly as wide
+  as the paper roll. Auto height means the
+  page ends where the content ends, not at
+  a fixed A4 height with wasted blank space.
+
+Why margin:0 on @page:
+
+  Thermal paper has no printable margin —
+  the printer head runs edge to edge. If
+  you leave margin:0.5in from a default
+  @page, the receipt is indented and might
+  clip on the right. Set it to 0 and let
+  the receipt's own padding (4mm) provide
+  the visual breathing room.
+
+Why 10pt font size:
+
+  Screen size (0.75rem ≈ 12px) is fine for
+  a monitor at arm's length. On paper, 12px
+  is too small for a cashier to read at a
+  glance. 10pt on paper ≈ 13.3px, which
+  reads comfortably at typical receipt
+  reading distance.
+
+  Real thermal receipts use 9–11pt. 10pt
+  is the standard middle. If you need
+  different sizes for "store name" vs
+  "line items," use relative sizes within
+  the 10pt base.
+
+Why we hide .pos-modal-header:
+
+  The "Receipt" title and the × close
+  button belong on the screen UI, not on
+  the printed receipt. A real receipt
+  doesn't say "Receipt" at the top of a
+  modal — it starts with the store name.
+
+  Same for .pos-receipt-actions (Close
+  and Print buttons). Those are chrome.
+
+The trigger:
+
+  document.getElementById('print-btn')
+    .addEventListener('click', () =>
+      window.print());
+
+  window.print() opens the OS print dialog.
+  The @media print rules apply only for the
+  duration of that dialog. When it closes,
+  the page returns to its normal screen
+  appearance — no cleanup needed.</pre>
+</div>
+</div>
+</section>
+
+<section id="archive">
+<h2 class="section-title">✅ Archiving — because RESTRICT forbids deletion</h2>
+<p class="section-sub">The Stage 03 constraint forces the Stage 04 design.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stage 03 put <code>ON DELETE RESTRICT</code> on <code>sale_lines.product_id</code>. That means:
+</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-2 mb-4">
+<pre class="text-xs text-slate-400 leading-relaxed" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; line-height: 1.6;">sqlite&gt; DELETE FROM products WHERE id = 2;
+Error: FOREIGN KEY constraint failed
+
+The product has been sold. Deleting it would orphan the
+sale line. The database refuses.</pre>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+This is correct. But an admin still needs a way to say "we no longer sell this." That's what <code>archived_at</code> does:
+</p>
+
+<div class="code-block" id="sol5">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">archive.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol5', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol5', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">@app.route("/api/products/&lt;int:pid&gt;/archive", methods=["POST"])
+def archive_product(pid):
+    with get_db() as conn:
+        p = conn.execute(
+            "SELECT id FROM products WHERE id = ?", (pid,)
+        ).fetchone()
+        if not p:
+            return jsonify({"error": "Product not found."}), 404
+        conn.execute(
+            """UPDATE products
+               SET archived_at = ?, updated_at = ?
+               WHERE id = ?""",
+            (now_iso(), now_iso(), pid),
+        )
+        conn.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/products/&lt;int:pid&gt;/unarchive", methods=["POST"])
+def unarchive_product(pid):
+    with get_db() as conn:
+        p = conn.execute(
+            "SELECT id FROM products WHERE id = ?", (pid,)
+        ).fetchone()
+        if not p:
+            return jsonify({"error": "Product not found."}), 404
+        conn.execute(
+            """UPDATE products
+               SET archived_at = NULL, updated_at = ?
+               WHERE id = ?""",
+            (now_iso(), pid),
+        )
+        conn.commit()
+    return jsonify({"ok": True})</pre>
+<pre id="code-sol5">@app.route("/api/products/<int:pid>/archive", methods=["POST"])
+def archive_product(pid):
+    with get_db() as conn:
+        p = conn.execute(
+            "SELECT id FROM products WHERE id = ?", (pid,)
+        ).fetchone()
+        if not p:
+            return jsonify({"error": "Product not found."}), 404
+        conn.execute(
+            """UPDATE products
+               SET archived_at = ?, updated_at = ?
+               WHERE id = ?""",
+            (now_iso(), now_iso(), pid),
+        )
+        conn.commit()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/products/<int:pid>/unarchive", methods=["POST"])
+def unarchive_product(pid):
+    with get_db() as conn:
+        p = conn.execute(
+            "SELECT id FROM products WHERE id = ?", (pid,)
+        ).fetchone()
+        if not p:
+            return jsonify({"error": "Product not found."}), 404
+        conn.execute(
+            """UPDATE products
+               SET archived_at = NULL, updated_at = ?
+               WHERE id = ?""",
+            (now_iso(), pid),
+        )
+        conn.commit()
+    return jsonify({"ok": True})</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>How archiving shows up:
+
+  In the POS catalog query:
+
+    GET /api/products
+    → WHERE quantity > 0
+       AND archived_at IS NULL
+
+    Archived products don't appear. The
+    cashier can't sell them. Correct.
+
+  In sales history:
+
+    sale_lines joins products by id.
+    The archived product still exists.
+    Old receipts still render it.
+    Correct.
+
+  In inventory's audit log:
+
+    stock_movements still reference it.
+    The archived product's history is
+    intact. Correct.
+
+  What the admin can't do:
+
+    DELETE the product. RESTRICT forbids
+    it. The only path to "remove from
+    selling" is archive. The only path
+    to "remove from history" is: nothing.
+    History is immutable.
+
+Why a timestamp, not a boolean:
+
+  archived_at = '2026-11-14T15:30:00Z'
+
+  vs.
+
+  archived = 1
+
+  The timestamp answers "when?" —
+  which is useful for audit, for "how
+  many products were archived this
+  quarter," for "was this archived
+  before or after the price change."
+
+  The boolean only answers "is it
+  archived?" and loses the when.
+
+  Use the timestamp. If you need the
+  boolean, it's `archived_at IS NOT NULL` —
+  derived, not stored. Same principle as
+  the rest of the build.
+
+What if a product has stock and gets
+archived?
+
+  Nothing prevents it. The product is
+  hidden from POS but still has 5 units
+  in stock. Those units are invisible
+  to the catalog.
+
+  Is that right? It depends. Sometimes
+  yes (discontinued item, don't sell it,
+  but don't bother removing the stock).
+  Sometimes no (should be zeroed first).
+
+  A stricter version would refuse to
+  archive a product with stock > 0:
+
+    if product["quantity"] > 0:
+        return jsonify({"error": "Zero the
+        stock before archiving."}), 400
+
+  Stage 04 doesn't add that guard —
+  it's a policy decision, not a technical
+  one. Mention it, let the reader decide.
+  The lesson: archiving is a policy,
+  not a technical default. Every store
+  chooses its own.</pre>
+</div>
+</div>
+</section>
+
+<section id="migrations">
+<h2 class="section-title">✅ Migrations — upgrade in place</h2>
+<p class="section-sub">Stage 03 dropped and recreated. Stage 04 does not.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stage 03's <code>seed.py</code> started with <code>DROP TABLE IF EXISTS ...</code> — fine for a fresh install, catastrophic for existing data. Stage 04 needs to add two columns to tables that already hold real rows. The pattern:
+</p>
+
+<div class="code-block" id="sol6">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">migrate.py</span>
+<button class="copy-btn" onclick="copyCode('code-sol6', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol6', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol6', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol6">def column_exists(conn, table, column):
+    """SQLite doesn't have information_schema. Use PRAGMA."""
+    cols = [r[1] for r in conn.execute(
+        f"PRAGMA table_info({table})"
+    ).fetchall()]
+    return column in cols
+
+
+def migrate(conn):
+    """Apply Stage 04 migrations to an existing database."""
+    applied = []
+
+    if not column_exists(conn, "sales", "refund_of_sale_id"):
+        conn.execute(
+            "ALTER TABLE sales ADD COLUMN refund_of_sale_id INTEGER"
+        )
+        applied.append("sales.refund_of_sale_id")
+
+    if not column_exists(conn, "products", "archived_at"):
+        conn.execute(
+            "ALTER TABLE products ADD COLUMN archived_at TEXT"
+        )
+        applied.append("products.archived_at")
+
+    if applied:
+        conn.commit()
+        print("Migrations applied: " + ", ".join(applied))
+    else:
+        print("Schema is up to date — no migrations needed.")</pre>
+<pre id="code-sol6">def column_exists(conn, table, column):
+    """SQLite doesn't have information_schema. Use PRAGMA."""
+    cols = [r[1] for r in conn.execute(
+        f"PRAGMA table_info({table})"
+    ).fetchall()]
+    return column in cols
+
+
+def migrate(conn):
+    """Apply Stage 04 migrations to an existing database."""
+    applied = []
+
+    if not column_exists(conn, "sales", "refund_of_sale_id"):
+        conn.execute(
+            "ALTER TABLE sales ADD COLUMN refund_of_sale_id INTEGER"
+        )
+        applied.append("sales.refund_of_sale_id")
+
+    if not column_exists(conn, "products", "archived_at"):
+        conn.execute(
+            "ALTER TABLE products ADD COLUMN archived_at TEXT"
+        )
+        applied.append("products.archived_at")
+
+    if applied:
+        conn.commit()
+        print("Migrations applied: " + ", ".join(applied))
+    else:
+        print("Schema is up to date — no migrations needed.")</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why PRAGMA table_info, not information_schema:
+
+  SQLite is not a full SQL server. It doesn't
+  have information_schema.columns like Postgres
+  or MySQL. The equivalent is:
+
+    PRAGMA table_info(table_name);
+
+  which returns one row per column with:
+    cid, name, type, notnull, dflt_value, pk
+
+  We grab column 1 (name) and check for the
+  column we're adding. If it's not there,
+  ALTER TABLE ADD COLUMN. If it is, skip.
+
+Why this pattern matters:
+
+  Run migrate() on a fresh install:
+    → Both columns missing → both ALTERs fire.
+    → Schema is complete.
+
+  Run migrate() on a Stage 03 database:
+    → Both columns missing → both ALTERs fire.
+    → Existing rows get NULL for the new
+       columns. No data lost. Schema upgraded.
+
+  Run migrate() again:
+    → Both columns present → no ALTERs.
+    → Idempotent. Safe to re-run.
+
+  Run migrate() on a Stage 04 database:
+    → Both present → no-op.
+
+  Every path leaves a valid schema. That's
+  what "idempotent migration" means.
+
+What if ALTER TABLE fails halfway?
+
+  In SQLite, ALTER TABLE ADD COLUMN is
+  atomic — it either succeeds or fails as
+  one operation. If the first ALTER succeeds
+  and the second fails (extremely rare for
+  ADD COLUMN), you'd have a half-migrated
+  schema. The next run would ALTER only the
+  missing column, completing the migration.
+
+  This is acceptable for the POS. For a
+  high-stakes system, you'd wrap the whole
+  migration in a transaction (SQLite allows
+  it — BEGIN; ALTER; ALTER; COMMIT;) or use
+  a migration library like Alembic.
+
+  We do the simpler version here. The lesson
+  is the pattern (check-then-ALTER), not
+  the ceremony around it.
+
+Why we don't drop-and-recreate:
+
+  Dropping sales would:
+    → Lose every completed sale
+    → Break every receipt
+    → Lose every stock movement audit
+    → Make the Z-report lose its history
+
+  Stage 03's drop-and-recreate was honest
+  for a tutorial. Stage 04's ALTER TABLE
+  is honest for a real system. The shift
+  from one to the other is the lesson.
+
+The next migration would be:
+
+  If Stage 05 (which doesn't exist) added
+  sales.discount_total, seed.py would:
+
+    if not column_exists(conn, "sales",
+                         "discount_total"):
+        conn.execute(
+            "ALTER TABLE sales ADD COLUMN "
+            "discount_total REAL NOT NULL DEFAULT 0"
+        )
+
+  Same pattern, one more column. That's
+  schema evolution.</pre>
+</div>
+</div>
+</section>
+
+<section id="run">
+<h2 class="section-title">✅ Run it</h2>
+<p class="section-sub">Three commands. Upgrade in place if you have Stage 03.</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+<div class="text-sm text-slate-300 mb-3"><strong class="text-white">If you have a Stage 03 database:</strong></div>
+<pre class="text-xs text-slate-400 leading-relaxed">cd apps/pos/downloads/backend
+python seed.py        # ALTER TABLE — preserves your sales
+python app.py         # http://localhost:5000</pre>
+<p class="text-xs text-slate-500 mt-3">The seed prints <code>Migrations applied: sales.refund_of_sale_id, products.archived_at</code> and leaves your existing sales intact.</p>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+<div class="text-sm text-slate-300 mb-3"><strong class="text-white">If this is a fresh install:</strong></div>
+<pre class="text-xs text-slate-400 leading-relaxed">cd apps/pos/downloads/backend
+python seed.py        # creates inventory.db + seeds 8 products, 5 sales, 1 held, 1 archived
+python app.py         # http://localhost:5000</pre>
+</div>
+
+<div class="concept-grid mt-6">
+<div class="concept-card">
+<h4>Test the print</h4>
+<p>Complete a sale → click Print. The OS print dialog shows only the 80mm receipt. If you have a PDF printer, save it — the PDF is 80mm wide.</p>
+</div>
+<div class="concept-card">
+<h4>Test a refund</h4>
+<p>History → click a sale → Refund → confirm. A new sale appears with a <code>Refund</code> badge and a negative total. The original is still there.</p>
+</div>
+<div class="concept-card">
+<h4>Test the Z-report</h4>
+<p>Z-Report tab → date is today → Load. The green ✓ banner shows <code>reconciles: true</code>. Gross + refunds = net sales = payments total.</p>
+</div>
+<div class="concept-card">
+<h4>Test hold/resume</h4>
+<p>Add 2 items → Hold → cart clears → click Held → Resume. The cart reloads. Complete the sale.</p>
+</div>
+<div class="concept-card">
+<h4>Test the reconciliation</h4>
+<p>Manually: <code>sqlite3 inventory.db "INSERT INTO payments (sale_id, method, amount, created_at) VALUES (1, 'cash', 5.00, '2026-11-14T00:00:00')"</code>. Reload Z-Report — <code>reconciles</code> is now false, banner is red.</p>
+</div>
+<div class="concept-card">
+<h4>Test archiving</h4>
+<p>Delete a product that's been sold: <code>DELETE FROM products WHERE id = 2</code>. Error: FOREIGN KEY constraint failed. Then archive it: <code>UPDATE products SET archived_at = '...' WHERE id = 2</code>. It disappears from the POS catalog. Sale #2's receipt still renders it.</p>
+</div>
+<div class="concept-card">
+<h4>Test the migration</h4>
+<p>Run <code>python seed.py</code> twice. First run: "Migrations applied: …". Second run: "Schema is up to date." Idempotent.</p>
+</div>
+</div>
+
+<div id="full" class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-6">
+<div class="text-sm text-slate-300 mb-3">
+<strong class="text-white">Download the full backend:</strong>
+</div>
+<p class="text-xs text-slate-500 mb-4 leading-relaxed">
+Seven files. Drop them into <code>apps/pos/downloads/backend/</code>, keep the <code>static/</code> subfolder intact, and the three-command run sequence works.
+</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+<a href="/apps/pos/downloads/backend/app.py" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">app.py</div>
+<div class="text-xs text-slate-500">Flask routes + all endpoints</div>
+</a>
+<a href="/apps/pos/downloads/backend/schema.sql" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">schema.sql</div>
+<div class="text-xs text-slate-500">3 POS tables + shared inventory tables</div>
+</a>
+<a href="/apps/pos/downloads/backend/seed.py" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">seed.py</div>
+<div class="text-xs text-slate-500">Idempotent seed + ALTER TABLE migrations</div>
+</a>
+<a href="/apps/pos/downloads/backend/database.py" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">database.py</div>
+<div class="text-xs text-slate-500">Connection + init helpers</div>
+</a>
+<a href="/apps/pos/downloads/backend/requirements.txt" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">requirements.txt</div>
+<div class="text-xs text-slate-500">Flask + flask-cors</div>
+</a>
+<a href="/apps/pos/downloads/backend/README.md" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">README.md</div>
+<div class="text-xs text-slate-500">Endpoints, migrations, refund notes</div>
+</a>
+<a href="/apps/pos/downloads/backend/static/pos-stage-04.html" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors sm:col-span-2">
+<div class="text-sm font-semibold text-cyan-400">static/pos-stage-04.html</div>
+<div class="text-xs text-slate-500">The full frontend with history, Z-report, hold/resume, print</div>
+</a>
+</div>
+
+<div class="mt-4 pt-4 border-t border-slate-800">
+<div class="text-xs text-slate-400 mb-2"><strong class="text-slate-300">Folder structure after download:</strong></div>
+<pre class="text-xs text-slate-400 leading-relaxed" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; line-height: 1.6;">apps/pos/downloads/backend/
+├── app.py
+├── database.py
+├── schema.sql
+├── seed.py
+├── requirements.txt
+├── README.md
+└── static/
+    └── pos-stage-04.html</pre>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">⚠️ Common mistakes</h2>
+<p class="section-sub">What to check if Stage 04 doesn't work.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Refunding by deleting the sale</div>
+<p>Breaks every report that ever included it. Fix: reversal sale, original untouched, <code>refund_of_sale_id</code> points at it.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Double-refunding the same sale</div>
+<p>Two reversal sales = customer gets double money back. Fix: check <code>SELECT id FROM sales WHERE refund_of_sale_id = ?</code> before refunding, return 409.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Refunding a refund</div>
+<p>Refunding a sale that's itself a refund is nonsense — customer never paid that amount. Fix: check <code>refund_of_sale_id IS NOT NULL</code>, return 400.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Z-report summing only sales or only payments</div>
+<p>The whole point is comparing two independent sums. If you compute one and derive the other, the check is tautological. Fix: compute <code>SUM(grand_total)</code> from sales AND <code>SUM(amount)</code> from payments separately.</p>
+</div>
+<div class="mtitle" style="font-weight:700; color:#fbbf24; margin-top:1rem;">5. Holding a sale with a stock check</div>
+<p>Held carts would reserve inventory that might never be bought. Fix: hold validates product existence, not stock. Stock is checked at checkout.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Forgetting the print CSS</div>
+<p>Printing on an 80mm printer without <code>@page { size: 80mm auto }</code> produces an A4 page with a tiny receipt in the corner. Fix: the full <code>@media print</code> block.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Deleting a sold product</div>
+<p>RESTRICT refuses. Fix: archive with <code>archived_at</code>, not DELETE.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Drop-and-recreate on migration</div>
+<p>Loses every existing sale. Fix: PRAGMA table_info check + ALTER TABLE ADD COLUMN. Idempotent.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is a refund a new sale instead of deleting the original?</summary>
+<p class="mt-2 text-sm text-slate-300">Because financial records are immutable. If you delete a sale, every report that ever included it becomes wrong. A refund is a NEW sale with negative quantities and a negative payment, pointing at the original via refund_of_sale_id. The original stays untouched. Same for the stock movement — a <code>refunded</code> row with a positive delta, not a deleted <code>sold</code> row.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does the Z-report actually reconcile?</summary>
+<p class="mt-2 text-sm text-slate-300">Two independent sums for the day: net sales (SUM of grand_total on paid sales including refunds, so refunds subtract) and payments total (SUM of amount across all payment rows, refunds subtract too). If they match, the books match the money. If not, a sale or payment was written outside the checkout, or tampered with.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why doesn't a held sale reserve stock?</summary>
+<p class="mt-2 text-sm text-slate-300">Because a held sale is not a completed transaction. The customer hasn't paid. If holding reserved stock, an abandoned cart would lock inventory forever. Held sales are saved carts — no stock_movements, no quantity update. Stock is checked at checkout time, when the transaction becomes real.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does the @media print CSS actually do?</summary>
+<p class="mt-2 text-sm text-slate-300">Hides everything on the page except the open receipt modal, sizes the receipt to 80mm width, removes UI chrome (header, close button, print button), and sets <code>@page { size: 80mm auto; margin: 0 }</code> so the browser prints an 80mm page that ends where the content ends. The receipt was already styled monospace — the print CSS makes the paper metaphor real.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is product archiving needed instead of deletion?</summary>
+<p class="mt-2 text-sm text-slate-300">Because Stage 03 put ON DELETE RESTRICT on sale_lines.product_id. You literally cannot delete a product that has been sold — the database refuses. The constraint forces the design. A nullable timestamp, <code>archived_at</code>: NULL means active, set means archived. Archived products disappear from the POS catalog but existing sale lines still render correctly.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the migration pattern and why does it matter?</summary>
+<p class="mt-2 text-sm text-slate-300">PRAGMA table_info checks whether a column exists, ALTER TABLE ADD COLUMN adds it only if missing. Idempotent — running twice does nothing the second time. Unlike Stage 03's drop-and-recreate, this preserves existing data. The lesson: additive changes with existence checks. Drop-and-recreate works for a demo; ALTER TABLE with PRAGMA works for a database you can't lose.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Is this the final stage?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. The POS & Billing build is four stages: Interface, Interactions, Backend, Advanced. Stage 04 completes it. Authentication, deployment, hardware integration, and offline-first sync are separate concept courses — they are not Stage 05 of this build.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What should I build next?</summary>
+<p class="mt-2 text-sm text-slate-300">Not another stage of this app. Either take a concept course (deployment, auth, POS hardware), or build something new that reuses this pattern. The four-stage arc — shell → client logic → backend → advanced data layer — applies to any transactional app: ticketing, subscriptions, booking, invoicing. Same three tables, same atomic checkout, same reversal-based refunds.</p>
+</details>
+</div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CLOSEOUT — Stage 04 is the final stage. No Stage 05.
+     ═══════════════════════════════════════════════════════════ -->
+<section id="done" class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-2">🏁 You're done — the POS &amp; Billing build is complete</h2>
+<p class="text-sm text-slate-300 leading-relaxed mb-4">
+Four stages. Three POS tables. Two foreign keys. A shared inventory catalog. An atomic checkout that either fully commits or fully rolls back. Refunds as reversal sales. A Z-report that reconciles the till. Printable 80mm receipts. Hold/resume. Product archiving. The app you could plausibly run a small shop on.
+</p>
+
+<div class="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-4">
+<div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">The full build</div>
+<div class="space-y-2">
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">✓</span>
+<span class="text-slate-300"><strong class="text-white">Stage 01 — Interface</strong> · static POS shell, product grid, cart, 80mm receipt modal</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">✓</span>
+<span class="text-slate-300"><strong class="text-white">Stage 02 — Interactions</strong> · client cart, live totals, payment modal, barcode focus, localStorage</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">✓</span>
+<span class="text-slate-300"><strong class="text-white">Stage 03 — Backend</strong> · Flask + SQLite, three tables, atomic checkout, price snapshots, shared catalog</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">✓</span>
+<span class="text-slate-300"><strong class="text-white">Stage 04 — Advanced</strong> · refunds, Z-report, hold/resume, print CSS, archiving, migrations</span>
+</div>
+</div>
+</div>
+
+<a href="/apps/pos/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all mb-3">
+<div class="font-semibold text-cyan-400 text-sm">🧾 Back to the POS hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages in one place, with the data model and the download links for the full backend.</div>
+</a>
+
+<div class="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-2">
+<div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Where to go from here — separate tracks, not Stage 05</div>
+<a href="/courses/flask/deployment.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors mb-2">
+<div class="font-semibold text-white text-sm">🚀 Deploying Flask + SQLite</div>
+<div class="text-xs text-slate-400 mt-1">Gunicorn, reverse proxy, backups, file permissions. From laptop to server.</div>
+</a>
+<a href="/courses/flask/auth.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors mb-2">
+<div class="font-semibold text-white text-sm">🔐 Authentication as a concept</div>
+<div class="text-xs text-slate-400 mt-1">Password hashing, sessions, roles. The <code>cashier</code> text field becomes a real user.</div>
+</a>
+<a href="/courses/pos/hardware.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors">
+<div class="font-semibold text-white text-sm">🖨️ POS concepts — printing &amp; hardware</div>
+<div class="text-xs text-slate-400 mt-1">Receipt printer integration, cash drawer protocols, card terminal APIs, offline-first sync. POS-specific, taught standalone.</div>
+</a>
+</div>
+
+<p class="text-xs text-slate-500 leading-relaxed mt-4">
+<strong class="text-slate-400">Build something new.</strong> The four-stage arc — shell → client logic → backend → advanced data layer — is a template for any transactional app: ticketing, subscriptions, booking, invoicing. Same three tables (the primary record, the line items, the payment), same atomic checkout, same reversal-based refunds. The pattern is the reusable thing.
+</p>
+</section>
+
+<a href="/apps/pos/index.html" class="back-link">← Back to POS &amp; Billing hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> POS Stage 04 · Advanced · Final <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
