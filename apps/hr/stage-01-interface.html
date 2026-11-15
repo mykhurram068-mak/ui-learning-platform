@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>HR Stage 01 — Interface (Static Shell) (2026)</title>
+<meta name="description" content="Stage 01 of the HR & Attendance build: the static shell. A manager dashboard with KPI cards, an employee list, today's attendance timeline, and an employee clock-in view. Two views, one app. Layout only — no logic.">
+<meta name="keywords" content="hr app tutorial, attendance system ui, employee dashboard design, clock in clock out ui, two-view app layout">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="HR Stage 01 — Interface">
+<meta property="og:description" content="The static HR shell: manager dashboard, employee clock-in view, timeline, KPI cards.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/apps/hr/stage-01-interface.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="HR Stage 01 — Interface">
+<meta name="twitter:description" content="The static HR shell — two views, one app.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/apps/hr/stage-01-interface.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "HR Stage 01 — Interface",
+"description": "The static shell of an HR & Attendance app: manager dashboard with KPI cards, employee list, today's attendance timeline, and an employee clock-in view. Layout only.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-15",
+"dateModified": "2026-11-15",
+"proficiencyLevel": "Beginner",
+"dependencies": "HTML, CSS"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why two views instead of one?","acceptedAnswer":{"@type":"Answer","text":"Because a manager and an employee do fundamentally different things in an HR app. The manager approves timesheets, runs reports, and manages the roster — a dense, tabular, information-heavy dashboard. The employee clocks in and out — one big button, minimal decisions, under a second. A single view that tries to be both is a compromise: too slow for the employee, too sparse for the manager. Two views, one CSS system, is the honest split."}},
+{"@type":"Question","name":"Why is the attendance timeline an event log instead of a table of shifts?","acceptedAnswer":{"@type":"Answer","text":"Because every clock-in, clock-out, and break is a fact that happened at a specific moment. A timeline shows those facts in order. A table of shifts shows the derived conclusion — one row per shift — which hides the events that produced it. If an employee clocks in twice by accident, the timeline shows it immediately; a shift table might silently merge them. The timeline is closer to the truth, which is why it's the primary manager view."}},
+{"@type":"Question","name":"Why does the employee view have no navigation?","acceptedAnswer":{"@type":"Answer","text":"Because the employee has one job: clock in or clock out. Every additional element is a decision, and every decision takes time. The employee view is a full-screen clock-in button with the current time and today's hours worked. No sidebar, no tabs, no settings. If the employee needs to see their history, that's a manager-side concern in Stage 04. The employee view's job is to be the fastest possible clock-in, not a mini-dashboard."}},
+{"@type":"Question","name":"What does Stage 01 NOT do?","acceptedAnswer":{"@type":"Answer","text":"No data, no state, no timers, no persistence. The clock-in button is a button — clicking it does nothing. The KPI cards show hardcoded sample numbers. The timeline shows sample events. The two views toggle via a tab at the top, but the toggle only shows/hides static markup. Stage 02 makes all of it real. Stage 01 is a layout exercise: build the shell, decide where everything goes, then fill it in."}},
+{"@type":"Question","name":"Why are there sample employees in the shell?","acceptedAnswer":{"@type":"Answer","text":"Because an empty list lies about the layout. Building the shell with 5–6 realistic employees forces you to get row height, alignment, and overflow right at the sizes that matter. An empty shell looks correct when it isn't. The same reason Inventory Stage 01 seeded sample products and POS Stage 01 seeded sample cart lines. Content is part of the layout exercise."}},
+{"@type":"Question","name":"Why is the employee view a separate layout instead of a component in the manager view?","acceptedAnswer":{"@type":"Answer","text":"Because they have nothing in common structurally. The manager view is a three-column dashboard with KPIs on top. The employee view is one centered card with a giant button. Forcing them into one component tree would mean conditionals everywhere — 'if employee, hide the sidebar; if employee, make the button huge.' Two independent layouts sharing only the CSS tokens (colors, radii, fonts) is simpler than one layout with a mode switch. The shared design system is what makes them feel like one app."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+.snippet-meta { font-size: 11px; color: #64748b; padding: 0 12px 8px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">HR & Attendance Build</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 01 · Interface</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> ›
+<a href="/apps/hr/index.html" style="color:#7ee8fc;">HR & Attendance</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Stage 01</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">👥 Stage 01 · 2 hours</div>
+<h1>Build the shell.<br><span class="py-accent">Two views. One app.</span></h1>
+<p class="lead">
+The static shell of an HR & Attendance app. A manager dashboard with KPI cards, an employee list, and today's attendance timeline. An employee clock-in view with a single big button and today's hours. A tab at the top to switch between them. No data, no logic, no timers. Just the layout that Stage 02 will bring to life.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 2 hours</span>
+<span><i class="fa-solid fa-signal"></i> Beginner</span>
+<span><i class="fa-solid fa-code"></i> HTML · CSS</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/apps/hr/index.html">HR hub</a>
+<a href="#two-views">Two views</a>
+<a href="#manager">Manager layout</a>
+<a href="#employee">Employee layout</a>
+<a href="#timeline">The timeline</a>
+<a href="#tokens">Shared tokens</a>
+<a href="#full">Full file</a>
+<a href="#next">Next: Stage 02</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> One HTML file, two top-level layouts. Manager view: a grid with KPI cards on top, employee list on the left, today's attendance timeline on the right. Employee view: a single centered card with a giant clock-in button, current time, and today's hours. A tab bar toggles between them. Shared CSS tokens (colors, radii, fonts) make them feel like one app. Sample data is hardcoded — 6 employees, 8 attendance events, 4 KPI values. No JavaScript beyond the tab toggle.
+</p>
+</div>
+
+<section id="two-views">
+<h2 class="section-title">✅ Two views, one app</h2>
+<p class="section-sub">A manager dashboard. An employee button. Different jobs, same design system.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Most web apps have one audience. HR & Attendance has two, and they don't overlap:
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>The manager</h4>
+<p>Needs to see who's working, who's late, who's over hours. Needs to approve timesheets and correct mistakes. Sits at a desktop, glances at the app ten times a day. Values density and scanability.</p>
+</div>
+<div class="concept-card">
+<h4>The employee</h4>
+<p>Needs to clock in when they arrive and clock out when they leave. Stands at a kiosk or holds a phone. Uses the app twice a day. Values speed and zero friction.</p>
+</div>
+<div class="concept-card">
+<h4>Why one shell can't serve both</h4>
+<p>A dashboard is the wrong shape for a clock-in button — too many decisions. A giant button is the wrong shape for the manager — too little information. Trying to be both makes both worse.</p>
+</div>
+<div class="concept-card">
+<h4>The shared system</h4>
+<p>Same color palette, same radii, same font stack, same input styles. A manager tabbing between views feels the same app. An employee seeing the manager view (unlikely) recognizes the visual language. The tokens are the unity; the layouts diverge.</p>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+The tab bar sits at the top of both views. It's the only navigation. It flips between <code>#view-manager</code> and <code>#view-employee</code> via a CSS class on the body. In Stage 02, the tab will persist the active view in <code>localStorage</code> so the employee who clocked in last time lands back on the employee view next session.
+</p>
+</section>
+
+<section id="manager">
+<h2 class="section-title">✅ The manager layout</h2>
+<p class="section-sub">KPIs on top, list left, timeline right.</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>KPI row (top)</h4>
+<p>Four cards: <strong>Clocked in now</strong>, <strong>Hours today</strong>, <strong>Pending approvals</strong>, <strong>Active employees</strong>. Each shows a big number and a small context line below.</p>
+</div>
+<div class="concept-card">
+<h4>Employee list (left)</h4>
+<p>Six employees. Each row: avatar, name, role, current status ("Working since 9:02" / "Off" / "On break"). A colored dot on the left encodes status at a glance.</p>
+</div>
+<div class="concept-card">
+<h4>Timeline (right)</h4>
+<p>Today's events in reverse chronological order. Each row: timestamp, employee name, event type (clock-in / break / clock-out), and a small icon. Scrolls independently.</p>
+</div>
+<div class="concept-card">
+<h4>Two-column grid</h4>
+<p>Below the KPIs, a 2-column grid: list takes 1fr, timeline takes 1fr. On narrow screens, they stack.</p>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+The manager layout is a 3-row grid: header, KPI row, content. The content row is a 2-column grid. Here's the CSS shell — the whole layout fits in 18 lines:
+</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">manager-layout.css</span>
+<span class="snippet-meta">hr-stage-01.html · lines ~85–102</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">.hr-manager {
+display: grid;
+grid-template-rows: var(--header-h) auto 1fr;
+grid-template-areas:
+"header"
+"kpis"
+"content";
+height: 100vh;
+}
+
+.hr-kpis {
+grid-area: kpis;
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: 1rem;
+padding: 1rem 1.5rem;
+}
+
+.hr-content {
+grid-area: content;
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 1rem;
+padding: 0 1.5rem 1.5rem;
+min-height: 0;
+overflow: hidden;
+}</pre>
+<script type="text/plain" id="raw-code-sol1">.hr-manager {
+display: grid;
+grid-template-rows: var(--header-h) auto 1fr;
+grid-template-areas:
+"header"
+"kpis"
+"content";
+height: 100vh;
+}
+
+.hr-kpis {
+grid-area: kpis;
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: 1rem;
+padding: 1rem 1.5rem;
+}
+
+.hr-content {
+grid-area: content;
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 1rem;
+padding: 0 1.5rem 1.5rem;
+min-height: 0;
+overflow: hidden;
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why rows auto and 1fr, not fixed:
+
+The KPI row's height depends on the
+content (a big number + a small label).
+Fixed height would clip on narrow screens
+where the context line wraps. auto lets
+it grow.
+
+The content row takes whatever's left.
+1fr on the third row of a 100vh grid
+means "fill the rest" — the list and
+timeline stretch to the bottom.
+
+Why min-height: 0 on .hr-content:
+
+A flex/grid child with min-height:auto
+(the default) refuses to shrink below
+its content height. The timeline inside
+is scrollable, but the parent won't let
+it shrink, so the page overflows.
+
+min-height: 0 is the fix. It tells the
+grid item "you can shrink to nothing if
+needed; the child knows how to scroll."
+
+Same gotcha as the POS cart panel in
+Stage 02. It bites every time you put
+a scrollable child in a flex/grid parent.
+
+Why 1fr 1fr for the two columns:
+
+The list and the timeline carry equal
+weight on the manager dashboard. Neither
+is primary. 1fr 1fr makes them equal
+and lets the browser distribute any
+extra space.
+
+On a phone (< 900px in the media query),
+the grid becomes one column and the
+timeline goes below the list. Both still
+scroll independently.</pre>
+</div>
+</div>
+
+<h3 class="text-lg font-bold text-white mt-6 mb-2">The KPI cards</h3>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Four cards, one grid. Each card has a label (small caps), a big number, and a context line. The big number is the number that matters; the label tells you what it is; the context tells you what to do about it.
+</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">kpi-markup.html</span>
+<span class="snippet-meta">hr-stage-01.html · lines ~140–158</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2"><div class="hr-kpis">
+<div class="hr-kpi">
+<div class="hr-kpi-label">Clocked in now</div>
+<div class="hr-kpi-value">4</div>
+<div class="hr-kpi-context">of 6 active employees</div>
+</div>
+<div class="hr-kpi">
+<div class="hr-kpi-label">Hours today</div>
+<div class="hr-kpi-value">28.5</div>
+<div class="hr-kpi-context">across all employees</div>
+</div>
+<div class="hr-kpi">
+<div class="hr-kpi-label">Pending approvals</div>
+<div class="hr-kpi-value">3</div>
+<div class="hr-kpi-context">timesheets to review</div>
+</div>
+<div class="hr-kpi">
+<div class="hr-kpi-label">Active employees</div>
+<div class="hr-kpi-value">6</div>
+<div class="hr-kpi-context">on payroll</div>
+</div>
+</div></pre>
+<script type="text/plain" id="raw-code-sol2"><div class="hr-kpis">
+<div class="hr-kpi">
+<div class="hr-kpi-label">Clocked in now</div>
+<div class="hr-kpi-value">4</div>
+<div class="hr-kpi-context">of 6 active employees</div>
+</div>
+<div class="hr-kpi">
+<div class="hr-kpi-label">Hours today</div>
+<div class="hr-kpi-value">28.5</div>
+<div class="hr-kpi-context">across all employees</div>
+</div>
+<div class="hr-kpi">
+<div class="hr-kpi-label">Pending approvals</div>
+<div class="hr-kpi-value">3</div>
+<div class="hr-kpi-context">timesheets to review</div>
+</div>
+<div class="hr-kpi">
+<div class="hr-kpi-label">Active employees</div>
+<div class="hr-kpi-value">6</div>
+<div class="hr-kpi-context">on payroll</div>
+</div>
+</div></script>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>The four cards tell a story:</strong> who's here now, how much work happened today, what needs a decision, and who's on the team. The first two are live numbers that update; the third is a queue; the fourth is a constant. Every manager dashboard can be reduced to those four questions, and these four cards are the answers. Stage 02 makes the numbers live; the shape doesn't change.
+</p>
+</section>
+
+<section id="employee">
+<h2 class="section-title">✅ The employee layout</h2>
+<p class="section-sub">One button. One number. No decisions.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The employee view is what the employee sees when they tap "Employee view" at the top — or, in a real kiosk deployment, what's shown on the tablet by the door. It has exactly four elements:
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Big clock</h4>
+<p>The current time, in monospace, in a large font. The employee needs to know what time it is — it's the answer to "am I late?"</p>
+</div>
+<div class="concept-card">
+<h4>Status</h4>
+<p>"Not clocked in" / "Working since 9:02" / "On break since 12:15". One line, plain English, no jargon.</p>
+</div>
+<div class="concept-card">
+<h4>The button</h4>
+<p>One giant button that says "Clock in" or "Clock out" or "End break" depending on current state. Full width, tall, high contrast.</p>
+</div>
+<div class="concept-card">
+<h4>Today's hours</h4>
+<p>A small line under the button: "Today: 4h 12m". In Stage 02, this updates live as the clock ticks.</p>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+The employee layout is centered — the card sits in the middle of the screen with generous whitespace around it. Here's the CSS:
+</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">employee-layout.css</span>
+<span class="snippet-meta">hr-stage-01.html · lines ~190–215</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">CSS</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">.hr-employee {
+display: grid;
+place-items: center;
+height: 100vh;
+padding: 2rem;
+}
+
+.hr-clock-card {
+background: var(--bg-elevated);
+border: 1px solid var(--border);
+border-radius: 16px;
+padding: 3rem 2.5rem;
+max-width: 420px;
+width: 100%;
+text-align: center;
+display: flex;
+flex-direction: column;
+gap: 1.5rem;
+align-items: center;
+}
+
+.hr-clock-btn {
+width: 100%;
+padding: 1.5rem;
+font-size: 1.5rem;
+font-weight: 800;
+border-radius: 12px;
+border: none;
+background: var(--accent);
+color: var(--bg);
+text-transform: uppercase;
+letter-spacing: 0.05em;
+}</pre>
+<script type="text/plain" id="raw-code-sol3">.hr-employee {
+display: grid;
+place-items: center;
+height: 100vh;
+padding: 2rem;
+}
+
+.hr-clock-card {
+background: var(--bg-elevated);
+border: 1px solid var(--border);
+border-radius: 16px;
+padding: 3rem 2.5rem;
+max-width: 420px;
+width: 100%;
+text-align: center;
+display: flex;
+flex-direction: column;
+gap: 1.5rem;
+align-items: center;
+}
+
+.hr-clock-btn {
+width: 100%;
+padding: 1.5rem;
+font-size: 1.5rem;
+font-weight: 800;
+border-radius: 12px;
+border: none;
+background: var(--accent);
+color: var(--bg);
+text-transform: uppercase;
+letter-spacing: 0.05em;
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why place-items: center on the parent:
+
+The employee card should be vertically
+and horizontally centered. CSS grid with
+place-items:center does both in one line
+(it's shorthand for align-items:center
+and justify-items:center).
+
+Flexbox can do it too (justify-content +
+align-items, both center), but the grid
+version is shorter and works even when
+the card is the only child (which it is).
+
+Why height: 100vh, not min-height:
+
+The employee view is a full screen with
+no scroll. If the card is taller than
+the viewport (rare, but on tiny phones),
+100vh means it gets clipped. min-height
+would let the page scroll — but a clock-in
+screen that scrolls is a failure mode
+(the employee can't see the button).
+
+Compromise: 100vh + a max-width on the
+card + a media query that drops the
+padding under 500px. If a 320-wide phone
+can't fit the card, that's a phone that
+shouldn't be running a kiosk app anyway.
+
+Why 1.5rem font-size on the button:
+
+A clock-in button needs to be tappable
+through a stylus, a finger, or a gloved
+hand. The text has to be readable at arm's
+length. 1.5rem ≈ 24px is the minimum for
+"big button" — actual kiosk UIs often go
+to 2rem or 2.5rem for touch targets.
+
+The padding (1.5rem) makes the button
+physically tall. Combined with the text
+size, the tap target is roughly 80px tall
+— comfortably above the 44px Apple HIG
+minimum and the 48px Material minimum.
+
+Why text-transform: uppercase:
+
+"CLOCK IN" reads more clearly at a glance
+than "Clock in." The employee isn't reading;
+they're recognizing. Uppercase short words
+are recognized faster than mixed case —
+this is a real ergonomic finding, not a
+style preference.
+
+Same for the + — the whole button is a
+single uppercase command, not a sentence.
+
+The state machine (Stage 02):
+
+The button's label and color change based
+on the employee's current state:
+
+Not clocked in → "CLOCK IN" (cyan)
+Working → "CLOCK OUT" (amber)
+On break → "END BREAK" (green)
+
+Stage 01 shows one state (CLOCK IN).
+Stage 02 wires the toggle. The CSS
+doesn't change — only the class on
+the button and its text content.</pre>
+</div>
+</div>
+</section>
+
+<section id="timeline">
+<h2 class="section-title">✅ The timeline — an event log, not a shift table</h2>
+<p class="section-sub">The manager sees what happened, in order.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The right-hand column of the manager view is a timeline of today's attendance events. Each row is one event:
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>A row = an event</h4>
+<p>"9:02 AM · Jane Smith · Clocked in" / "12:15 PM · Jane Smith · Break start" / "12:47 PM · Jane Smith · Break end"</p>
+</div>
+<div class="concept-card">
+<h4>Newest first</h4>
+<p>The most recent event is at the top. Managers scan from "now" backward when they ask "what just happened?"</p>
+</div>
+<div class="concept-card">
+<h4>Grouped by time</h4>
+<p>Events within 15 minutes of each other get a subtle date divider. The morning rush reads as one block; the afternoon as another.</p>
+</div>
+<div class="concept-card">
+<h4>Click to expand</h4>
+<p>A row is clickable. In Stage 02, clicking shows the raw event data (id, type, timestamp, note). In Stage 04, clicking a manual correction opens an edit modal.</p>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+The timeline row is a 3-column flex: timestamp (fixed width, monospace), icon (fixed width, color-coded by type), then employee + action (flex). Here's the markup for one row:
+</p>
+
+<div class="code-block" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">timeline-row.html</span>
+<span class="snippet-meta">hr-stage-01.html · lines ~250–268</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4"><div class="hr-event" data-type="in">
+<div class="hr-event-time">9:02 AM</div>
+<div class="hr-event-icon">→</div>
+<div class="hr-event-body">
+<div class="hr-event-who">Jane Smith</div>
+<div class="hr-event-what">Clocked in</div>
+</div>
+</div>
+
+<div class="hr-event" data-type="break-start">
+<div class="hr-event-time">12:15 PM</div>
+<div class="hr-event-icon">⏸</div>
+<div class="hr-event-body">
+<div class="hr-event-who">Jane Smith</div>
+<div class="hr-event-what">Started break</div>
+</div>
+</div></pre>
+<script type="text/plain" id="raw-code-sol4"><div class="hr-event" data-type="in">
+<div class="hr-event-time">9:02 AM</div>
+<div class="hr-event-icon">→</div>
+<div class="hr-event-body">
+<div class="hr-event-who">Jane Smith</div>
+<div class="hr-event-what">Clocked in</div>
+</div>
+</div>
+
+<div class="hr-event" data-type="break-start">
+<div class="hr-event-time">12:15 PM</div>
+<div class="hr-event-icon">⏸</div>
+<div class="hr-event-body">
+<div class="hr-event-who">Jane Smith</div>
+<div class="hr-event-what">Started break</div>
+</div>
+</div></script>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>Why <code>data-type</code> instead of a class:</strong> the type drives both the icon color (CSS: <code>.hr-event[data-type="in"] { color: var(--success) }</code>) and, in Stage 02, the click handler's branching logic. One attribute, two purposes. A class could do the CSS half, but the JS would need the class too — and class names are easier to change than data attributes when the design updates. Keep data in <code>data-*</code>; keep appearance in classes.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-2">
+<strong>Why <code>data-type</code> values are <code>in</code> / <code>break-start</code> / <code>break-end</code> / <code>out</code>, not <code>clock-in</code>:</strong> shorter, and they match the enum in the database schema (which we'll write in Stage 03). One vocabulary across the whole app. If the schema says <code>type = 'in'</code>, the HTML says <code>data-type="in"</code>. No translation layer, no bugs from mismatched strings.
+</p>
+</section>
+
+<section id="tokens">
+<h2 class="section-title">✅ Shared tokens — what makes it one app</h2>
+<p class="section-sub">Two layouts, one design system.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The two views share only CSS custom properties. Every color, radius, spacing step, and font size is a token. The layouts diverge; the tokens don't.
+</p>
+
+<div class="code-block" id="sol5">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">tokens.css</span>
+<span class="snippet-meta">hr-stage-01.html · lines ~35–55</span>
+<button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">:root {
+--bg: #0f172a;
+--bg-elevated: #1e293b;
+--bg-hover: #334155;
+--border: #334155;
+--text: #e2e8f0;
+--text-muted: #94a3b8;
+--text-dim: #64748b;
+--accent: #61dafb;
+--accent-dark: #0891b2;
+--success: #10b981;
+--warning: #f59e0b;
+--danger: #ef4444;
+--radius: 8px;
+--header-h: 56px;
+}</pre>
+<pre id="code-sol5">:root {
+--bg: #0f172a;
+--bg-elevated: #1e293b;
+--bg-hover: #334155;
+--border: #334155;
+--text: #e2e8f0;
+--text-muted: #94a3b8;
+--text-dim: #64748b;
+--accent: #61dafb;
+--accent-dark: #0891b2;
+--success: #10b981;
+--warning: #f59e0b;
+--danger: #ef4444;
+--radius: 8px;
+--header-h: 56px;
+}</pre>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>The tokens are identical to Inventory and POS.</strong> That's intentional. Every app in the studio shares the same visual identity — same slate palette, same cyan accent, same semantic greens and reds. A manager tabbing between HR, POS, and Inventory feels one product, not three. The tokens are the brand.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mt-2">
+<strong><code>--header-h: 56px</code> is new.</strong> POS used it as <code>--topbar-height</code>, HR uses it as <code>--header-h</code>. Same value, different name — each app names it for its own context. Both views' grid rows reference this token, so changing the header height is one line, not two.
+</p>
+</section>
+
+<section id="full">
+<h2 class="section-title">✅ The full file</h2>
+<p class="section-sub">The complete shell. Delivered separately so this page stays readable.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The full shell is <code>hr-stage-01.html</code> — one HTML file, ~280 lines, no dependencies, no JavaScript beyond the tab toggle. It's delivered as a separate message (see the "Continue the build" section below for how to request it), so this lesson page stays focused on the concepts and the snippets.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The file contains:
+</p>
+<ul class="text-sm text-slate-300 leading-relaxed space-y-1" style="padding-left: 1.5rem; list-style: disc;">
+<li>The <code>--</code> token block (identical to the other apps)</li>
+<li>The header bar with brand, page title, and the manager/employee tab toggle</li>
+<li>The manager view: 4 KPI cards, 6 employees, 8 timeline events, all hardcoded</li>
+<li>The employee view: clock card with current time, status, big button, today's hours</li>
+<li>The CSS for both layouts (grid for the manager, centered flex for the employee)</li>
+<li>The CSS for shared components: cards, rows, badges, the button</li>
+<li>A 15-line inline script that wires the tab toggle (adds/removes a class on the body)</li>
+</ul>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+No data loads, no timers, no storage. Stage 01 is a layout exercise, and the full file is the exercise's answer.
+</p>
+</section>
+
+<section id="next">
+<h2 class="section-title">➡️ Next: Stage 02 — Interactions</h2>
+<p class="section-sub">The clock actually ticks.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stage 02 makes the shell alive. The KPI numbers recompute from the event list. The employee clock ticks once per second. Clocking in creates a real event, updates the KPI, and starts the "Working since" timer. Clocking out closes the shift, computes the hours worked, and adds them to the daily total. Everything persists in <code>localStorage</code>.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The four big lessons in Stage 02:
+</p>
+<ul class="text-sm text-slate-300 leading-relaxed space-y-1" style="padding-left: 1.5rem; list-style: disc;">
+<li><strong>A single <code>state</code> object</strong> — <code>{ employees: [], events: [], view: 'manager' }</code>. Everything else derives from it.</li>
+<li><strong>Derived KPIs</strong> — the four card numbers are computed from the event list on every render, never stored.</li>
+<li><strong>Idempotent clock-in</strong> — clicking "Clock in" twice must not create two events. The button disables during the transition, and the handler checks the state before mutating.</li>
+<li><strong>A live clock</strong> — the current time updates once per second via <code>setInterval</code>. Cleaned up on tab close. The employee card's "Working for 4h 12m" recomputes every tick.</li>
+</ul>
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+Stage 02 ships the full file too — <code>hr-stage-02.html</code>, ~750 lines. Same split: the lesson page here (with snippets), the full file there.
+</p>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">🔗 Continue the build</h2>
+<a href="/apps/hr/stage-02-interactions.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">⚡ Next: Stage 02 — Interactions</div>
+<div class="text-xs text-slate-400 mt-1">Live clock, derived KPIs, idempotent clock-in, localStorage persistence. 3–4 hours.</div>
+</a>
+<a href="/apps/hr/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">👥 Back to the HR hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages, the data model, and the roadmap.</div>
+</a>
+</section>
+
+<a href="/apps/hr/index.html" class="back-link">← Back to HR & Attendance hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> HR Stage 01 · Interface <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
