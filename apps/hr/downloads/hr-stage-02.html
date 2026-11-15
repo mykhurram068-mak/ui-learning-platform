@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HR & Attendance — Stage 02: Interactions</title>
+<style>
+:root {
+--bg: #0f172a;
+--bg-elevated: #1e293b;
+--bg-hover: #334155;
+--border: #334155;
+--text: #e2e8f0;
+--text-muted: #94a3b8;
+--text-dim: #64748b;
+--accent: #61dafb;
+--accent-dark: #0891b2;
+--success: #10b981;
+--warning: #f59e0b;
+--danger: #ef4444;
+--radius: 8px;
+--header-h: 56px;
+}
+
+• { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+background: var(--bg);
+color: var(--text);
+line-height: 1.5;
+overflow: hidden;
+}
+button, input, select { font-family: inherit; font-size: inherit; }
+button { cursor: pointer; }
+
+/* ─── Header ─── */
+.hr-header {
+height: var(--header-h);
+background: var(--bg-elevated);
+border-bottom: 1px solid var(--border);
+padding: 0 1.5rem;
+display: flex;
+align-items: center;
+gap: 1.5rem;
+}
+.hr-brand {
+display: flex;
+align-items: center;
+gap: 0.5rem;
+font-weight: 800;
+font-size: 0.9375rem;
+color: var(--text);
+text-decoration: none;
+flex-shrink: 0;
+}
+.hr-brand-mark {
+width: 28px;
+height: 28px;
+border-radius: 6px;
+background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+display: flex;
+align-items: center;
+justify-content: center;
+color: var(--bg);
+font-weight: 900;
+font-size: 0.75rem;
+}
+.hr-tabs {
+display: flex;
+gap: 2px;
+margin-left: auto;
+}
+.hr-tab {
+padding: 0.5rem 1rem;
+border-radius: 6px;
+background: transparent;
+border: 1px solid transparent;
+color: var(--text-muted);
+font-size: 0.8125rem;
+font-weight: 600;
+}
+.hr-tab:hover { background: var(--bg-hover); color: var(--text); }
+.hr-tab.is-active {
+background: var(--bg);
+color: var(--accent);
+border-color: var(--border);
+}
+
+/* ─── View toggle ─── */
+body[data-view="manager"] .hr-employee { display: none; }
+body[data-view="employee"] .hr-manager { display: none; }
+
+/* ─── Manager layout ─── */
+.hr-manager {
+display: grid;
+grid-template-rows: auto 1fr;
+grid-template-areas: "kpis" "content";
+height: calc(100vh - var(--header-h));
+}
+
+.hr-kpis {
+grid-area: kpis;
+display: grid;
+grid-template-columns: repeat(4, 1fr);
+gap: 1rem;
+padding: 1.25rem 1.5rem;
+}
+
+.hr-kpi {
+background: var(--bg-elevated);
+border: 1px solid var(--border);
+border-radius: var(--radius);
+padding: 1.25rem;
+}
+.hr-kpi-label {
+font-size: 0.6875rem;
+text-transform: uppercase;
+letter-spacing: 0.08em;
+color: var(--text-dim);
+font-weight: 700;
+margin-bottom: 0.5rem;
+}
+.hr-kpi-value {
+font-size: 1.875rem;
+font-weight: 800;
+color: var(--text);
+line-height: 1;
+font-variant-numeric: tabular-nums;
+margin-bottom: 0.375rem;
+}
+.hr-kpi-context {
+font-size: 0.75rem;
+color: var(--text-muted);
+}
+
+.hr-content {
+grid-area: content;
+display: grid;
+grid-template-columns: 1fr 1fr;
+gap: 1rem;
+padding: 0 1.5rem 1.5rem;
+min-height: 0;
+overflow: hidden;
+}
+
+.hr-panel {
+background: var(--bg-elevated);
+border: 1px solid var(--border);
+border-radius: var(--radius);
+display: flex;
+flex-direction: column;
+min-height: 0;
+}
+.hr-panel-header {
+padding: 0.875rem 1.25rem;
+border-bottom: 1px solid var(--border);
+display: flex;
+align-items: center;
+justify-content: space-between;
+flex-shrink: 0;
+}
+.hr-panel-title { font-size: 0.875rem; font-weight: 800; }
+.hr-panel-meta {
+font-size: 0.75rem;
+color: var(--text-dim);
+font-weight: 600;
+}
+.hr-panel-body {
+flex: 1;
+overflow-y: auto;
+min-height: 0;
+padding: 0.5rem;
+}
+
+/* ─── Employee list ─── */
+.hr-emp {
+display: flex;
+align-items: center;
+gap: 0.75rem;
+padding: 0.75rem;
+border-radius: 6px;
+border: 1px solid transparent;
+}
+.hr-emp:hover { background: var(--bg); border-color: var(--border); }
+.hr-emp-avatar {
+width: 36px;
+height: 36px;
+border-radius: 50%;
+display: flex;
+align-items: center;
+justify-content: center;
+color: white;
+font-weight: 800;
+font-size: 0.8125rem;
+flex-shrink: 0;
+}
+.hr-emp-body { flex: 1; min-width: 0; }
+.hr-emp-name {
+font-size: 0.875rem;
+font-weight: 700;
+color: var(--text);
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+.hr-emp-status {
+font-size: 0.75rem;
+color: var(--text-muted);
+display: flex;
+align-items: center;
+gap: 0.375rem;
+}
+.hr-dot {
+width: 6px;
+height: 6px;
+border-radius: 50%;
+background: var(--text-dim);
+flex-shrink: 0;
+}
+.hr-dot.in { background: var(--success); }
+.hr-dot.break { background: var(--warning); }
+.hr-dot.out { background: var(--text-dim); }
+.hr-emp-role {
+font-size: 0.6875rem;
+color: var(--text-dim);
+text-transform: uppercase;
+letter-spacing: 0.05em;
+font-weight: 700;
+}
+
+/* ─── Timeline ─── */
+.hr-event {
+display: grid;
+grid-template-columns: 70px 24px 1fr;
+gap: 0.75rem;
+align-items: center;
+padding: 0.625rem 0.75rem;
+border-radius: 6px;
+border: 1px solid transparent;
+}
+.hr-event:hover { background: var(--bg); border-color: var(--border); }
+.hr-event-time {
+font-family: ui-monospace, "SF Mono", Menlo, monospace;
+font-size: 0.75rem;
+color: var(--text-dim);
+font-variant-numeric: tabular-nums;
+font-weight: 600;
+}
+.hr-event-icon {
+width: 24px;
+height: 24px;
+border-radius: 6px;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 0.75rem;
+font-weight: 800;
+}
+.hr-event[data-type="in"] .hr-event-icon,
+.hr-event[data-type="manual_in"] .hr-event-icon {
+background: rgba(16, 185, 129, 0.15);
+color: var(--success);
+}
+.hr-event[data-type="out"] .hr-event-icon,
+.hr-event[data-type="manual_out"] .hr-event-icon {
+background: rgba(100, 116, 139, 0.2);
+color: var(--text-muted);
+}
+.hr-event[data-type="break-start"] .hr-event-icon,
+.hr-event[data-type="break-end"] .hr-event-icon {
+background: rgba(245, 158, 11, 0.15);
+color: var(--warning);
+}
+.hr-event-body { min-width: 0; }
+.hr-event-who {
+font-size: 0.8125rem;
+font-weight: 700;
+color: var(--text);
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+.hr-event-what {
+font-size: 0.75rem;
+color: var(--text-muted);
+}
+.hr-empty {
+padding: 3rem 1rem;
+text-align: center;
+color: var(--text-dim);
+font-size: 0.8125rem;
+}
+
+/* ─── Employee view ─── */
+.hr-employee {
+display: grid;
+place-items: center;
+height: calc(100vh - var(--header-h));
+padding: 2rem;
+}
+
+.hr-clock-card {
+background: var(--bg-elevated);
+border: 1px solid var(--border);
+border-radius: 16px;
+padding: 3rem 2.5rem;
+max-width: 420px;
+width: 100%;
+text-align: center;
+display: flex;
+flex-direction: column;
+gap: 1.5rem;
+align-items: center;
+}
+
+.hr-clock-name {
+font-size: 0.875rem;
+color: var(--text-muted);
+font-weight: 600;
+}
+.hr-clock-time {
+font-family: ui-monospace, "SF Mono", Menlo, monospace;
+font-size: 3rem;
+font-weight: 800;
+color: var(--text);
+letter-spacing: -0.03em;
+font-variant-numeric: tabular-nums;
+line-height: 1;
+}
+.hr-clock-status {
+font-size: 0.875rem;
+color: var(--text-muted);
+}
+.hr-clock-status strong { color: var(--text); font-weight: 700; }
+
+.hr-clock-btn {
+width: 100%;
+padding: 1.5rem;
+font-size: 1.5rem;
+font-weight: 800;
+border-radius: 12px;
+border: none;
+background: var(--accent);
+color: var(--bg);
+text-transform: uppercase;
+letter-spacing: 0.05em;
+transition: background 0.15s, transform 0.05s;
+}
+.hr-clock-btn:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+.hr-clock-btn:active:not(:disabled) { transform: scale(0.99); }
+.hr-clock-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.hr-clock-btn.is-break { background: var(--warning); color: var(--bg); }
+.hr-clock-btn.is-break:hover:not(:disabled) { background: #d97706; color: white; }
+.hr-clock-btn.is-out { background: var(--success); color: var(--bg); }
+.hr-clock-btn.is-out:hover:not(:disabled) { background: #059669; color: white; }
+
+.hr-clock-hours {
+font-size: 0.8125rem;
+color: var(--text-dim);
+font-variant-numeric: tabular-nums;
+}
+.hr-clock-hours strong { color: var(--text-muted); font-weight: 700; }
+
+.hr-clock-break {
+width: 100%;
+padding: 0.75rem;
+border-radius: 8px;
+border: 1px solid var(--border);
+background: transparent;
+color: var(--text-muted);
+font-size: 0.8125rem;
+font-weight: 600;
+}
+.hr-clock-break:hover { background: var(--bg-hover); color: var(--text); }
+.hr-clock-break:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+.hr-kpis { grid-template-columns: repeat(2, 1fr); }
+.hr-content { grid-template-columns: 1fr; }
+}
+@media (max-width: 500px) {
+.hr-kpis { grid-template-columns: 1fr; }
+.hr-clock-card { padding: 2rem 1.5rem; }
+.hr-clock-time { font-size: 2.5rem; }
+}
+</style>
+</head>
+<body data-view="manager">
+
+<header class="hr-header">
+<a class="hr-brand" href="#">
+<div class="hr-brand-mark">M</div>
+<span>MAK HR</span>
+</a>
+<div class="hr-tabs">
+<button class="hr-tab is-active" type="button" data-switch="manager">Manager view</button>
+<button class="hr-tab" type="button" data-switch="employee">Employee view</button>
+</div>
+</header>
+
+<!-- ═══ MANAGER VIEW ═══ -->
+<div class="hr-manager">
+
+<div class="hr-kpis">
+<div class="hr-kpi">
+<div class="hr-kpi-label">Clocked in now</div>
+<div class="hr-kpi-value" id="kpi-clocked-in">0</div>
+<div class="hr-kpi-context" id="kpi-clocked-in-ctx">of 0 active employees</div>
+</div>
+<div class="hr-kpi">
+<div class="hr-kpi-label">Hours today</div>
+<div class="hr-kpi-value" id="kpi-hours-today">0.0</div>
+<div class="hr-kpi-context">across all employees</div>
+</div>
+<div class="hr-kpi">
+<div class="hr-kpi-label">Pending approvals</div>
+<div class="hr-kpi-value" id="kpi-pending">0</div>
+<div class="hr-kpi-context">timesheets to review</div>
+</div>
+<div class="hr-kpi">
+<div class="hr-kpi-label">Active employees</div>
+<div class="hr-kpi-value" id="kpi-active">0</div>
+<div class="hr-kpi-context">on payroll</div>
+</div>
+</div>
+
+<div class="hr-content">
+
+<div class="hr-panel">
+<div class="hr-panel-header">
+<div class="hr-panel-title">Employees</div>
+<div class="hr-panel-meta" id="emp-count">—</div>
+</div>
+<div class="hr-panel-body" id="employee-list"></div>
+</div>
+
+<div class="hr-panel">
+<div class="hr-panel-header">
+<div class="hr-panel-title">Today's activity</div>
+<div class="hr-panel-meta" id="event-count">—</div>
+</div>
+<div class="hr-panel-body" id="timeline"></div>
+</div>
+
+</div>
+</div>
+
+<!-- ═══ EMPLOYEE VIEW ═══ -->
+<div class="hr-employee">
+<div class="hr-clock-card">
+<div class="hr-clock-name" id="clock-name">—</div>
+<div class="hr-clock-time" id="clock-time">--:--</div>
+<div class="hr-clock-status" id="clock-status">—</div>
+<button class="hr-clock-btn" type="button" id="clock-btn" disabled>Clock in</button>
+<button class="hr-clock-break" type="button" id="break-btn" disabled>Start break</button>
+<div class="hr-clock-hours" id="clock-hours">Today: <strong>0h 0m</strong></div>
+</div>
+</div>
+
+<script>
+(function () {
+'use strict';
+
+// ─────────────────────────────────────────────
+// 1. CONSTANTS & SEED
+// ─────────────────────────────────────────────
+const EMP_KEY = 'mak-hr-employees';
+const EV_KEY = 'mak-hr-events';
+const VIEW_KEY = 'mak-hr-view';
+
+const CURRENT_EMPLOYEE_ID = 1;
+
+const AVATAR_COLORS = [
+'linear-gradient(135deg,#8b5cf6,#6366f1)',
+'linear-gradient(135deg,#0891b2,#06b6d4)',
+'linear-gradient(135deg,#10b981,#059669)',
+'linear-gradient(135deg,#f59e0b,#d97706)',
+'linear-gradient(135deg,#ef4444,#dc2626)',
+'linear-gradient(135deg,#64748b,#475569)'
+];
+
+const SEED_EMPLOYEES = [
+{ id: 1, name: 'Jane Smith', role: 'Manager', initials: 'JS', color: AVATAR_COLORS[0], archivedAt: null },
+{ id: 2, name: 'Marcus Chen', role: 'Employee', initials: 'MC', color: AVATAR_COLORS[1], archivedAt: null },
+{ id: 3, name: 'Priya Raman', role: 'Employee', initials: 'PR', color: AVATAR_COLORS[2], archivedAt: null },
+{ id: 4, name: 'David Wu', role: 'Employee', initials: 'DW', color: AVATAR_COLORS[3], archivedAt: null },
+{ id: 5, name: 'Sofia Alvarez', role: 'Employee', initials: 'SA', color: AVATAR_COLORS[4], archivedAt: null },
+{ id: 6, name: 'Tariq Khan', role: 'Employee', initials: 'TK', color: AVATAR_COLORS[5], archivedAt: null }
+];
+
+// Seed events: today's morning clock-ins
+function seedEvents() {
+const d = new Date();
+const base = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const at = (h, m) => new Date(base.getTime() + h * 3600000 + m * 60000).toISOString();
+return [
+{ id: 'ev_seed_1', employeeId: 2, type: 'in', occurredAt: at(8, 58) },
+{ id: 'ev_seed_2', employeeId: 4, type: 'in', occurredAt: at(9, 0) },
+{ id: 'ev_seed_3', employeeId: 1, type: 'in', occurredAt: at(9, 2) },
+{ id: 'ev_seed_4', employeeId: 5, type: 'in', occurredAt: at(8, 0) },
+{ id: 'ev_seed_5', employeeId: 5, type: 'out', occurredAt: at(12, 0) },
+{ id: 'ev_seed_6', employeeId: 3, type: 'in', occurredAt: at(9, 15) },
+{ id: 'ev_seed_7', employeeId: 3, type: 'break_start', occurredAt: at(12, 15) }
+];
+}
+
+// ─────────────────────────────────────────────
+// 2. STATE
+// ─────────────────────────────────────────────
+const state = {
+employees: [],
+events: [],
+view: 'manager'
+};
+
+let transitioning = false;
+
+// ─────────────────────────────────────────────
+// 3. HELPERS
+// ─────────────────────────────────────────────
+function today() {
+const d = new Date();
+const y = d.getFullYear();
+const m = String(d.getMonth() + 1).padStart(2, '0');
+const dd = String(d.getDate()).padStart(2, '0');
+return y + '-' + m + '-' + dd;
+}
+
+function diffMinutes(aIso, bIso) {
+return Math.round((new Date(bIso) - new Date(aIso)) / 60000);
+}
+
+function formatTime(iso) {
+const d = new Date(iso);
+return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatDuration(min) {
+if (min < 0) min = 0;
+const h = Math.floor(min / 60);
+const m = Math.round(min % 60);
+return h + 'h ' + m + 'm';
+}
+
+function escapeHtml(s) {
+return String(s).replace(/[&<>"']/g, function (c) {
+return { '&': '&', '<': '<', '>': '>', '"': '"', "'": ''' }[c];
+});
+}
+
+// ─────────────────────────────────────────────
+// 4. DERIVATION — the heart of the app
+// ─────────────────────────────────────────────
+function deriveShift(events, employeeId, date) {
+const evs = events
+.filter(function (e) { return e.employeeId === employeeId; })
+.sort(function (a, b) { return a.occurredAt.localeCompare(b.occurredAt); });
+
+const firstDate = evs.length ? evs[0].occurredAt.slice(0, 10) : null;
+
+let clockIn = null;
+let clockOut = null;
+let breakMinutes = 0;
+let breakStart = null;
+let status = 'not-started';
+
+for (const e of evs) {
+switch (e.type) {
+case 'in':
+case 'manual_in':
+if (status === 'not-started' || status === 'finished') {
+clockIn = e.occurredAt;
+clockOut = null;
+status = 'working';
+}
+break;
+case 'break_start':
+if (status === 'working') {
+breakStart = e.occurredAt;
+status = 'on-break';
+}
+break;
+case 'break_end':
+if (status === 'on-break' && breakStart) {
+breakMinutes += diffMinutes(breakStart, e.occurredAt);
+breakStart = null;
+status = 'working';
+}
+break;
+case 'out':
+case 'manual_out':
+if (status === 'working' || status === 'on-break') {
+if (breakStart) {
+breakMinutes += diffMinutes(breakStart, e.occurredAt);
+breakStart = null;
+}
+clockOut = e.occurredAt;
+status = 'finished';
+}
+break;
+}
+}
+
+let minutesWorked = 0;
+if (clockIn) {
+const end = clockOut || new Date().toISOString();
+minutesWorked = diffMinutes(clockIn, end) - breakMinutes;
+if (minutesWorked < 0) minutesWorked = 0;
+}
+
+return {
+clockIn: clockIn,
+clockOut: clockOut,
+breakMinutes: breakMinutes,
+minutesWorked: minutesWorked,
+status: status,
+date: firstDate
+};
+}
+
+function statusLabel(shift) {
+if (!shift.clockIn) return 'Off — not clocked in';
+if (shift.status === 'working') return 'Working since ' + formatTime(shift.clockIn);
+if (shift.status === 'on-break') return 'On break';
+if (shift.status === 'finished') return 'Off — clocked out ' + formatTime(shift.clockOut);
+return 'Off';
+}
+
+function statusDotClass(shift) {
+if (shift.status === 'working') return 'in';
+if (shift.status === 'on-break') return 'break';
+return 'out';
+}
+
+// ─────────────────────────────────────────────
+// 5. KPI COMPUTATION
+// ─────────────────────────────────────────────
+function computeKPIs() {
+const d = today();
+
+let clockedInNow = 0;
+let totalMinutes = 0;
+
+for (const emp of state.employees) {
+if (emp.archivedAt) continue;
+const shift = deriveShift(state.events, emp.id, d);
+if (shift.status === 'working') clockedInNow++;
+totalMinutes += shift.minutesWorked;
+}
+
+const activeEmployees = state.employees.filter(function (e) {
+return !e.archivedAt;
+}).length;
+
+return {
+clockedInNow: clockedInNow,
+hoursToday: (totalMinutes / 60).toFixed(1),
+pendingApprovals: 3,
+activeEmployees: activeEmployees
+};
+}
+
+// ─────────────────────────────────────────────
+// 6. RENDER — MANAGER
+// ─────────────────────────────────────────────
+function renderKPIs() {
+const k = computeKPIs();
+document.getElementById('kpi-clocked-in').textContent = k.clockedInNow;
+document.getElementById('kpi-clocked-in-ctx').textContent = 'of ' + k.activeEmployees + ' active employees';
+document.getElementById('kpi-hours-today').textContent = k.hoursToday;
+document.getElementById('kpi-pending').textContent = k.pendingApprovals;
+document.getElementById('kpi-active').textContent = k.activeEmployees;
+}
+
+function renderEmployeeList() {
+const active = state.employees.filter(function (e) { return !e.archivedAt; });
+document.getElementById('emp-count').textContent = active.length + ' active';
+
+const html = active.map(function (emp) {
+const shift = deriveShift(state.events, emp.id, today());
+const dot = statusDotClass(shift);
+return '<div class="hr-emp">' +
+'<div class="hr-emp-avatar" style="background:' + emp.color + ';">' + escapeHtml(emp.initials) + '</div>' +
+'<div class="hr-emp-body">' +
+'<div class="hr-emp-name">' + escapeHtml(emp.name) + '</div>' +
+'<div class="hr-emp-status"><span class="hr-dot ' + dot + '"></span>' + escapeHtml(statusLabel(shift)) + '</div>' +
+'</div>' +
+'<div class="hr-emp-role">' + escapeHtml(emp.role) + '</div>' +
+'</div>';
+}).join('');
+
+document.getElementById('employee-list').innerHTML = html || '<div class="hr-empty">No employees</div>';
+}
+
+function renderTimeline() {
+const todayStr = today();
+const todaysEvents = state.events
+.filter(function (e) { return e.occurredAt.slice(0, 10) === todayStr; })
+.sort(function (a, b) { return b.occurredAt.localeCompare(a.occurredAt); });
+
+document.getElementById('event-count').textContent = todaysEvents.length + ' events';
+
+if (todaysEvents.length === 0) {
+document.getElementById('timeline').innerHTML = '<div class="hr-empty">No activity today yet.</div>';
+return;
+}
+
+const labels = {
+'in': 'Clocked in',
+'out': 'Clocked out',
+'break-start': 'Started break',
+'break_end': 'Ended break',
+'manual_in': 'Clocked in (manual)',
+'manual_out': 'Clocked out (manual)'
+};
+
+const icons = {
+'in': '→', 'out': '←', 'break_start': '⏸', 'break_end': '▶',
+'manual_in': '→', 'manual_out': '←'
+};
+
+const empLookup = {};
+state.employees.forEach(function (e) { empLookup[e.id] = e; });
+
+document.getElementById('timeline').innerHTML = todaysEvents.map(function (e) {
+const emp = empLookup[e.employeeId];
+const who = emp ? emp.name : 'Unknown';
+const label = labels[e.type] || e.type;
+const icon = icons[e.type] || '·';
+const time = formatTime(e.occurredAt);
+return '<div class="hr-event" data-type="' + escapeHtml(e.type) + '">' +
+'<div class="hr-event-time">' + escapeHtml(time) + '</div>' +
+'<div class="hr-event-icon">' + icon + '</div>' +
+'<div class="hr-event-body">' +
+'<div class="hr-event-who">' + escapeHtml(who) + '</div>' +
+'<div class="hr-event-what">' + escapeHtml(label) + '</div>' +
+'</div>' +
+'</div>';
+}).join('');
+}
+
+// ─────────────────────────────────────────────
+// 7. RENDER — EMPLOYEE
+// ─────────────────────────────────────────────
+function renderEmployeeCard() {
+const emp = state.employees.find(function (e) { return e.id === CURRENT_EMPLOYEE_ID; });
+if (!emp) return;
+
+document.getElementById('clock-name').textContent = emp.name + ' · ' + emp.role;
+
+const shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID, today());
+const btn = document.getElementById('clock-btn');
+const breakBtn = document.getElementById('break-btn');
+
+// Button label + style based on status
+if (shift.status === 'not-started' || shift.status === 'finished') {
+btn.textContent = 'Clock in';
+btn.className = 'hr-clock-btn';
+btn.disabled = false;
+breakBtn.disabled = true;
+breakBtn.textContent = 'Start break';
+document.getElementById('clock-status').innerHTML =
+shift.status === 'finished'
+? 'Finished at <strong>' + formatTime(shift.clockOut) + '</strong>'
+: '<strong>Off</strong> — not clocked in';
+} else if (shift.status === 'working') {
+btn.textContent = 'Clock out';
+btn.className = 'hr-clock-btn is-out';
+btn.disabled = false;
+breakBtn.disabled = false;
+breakBtn.textContent = 'Start break';
+document.getElementById('clock-status').innerHTML =
+'<strong>Working</strong> since ' + formatTime(shift.clockIn);
+} else if (shift.status === 'on-break') {
+btn.textContent = 'Clock out';
+btn.className = 'hr-clock-btn is-out';
+btn.disabled = false;
+breakBtn.disabled = false;
+breakBtn.textContent = 'End break';
+document.getElementById('clock-status').innerHTML =
+'<strong>On break</strong> since ' + formatTime(shift.clockIn);
+}
+
+// Hours
+document.getElementById('clock-hours').innerHTML =
+'Today: <strong>' + formatDuration(shift.minutesWorked) + '</strong>';
+}
+
+// ─────────────────────────────────────────────
+// 8. LIVE CLOCK
+// ─────────────────────────────────────────────
+let clockTimer = null;
+
+function startClock() {
+stopClock();
+clockTimer = setInterval(renderClock, 1000);
+renderClock();
+}
+
+function stopClock() {
+if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+}
+
+function renderClock() {
+if (state.view !== 'employee') return;
+
+const timeEl = document.getElementById('clock-time');
+if (timeEl) {
+const now = new Date();
+timeEl.textContent = now.toLocaleTimeString(undefined, {
+hour: 'numeric', minute: '2-digit'
+});
+}
+
+const hoursEl = document.getElementById('clock-hours');
+if (hoursEl) {
+const shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID, today());
+hoursEl.innerHTML = 'Today: <strong>' + formatDuration(shift.minutesWorked) + '</strong>';
+}
+}
+
+// ─────────────────────────────────────────────
+// 9. PERSISTENCE
+// ─────────────────────────────────────────────
+function saveState() {
+try {
+localStorage.setItem(EMP_KEY, JSON.stringify(state.employees));
+localStorage.setItem(EV_KEY, JSON.stringify(state.events));
+localStorage.setItem(VIEW_KEY, state.view);
+} catch (_) {}
+}
+
+function loadState() {
+try {
+const empRaw = localStorage.getItem(EMP_KEY);
+const evRaw = localStorage.getItem(EV_KEY);
+const viewRaw = localStorage.getItem(VIEW_KEY);
+
+if (empRaw && evRaw) {
+state.employees = JSON.parse(empRaw);
+state.events = JSON.parse(evRaw);
+} else {
+state.employees = SEED_EMPLOYEES.slice();
+state.events = seedEvents();
+}
+
+if (viewRaw === 'manager' || viewRaw === 'employee') {
+state.view = viewRaw;
+}
+} catch (_) {
+state.employees = SEED_EMPLOYEES.slice();
+state.events = seedEvents();
+state.view = 'manager';
+}
+}
+
+// ─────────────────────────────────────────────
+// 10. MUTATIONS
+// ─────────────────────────────────────────────
+function pushEvent(type) {
+state.events.push({
+id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+employeeId: CURRENT_EMPLOYEE_ID,
+type: type,
+occurredAt: new Date().toISOString()
+});
+}
+
+function clockIn() {
+if (transitioning) return;
+const shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID, today());
+if (shift.status === 'working' || shift.status === 'on-break') return;
+
+// Dedupe: reject an 'in' within 5 seconds of the last one
+const last = state.events
+.filter(function (e) { return e.employeeId === CURRENT_EMPLOYEE_ID && e.type === 'in'; })
+.sort(function (a, b) { return b.occurredAt.localeCompare(a.occurredAt); })[0];
+if (last) {
+const sec = (Date.now() - new Date(last.occurredAt).getTime()) / 1000;
+if (sec < 5) return;
+}
+
+transitioning = true;
+pushEvent('in');
+saveState();
+render();
+transitioning = false;
+}
+
+function clockOut() {
+if (transitioning) return;
+const shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID, today());
+if (shift.status !== 'working' && shift.status !== 'on-break') return;
+
+transitioning = true;
+pushEvent('out');
+saveState();
+render();
+transitioning = false;
+}
+
+function toggleBreak() {
+if (transitioning) return;
+const shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID, today());
+if (shift.status === 'working') {
+transitioning = true;
+pushEvent('break_start');
+saveState();
+render();
+transitioning = false;
+} else if (shift.status === 'on-break') {
+transitioning = true;
+pushEvent('break_end');
+saveState();
+render();
+transitioning = false;
+}
+}
+
+// ─────────────────────────────────────────────
+// 11. VIEW SWITCHING
+// ─────────────────────────────────────────────
+function switchView(view) {
+state.view = view;
+document.body.setAttribute('data-view', view);
+document.querySelectorAll('.hr-tab').forEach(function (t) {
+t.classList.toggle('is-active', t.getAttribute('data-switch') === view);
+});
+saveState();
+if (view === 'employee') startClock();
+else stopClock();
+}
+
+// ─────────────────────────────────────────────
+// 12. RENDER (master)
+// ─────────────────────────────────────────────
+function render() {
+renderKPIs();
+renderEmployeeList();
+renderTimeline();
+renderEmployeeCard();
+}
+
+// ─────────────────────────────────────────────
+// 13. EVENT WIRING
+// ─────────────────────────────────────────────
+document.querySelectorAll('.hr-tab').forEach(function (tab) {
+tab.addEventListener('click', function () {
+switchView(tab.getAttribute('data-switch'));
+});
+});
+
+document.getElementById('clock-btn').addEventListener('click', function () {
+const shift = deriveShift(state.events, CURRENT_EMPLOYEE_ID, today());
+if (shift.status === 'not-started' || shift.status === 'finished') clockIn();
+else clockOut();
+});
+
+document.getElementById('break-btn').addEventListener('click', toggleBreak);
+
+document.addEventListener('visibilitychange', function () {
+if (document.hidden) stopClock();
+else if (state.view === 'employee') startClock();
+});
+
+// ─────────────────────────────────────────────
+// 14. INIT
+// ─────────────────────────────────────────────
+loadState();
+document.body.setAttribute('data-view', state.view);
+document.querySelectorAll('.hr-tab').forEach(function (t) {
+t.classList.toggle('is-active', t.getAttribute('data-switch') === state.view);
+});
+render();
+if (state.view === 'employee') startClock();
+
+})();
+</script>
+</body>
+</html>
