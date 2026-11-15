@@ -1,9 +1,11 @@
--- HR Attendance schema - Stage 03
--- Three tables: employees, attendance_events (append-only), shifts (derived cache).
+-- HR Attendance schema - Stage 04 (final)
+-- Four tables: employees, attendance_events (append-only),
+-- shifts (derived cache), scheduled_shifts (the roster plan).
 
 PRAGMA foreign_keys = ON;
 
 DROP TABLE IF EXISTS shifts;
+DROP TABLE IF EXISTS scheduled_shifts;
 DROP TABLE IF EXISTS attendance_events;
 DROP TABLE IF EXISTS employees;
 
@@ -45,7 +47,21 @@ CREATE TABLE shifts (
   FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE scheduled_shifts (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  employee_id INTEGER NOT NULL,
+  date        TEXT NOT NULL,
+  start_at    TEXT NOT NULL,
+  end_at      TEXT NOT NULL,
+  note        TEXT,
+  created_at  TEXT NOT NULL,
+  UNIQUE (employee_id, date, start_at),
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE RESTRICT
+);
+
 CREATE INDEX idx_events_employee   ON attendance_events(employee_id);
 CREATE INDEX idx_events_occurred   ON attendance_events(occurred_at);
 CREATE INDEX idx_shifts_date       ON shifts(date);
 CREATE INDEX idx_shifts_employee   ON shifts(employee_id);
+CREATE INDEX idx_sched_date        ON scheduled_shifts(date);
+CREATE INDEX idx_sched_employee    ON scheduled_shifts(employee_id);
