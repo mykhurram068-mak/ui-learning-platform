@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Delivery Tracking - Stage 02: Interactions</title>
+<style>
+:root {
+--bg: #0f172a;
+--surface: #1e293b;
+--surface-2: #334155;
+--border: #334155;
+--text: #e2e8f0;
+--text-muted: #94a3b8;
+--text-dim: #64748b;
+--accent: #61dafb;
+--accent-dark: #0891b2;
+--success: #10b981;
+--warning: #f59e0b;
+--danger: #ef4444;
+--radius: 8px;
+--header-h: 56px;
+}
+
+• { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+background: var(--bg);
+color: var(--text);
+line-height: 1.5;
+overflow: hidden;
+}
+button, input, select, textarea { font-family: inherit; font-size: inherit; }
+button { cursor: pointer; }
+
+.dl-header {
+height: var(--header-h);
+background: var(--surface);
+border-bottom: 1px solid var(--border);
+padding: 0 1.5rem;
+display: flex;
+align-items: center;
+gap: 1.5rem;
+}
+.dl-brand {
+display: flex; align-items: center; gap: 0.5rem;
+font-weight: 800; font-size: 0.9375rem;
+color: var(--text); text-decoration: none; flex-shrink: 0;
+}
+.dl-brand-mark {
+width: 28px; height: 28px; border-radius: 6px;
+background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+display: flex; align-items: center; justify-content: center;
+color: var(--bg); font-weight: 900; font-size: 0.75rem;
+}
+.dl-tabs { display: flex; gap: 2px; margin-left: auto; }
+.dl-tab {
+padding: 0.5rem 1rem; border-radius: 6px;
+background: transparent; border: 1px solid transparent;
+color: var(--text-muted); font-size: 0.8125rem; font-weight: 600;
+}
+.dl-tab:hover { background: var(--surface-2); color: var(--text); }
+.dl-tab.is-active {
+background: var(--bg); color: var(--accent); border-color: var(--border);
+}
+
+body[data-view="customer"] .dl-courier,
+body[data-view="customer"] .dl-dispatcher,
+body[data-view="courier"] .dl-customer,
+body[data-view="courier"] .dl-dispatcher,
+body[data-view="dispatcher"] .dl-customer,
+body[data-view="dispatcher"] .dl-courier { display: none; }
+
+/* Customer */
+.dl-customer {
+display: grid; place-items: center;
+min-height: calc(100vh - var(--header-h));
+padding: 2rem 1rem;
+overflow-y: auto;
+}
+.dl-track-card {
+background: var(--surface); border: 1px solid var(--border);
+border-radius: 16px; padding: 2rem 1.75rem;
+max-width: 520px; width: 100%;
+display: flex; flex-direction: column; gap: 1.5rem;
+}
+.dl-track-brand { text-align: center; }
+.dl-track-brand h1 { font-size: 1.25rem; font-weight: 800; margin-bottom: 0.25rem; }
+.dl-track-brand p { font-size: 0.8125rem; color: var(--text-muted); }
+.dl-track-code { display: flex; gap: 0.5rem; }
+.dl-track-code input {
+flex: 1;
+background: var(--bg); border: 1px solid var(--border);
+border-radius: 8px; padding: 0.75rem 1rem;
+color: var(--text); font-size: 1rem;
+font-family: ui-monospace, "SF Mono", Menlo, monospace; outline: none;
+text-transform: uppercase;
+}
+.dl-track-code input::placeholder {
+color: var(--text-dim); text-transform: none;
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.dl-track-code input:focus { border-color: var(--accent); }
+.dl-track-code button {
+padding: 0.75rem 1.25rem;
+background: var(--accent); color: var(--bg);
+border: none; border-radius: 8px;
+font-weight: 700; font-size: 0.875rem;
+}
+.dl-track-code button:hover { background: var(--accent-dark); color: white; }
+.dl-track-error {
+padding: 0.75rem 1rem;
+background: rgba(239, 68, 68, 0.1);
+border: 1px solid rgba(239, 68, 68, 0.3);
+border-radius: 6px;
+color: var(--danger);
+font-size: 0.8125rem;
+display: none;
+}
+.dl-track-error.is-visible { display: block; }
+
+.dl-timeline {
+display: flex; flex-direction: column; gap: 0;
+position: relative; padding-left: 1.25rem;
+}
+.dl-timeline::before {
+content: "";
+position: absolute; left: 7px; top: 8px; bottom: 8px;
+width: 2px; background: var(--border);
+}
+.dl-tl-event {
+display: grid; grid-template-columns: 80px 1fr;
+gap: 0.75rem; padding: 0.5rem 0 0.5rem 1rem;
+position: relative; font-size: 0.8125rem;
+}
+.dl-tl-dot {
+position: absolute; left: -1.25rem; top: 0.75rem;
+width: 14px; height: 14px; border-radius: 50%;
+background: var(--surface); border: 2px solid var(--border);
+}
+.dl-tl-event.is-current .dl-tl-dot {
+background: var(--accent); border-color: var(--accent);
+box-shadow: 0 0 0 4px rgba(97, 218, 251, 0.15);
+}
+.dl-tl-event.is-complete .dl-tl-dot { background: var(--success); border-color: var(--success); }
+.dl-tl-event.is-failed .dl-tl-dot { background: var(--danger); border-color: var(--danger); }
+.dl-tl-time {
+font-family: ui-monospace, "SF Mono", Menlo, monospace;
+color: var(--text-dim); font-size: 0.75rem;
+font-variant-numeric: tabular-nums; padding-top: 0.125rem;
+}
+.dl-tl-body { color: var(--text); }
+.dl-tl-body strong { font-weight: 700; }
+.dl-tl-body p { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.125rem; }
+
+.dl-track-meta {
+border-top: 1px solid var(--border);
+padding-top: 1rem;
+display: flex; flex-direction: column; gap: 0.375rem;
+}
+.dl-track-meta-row {
+display: flex; justify-content: space-between; font-size: 0.8125rem;
+}
+.dl-track-meta-row span:first-child { color: var(--text-muted); }
+.dl-track-meta-row span:last-child { color: var(--text); font-weight: 600; }
+
+.dl-track-empty {
+padding: 2rem 1rem; text-align: center;
+color: var(--text-muted); font-size: 0.8125rem;
+}
+.dl-track-empty-icon { font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.4; }
+
+/* Courier */
+.dl-courier {
+padding: 1rem; max-width: 480px; margin: 0 auto;
+display: flex; flex-direction: column; gap: 1rem;
+height: calc(100vh - var(--header-h));
+overflow-y: auto;
+}
+.dl-courier-section-label {
+font-size: 0.6875rem; text-transform: uppercase;
+letter-spacing: 0.08em; color: var(--text-dim);
+font-weight: 700; margin-bottom: 0.25rem;
+}
+.dl-delivery-card {
+background: var(--surface); border: 1px solid var(--border);
+border-radius: 12px; padding: 1.25rem;
+display: flex; flex-direction: column; gap: 0.75rem;
+}
+.dl-delivery-header {
+display: flex; justify-content: space-between;
+align-items: flex-start; gap: 0.75rem;
+}
+.dl-delivery-code {
+font-family: ui-monospace, "SF Mono", Menlo, monospace;
+font-size: 0.75rem; color: var(--accent); font-weight: 700;
+}
+.dl-delivery-customer {
+font-size: 1.0625rem; font-weight: 700; margin-top: 0.25rem;
+}
+.dl-delivery-status {
+padding: 0.25rem 0.625rem; border-radius: 999px;
+font-size: 0.6875rem; font-weight: 700;
+text-transform: uppercase; letter-spacing: 0.04em;
+white-space: nowrap;
+}
+.dl-delivery-status.pending { background: rgba(100,116,139,0.2); color: var(--text-muted); }
+.dl-delivery-status.assigned { background: rgba(139,92,246,0.15); color: #a78bfa; }
+.dl-delivery-status.picked_up { background: rgba(97,218,251,0.15); color: var(--accent); }
+.dl-delivery-status.in_transit { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.dl-delivery-status.out_for_delivery { background: rgba(245,158,11,0.15); color: var(--warning); }
+.dl-delivery-status.delivered { background: rgba(16,185,129,0.15); color: var(--success); }
+.dl-delivery-status.failed { background: rgba(239,68,68,0.15); color: var(--danger); }
+.dl-delivery-address {
+font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5;
+}
+.dl-delivery-address strong { color: var(--text); font-weight: 600; }
+
+.dl-courier-action {
+width: 100%; padding: 1.5rem 1rem;
+font-size: 1.125rem; font-weight: 800;
+border-radius: 12px; border: none;
+background: var(--accent); color: var(--bg);
+text-transform: uppercase; letter-spacing: 0.05em;
+transition: background 0.15s, transform 0.05s;
+}
+.dl-courier-action:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+.dl-courier-action:active:not(:disabled) { transform: scale(0.99); }
+.dl-courier-action:disabled { opacity: 0.5; cursor: not-allowed; }
+.dl-courier-action.is-fail { background: var(--danger); color: white; }
+.dl-courier-action.is-fail:hover:not(:disabled) { background: #dc2626; }
+
+.dl-courier-secondary {
+display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;
+}
+.dl-courier-secondary button {
+padding: 0.75rem; border-radius: 8px;
+border: 1px solid var(--border); background: transparent;
+color: var(--text-muted); font-size: 0.8125rem; font-weight: 600;
+min-height: 44px;
+}
+.dl-courier-secondary button:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.dl-courier-secondary button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.dl-courier-empty {
+padding: 3rem 1rem; text-align: center;
+color: var(--text-muted); font-size: 0.875rem;
+}
+
+/* Dispatcher */
+.dl-dispatcher {
+display: grid;
+grid-template-rows: auto 1fr;
+grid-template-columns: 1fr 1fr;
+grid-template-areas: "kpis kpis" "map table";
+height: calc(100vh - var(--header-h));
+gap: 1rem; padding: 1rem;
+}
+.dl-kpis {
+grid-area: kpis;
+display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem;
+}
+.dl-kpi {
+background: var(--surface); border: 1px solid var(--border);
+border-radius: var(--radius); padding: 1rem 1.25rem;
+}
+.dl-kpi-label {
+font-size: 0.6875rem; text-transform: uppercase;
+letter-spacing: 0.08em; color: var(--text-dim);
+font-weight: 700; margin-bottom: 0.375rem;
+}
+.dl-kpi-value {
+font-size: 1.75rem; font-weight: 800; color: var(--text);
+line-height: 1; font-variant-numeric: tabular-nums;
+}
+.dl-kpi-context {
+font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem;
+}
+
+.dl-map {
+grid-area: map;
+background: var(--surface); border: 1px solid var(--border);
+border-radius: var(--radius); min-height: 0; overflow: hidden;
+position: relative; display: flex; align-items: center; justify-content: center;
+background-image:
+linear-gradient(rgba(97, 218, 251, 0.04) 1px, transparent 1px),
+linear-gradient(90deg, rgba(97, 218, 251, 0.04) 1px, transparent 1px);
+background-size: 40px 40px;
+}
+.dl-map-placeholder { text-align: center; color: var(--text-dim); padding: 2rem; }
+.dl-map-placeholder-icon { font-size: 3rem; margin-bottom: 0.5rem; opacity: 0.4; }
+.dl-map-placeholder-title {
+font-size: 0.9375rem; font-weight: 700;
+color: var(--text-muted); margin-bottom: 0.25rem;
+}
+.dl-map-placeholder-sub { font-size: 0.8125rem; }
+
+.dl-table-panel {
+grid-area: table;
+background: var(--surface); border: 1px solid var(--border);
+border-radius: var(--radius); min-height: 0; overflow: hidden;
+display: flex; flex-direction: column;
+}
+.dl-table-header {
+padding: 0.875rem 1rem; border-bottom: 1px solid var(--border);
+display: flex; align-items: center; justify-content: space-between;
+flex-shrink: 0;
+}
+.dl-table-title { font-size: 0.875rem; font-weight: 800; }
+.dl-table-count { font-size: 0.75rem; color: var(--text-dim); font-weight: 600; }
+.dl-table-wrap { flex: 1; overflow-y: auto; min-height: 0; }
+.dl-table { width: 100%; border-collapse: collapse; }
+.dl-table th {
+text-align: left; padding: 0.625rem 1rem;
+font-size: 0.6875rem; text-transform: uppercase;
+letter-spacing: 0.08em; color: var(--text-dim);
+font-weight: 700; border-bottom: 1px solid var(--border);
+background: var(--bg); position: sticky; top: 0;
+}
+.dl-table td {
+padding: 0.75rem 1rem; font-size: 0.8125rem;
+border-bottom: 1px solid var(--border); color: var(--text);
+}
+.dl-table tr:last-child td { border-bottom: none; }
+.dl-table tbody tr { cursor: pointer; }
+.dl-table tbody tr:hover td { background: var(--bg); }
+.dl-code {
+font-family: ui-monospace, "SF Mono", Menlo, monospace;
+font-size: 0.75rem; color: var(--accent); font-weight: 600;
+}
+
+.dl-status-badge {
+display: inline-flex; align-items: center; gap: 0.375rem;
+padding: 0.25rem 0.625rem; border-radius: 999px;
+font-size: 0.6875rem; font-weight: 700;
+text-transform: uppercase; letter-spacing: 0.04em;
+white-space: nowrap;
+}
+.dl-status-badge::before {
+content: ""; width: 6px; height: 6px;
+border-radius: 50%; background: currentColor;
+}
+.dl-status-badge.pending { background: rgba(100,116,139,0.2); color: var(--text-muted); }
+.dl-status-badge.assigned { background: rgba(139,92,246,0.15); color: #a78bfa; }
+.dl-status-badge.picked_up { background: rgba(97,218,251,0.15); color: var(--accent); }
+.dl-status-badge.in_transit { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.dl-status-badge.out_for_delivery { background: rgba(245,158,11,0.15); color: var(--warning); }
+.dl-status-badge.delivered { background: rgba(16,185,129,0.15); color: var(--success); }
+.dl-status-badge.failed { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+/* Modal */
+.dl-modal {
+position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+display: none; align-items: center; justify-content: center;
+padding: 1rem; z-index: 100;
+}
+.dl-modal.is-open { display: flex; }
+.dl-modal-card {
+background: var(--surface); border: 1px solid var(--border);
+border-radius: var(--radius); width: 100%; max-width: 480px;
+max-height: 90vh; overflow-y: auto;
+}
+.dl-modal-header {
+padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+display: flex; align-items: center; justify-content: space-between;
+}
+.dl-modal-title { font-size: 1rem; font-weight: 800; }
+.dl-modal-close {
+background: transparent; border: none; color: var(--text-muted);
+font-size: 1.25rem; padding: 0.25rem 0.5rem; border-radius: 4px;
+}
+.dl-modal-close:hover { background: var(--surface-2); color: var(--text); }
+.dl-modal-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.875rem; }
+.dl-modal-actions {
+display: flex; justify-content: flex-end; gap: 0.5rem;
+padding: 0 1.25rem 1.25rem;
+}
+.dl-field { display: flex; flex-direction: column; gap: 0.375rem; }
+.dl-field label {
+font-size: 0.6875rem; font-weight: 700;
+text-transform: uppercase; letter-spacing: 0.06em;
+color: var(--text-muted);
+}
+.dl-field select, .dl-field textarea {
+background: var(--bg); border: 1px solid var(--border);
+border-radius: 6px; padding: 0.5rem 0.75rem;
+color: var(--text); font-size: 0.875rem; outline: none;
+}
+.dl-field textarea { min-height: 60px; resize: vertical; }
+.dl-field select:focus, .dl-field textarea:focus { border-color: var(--accent); }
+.dl-btn {
+padding: 0.5rem 1rem; border-radius: 6px; border: none;
+font-size: 0.8125rem; font-weight: 700;
+}
+.dl-btn-primary { background: var(--accent); color: var(--bg); }
+.dl-btn-primary:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+.dl-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.dl-btn-secondary {
+background: transparent; color: var(--text-muted);
+border: 1px solid var(--border);
+}
+.dl-btn-secondary:hover { background: var(--surface-2); color: var(--text); }
+
+/* Toast */
+.dl-toast {
+position: fixed; bottom: 1.5rem; left: 50%;
+transform: translateX(-50%) translateY(100px);
+background: var(--surface); border: 1px solid var(--border);
+border-left: 3px solid var(--accent);
+padding: 0.75rem 1rem; border-radius: 6px;
+font-size: 0.875rem; color: var(--text);
+opacity: 0; transition: transform 0.2s, opacity 0.2s;
+z-index: 300; pointer-events: none; max-width: 90vw;
+}
+.dl-toast.is-visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+.dl-toast.is-error { border-left-color: var(--danger); }
+
+@media (max-width: 1000px) {
+.dl-dispatcher {
+grid-template-columns: 1fr;
+grid-template-areas: "kpis" "map" "table";
+height: auto; overflow-y: auto;
+}
+.dl-dispatcher .dl-map { min-height: 300px; }
+.dl-dispatcher .dl-table-panel { min-height: 400px; }
+}
+@media (max-width: 700px) {
+.dl-kpis { grid-template-columns: repeat(2, 1fr); }
+.dl-courier { padding: 0.75rem; }
+.dl-courier-action { font-size: 1rem; padding: 1.25rem 1rem; }
+.dl-tabs { gap: 0; }
+.dl-tab { padding: 0.5rem 0.75rem; font-size: 0.75rem; }
+.dl-brand span { display: none; }
+}
+@media (max-width: 500px) {
+.dl-kpis { grid-template-columns: 1fr; }
+.dl-track-card { padding: 1.5rem 1.25rem; }
+.dl-tl-event { grid-template-columns: 1fr; gap: 0.25rem; }
+}
+</style>
+</head>
+<body data-view="customer">
+
+<header class="dl-header">
+<a class="dl-brand" href="#">
+<div class="dl-brand-mark">M</div>
+<span>MAK DELIVERY</span>
+</a>
+<div class="dl-tabs">
+<button class="dl-tab is-active" type="button" data-switch="customer">Track</button>
+<button class="dl-tab" type="button" data-switch="courier">Courier</button>
+<button class="dl-tab" type="button" data-switch="dispatcher">Dispatcher</button>
+</div>
+</header>
+
+<!-- CUSTOMER VIEW -->
+<div class="dl-customer">
+<div class="dl-track-card">
+<div class="dl-track-brand">
+<h1>Track your delivery</h1>
+<p>Enter your tracking code to see where your parcel is.</p>
+</div>
+
+<div class="dl-track-code">
+<input type="text" id="track-input" placeholder="DEL-XXXXXX" maxlength="20" aria-label="Tracking code">
+<button type="button" id="track-btn">Track</button>
+</div>
+
+<div class="dl-track-error" id="track-error"></div>
+
+<div id="track-result">
+<div class="dl-track-empty">
+<div class="dl-track-empty-icon">📦</div>
+<div>Enter a tracking code to see its journey.</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- COURIER VIEW -->
+<div class="dl-courier">
+<div class="dl-courier-section-label">Active delivery</div>
+<div id="courier-content">
+<div class="dl-courier-empty">No active deliveries assigned.</div>
+</div>
+</div>
+
+<!-- DISPATCHER VIEW -->
+<div class="dl-dispatcher">
+<div class="dl-kpis">
+<div class="dl-kpi">
+<div class="dl-kpi-label">Active deliveries</div>
+<div class="dl-kpi-value" id="kpi-active">0</div>
+<div class="dl-kpi-context">in progress right now</div>
+</div>
+<div class="dl-kpi">
+<div class="dl-kpi-label">Out for delivery</div>
+<div class="dl-kpi-value" id="kpi-out">0</div>
+<div class="dl-kpi-context">courier en route</div>
+</div>
+<div class="dl-kpi">
+<div class="dl-kpi-label">Delivered today</div>
+<div class="dl-kpi-value" id="kpi-delivered">0</div>
+<div class="dl-kpi-context">completed</div>
+</div>
+<div class="dl-kpi">
+<div class="dl-kpi-label">Couriers on shift</div>
+<div class="dl-kpi-value" id="kpi-couriers">0</div>
+<div class="dl-kpi-context">available or delivering</div>
+</div>
+</div>
+
+<div class="dl-map">
+<div class="dl-map-placeholder">
+<div class="dl-map-placeholder-icon">📍</div>
+<div class="dl-map-placeholder-title">Live map</div>
+<div class="dl-map-placeholder-sub">Markers in Stage 03</div>
+</div>
+</div>
+
+<div class="dl-table-panel">
+<div class="dl-table-header">
+<div class="dl-table-title">Active deliveries</div>
+<div class="dl-table-count" id="table-count">0 shown</div>
+</div>
+<div class="dl-table-wrap">
+<table class="dl-table">
+<thead>
+<tr>
+<th>Code</th>
+<th>Customer</th>
+<th>Courier</th>
+<th>Status</th>
+<th>Updated</th>
+</tr>
+</thead>
+<tbody id="dispatcher-tbody">
+<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:2rem;">No deliveries.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+<!-- Assignment modal -->
+<div class="dl-modal" id="assign-modal">
+<div class="dl-modal-card">
+<div class="dl-modal-header">
+<div class="dl-modal-title" id="assign-title">Assign courier</div>
+<button class="dl-modal-close" type="button" data-close="assign">×</button>
+</div>
+<div class="dl-modal-body">
+<div class="dl-field">
+<label for="assign-courier">Courier</label>
+<select id="assign-courier"></select>
+</div>
+</div>
+<div class="dl-modal-actions">
+<button class="dl-btn dl-btn-secondary" type="button" data-close="assign">Cancel</button>
+<button class="dl-btn dl-btn-primary" type="button" id="assign-submit">Assign</button>
+</div>
+</div>
+</div>
+
+<div class="dl-toast" id="toast"></div>
+
+<script>
+(function () {
+'use strict';
+
+// ---------- Constants ----------
+var DELIVERIES_KEY = 'mak-delivery-deliveries';
+var EVENTS_KEY = 'mak-delivery-events';
+var VIEW_KEY = 'mak-delivery-view';
+
+var TRANSITIONS = {
+'assigned': ['pending'],
+'picked_up': ['assigned'],
+'in_transit': ['picked_up'],
+'out_for_delivery': ['in_transit'],
+'delivered': ['out_for_delivery'],
+'failed': ['assigned', 'picked_up', 'in_transit', 'out_for_delivery']
+};
+
+var EVENT_RESULT = {
+'assigned': 'assigned',
+'picked_up': 'picked_up',
+'in_transit': 'in_transit',
+'out_for_delivery': 'out_for_delivery',
+'delivered': 'delivered',
+'failed': 'failed'
+};
+
+var TIMELINE_LABELS = {
+'assigned': 'Assigned to courier',
+'picked_up': 'Picked up',
+'in_transit': 'In transit',
+'out_for_delivery': 'Out for delivery',
+'delivered': 'Delivered',
+'failed': 'Delivery failed'
+};
+
+var COURIER_NEXT = {
+'assigned': { next: 'picked_up', label: 'Confirm pickup' },
+'picked_up': { next: 'in_transit', label: 'Start transit' },
+'in_transit': { next: 'out_for_delivery', label: 'Out for delivery' },
+'out_for_delivery': { next: 'delivered', label: 'Mark as delivered' }
+};
+
+// ---------- Seed data ----------
+var SEED_COURIERS = [
+{ id: 1, name: 'Alex Rivera', status: 'available' },
+{ id: 2, name: 'Sam Patel', status: 'available' },
+{ id: 3, name: 'Marcus Chen', status: 'available' }
+];
+
+var SEED_DELIVERIES = [
+{ id: 1, trackingCode: 'DEL-8F3A2B', customer: 'Sarah Johnson', address: '42 Oak Street, Springfield, IL 62701', courierId: 1 },
+{ id: 2, trackingCode: 'DEL-7C9B14', customer: 'Michael Chen', address: '18 Elm Avenue, Springfield, IL 62702', courierId: 1 },
+{ id: 3, trackingCode: 'DEL-2E8D91', customer: 'Priya Raman', address: '207 Pine Road, Springfield, IL 62703', courierId: 2 },
+{ id: 4, trackingCode: 'DEL-6A4F03', customer: 'David Wu', address: '5 Maple Court, Springfield, IL 62704', courierId: 2 },
+{ id: 5, trackingCode: 'DEL-9B5E72', customer: 'Sofia Alvarez', address: '88 Birch Lane, Springfield, IL 62705', courierId: 3 },
+{ id: 6, trackingCode: 'DEL-1D3F88', customer: 'Tariq Khan', address: '12 Cedar Street, Springfield, IL 62706', courierId: null }
+];
+
+function seedEvents() {
+var now = new Date();
+function at(minAgo) {
+return new Date(now.getTime() - minAgo * 60000).toISOString();
+}
+return [
+// Delivery 1: already out for delivery
+{ id: 'e1', deliveryId: 1, type: 'assigned', note: null, occurredAt: at(300) },
+{ id: 'e2', deliveryId: 1, type: 'picked_up', note: 'From Central warehouse', occurredAt: at(240) },
+{ id: 'e3', deliveryId: 1, type: 'in_transit', note: 'Arrived at North facility', occurredAt: at(120) },
+{ id: 'e4', deliveryId: 1, type: 'out_for_delivery', note: null, occurredAt: at(30) },
+// Delivery 2: picked up
+{ id: 'e5', deliveryId: 2, type: 'assigned', note: null, occurredAt: at(280) },
+{ id: 'e6', deliveryId: 2, type: 'picked_up', note: null, occurredAt: at(180) },
+// Delivery 3: in transit
+{ id: 'e7', deliveryId: 3, type: 'assigned', note: null, occurredAt: at(260) },
+{ id: 'e8', deliveryId: 3, type: 'picked_up', note: null, occurredAt: at(150) },
+{ id: 'e9', deliveryId: 3, type: 'in_transit', note: null, occurredAt: at(60) },
+// Delivery 4: assigned
+{ id: 'e10', deliveryId: 4, type: 'assigned', note: null, occurredAt: at(200) },
+// Delivery 5: out for delivery
+{ id: 'e11', deliveryId: 5, type: 'assigned', note: null, occurredAt: at(340) },
+{ id: 'e12', deliveryId: 5, type: 'picked_up', note: null, occurredAt: at(250) },
+{ id: 'e13', deliveryId: 5, type: 'in_transit', note: null, occurredAt: at(150) },
+{ id: 'e14', deliveryId: 5, type: 'out_for_delivery', note: null, occurredAt: at(45) }
+// Delivery 6: pending (no events)
+];
+}
+
+// ---------- State ----------
+var state = {
+deliveries: [],
+events: [],
+couriers: [],
+view: 'customer'
+};
+
+var transitioning = false;
+var lastTrackedCode = null;
+var assignTargetId = null;
+
+// ---------- Helpers ----------
+function escapeHtml(s) {
+return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+var n = c.charCodeAt(0);
+if (n === 38) return '&';
+if (n === 60) return '<';
+if (n === 62) return '>';
+if (n === 34) return '"';
+if (n === 39) return ''';
+return c;
+});
+}
+
+function formatTime(iso) {
+if (!iso) return '-';
+return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatRelative(iso) {
+if (!iso) return '-';
+var diff = (Date.now() - new Date(iso).getTime()) / 60000;
+if (diff < 1) return 'just now';
+if (diff < 60) return Math.floor(diff) + 'm ago';
+if (diff < 1440) return Math.floor(diff / 60) + 'h ago';
+return Math.floor(diff / 1440) + 'd ago';
+}
+
+function statusLabel(status) {
+var labels = {
+'pending': 'Pending',
+'assigned': 'Assigned',
+'picked_up': 'Picked up',
+'in_transit': 'In transit',
+'out_for_delivery': 'Out for delivery',
+'delivered': 'Delivered',
+'failed': 'Failed'
+};
+return labels[status] || status;
+}
+
+function getCourierName(id) {
+if (id == null) return 'Unassigned';
+var c = state.couriers.find(function (c) { return c.id === id; });
+return c ? c.name : 'Unassigned';
+}
+
+// ---------- Derivation ----------
+function deriveDeliveryStatus(deliveryId) {
+var events = state.events
+.filter(function (e) { return e.deliveryId === deliveryId; })
+.sort(function (a, b) { return a.occurredAt.localeCompare(b.occurredAt); });
+
+if (events.length === 0) return 'pending';
+
+var status = 'pending';
+for (var i = 0; i < events.length; i++) {
+var next = EVENT_RESULT[events[i].type];
+if (next) status = next;
+}
+return status;
+}
+
+function deriveDeliveryTimeline(deliveryId) {
+return state.events
+.filter(function (e) { return e.deliveryId === deliveryId; })
+.sort(function (a, b) { return b.occurredAt.localeCompare(a.occurredAt); });
+}
+
+function canTransition(currentStatus, eventType) {
+var allowed = TRANSITIONS[eventType];
+if (!allowed) return false;
+return allowed.indexOf(currentStatus) !== -1;
+}
+
+// ---------- Persistence ----------
+function saveState() {
+try {
+localStorage.setItem(DELIVERIES_KEY, JSON.stringify(state.deliveries));
+localStorage.setItem(EVENTS_KEY, JSON.stringify(state.events));
+localStorage.setItem(VIEW_KEY, state.view);
+} catch (_) { /* quota or private mode */ }
+}
+
+function loadState() {
+var deliveries = null, events = null, view = 'customer';
+try {
+var dRaw = localStorage.getItem(DELIVERIES_KEY);
+var eRaw = localStorage.getItem(EVENTS_KEY);
+var vRaw = localStorage.getItem(VIEW_KEY);
+if (dRaw && eRaw) {
+var dParsed = JSON.parse(dRaw);
+var eParsed = JSON.parse(eRaw);
+if (Array.isArray(dParsed) && dParsed.length > 0) {
+deliveries = dParsed;
+events = Array.isArray(eParsed) ? eParsed : [];
+}
+}
+if (vRaw === 'customer' || vRaw === 'courier' || vRaw === 'dispatcher') {
+view = vRaw;
+}
+} catch (_) { /* fall through to seed */ }
+
+if (deliveries && events) {
+state.deliveries = deliveries;
+state.events = events;
+} else {
+state.deliveries = SEED_DELIVERIES.slice();
+state.events = seedEvents();
+saveState();
+}
+state.couriers = SEED_COURIERS.slice();
+state.view = view;
+}
+
+// ---------- Mutations ----------
+function recordEvent(deliveryId, eventType, note) {
+if (transitioning) return { ok: false, error: 'Processing' };
+
+var current = deriveDeliveryStatus(deliveryId);
+if (!canTransition(current, eventType)) {
+return { ok: false, error: 'Cannot ' + statusLabel(current).toLowerCase() + ' -> ' + statusLabel(EVENT_RESULT[eventType]).toLowerCase() };
+}
+
+var last = state.events
+.filter(function (e) { return e.deliveryId === deliveryId && e.type === eventType; })
+.sort(function (a, b) { return b.occurredAt.localeCompare(a.occurredAt); })[0];
+if (last) {
+var sec = (Date.now() - new Date(last.occurredAt).getTime()) / 1000;
+if (sec < 5) return { ok: false, error: 'Already recorded' };
+}
+
+transitioning = true;
+try {
+state.events.push({
+id: 'ev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+deliveryId: deliveryId,
+type: eventType,
+note: note || null,
+occurredAt: new Date().toISOString()
+});
+saveState();
+renderAll();
+return { ok: true };
+} finally {
+transitioning = false;
+}
+}
+
+// ---------- Customer render ----------
+function renderCustomer() {
+var input = document.getElementById('track-input');
+var error = document.getElementById('track-error');
+var result = document.getElementById('track-result');
+
+if (!lastTrackedCode) {
+result.innerHTML = '<div class="dl-track-empty">' +
+'<div class="dl-track-empty-icon">📦</div>' +
+'<div>Enter a tracking code to see its journey.</div>' +
+'</div>';
+return;
+}
+
+var delivery = state.deliveries.find(function (d) {
+return d.trackingCode.toUpperCase() === lastTrackedCode.toUpperCase();
+});
+
+if (!delivery) {
+error.textContent = 'No delivery found with code "' + lastTrackedCode + '".';
+error.classList.add('is-visible');
+result.innerHTML = '';
+return;
+}
+error.classList.remove('is-visible');
+
+var events = deriveDeliveryTimeline(delivery.id);
+var currentStatus = deriveDeliveryStatus(delivery.id);
+
+var timelineHtml = events.map(function (ev, i) {
+var isCurrent = (i === 0);
+var dotClass = ev.type === 'failed' ? 'is-failed' : (isCurrent ? 'is-current' : 'is-complete');
+return '<div class="dl-tl-event ' + dotClass + '">' +
+'<div class="dl-tl-dot"></div>' +
+'<div class="dl-tl-time">' + formatTime(ev.occurredAt) + '</div>' +
+'<div class="dl-tl-body">' +
+'<strong>' + escapeHtml(TIMELINE_LABELS[ev.type] || ev.type) + '</strong>' +
+(ev.note ? '<p>' + escapeHtml(ev.note) + '</p>' : '') +
+'</div>' +
+'</div>';
+}).join('');
+
+if (!timelineHtml) {
+timelineHtml = '<div class="dl-track-empty" style="padding:1rem;">Delivery registered. Awaiting first update.</div>';
+}
+
+result.innerHTML =
+'<div class="dl-timeline">' + timelineHtml + '</div>' +
+'<div class="dl-track-meta">' +
+'<div class="dl-track-meta-row">' +
+'<span>Tracking code</span>' +
+'<span style="font-family: ui-monospace, monospace; color: var(--accent);">' + escapeHtml(delivery.trackingCode) + '</span>' +
+'</div>' +
+'<div class="dl-track-meta-row">' +
+'<span>Destination</span>' +
+'<span>' + escapeHtml(delivery.address) + '</span>' +
+'</div>' +
+'<div class="dl-track-meta-row">' +
+'<span>Current status</span>' +
+'<span><span class="dl-status-badge ' + currentStatus + '">' + statusLabel(currentStatus) + '</span></span>' +
+'</div>' +
+'<div class="dl-track-meta-row">' +
+'<span>Courier</span>' +
+'<span>' + escapeHtml(getCourierName(delivery.courierId)) + '</span>' +
+'</div>' +
+'</div>';
+}
+
+// ---------- Courier render ----------
+function renderCourier() {
+var content = document.getElementById('courier-content');
+
+// Find the first delivery assigned to courier 1 that isn't delivered/failed
+var delivery = state.deliveries.find(function (d) {
+if (d.courierId !== 1) return false;
+var s = deriveDeliveryStatus(d.id);
+return s !== 'delivered' && s !== 'failed';
+});
+
+if (!delivery) {
+content.innerHTML = '<div class="dl-courier-empty">No active deliveries assigned.</div>';
+return;
+}
+
+var currentStatus = deriveDeliveryStatus(delivery.id);
+var next = COURIER_NEXT[currentStatus];
+
+var actionHtml = '';
+if (next) {
+actionHtml = '<button class="dl-courier-action" type="button" id="courier-action" data-event="' + next.next + '">' +
+escapeHtml(next.label) + '</button>';
+}
+
+content.innerHTML =
+'<div class="dl-delivery-card">' +
+'<div class="dl-delivery-header">' +
+'<div>' +
+'<div class="dl-delivery-code">' + escapeHtml(delivery.trackingCode) + '</div>' +
+'<div class="dl-delivery-customer">' + escapeHtml(delivery.customer) + '</div>' +
+'</div>' +
+'<span class="dl-delivery-status ' + currentStatus + '">' + statusLabel(currentStatus) + '</span>' +
+'</div>' +
+'<div class="dl-delivery-address">' + escapeHtml(delivery.address) + '</div>' +
+'</div>' +
+actionHtml +
+'<div class="dl-courier-secondary">' +
+'<button type="button" id="courier-fail">Report failure</button>' +
+'<button type="button" id="courier-note">Add note</button>' +
+'</div>';
+
+var actionBtn = document.getElementById('courier-action');
+if (actionBtn) {
+actionBtn.addEventListener('click', function () {
+var eventType = actionBtn.getAttribute('data-event');
+var result = recordEvent(delivery.id, eventType);
+if (!result.ok) {
+showToast(result.error, true);
+} else {
+showToast('Marked as ' + statusLabel(EVENT_RESULT[eventType]).toLowerCase());
+}
+});
+}
+
+var failBtn = document.getElementById('courier-fail');
+if (failBtn) {
+failBtn.addEventListener('click', function () {
+if (currentStatus === 'pending' || currentStatus === 'delivered') {
+showToast('Cannot fail a delivery in this state', true);
+return;
+}
+if (!confirm('Report this delivery as failed?')) return;
+var result = recordEvent(delivery.id, 'failed', 'Reported by courier');
+if (!result.ok) showToast(result.error, true);
+else showToast('Delivery marked as failed');
+});
+}
+
+var noteBtn = document.getElementById('courier-note');
+if (noteBtn) {
+noteBtn.addEventListener('click', function () {
+showToast('Notes will be added in Stage 04');
+});
+}
+}
+
+// ---------- Dispatcher render ----------
+function renderDispatcher() {
+var activeCount = 0, outCount = 0, deliveredCount = 0;
+
+state.deliveries.forEach(function (d) {
+var s = deriveDeliveryStatus(d.id);
+if (s !== 'delivered' && s !== 'failed') activeCount++;
+if (s === 'out_for_delivery') outCount++;
+if (s === 'delivered') deliveredCount++;
+});
+
+var couriersOnShift = state.couriers.length;
+
+document.getElementById('kpi-active').textContent = activeCount;
+document.getElementById('kpi-out').textContent = outCount;
+document.getElementById('kpi-delivered').textContent = deliveredCount;
+document.getElementById('kpi-couriers').textContent = couriersOnShift;
+
+var tbody = document.getElementById('dispatcher-tbody');
+var rows = state.deliveries.map(function (d) {
+var status = deriveDeliveryStatus(d.id);
+var lastEvent = state.events
+.filter(function (e) { return e.deliveryId === d.id; })
+.sort(function (a, b) { return b.occurredAt.localeCompare(a.occurredAt); })[0];
+return {
+delivery: d,
+status: status,
+lastEvent: lastEvent
+};
+}).sort(function (a, b) {
+var aT = a.lastEvent ? a.lastEvent.occurredAt : '';
+var bT = b.lastEvent ? b.lastEvent.occurredAt : '';
+return bT.localeCompare(aT);
+});
+
+document.getElementById('table-count').textContent = rows.length + ' shown';
+
+tbody.innerHTML = rows.map(function (r) {
+var d = r.delivery;
+var actionHint = d.courierId == null && r.status === 'pending' ? ' (click to assign)' : '';
+return '<tr data-delivery-id="' + d.id + '">' +
+'<td class="dl-code">' + escapeHtml(d.trackingCode) + '</td>' +
+'<td>' + escapeHtml(d.customer) + '</td>' +
+'<td>' + escapeHtml(getCourierName(d.courierId)) + actionHint + '</td>' +
+'<td><span class="dl-status-badge ' + r.status + '">' + statusLabel(r.status) + '</span></td>' +
+'<td style="color: var(--text-dim); font-size: 0.75rem;">' + (r.lastEvent ? formatRelative(r.lastEvent.occurredAt) : '-') + '</td>' +
+'</tr>';
+}).join('');
+
+// Wire row clicks -> open assign modal for pending deliveries
+tbody.querySelectorAll('tr[data-delivery-id]').forEach(function (tr) {
+tr.addEventListener('click', function () {
+var id = parseInt(tr.getAttribute('data-delivery-id'), 10);
+var delivery = state.deliveries.find(function (d) { return d.id === id; });
+if (!delivery) return;
+var status = deriveDeliveryStatus(id);
+if (status === 'pending') {
+openAssignModal(id);
+} else {
+showToast('Delivery #' + id + ' is ' + statusLabel(status).toLowerCase());
+}
+});
+});
+}
+
+// ---------- Render all ----------
+function renderAll() {
+renderCustomer();
+renderCourier();
+renderDispatcher();
+}
+
+// ---------- Assign modal ----------
+function openAssignModal(deliveryId) {
+assignTargetId = deliveryId;
+var delivery = state.deliveries.find(function (d) { return d.id === deliveryId; });
+if (!delivery) return;
+
+document.getElementById('assign-title').textContent = 'Assign courier - ' + delivery.trackingCode;
+
+var select = document.getElementById('assign-courier');
+select.innerHTML = state.couriers.map(function (c) {
+return '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>';
+}).join('');
+
+document.getElementById('assign-modal').classList.add('is-open');
+}
+
+function closeAssignModal() {
+document.getElementById('assign-modal').classList.remove('is-open');
+assignTargetId = null;
+}
+
+document.getElementById('assign-submit').addEventListener('click', function () {
+if (assignTargetId == null) return;
+var courierId = parseInt(document.getElementById('assign-courier').value, 10);
+var delivery = state.deliveries.find(function (d) { return d.id === assignTargetId; });
+if (!delivery) return;
+
+delivery.courierId = courierId;
+var result = recordEvent(assignTargetId, 'assigned', 'Assigned to ' + getCourierName(courierId));
+if (!result.ok) {
+showToast(result.error, true);
+} else {
+showToast('Assigned to ' + getCourierName(courierId));
+closeAssignModal();
+}
+});
+
+// ---------- View switching ----------
+function switchView(view) {
+state.view = view;
+document.body.setAttribute('data-view', view);
+document.querySelectorAll('.dl-tab').forEach(function (t) {
+t.classList.toggle('is-active', t.getAttribute('data-switch') === view);
+});
+saveState();
+}
+
+// ---------- Toast ----------
+var toastTimer = null;
+function showToast(msg, isError) {
+var t = document.getElementById('toast');
+t.textContent = msg;
+t.classList.toggle('is-error', !!isError);
+t.classList.add('is-visible');
+clearTimeout(toastTimer);
+toastTimer = setTimeout(function () { t.classList.remove('is-visible'); }, 2600);
+}
+
+// ---------- Wire events ----------
+document.querySelectorAll('.dl-tab').forEach(function (tab) {
+tab.addEventListener('click', function () { switchView(tab.getAttribute('data-switch')); });
+});
+
+document.getElementById('track-btn').addEventListener('click', function () {
+var code = document.getElementById('track-input').value.trim();
+if (!code) {
+showToast('Enter a tracking code', true);
+return;
+}
+lastTrackedCode = code;
+renderCustomer();
+});
+
+document.getElementById('track-input').addEventListener('keydown', function (e) {
+if (e.key === 'Enter') {
+e.preventDefault();
+document.getElementById('track-btn').click();
+}
+});
+
+document.querySelectorAll('[data-close]').forEach(function (btn) {
+btn.addEventListener('click', function () {
+var which = btn.getAttribute('data-close');
+if (which === 'assign') closeAssignModal();
+});
+});
+
+document.getElementById('assign-modal').addEventListener('click', function (e) {
+if (e.target.id === 'assign-modal') closeAssignModal();
+});
+
+// ---------- Init ----------
+loadState();
+document.body.setAttribute('data-view', state.view);
+document.querySelectorAll('.dl-tab').forEach(function (t) {
+t.classList.toggle('is-active', t.getAttribute('data-switch') === state.view);
+});
+renderAll();
+
+})();
+</script>
+</body>
+</html>
