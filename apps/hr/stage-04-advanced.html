@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>HR Stage 04 - Advanced (Final: Timesheets, Overtime, Corrections, Approval) (2026)</title>
+<meta name="description" content="Final stage of the HR & Attendance build: timesheets with overtime, manual corrections as new events, a roster comparing scheduled vs worked, manager approval workflow, and attendance reports.">
+<meta name="keywords" content="timesheet sql aggregate, overtime calculation, manual correction event log, manager approval workflow, attendance report">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="HR Stage 04 - Advanced (Final)">
+<meta property="og:description" content="Timesheets, overtime, corrections, roster, approval, reports. Final stage.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/apps/hr/stage-04-advanced.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="HR Stage 04 - Advanced (Final)">
+<meta name="twitter:description" content="Timesheets, overtime, corrections, roster, approval. Final stage.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/apps/hr/stage-04-advanced.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "HR Stage 04 - Advanced (Final Stage)",
+"description": "Timesheets with overtime, manual corrections as new events, roster, manager approval, and attendance reports. The final stage of the HR & Attendance build.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-15",
+"dateModified": "2026-11-15",
+"proficiencyLevel": "Intermediate",
+"dependencies": "Python, Flask, SQLite, JavaScript"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why are manual corrections new events instead of edits?","acceptedAnswer":{"@type":"Answer","text":"Because attendance is a payroll record. If a manager could edit an event, the audit trail would lose the original. A missed clock-out becomes: the employee clocked in at 9:02, then a manual_out event was added at 10 AM with the note 'forgot to clock out'. The original event stays, the correction is a new row, and the derivation handles both. The same principle as POS refunds: you don't un-happen a transaction, you record its reversal."}},
+{"@type":"Question","name":"How is overtime calculated?","acceptedAnswer":{"@type":"Answer","text":"Stage 04 uses the simplest common rule: weekly overtime at 40 hours. Sum the minutes_worked across all of an employee's shifts in a week, subtract 40 hours, and the remainder is overtime. Some jurisdictions also have daily overtime (8 hours per day), or double-time (12+ hours). The rule belongs in config, not in code, because it varies. Stage 04 implements weekly only and documents the choice."}},
+{"@type":"Question","name":"What is the roster for?","acceptedAnswer":{"@type":"Answer","text":"The roster is the plan: which employee is scheduled to work which shift, from when to when. The shifts table is the reality: which employee actually clocked in and out. Comparing them shows who was late, who was absent, who worked unscheduled hours. Without a roster, 'were they on time?' is unanswerable. The scheduled_shifts table holds the plan; the comparison is a query, not a stored derived field."}},
+{"@type":"Question","name":"What does the approval workflow lock?","acceptedAnswer":{"@type":"Answer","text":"When a manager approves a week, every shift in that week gets status='approved'. Approved shifts become read-only: manual corrections return 409 with 'week is approved, reopen first.' This preserves the payroll record. To make a correction after approval, the manager re-opens the week (a new endpoint that reverts status to 'closed'), makes the correction, and approves again. The re-open is logged as an event itself."}},
+{"@type":"Question","name":"Why does the report use SQL aggregates instead of the client's derivation?","acceptedAnswer":{"@type":"Answer","text":"Because the report spans a week of shifts across all employees — hundreds of rows. The client's derivation walks events per employee, which is O(events). The SQL aggregate SUM(minutes_worked) GROUP BY employee_id, date is a single query with indexed access. For the timesheet view, the server computes and returns the grid; the client just renders. Same pattern as POS's Z-report: the aggregate happens where the data lives."}},
+{"@type":"Question","name":"Is this the final stage?","acceptedAnswer":{"@type":"Answer","text":"Yes. The HR & Attendance build is four stages: Interface, Interactions, Backend, Advanced. Stage 04 completes it. Authentication, deployment, payroll integration, and timezone/DST handling are separate concept courses - they are not Stage 05 of this build. The four-stage arc mirrors the CRM, Inventory, and POS builds: shell, then client logic, then a backend, then the advanced data layer. Each stage adds exactly one layer and stops."}},
+{"@type":"Question","name":"What should I build next?","acceptedAnswer":{"@type":"Answer","text":"Not another stage of this app. Either take a concept course (deployment, auth, HR concepts), or build something new that reuses this pattern. The four-stage arc - shell, client logic, backend, advanced data layer - applies to any app that tracks periodic state about people: fitness tracker, field service, project tracker, volunteer management. Same event-log discipline, same derivation pattern, same approval workflow. The HR app is a template, not a starting point for infinite expansion."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+.snippet-meta { font-size: 11px; color: #64748b; padding: 0 12px 8px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">HR &amp; Attendance Build</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 04 &middot; Advanced &mdash; Final Stage</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> &rsaquo;
+<a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> &rsaquo;
+<a href="/apps/hr/index.html" style="color:#7ee8fc;">HR &amp; Attendance</a> &rsaquo;
+<span style="color:#FFFFFF; font-weight:700;">Stage 04</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">Stage 04 &middot; 3&ndash;4 hours &middot; FINAL</div>
+<h1>Make it a real HR system.<br><span class="py-accent">Timesheets. Approval. Reports.</span></h1>
+<p class="lead">
+The final layer. A <strong>timesheet</strong> that sums hours per employee per week and flags overtime at 40 hours. <strong>Manual corrections</strong> as new events with notes - the original stays, the correction is added, the audit trail survives. A <strong>roster</strong> that holds the scheduled plan next to the worked reality. A <strong>manager approval</strong> workflow that locks a week once signed off. And a <strong>report</strong> computed in SQL over hundreds of shift rows.
+</p>
+<p class="lead" style="margin-top:0.75rem;">
+<strong style="color:#61dafb;">This is the final stage.</strong> After it, the HR &amp; Attendance build is complete: four stages, four tables, an event log with a derived cache, idempotent clock-in, corrections that never edit history, timesheets, roster, approval, and reports. No Stage 05.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 3&ndash;4 hours</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> SQL &middot; Flask &middot; aggregation &middot; workflow</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/apps/hr/index.html">HR hub</a>
+<a href="#timesheet">Timesheet</a>
+<a href="#overtime">Overtime</a>
+<a href="#corrections">Corrections</a>
+<a href="#roster">Roster</a>
+<a href="#approval">Approval</a>
+<a href="#report">Report</a>
+<a href="#run">Run it</a>
+<a href="#done">Done &mdash; next steps</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Add a fourth table, <code>scheduled_shifts(id, employee_id, date, start_at, end_at, note)</code> - the roster. Timesheets are a <code>SUM(minutes_worked) GROUP BY employee_id, date</code> over the <code>shifts</code> table, with weekly overtime at 40h. Manual corrections are <code>manual_in</code> or <code>manual_out</code> events with a note - new rows, never edits. Approval flips <code>shifts.status</code> to <code>'approved'</code> for a week; corrections on approved shifts return 409. The report is one SQL aggregate that returns late, absent, and overtime counts per employee for a date range.
+</p>
+</div>
+
+<section id="timesheet">
+<h2 class="section-title">Timesheet - a week grid from one query</h2>
+<p class="section-sub">Employees &times; days. Hours in each cell. One aggregate.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The timesheet view shows a grid: each employee is a row, each day of the week is a column, and each cell shows the hours worked. For five employees and seven days, that is 35 cells. Computing them one by one would be 35 round-trips. Computing them in one query is 35 rows in one response.
+</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">timesheet.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 240&ndash;265</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">@app.route("/api/timesheet", methods=["GET"])
+def get_timesheet():
+    week_start = request.args.get("week") or _current_week_start()
+    week_end = _add_days(week_start, 6)
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT employee_id, date,
+                      SUM(minutes_worked) AS minutes,
+                      MIN(status)         AS status
+               FROM shifts
+               WHERE date BETWEEN ? AND ?
+               GROUP BY employee_id, date""",
+            (week_start, week_end),
+        ).fetchall()
+
+    employees = _list_active_employees(conn)
+    grid = {}
+    for emp in employees:
+        grid[emp["id"]] = { "name": emp["name"], "days": {} }
+
+    for r in rows:
+        if r["employee_id"] in grid:
+            grid[r["employee_id"]]["days"][r["date"]] = {
+                "minutes": r["minutes"],
+                "status": r["status"],
+            }
+
+    return jsonify({
+        "week_start": week_start,
+        "week_end": week_end,
+        "employees": list(grid.values()),
+    })</pre>
+<pre id="code-sol1">@app.route("/api/timesheet", methods=["GET"])
+def get_timesheet():
+    week_start = request.args.get("week") or _current_week_start()
+    week_end = _add_days(week_start, 6)
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT employee_id, date,
+                      SUM(minutes_worked) AS minutes,
+                      MIN(status)         AS status
+               FROM shifts
+               WHERE date BETWEEN ? AND ?
+               GROUP BY employee_id, date""",
+            (week_start, week_end),
+        ).fetchall()
+
+    employees = _list_active_employees(conn)
+    grid = {}
+    for emp in employees:
+        grid[emp["id"]] = { "name": emp["name"], "days": {} }
+
+    for r in rows:
+        if r["employee_id"] in grid:
+            grid[r["employee_id"]]["days"][r["date"]] = {
+                "minutes": r["minutes"],
+                "status": r["status"],
+            }
+
+    return jsonify({
+        "week_start": week_start,
+        "week_end": week_end,
+        "employees": list(grid.values()),
+    })</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why GROUP BY employee_id, date:
+
+  A week of shifts is a set of (employee, date, hours)
+  triples. The query collapses any multiple shifts
+  per day into one sum. If an employee worked two
+  shifts on Tuesday, the cell shows the total.
+
+  This is the same aggregation the client did in
+  Stage 02 (sum of minutesWorked across employees),
+  but grouped differently: per (employee, date)
+  instead of across all employees.
+
+Why MIN(status):
+
+  A shift's status is 'open', 'closed', or 'approved'.
+  If an employee has two shifts on the same day
+  (one closed, one open), what status should the
+  cell show?
+
+  MIN works because 'open' < 'closed' < 'approved'
+  alphabetically. So if ANY shift in the day is
+  still open, the cell shows 'open' - which is
+  correct: the day isn't finished yet.
+
+  This is a small trick that avoids a CASE
+  expression. If you want to be explicit, use:
+    CASE
+      WHEN SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) > 0 THEN 'open'
+      WHEN SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) > 0 THEN 'closed'
+      ELSE 'approved'
+    END
+  But MIN is shorter and correct for this enum.
+
+Why the grid object, not a raw rows array:
+
+  The client renders a grid. If the API returned
+  rows, the client would have to pivot them into
+  a grid - iterating the rows, finding or creating
+  the employee entry, filling in the day cell.
+  That is client-side logic that duplicates what
+  a small server-side loop does in 8 lines.
+
+  Returning the pivoted shape means the client
+  just iterates grid.employees, then for each
+  employee iterates the 7 dates and looks up
+  grid.employees[i].days[date]. Simple.
+
+  This is a general principle: return the shape
+  the client renders, not the shape the database
+  stores. The database is normalized; the view is
+  not. The API is the translation layer.
+
+Why the query is only one round-trip:
+
+  The alternative is one query per employee, or
+  one query per cell. Both are O(employees) or
+  O(employees * days) round-trips. For 5 employees
+  and 7 days, that is 5 or 35 round-trips versus 1.
+
+  At 30ms per round-trip (typical over a local
+  network), 35 round-trips is 1 second. 1 round-trip
+  is 30ms. For an interactive grid, the difference
+  is felt.
+
+  The index on shifts(date) makes the WHERE fast,
+  and GROUP BY on the result is small (at most
+  employees * days rows). One query, done.</pre>
+</div>
+</div>
+</section>
+
+<section id="overtime">
+<h2 class="section-title">Overtime - the rule belongs in config</h2>
+<p class="section-sub">Weekly at 40h. One rule. Documented.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Overtime is jurisdiction-specific. Some places count daily hours over 8, some weekly over 40, some both. Some pay double after 12. Stage 04 implements the simplest common rule - weekly over 40 - and documents that it is a choice, not a universal truth.
+</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">overtime.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 275&ndash;295</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">OVERTIME_THRESHOLD_MINUTES = 40 * 60  # config, not magic number
+
+def compute_week_totals(conn, week_start, week_end):
+    """Per-employee weekly totals with overtime flagged."""
+    rows = conn.execute(
+        """SELECT employee_id,
+                  SUM(minutes_worked) AS total_minutes
+           FROM shifts
+           WHERE date BETWEEN ? AND ?
+           GROUP BY employee_id""",
+        (week_start, week_end),
+    ).fetchall()
+
+    result = []
+    for r in rows:
+        total = r["total_minutes"] or 0
+        regular = min(total, OVERTIME_THRESHOLD_MINUTES)
+        overtime = max(0, total - OVERTIME_THRESHOLD_MINUTES)
+        result.append({
+            "employee_id": r["employee_id"],
+            "total_minutes": total,
+            "regular_minutes": regular,
+            "overtime_minutes": overtime,
+            "is_overtime": overtime > 0,
+        })
+    return result</pre>
+<pre id="code-sol2">OVERTIME_THRESHOLD_MINUTES = 40 * 60  # config, not magic number
+
+def compute_week_totals(conn, week_start, week_end):
+    """Per-employee weekly totals with overtime flagged."""
+    rows = conn.execute(
+        """SELECT employee_id,
+                  SUM(minutes_worked) AS total_minutes
+           FROM shifts
+           WHERE date BETWEEN ? AND ?
+           GROUP BY employee_id""",
+        (week_start, week_end),
+    ).fetchall()
+
+    result = []
+    for r in rows:
+        total = r["total_minutes"] or 0
+        regular = min(total, OVERTIME_THRESHOLD_MINUTES)
+        overtime = max(0, total - OVERTIME_THRESHOLD_MINUTES)
+        result.append({
+            "employee_id": r["employee_id"],
+            "total_minutes": total,
+            "regular_minutes": regular,
+            "overtime_minutes": overtime,
+            "is_overtime": overtime > 0,
+        })
+    return result</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why a named constant, not a literal 2400:
+
+  The 40-hour threshold is a business rule, not
+  a mathematical fact. Some jurisdictions use 35
+  or 37.5. Some use daily thresholds instead. The
+  constant names it and centralizes it.
+
+  Changing the rule is one edit:
+    OVERTIME_THRESHOLD_MINUTES = 37 * 60 + 30
+
+  If it were inlined as 2400, every use site would
+  need to change. One is a config change, the other
+  is a refactor.
+
+  A future Stage 05 (which does not exist) would
+  move this to a config table or environment
+  variable. For now, a module-level constant is
+  the right level of ceremony.
+
+Why regular and overtime are separate fields:
+
+  The client needs to display:
+    - Total hours (for the row label)
+    - Regular hours (for the payroll baseline)
+    - Overtime hours (for the highlighted cell)
+
+  If the API returned only total and is_overtime,
+  the client would have to compute regular and
+  overtime from the threshold - duplicating the
+  constant. That is the wrong place for the rule.
+
+  Return all three. The server owns the rule; the
+  client renders the numbers.
+
+Why overtime is weekly, not daily:
+
+  A common belief: "over 8 hours in a day is
+  overtime." That is true in California and
+  several other jurisdictions. But it is not
+  universal. Federal US law, for example, is
+  weekly over 40.
+
+  Stage 04 implements weekly because it is the
+  most common and the simplest to reason about:
+  one sum per employee per week, one threshold,
+  done.
+
+  A daily-overtime variant would be:
+    regular = SUM(MIN(minutes_worked, 480)) per day
+    overtime = SUM(MAX(0, minutes_worked - 480)) per day
+  Same structure, different per-row treatment.
+  The lesson names the choice; the reader can
+  adapt.
+
+Why the boundary is 40h exactly:
+
+  An employee who works exactly 2400 minutes
+  has 0 overtime. An employee who works 2401
+  has 1 minute of overtime.
+
+  Some systems round to the nearest hour, or
+  round down, or use a grace period. Stage 04
+  uses exact minutes. The threshold is inclusive
+  (>= 40h is regular, > 40h is overtime). That
+  is the common interpretation; document it if
+  your jurisdiction differs.</pre>
+</div>
+</div>
+</section>
+
+<section id="corrections">
+<h2 class="section-title">Manual corrections - new events, never edits</h2>
+<p class="section-sub">The original stays. The correction is added.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+An employee forgot to clock out. The shift is stuck at "working" since yesterday. The manager knows they left at 5:00 PM. What happens?
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Not this</h4>
+<p><code>UPDATE attendance_events SET occurred_at = ...</code> - the edit destroys the fact that the employee forgot. The audit trail lies.</p>
+</div>
+<div class="concept-card">
+<h4>This</h4>
+<p><code>INSERT</code> a new <code>manual_out</code> event with the real time and a note. The original <code>in</code> stays. The derivation sees both events and produces the correct shift.</p>
+</div>
+<div class="concept-card">
+<h4>The note</h4>
+<p>"Employee forgot to clock out. Left at 5:00 PM per manager." The note is the human explanation the audit log needs.</p>
+</div>
+<div class="concept-card">
+<h4>The result</h4>
+<p>Shift shows clock_out = 5:00 PM, status = closed. Audit log shows two events: the original <code>in</code> at 9:02, the <code>manual_out</code> at 5:00 with the note.</p>
+</div>
+</div>
+
+<div class="code-block mt-4" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">correction.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 315&ndash;345</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">@app.route("/api/correction", methods=["POST"])
+def add_correction():
+    data = request.get_json(silent=True) or {}
+    employee_id = int(data.get("employeeId") or 0)
+    event_type = data.get("type")  # 'manual_in' | 'manual_out'
+    occurred_at = data.get("occurredAt")
+    note = (data.get("note") or "").strip()
+
+    if event_type not in ("manual_in", "manual_out"):
+        return jsonify({"error": "type must be manual_in or manual_out."}), 400
+    if not employee_id or not occurred_at:
+        return jsonify({"error": "employeeId and occurredAt required."}), 400
+    if not note:
+        return jsonify({"error": "A note is required for corrections."}), 400
+
+    with get_db() as conn:
+        # Guard: don't allow corrections on approved weeks
+        week_start = _week_start_for(occurred_at[:10])
+        approved = conn.execute(
+            "SELECT 1 FROM shifts WHERE employee_id = ? "
+            "AND date BETWEEN ? AND ? AND status = 'approved' LIMIT 1",
+            (employee_id, week_start, _add_days(week_start, 6)),
+        ).fetchone()
+        if approved:
+            return jsonify({
+                "error": "That week is approved. Reopen it before correcting."
+            }), 409
+
+        ts = now_iso()
+        conn.execute(
+            "INSERT INTO attendance_events "
+            "(employee_id, type, occurred_at, note, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (employee_id, event_type, occurred_at, note, ts),
+        )
+        _refresh_shift(conn, employee_id)
+        conn.commit()
+
+        return jsonify(_state_payload(conn)), 201</pre>
+<pre id="code-sol3">@app.route("/api/correction", methods=["POST"])
+def add_correction():
+    data = request.get_json(silent=True) or {}
+    employee_id = int(data.get("employeeId") or 0)
+    event_type = data.get("type")  # 'manual_in' | 'manual_out'
+    occurred_at = data.get("occurredAt")
+    note = (data.get("note") or "").strip()
+
+    if event_type not in ("manual_in", "manual_out"):
+        return jsonify({"error": "type must be manual_in or manual_out."}), 400
+    if not employee_id or not occurred_at:
+        return jsonify({"error": "employeeId and occurredAt required."}), 400
+    if not note:
+        return jsonify({"error": "A note is required for corrections."}), 400
+
+    with get_db() as conn:
+        # Guard: don't allow corrections on approved weeks
+        week_start = _week_start_for(occurred_at[:10])
+        approved = conn.execute(
+            "SELECT 1 FROM shifts WHERE employee_id = ? "
+            "AND date BETWEEN ? AND ? AND status = 'approved' LIMIT 1",
+            (employee_id, week_start, _add_days(week_start, 6)),
+        ).fetchone()
+        if approved:
+            return jsonify({
+                "error": "That week is approved. Reopen it before correcting."
+            }), 409
+
+        ts = now_iso()
+        conn.execute(
+            "INSERT INTO attendance_events "
+            "(employee_id, type, occurred_at, note, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (employee_id, event_type, occurred_at, note, ts),
+        )
+        _refresh_shift(conn, employee_id)
+        conn.commit()
+
+        return jsonify(_state_payload(conn)), 201</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the note is required:
+
+  A correction changes payroll. If a manager
+  adds a manual_out for 5:00 PM, and the
+  employee actually left at 4:00 PM, the
+  employee gets paid for an extra hour.
+
+  The note is the audit trail's defense: it
+  says WHO made the change and WHY. Six months
+  later, an auditor asks "why was this event
+  created?" The note answers. Without it, the
+  manual_out is indistinguishable from a normal
+  clock-out except for its type.
+
+  Enforcing "note required" at the API means
+  the UI has to require it too - a toast or a
+  disabled button until the field has content.
+  Discipline at the boundary.
+
+Why the approved-week guard:
+
+  Once a week is approved, the payroll has been
+  processed. Corrections after that point would
+  silently change what was paid. That is a
+  compliance issue - the books would say one
+  thing, the payroll another.
+
+  The guard refuses corrections on approved
+  weeks. To make a correction, the manager
+  re-opens the week (a separate endpoint that
+  flips status back to 'closed'), makes the
+  correction, and approves again. The re-open
+  is itself logged (in Stage 04's full
+  implementation - see the closeout section).
+
+  This is the same pattern as POS's "you can't
+  refund a refund" - the financial record has
+  a state machine, and transitions are
+  explicit, not implicit.
+
+Why the correction is a new row, not an update:
+
+  The original event is a fact: "the employee
+  clocked in at 9:02 AM." That fact is true
+  regardless of what happens later. If you
+  update it, you erase the fact.
+
+  The correction is also a fact: "a manager
+  recorded the employee leaving at 5:00 PM
+  on 2026-11-15, with note 'forgot to clock
+  out.'" That fact was created at a specific
+  moment (created_at).
+
+  Both facts coexist. The derivation walks both
+  and produces the correct shift. If someone
+  later asks "what actually happened?", the
+  answer is: "The employee clocked in at 9:02,
+  forgot to clock out, and a manager corrected
+  it at 10:05 AM." The events tell the full
+  story. Edits would tell a truncated one.
+
+Why 'manual_in' and 'manual_out' are distinct
+from 'in' and 'out':
+
+  The derivation treats them identically - a
+  manual_in is a clock-in, a manual_out is a
+  clock-out. The distinction is for:
+
+    1. Audit - the timeline shows 'Clocked in
+       (manual)' so a reader knows it was
+       corrected.
+    2. Reporting - "how many corrections this
+       month?" is COUNT(WHERE type LIKE 'manual_%').
+       A health metric.
+    3. Approval - some workflows require
+       manager sign-off specifically on
+       corrections, not on normal events.
+
+  If they were the same type, none of these
+  distinctions would be possible. The type
+  carries the semantics.</pre>
+</div>
+</div>
+</section>
+
+<section id="roster">
+<h2 class="section-title">Roster - the plan next to the reality</h2>
+<p class="section-sub">What should have happened, and what did.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The <code>shifts</code> table tells you what happened. The <code>scheduled_shifts</code> table tells you what was planned. Comparing them answers "was the employee on time?" - a question the worked-only model cannot answer.
+</p>
+
+<div class="code-block" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">roster.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 365&ndash;395</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol4', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">@app.route("/api/roster/compare", methods=["GET"])
+def roster_compare():
+    week_start = request.args.get("week") or _current_week_start()
+    week_end = _add_days(week_start, 6)
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT s.employee_id, s.date,
+                      s.start_at  AS sched_start,
+                      s.end_at    AS sched_end,
+                      w.clock_in_at  AS actual_in,
+                      w.clock_out_at AS actual_out
+               FROM scheduled_shifts s
+               LEFT JOIN shifts w
+                 ON w.employee_id = s.employee_id
+                AND w.date = s.date
+               WHERE s.date BETWEEN ? AND ?
+               ORDER BY s.date, s.employee_id""",
+            (week_start, week_end),
+        ).fetchall()
+
+    result = []
+    for r in rows:
+        late_minutes = 0
+        if r["actual_in"] and r["sched_start"]:
+            late_minutes = max(0, diff_minutes(r["sched_start"], r["actual_in"]))
+        result.append({
+            "employee_id": r["employee_id"],
+            "date": r["date"],
+            "scheduled": {"start": r["sched_start"], "end": r["sched_end"]},
+            "actual":    {"in": r["actual_in"], "out": r["actual_out"]},
+            "late_minutes": late_minutes,
+            "absent": r["actual_in"] is None,
+        })
+    return jsonify(result)</pre>
+<pre id="code-sol4">@app.route("/api/roster/compare", methods=["GET"])
+def roster_compare():
+    week_start = request.args.get("week") or _current_week_start()
+    week_end = _add_days(week_start, 6)
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT s.employee_id, s.date,
+                      s.start_at  AS sched_start,
+                      s.end_at    AS sched_end,
+                      w.clock_in_at  AS actual_in,
+                      w.clock_out_at AS actual_out
+               FROM scheduled_shifts s
+               LEFT JOIN shifts w
+                 ON w.employee_id = s.employee_id
+                AND w.date = s.date
+               WHERE s.date BETWEEN ? AND ?
+               ORDER BY s.date, s.employee_id""",
+            (week_start, week_end),
+        ).fetchall()
+
+    result = []
+    for r in rows:
+        late_minutes = 0
+        if r["actual_in"] and r["sched_start"]:
+            late_minutes = max(0, diff_minutes(r["sched_start"], r["actual_in"]))
+        result.append({
+            "employee_id": r["employee_id"],
+            "date": r["date"],
+            "scheduled": {"start": r["sched_start"], "end": r["sched_end"]},
+            "actual":    {"in": r["actual_in"], "out": r["actual_out"]},
+            "late_minutes": late_minutes,
+            "absent": r["actual_in"] is None,
+        })
+    return jsonify(result)</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why LEFT JOIN, not INNER JOIN:
+
+  The roster lists scheduled shifts. If an
+  employee was scheduled but never clocked in,
+  the shifts table has no matching row. An
+  INNER JOIN would drop that scheduled shift
+  from the result - the absence would be
+  invisible.
+
+  LEFT JOIN keeps the scheduled row and fills
+  the actual columns with NULL. The absence
+  is visible: actual_in IS NULL. That is the
+  whole point of the comparison.
+
+  This is the same LEFT JOIN reasoning as
+  Inventory's supplier product counts: preserve
+  the entity even when the joined data is
+  missing.
+
+Why late_minutes is computed in Python:
+
+  The SQL could do it:
+    CASE WHEN w.clock_in_at IS NOT NULL
+         THEN MAX(0, (julianday(w.clock_in_at) -
+                      julianday(s.start_at)) * 1440)
+         ELSE NULL END AS late_minutes
+
+  But the syntax is dense, dialect-specific, and
+  hard to read. The Python version is 3 lines
+  and obvious.
+
+  For a small result set (employees * 7 days),
+  the difference is negligible. For millions of
+  rows, you would push it to SQL. Same trade-off
+  as the derivation - Python is clearer, SQL is
+  faster at scale.
+
+Why the roster table exists separately:
+
+  The shifts table records what happened. The
+  scheduled_shifts table records what was
+  planned. They have different lifecycles:
+
+    - A schedule is created ahead of time
+      (Stage 04's UI could let a manager drag
+      shifts onto a calendar).
+    - A shift is created when the employee
+      clocks in.
+
+  Merging them into one table would require
+  a status field to distinguish "scheduled but
+  not yet worked" from "worked" - and the two
+  have different fields. The schedule has
+  start/end; the shift has clock_in/clock_out
+  and break_minutes. Two tables, two shapes,
+  one JOIN.
+
+Why "absent" is a derived flag, not a column:
+
+  An employee is absent if they were scheduled
+  but didn't clock in. That is derivable from
+  the JOIN: sched row exists, actual row doesn't.
+
+  Storing "absent = true" would create a second
+  source of truth that could drift. If the
+  employee clocks in late, the flag would need
+  to be updated. If they clock in via a
+  correction, the flag would need to be
+  updated. The derivation never drifts - it
+  re-evaluates the JOIN every time.
+
+  Same rule as stockStatus in Inventory and
+  totals() in POS: store facts, derive display.</pre>
+</div>
+</div>
+</section>
+
+<section id="approval">
+<h2 class="section-title">Approval - lock the week, log the transition</h2>
+<p class="section-sub">Approve a week. Reopen it. Both are events.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The approval workflow is a state machine on <code>shifts.status</code>: <code>open</code> &rarr; <code>closed</code> &rarr; <code>approved</code>, with a re-open transition back to <code>closed</code>. Each transition is an event, so the audit log shows who approved what, when.
+</p>
+
+<div class="code-block" id="sol5">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">approval.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 415&ndash;445</span>
+<button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol5', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol5', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">@app.route("/api/approve-week", methods=["POST"])
+def approve_week():
+    data = request.get_json(silent=True) or {}
+    week_start = data.get("weekStart")
+    if not week_start:
+        return jsonify({"error": "weekStart is required."}), 400
+    week_end = _add_days(week_start, 6)
+
+    with get_db() as conn:
+        open_count = conn.execute(
+            "SELECT COUNT(*) FROM shifts "
+            "WHERE date BETWEEN ? AND ? AND status = 'open'",
+            (week_start, week_end),
+        ).fetchone()[0]
+        if open_count > 0:
+            return jsonify({
+                "error": "Cannot approve - " + str(open_count) +
+                         " shifts are still open.",
+            }), 409
+
+        conn.execute(
+            "UPDATE shifts SET status = 'approved' "
+            "WHERE date BETWEEN ? AND ? AND status = 'closed'",
+            (week_start, week_end),
+        )
+        conn.commit()
+
+        return jsonify({"ok": True, "week_start": week_start}), 200</pre>
+<pre id="code-sol5">@app.route("/api/approve-week", methods=["POST"])
+def approve_week():
+    data = request.get_json(silent=True) or {}
+    week_start = data.get("weekStart")
+    if not week_start:
+        return jsonify({"error": "weekStart is required."}), 400
+    week_end = _add_days(week_start, 6)
+
+    with get_db() as conn:
+        open_count = conn.execute(
+            "SELECT COUNT(*) FROM shifts "
+            "WHERE date BETWEEN ? AND ? AND status = 'open'",
+            (week_start, week_end),
+        ).fetchone()[0]
+        if open_count > 0:
+            return jsonify({
+                "error": "Cannot approve - " + str(open_count) +
+                         " shifts are still open.",
+            }), 409
+
+        conn.execute(
+            "UPDATE shifts SET status = 'approved' "
+            "WHERE date BETWEEN ? AND ? AND status = 'closed'",
+            (week_start, week_end),
+        )
+        conn.commit()
+
+        return jsonify({"ok": True, "week_start": week_start}), 200</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why "open" blocks approval:
+
+  An open shift means someone clocked in and
+  hasn't clocked out. The hours are unknown -
+  they could be 4 hours, they could be 14.
+
+  Approving a week with open shifts would lock
+  in an incomplete record. The payroll would
+  pay for partial hours, then the shift would
+  close later and the discrepancy would need
+  another correction cycle.
+
+  The guard prevents this. A manager must first
+  close every open shift - either the employee
+  clocks out normally, or the manager adds a
+  manual_out correction. Then approve.
+
+Why "closed" becomes "approved" but "open" doesn't:
+
+  The UPDATE has WHERE status = 'closed'. So:
+
+    - Closed shifts: flip to approved.
+    - Open shifts: untouched (and approval
+      is blocked anyway).
+    - Already-approved shifts: untouched
+      (idempotent - approving twice is safe).
+
+  This is idempotency by constraint, not by
+  check. The same pattern as ON DELETE SET NULL
+  in Inventory - the UPDATE's WHERE clause
+  encodes the state transition rule, so the
+  database enforces it.
+
+Why no re-open endpoint in this snippet:
+
+  Re-opening a week is the inverse:
+    UPDATE shifts SET status = 'closed'
+    WHERE date BETWEEN ? AND ? AND status = 'approved'
+
+  It has the same structure: validate, update
+  with a WHERE that encodes the transition,
+  commit. We omit it here for space - the
+  lesson is the pattern, not every instance
+  of it.
+
+  In a complete implementation, the re-open
+  endpoint would also log an event ("week
+  reopened by manager X at time Y, reason Z").
+  The event is appended to attendance_events
+  with a new type - 'week_reopened' - and the
+  timeline shows it. Audit trail complete.
+
+Why approval is a bulk UPDATE, not per-shift:
+
+  A week has up to 7 shifts per employee, 42
+  for six employees. Approving one at a time
+  is 42 UPDATEs. Approving the week is 1
+  UPDATE with a date range.
+
+  Both produce the same result. The bulk is
+  one round-trip and one transaction. The
+  per-shift version would need its own
+  transaction boundary (or none, if you
+  accept partial approval on failure - which
+  you shouldn't).
+
+  Bulk UPDATE, one WHERE, one commit. The
+  database does the iteration.</pre>
+</div>
+</div>
+</section>
+
+<section id="report">
+<h2 class="section-title">Report - one aggregate, three numbers</h2>
+<p class="section-sub">Who was late, absent, or over hours.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The report is the summary a manager reads before approving: per employee, for the date range, how many shifts were late, how many were absent, and how many hours of overtime accumulated.
+</p>
+
+<div class="code-block" id="sol6">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">report.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 465&ndash;495</span>
+<button class="copy-btn" onclick="copyCode('code-sol6', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol6', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol6', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol6">@app.route("/api/report", methods=["GET"])
+def get_report():
+    week_start = request.args.get("week") or _current_week_start()
+    week_end = _add_days(week_start, 6)
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT e.id   AS employee_id,
+                      e.name AS employee_name,
+                      COALESCE(SUM(w.minutes_worked), 0) AS total_minutes,
+                      SUM(CASE WHEN s.id IS NOT NULL
+                                AND w.clock_in_at IS NULL
+                               THEN 1 ELSE 0 END)      AS absent_count,
+                      SUM(CASE WHEN w.clock_in_at IS NOT NULL
+                                AND s.start_at IS NOT NULL
+                                AND w.clock_in_at &gt; s.start_at
+                               THEN 1 ELSE 0 END)      AS late_count
+               FROM employees e
+               LEFT JOIN shifts w
+                 ON w.employee_id = e.id
+                AND w.date BETWEEN ? AND ?
+               LEFT JOIN scheduled_shifts s
+                 ON s.employee_id = e.id
+                AND s.date = w.date
+               WHERE e.archived_at IS NULL
+               GROUP BY e.id, e.name
+               ORDER BY e.name""",
+            (week_start, week_end),
+        ).fetchall()
+
+    result = []
+    for r in rows:
+        total = r["total_minutes"] or 0
+        overtime = max(0, total - OVERTIME_THRESHOLD_MINUTES)
+        result.append({
+            "employee_id":   r["employee_id"],
+            "employee_name": r["employee_name"],
+            "total_minutes": total,
+            "overtime_minutes": overtime,
+            "absent_count":  r["absent_count"],
+            "late_count":    r["late_count"],
+        })
+    return jsonify(result)</pre>
+<pre id="code-sol6">@app.route("/api/report", methods=["GET"])
+def get_report():
+    week_start = request.args.get("week") or _current_week_start()
+    week_end = _add_days(week_start, 6)
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT e.id   AS employee_id,
+                      e.name AS employee_name,
+                      COALESCE(SUM(w.minutes_worked), 0) AS total_minutes,
+                      SUM(CASE WHEN s.id IS NOT NULL
+                                AND w.clock_in_at IS NULL
+                               THEN 1 ELSE 0 END)      AS absent_count,
+                      SUM(CASE WHEN w.clock_in_at IS NOT NULL
+                                AND s.start_at IS NOT NULL
+                                AND w.clock_in_at > s.start_at
+                               THEN 1 ELSE 0 END)      AS late_count
+               FROM employees e
+               LEFT JOIN shifts w
+                 ON w.employee_id = e.id
+                AND w.date BETWEEN ? AND ?
+               LEFT JOIN scheduled_shifts s
+                 ON s.employee_id = e.id
+                AND s.date = w.date
+               WHERE e.archived_at IS NULL
+               GROUP BY e.id, e.name
+               ORDER BY e.name""",
+            (week_start, week_end),
+        ).fetchall()
+
+    result = []
+    for r in rows:
+        total = r["total_minutes"] or 0
+        overtime = max(0, total - OVERTIME_THRESHOLD_MINUTES)
+        result.append({
+            "employee_id":   r["employee_id"],
+            "employee_name": r["employee_name"],
+            "total_minutes": total,
+            "overtime_minutes": overtime,
+            "absent_count":  r["absent_count"],
+            "late_count":    r["late_count"],
+        })
+    return jsonify(result)</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why employees is the FROM table, not shifts:
+
+  The report wants one row per active employee,
+  even if they worked zero shifts this week.
+
+  If FROM shifts were the base, an employee
+  who was absent all week would have no rows
+  in shifts, and would not appear in the
+  report. The report would say "everyone
+  worked this week" even though one employee
+  didn't show up.
+
+  FROM employees LEFT JOIN shifts keeps every
+  employee, filling shift columns with NULL.
+  The report shows the absence correctly.
+
+  This is the same LEFT JOIN discipline as
+  everywhere else - preserve the entity.
+
+Why two LEFT JOINs, one to shifts and one to
+scheduled_shifts:
+
+  The report needs:
+    - Total worked hours (from shifts)
+    - Late count (needs scheduled start AND
+      actual start - a JOIN between both)
+    - Absent count (scheduled but not worked)
+
+  The shifts join gives the actual data.
+  The scheduled_shifts join gives the plan.
+  Together they answer "late?" and "absent?".
+
+  The join key for scheduled_shifts is
+  (employee_id, date) - the same date as the
+  shift. If there's no shift on a scheduled
+  date, the shift columns are NULL, which is
+  what "absent" means. If there's a shift but
+  no scheduled shift (unscheduled work), the
+  late_count CASE is skipped - you can't be
+  late to a shift you weren't scheduled for.
+
+Why SUM(CASE WHEN ... THEN 1 ELSE 0 END):
+
+  This is the portable conditional count.
+  COUNT(*) FILTER (WHERE ...) is cleaner but
+  SQLite only added FILTER in 3.30 (2019).
+  The CASE form works everywhere.
+
+  Each CASE produces 1 or 0 for each joined
+  row. SUM collapses them into a count. If
+  an employee has 5 shifts and 2 are late,
+  the SUM is 2.
+
+Why the comparison is &gt; s.start_at in SQL:
+
+  Comparing timestamps in SQL is a string
+  comparison on ISO-8601 strings. ISO-8601 is
+  lexicographically sortable: '2026-11-15T09:00'
+  < '2026-11-15T09:05'. So '&gt;' does what you
+  expect.
+
+  This works because all timestamps are UTC
+  and formatted consistently. If we stored
+  timestamps in different formats (some with
+  Z suffix, some without, some local), the
+  comparison would break. Consistency in
+  storage is a prerequisite for SQL comparison.
+
+Why overtime is computed in Python, not SQL:
+
+  It could be:
+    MAX(0, COALESCE(SUM(w.minutes_worked), 0) - 2400)
+  as an SQL expression.
+
+  But 2400 is the overtime threshold, which
+  is a config constant in Python. Duplicating
+  it in SQL would create two sources of truth.
+
+  The SQL returns total_minutes; Python
+  computes overtime from the constant. One
+  source, one rule, one place to change.
+
+  Same principle as any business rule:
+  compute in the layer that owns the rule.
+  The database owns the data; the application
+  owns the policies.</pre>
+</div>
+</div>
+</section>
+
+<section id="run">
+<h2 class="section-title">Run it</h2>
+<p class="section-sub">Same three commands. Adds the roster table.</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+<div class="text-sm text-slate-300 mb-3"><strong class="text-white">Folder structure:</strong></div>
+<pre class="text-xs text-slate-400 leading-relaxed" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; line-height: 1.6;">apps/hr/downloads/backend/
+├── app.py                  (updated: timesheet, overtime, corrections, roster, approval, report)
+├── database.py             (unchanged)
+├── schema.sql              (updated: adds scheduled_shifts)
+├── seed.py                 (updated: seeds roster)
+├── requirements.txt        (unchanged)
+├── README.md               (updated)
+└── static/
+    └── hr-stage-04.html    (updated: timesheet, roster, approval views)</pre>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+<div class="text-sm text-slate-300 mb-3"><strong class="text-white">Commands &mdash; note the reseed:</strong></div>
+<pre class="text-xs text-slate-400 leading-relaxed" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; line-height: 1.6;">cd apps/hr/downloads/backend
+python seed.py        # WIPES hr.db and reseeds with scheduled_shifts
+python app.py         # http://localhost:5000</pre>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>You must reseed.</strong> The Stage 03 database has three tables; Stage 04 expects four. <code>seed.py</code> drops and recreates everything. Any data you added in Stage 03 is lost - that is fine, it was sample data. In a real migration, you would write an <code>ALTER TABLE</code> script; here, reseeding is the honest reset.
+</p>
+
+<div class="concept-grid mt-6">
+<div class="concept-card">
+<h4>Test the timesheet</h4>
+<p>Load the timesheet view. 6 employees, 7 days, hours per cell. The seeded data shows partial weeks. The overtime column flags any employee over 40h.</p>
+</div>
+<div class="concept-card">
+<h4>Test a correction</h4>
+<p>Record a manual_out for Sofia's shift. The shift closes. The timeline shows the correction with its note. The audit log has the original <code>in</code> and the <code>manual_out</code> - both preserved.</p>
+</div>
+<div class="concept-card">
+<h4>Test the roster comparison</h4>
+<p>The seeded roster has scheduled shifts for the week. Compare view shows: on-time employees, late employees (with minutes), absent employees (scheduled but never clocked in).</p>
+</div>
+<div class="concept-card">
+<h4>Test approval</h4>
+<p>Approve the current week. All closed shifts become approved. Then try to add a correction - 409: "week is approved." Reopen, correct, approve again.</p>
+</div>
+<div class="concept-card">
+<h4>Test the report</h4>
+<p>The report view shows per-employee: total hours, overtime hours, late count, absent count. Matches the timesheet and roster views because all three derive from the same data.</p>
+</div>
+<div class="concept-card">
+<h4>Break it</h4>
+<p>Stop Flask. The timesheet fails to load with a toast. Restart. Reload. Everything works. The client is stateless - the server is the truth.</p>
+</div>
+</div>
+
+<div id="full" class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-6">
+<div class="text-sm text-slate-300 mb-3">
+<strong class="text-white">Download the full backend:</strong>
+</div>
+<p class="text-xs text-slate-500 mb-4 leading-relaxed">
+Seven files. Drop them into <code>apps/hr/downloads/backend/</code>, keep the <code>static/</code> subfolder intact, and the three-command run sequence works.
+</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+<a href="/apps/hr/downloads/backend/app.py" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">app.py</div>
+<div class="text-xs text-slate-500">All endpoints: state, clock, corrections, timesheet, roster, approval, report</div>
+</a>
+<a href="/apps/hr/downloads/backend/schema.sql" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">schema.sql</div>
+<div class="text-xs text-slate-500">4 tables: employees, events, shifts, scheduled_shifts</div>
+</a>
+<a href="/apps/hr/downloads/backend/seed.py" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">seed.py</div>
+<div class="text-xs text-slate-500">6 employees, events, shifts, scheduled shifts</div>
+</a>
+<a href="/apps/hr/downloads/backend/database.py" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">database.py</div>
+<div class="text-xs text-slate-500">Connection + init helpers</div>
+</a>
+<a href="/apps/hr/downloads/backend/requirements.txt" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">requirements.txt</div>
+<div class="text-xs text-slate-500">Flask + flask-cors</div>
+</a>
+<a href="/apps/hr/downloads/backend/README.md" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">README.md</div>
+<div class="text-xs text-slate-500">Endpoints, timesheet query notes, approval workflow</div>
+</a>
+<a href="/apps/hr/downloads/backend/static/hr-stage-04.html" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors sm:col-span-2">
+<div class="text-sm font-semibold text-cyan-400">static/hr-stage-04.html</div>
+<div class="text-xs text-slate-500">Full frontend with timesheet, roster, approval, report views</div>
+</a>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">Common mistakes</h2>
+<p class="section-sub">What to check if Stage 04 doesn't work.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Not reseeding after the schema change</div>
+<p>The Stage 03 DB has three tables; Stage 04 needs four. Fix: <code>python seed.py</code> (destructive - recreates the DB).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Editing events instead of adding corrections</div>
+<p>An UPDATE on <code>attendance_events</code> destroys the audit trail. Fix: INSERT a <code>manual_*</code> event with a note.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Approving a week with open shifts</div>
+<p>Locks incomplete hours into payroll. Fix: check for <code>status='open'</code> first, return 409.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Hardcoding the overtime threshold in SQL</div>
+<p>Two sources of truth for one rule. Fix: keep the constant in Python, compute overtime there.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Using INNER JOIN for the roster comparison</div>
+<p>Absent employees vanish from the comparison. Fix: <code>LEFT JOIN</code> from scheduled_shifts.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Computing the timesheet per cell</div>
+<p>35 round-trips for a 5x7 grid. Fix: one GROUP BY query returning 35 rows.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Allowing corrections on approved weeks</div>
+<p>Silently changes what payroll already paid. Fix: check status, return 409, require re-open first.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Storing "absent" or "late" as columns</div>
+<p>Two sources of truth that drift. Fix: derive from the JOIN on every query.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why are manual corrections new events instead of edits?</summary>
+<p class="mt-2 text-sm text-slate-300">Because attendance is a payroll record. If a manager could edit an event, the audit trail would lose the original. A missed clock-out becomes: the employee clocked in at 9:02, then a manual_out event was added with the note "forgot to clock out." The original event stays, the correction is a new row, and the derivation handles both.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">How is overtime calculated?</summary>
+<p class="mt-2 text-sm text-slate-300">Stage 04 uses the simplest common rule: weekly overtime at 40 hours. Sum the minutes_worked across all of an employee's shifts in a week, subtract 40 hours, the remainder is overtime. Some jurisdictions use daily rules. The rule belongs in config, not code. Stage 04 implements weekly only and documents the choice.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What is the roster for?</summary>
+<p class="mt-2 text-sm text-slate-300">The roster is the plan: which employee is scheduled to work which shift. The shifts table is the reality: which employee actually clocked in and out. Comparing them shows who was late, who was absent, who worked unscheduled hours. Without a roster, "were they on time?" is unanswerable.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does the approval workflow lock?</summary>
+<p class="mt-2 text-sm text-slate-300">When a manager approves a week, every closed shift in that week gets status='approved'. Approved shifts become read-only: manual corrections return 409. This preserves the payroll record. To make a correction after approval, the manager re-opens the week, makes the correction, and approves again.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does the report use SQL aggregates instead of the client's derivation?</summary>
+<p class="mt-2 text-sm text-slate-300">Because the report spans a week of shifts across all employees. The SQL aggregate SUM(minutes_worked) GROUP BY employee_id is a single query with indexed access. For the timesheet view, the server computes and returns the grid; the client just renders. Same pattern as POS's Z-report: the aggregate happens where the data lives.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Is this the final stage?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. The HR &amp; Attendance build is four stages: Interface, Interactions, Backend, Advanced. Stage 04 completes it. Authentication, deployment, payroll integration, and timezone/DST handling are separate concept courses - they are not Stage 05 of this build.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What should I build next?</summary>
+<p class="mt-2 text-sm text-slate-300">Not another stage of this app. Either take a concept course (deployment, auth, HR concepts), or build something new that reuses this pattern. The four-stage arc - shell, client logic, backend, advanced data layer - applies to any app that tracks periodic state about people: fitness tracker, field service, project tracker, volunteer management.</p>
+</details>
+</div>
+</section>
+
+<!-- CLOSEOUT -->
+<section id="done" class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-2">You're done &mdash; the HR &amp; Attendance build is complete</h2>
+<p class="text-sm text-slate-300 leading-relaxed mb-4">
+Four stages. Four tables. An event log with a derived cache. Idempotent clock-in at the API. Corrections that never edit history. Timesheets with overtime. A roster comparing plan to reality. Manager approval that locks a week. A report computed in SQL. The app a small operations team could run on.
+</p>
+
+<div class="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-4">
+<div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">The full build</div>
+<div class="space-y-2">
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 01 &mdash; Interface</strong> &middot; two-view shell: manager dashboard, employee clock-in</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 02 &mdash; Interactions</strong> &middot; live clock, idempotent clock-in, derived KPIs, localStorage</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 03 &mdash; Backend</strong> &middot; Flask + SQLite, three tables, server derivation, idempotent API</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 04 &mdash; Advanced</strong> &middot; timesheets, overtime, corrections, roster, approval, reports</span>
+</div>
+</div>
+</div>
+
+<a href="/apps/hr/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all mb-3">
+<div class="font-semibold text-cyan-400 text-sm">Back to the HR hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages in one place, with the data model and the download links for the full backend.</div>
+</a>
+
+<div class="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-2">
+<div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Where to go from here &mdash; separate tracks, not Stage 05</div>
+<a href="/courses/flask/deployment.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors mb-2">
+<div class="font-semibold text-white text-sm">Deploying Flask + SQLite</div>
+<div class="text-xs text-slate-400 mt-1">Gunicorn, reverse proxy, backups, file permissions. From laptop to server.</div>
+</a>
+<a href="/courses/flask/auth.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors mb-2">
+<div class="font-semibold text-white text-sm">Authentication as a concept</div>
+<div class="text-xs text-slate-400 mt-1">Password hashing, sessions, roles. The <code>role</code> field becomes a real auth boundary.</div>
+</a>
+<a href="/courses/hr/concepts.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors">
+<div class="font-semibold text-white text-sm">HR concepts &mdash; time &amp; payroll</div>
+<div class="text-xs text-slate-400 mt-1">Timezone/DST handling, payroll exports, overtime jurisdictions, labour law constraints. HR-specific, taught standalone.</div>
+</a>
+</div>
+
+<p class="text-xs text-slate-500 leading-relaxed mt-4">
+<strong class="text-slate-400">Build something new.</strong> The four-stage arc &mdash; shell, client logic, backend, advanced data layer &mdash; is a template for any app that tracks periodic state about people: fitness tracker, field service, project tracker, volunteer management. Same event-log discipline, same derivation pattern, same approval workflow. The pattern is the reusable thing.
+</p>
+</section>
+
+<a href="/apps/hr/index.html" class="back-link">&larr; Back to HR &amp; Attendance hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> HR Stage 04 &middot; Advanced &middot; Final <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
