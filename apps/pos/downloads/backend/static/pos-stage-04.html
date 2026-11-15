@@ -1,0 +1,1606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POS — Stage 04: Advanced</title>
+<style>
+  :root {
+    --bg: #0f172a; --bg-elevated: #1e293b; --bg-hover: #334155;
+    --border: #334155; --text: #e2e8f0; --text-muted: #94a3b8;
+    --text-dim: #64748b; --accent: #61dafb; --accent-dark: #0891b2;
+    --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+    --radius: 8px; --topbar-height: 56px; --cart-width: 400px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5; overflow: hidden;
+  }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; }
+  button { cursor: pointer; }
+
+  .pos-shell {
+    display: grid;
+    grid-template-rows: var(--topbar-height) 1fr;
+    grid-template-columns: 1fr var(--cart-width);
+    grid-template-areas: "topbar topbar" "catalog cart";
+    height: 100vh;
+  }
+
+  /* ─── Top bar ─── */
+  .pos-topbar {
+    grid-area: topbar; background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border); padding: 0 1rem;
+    display: flex; align-items: center; gap: 0.75rem;
+  }
+  .pos-brand {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-weight: 800; font-size: 0.9375rem; color: var(--text);
+    text-decoration: none; flex-shrink: 0;
+  }
+  .pos-brand-mark {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bg); font-weight: 900; font-size: 0.75rem;
+  }
+  .pos-register {
+    font-size: 0.75rem; color: var(--text-dim);
+    padding-left: 0.75rem; border-left: 1px solid var(--border); flex-shrink: 0;
+  }
+  .pos-barcode {
+    flex: 1; display: flex; align-items: center; gap: 0.5rem;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0 0.75rem; height: 36px;
+    max-width: 400px; transition: border-color 0.15s;
+  }
+  .pos-barcode.is-focused { border-color: var(--accent); }
+  .pos-barcode-icon { color: var(--text-dim); font-size: 0.875rem; }
+  .pos-barcode input {
+    background: transparent; border: none; outline: none;
+    color: var(--text); font-size: 0.875rem; width: 100%;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  .pos-barcode input::placeholder {
+    color: var(--text-dim);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .pos-tabs { display: flex; gap: 2px; margin-left: 0.5rem; }
+  .pos-tab {
+    padding: 0.375rem 0.75rem; border-radius: 6px;
+    background: transparent; border: 1px solid transparent;
+    color: var(--text-muted); font-size: 0.8125rem; font-weight: 600;
+  }
+  .pos-tab:hover { background: var(--bg-hover); color: var(--text); }
+  .pos-tab.is-active { background: var(--bg); color: var(--accent); border-color: var(--border); }
+  .pos-topbar-right { display: flex; align-items: center; gap: 0.75rem; margin-left: auto; }
+  .pos-cashier { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--text-muted); }
+  .pos-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 0.75rem;
+  }
+
+  /* ─── Views ─── */
+  .pos-view { display: none; }
+  .pos-view.is-active { display: contents; }
+
+  /* ─── Catalog ─── */
+  .pos-catalog {
+    grid-area: catalog; overflow-y: auto; padding: 1rem;
+    display: flex; flex-direction: column; gap: 1rem;
+  }
+  .pos-catalog-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+  }
+  .pos-categories { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+  .pos-category {
+    padding: 0.375rem 0.75rem; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--bg-elevated);
+    color: var(--text-muted); font-size: 0.8125rem; font-weight: 600;
+  }
+  .pos-category:hover { background: var(--bg-hover); color: var(--text); }
+  .pos-category.is-active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .pos-product-count { font-size: 0.75rem; color: var(--text-dim); font-weight: 600; }
+
+  .pos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.75rem;
+  }
+  .pos-product {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem; text-align: left;
+    display: flex; flex-direction: column; gap: 0.5rem;
+    min-height: 130px; position: relative;
+    transition: border-color 0.15s, transform 0.05s, background 0.15s;
+  }
+  .pos-product:hover { border-color: var(--accent); }
+  .pos-product:active { transform: scale(0.98); }
+  .pos-product.is-flash { background: rgba(97, 218, 251, 0.15); border-color: var(--accent); }
+  .pos-product-sku {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.6875rem; color: var(--text-dim); font-weight: 600;
+  }
+  .pos-product-name {
+    font-size: 0.875rem; font-weight: 700; color: var(--text);
+    line-height: 1.3; flex: 1;
+  }
+  .pos-product-footer {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
+  }
+  .pos-product-price {
+    font-size: 1.125rem; font-weight: 800; color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .pos-product-stock { font-size: 0.6875rem; font-weight: 600; color: var(--text-dim); }
+  .pos-product-stock.low { color: var(--warning); }
+  .pos-product-stock.out { color: var(--danger); }
+  .pos-product.is-out { opacity: 0.4; cursor: not-allowed; }
+  .pos-product.is-out:hover { border-color: var(--border); }
+  .pos-product.is-out:active { transform: none; }
+  .pos-product-out-tag {
+    position: absolute; top: 0.5rem; right: 0.5rem;
+    background: var(--danger); color: white; font-size: 0.625rem;
+    font-weight: 800; padding: 0.125rem 0.375rem; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .pos-product-in-cart {
+    position: absolute; top: 0.5rem; right: 0.5rem;
+    background: var(--accent); color: var(--bg); font-size: 0.6875rem;
+    font-weight: 800; min-width: 20px; height: 20px;
+    border-radius: 999px; display: flex; align-items: center;
+    justify-content: center; padding: 0 0.375rem;
+  }
+  .pos-loading, .pos-empty {
+    grid-column: 1 / -1; padding: 3rem 2rem;
+    text-align: center; color: var(--text-dim);
+  }
+
+  /* ─── Cart ─── */
+  .pos-cart {
+    grid-area: cart; background: var(--bg-elevated);
+    border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .pos-cart-header {
+    padding: 1rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.5rem; flex-shrink: 0;
+  }
+  .pos-cart-title {
+    font-size: 0.875rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-muted);
+  }
+  .pos-cart-count {
+    font-size: 0.75rem; font-weight: 700; background: var(--bg);
+    color: var(--text-muted); border: 1px solid var(--border);
+    padding: 0.125rem 0.5rem; border-radius: 999px;
+  }
+  .pos-cart-lines {
+    flex: 1; overflow-y: auto; padding: 0.5rem;
+    display: flex; flex-direction: column; gap: 0.375rem; min-height: 0;
+  }
+  .pos-line {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.625rem 0.75rem;
+    display: flex; flex-direction: column; gap: 0.375rem;
+  }
+  .pos-line.is-at-max { border-color: var(--warning); }
+  .pos-line-top {
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem;
+  }
+  .pos-line-name {
+    font-size: 0.8125rem; font-weight: 700; color: var(--text);
+    line-height: 1.3; flex: 1;
+  }
+  .pos-line-warning {
+    font-size: 0.6875rem; font-weight: 600; color: var(--warning); margin-top: 0.125rem;
+  }
+  .pos-line-remove {
+    background: transparent; border: none; color: var(--text-dim);
+    font-size: 1rem; line-height: 1; padding: 0;
+    width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0;
+  }
+  .pos-line-remove:hover { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+  .pos-line-bottom {
+    display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  }
+  .pos-qty {
+    display: flex; align-items: center;
+    border: 1px solid var(--border); border-radius: 4px; overflow: hidden;
+  }
+  .pos-qty-btn {
+    background: var(--bg-elevated); border: none; color: var(--text-muted);
+    width: 26px; height: 26px; font-size: 0.875rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pos-qty-btn:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
+  .pos-qty-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pos-qty-value {
+    background: var(--bg-elevated);
+    border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+    min-width: 32px; text-align: center; font-size: 0.8125rem;
+    font-weight: 700; font-variant-numeric: tabular-nums;
+    padding: 0 0.25rem; line-height: 26px;
+  }
+  .pos-line-price {
+    font-size: 0.875rem; font-weight: 800; color: var(--text);
+    font-variant-numeric: tabular-nums; text-align: right;
+  }
+  .pos-line-price small {
+    display: block; font-size: 0.6875rem; font-weight: 500;
+    color: var(--text-dim); font-variant-numeric: tabular-nums;
+  }
+  .pos-cart-empty {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 2rem 1rem; text-align: center;
+    color: var(--text-dim); gap: 0.5rem;
+  }
+  .pos-cart-empty-icon { font-size: 2.5rem; opacity: 0.4; }
+  .pos-cart-empty-title { font-size: 0.875rem; font-weight: 700; color: var(--text-muted); }
+  .pos-cart-empty-sub { font-size: 0.75rem; color: var(--text-dim); max-width: 220px; }
+
+  .pos-totals {
+    padding: 1rem; border-top: 1px solid var(--border);
+    background: var(--bg); display: flex; flex-direction: column;
+    gap: 0.375rem; flex-shrink: 0;
+  }
+  .pos-total-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 0.8125rem; color: var(--text-muted);
+  }
+  .pos-total-row span:last-child {
+    font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text);
+  }
+  .pos-total-row.is-tax input {
+    width: 60px; background: var(--bg-elevated);
+    border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); font-size: 0.75rem;
+    padding: 0.125rem 0.375rem; text-align: right;
+    font-variant-numeric: tabular-nums; outline: none;
+  }
+  .pos-total-row.is-tax input:focus { border-color: var(--accent); }
+  .pos-total-row.is-grand {
+    border-top: 1px solid var(--border); padding-top: 0.75rem;
+    margin-top: 0.375rem; font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 700;
+  }
+  .pos-total-row.is-grand span:last-child {
+    font-size: 1.75rem; font-weight: 900; color: var(--accent);
+    line-height: 1; letter-spacing: -0.02em;
+  }
+
+  .pos-actions {
+    padding: 1rem; border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 0.5rem; flex-shrink: 0;
+  }
+  .pos-btn {
+    padding: 0.875rem 1rem; border-radius: 6px; border: none;
+    font-size: 0.9375rem; font-weight: 800;
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 0.5rem; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .pos-btn-charge {
+    background: var(--accent); color: var(--bg);
+    padding: 1.125rem 1rem; font-size: 1.0625rem;
+  }
+  .pos-btn-charge:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+  .pos-btn-charge:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pos-btn-hold {
+    background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+  }
+  .pos-btn-hold:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
+  .pos-btn-hold:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pos-btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+
+  /* ─── History / Report views ─── */
+  .pos-history, .pos-report {
+    grid-area: catalog / catalog / cart / cart;
+    padding: 1.5rem; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 1rem;
+  }
+  .pos-panel {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  .pos-panel-header {
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+  }
+  .pos-panel-title { font-size: 1rem; font-weight: 800; }
+  .pos-filters { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .pos-filters input, .pos-filters select {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.375rem 0.625rem;
+    color: var(--text); font-size: 0.8125rem; outline: none;
+  }
+  .pos-filters input:focus, .pos-filters select:focus { border-color: var(--accent); }
+  .pos-filters label {
+    font-size: 0.75rem; color: var(--text-dim);
+    text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;
+  }
+
+  .pos-table { width: 100%; border-collapse: collapse; }
+  .pos-table th {
+    text-align: left; padding: 0.75rem 1.25rem;
+    font-size: 0.6875rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim); font-weight: 700;
+    border-bottom: 1px solid var(--border); background: var(--bg);
+  }
+  .pos-table th.num, .pos-table td.num { text-align: right; }
+  .pos-table td {
+    padding: 0.875rem 1.25rem; font-size: 0.875rem;
+    border-bottom: 1px solid var(--border); vertical-align: middle;
+  }
+  .pos-table tr:last-child td { border-bottom: none; }
+  .pos-table tbody tr { cursor: pointer; }
+  .pos-table tbody tr:hover td { background: var(--bg); }
+  .pos-status {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.25rem 0.625rem; border-radius: 999px;
+    font-size: 0.75rem; font-weight: 600;
+  }
+  .pos-status::before {
+    content: ""; width: 6px; height: 6px;
+    border-radius: 50%; background: currentColor;
+  }
+  .pos-status.paid { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+  .pos-status.refunded { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .pos-status.held { background: rgba(97, 218, 251, 0.15); color: var(--accent); }
+  .pos-negative { color: var(--danger); }
+
+  .pos-recon {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 1rem 1.25rem;
+  }
+  .pos-recon-icon {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.25rem; flex-shrink: 0;
+  }
+  .pos-recon-ok { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+  .pos-recon-bad { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+  .pos-recon-title { font-weight: 700; font-size: 0.9375rem; }
+  .pos-recon-detail { font-size: 0.8125rem; color: var(--text-muted); }
+
+  .pos-report-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem; padding: 1.25rem;
+  }
+  .pos-report-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem;
+  }
+  .pos-report-label {
+    font-size: 0.6875rem; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-dim);
+    font-weight: 700; margin-bottom: 0.5rem;
+  }
+  .pos-report-value {
+    font-size: 1.5rem; font-weight: 800; color: var(--text);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .pos-report-value.accent { color: var(--accent); }
+  .pos-report-value.neg { color: var(--danger); }
+
+  /* ─── Modals ─── */
+  .pos-modal-backdrop {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    padding: 1rem; z-index: 100;
+  }
+  .pos-modal-backdrop.is-open { display: flex; }
+  .pos-modal {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); width: 100%; max-width: 480px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .pos-modal-header {
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .pos-modal-title { font-size: 1rem; font-weight: 800; }
+  .pos-modal-close {
+    background: transparent; border: none; color: var(--text-muted);
+    font-size: 1.25rem; padding: 0.25rem 0.5rem; border-radius: 4px;
+  }
+  .pos-modal-close:hover { background: var(--bg-hover); color: var(--text); }
+
+  .pos-form { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+  .pos-field { display: flex; flex-direction: column; gap: 0.375rem; }
+  .pos-field label {
+    font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-muted);
+  }
+  .pos-field input, .pos-field select, .pos-field textarea {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.625rem 0.75rem;
+    color: var(--text); font-size: 0.9375rem; outline: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .pos-field input:focus, .pos-field select:focus, .pos-field textarea:focus {
+    border-color: var(--accent);
+  }
+  .pos-field textarea { resize: vertical; min-height: 60px; font-family: inherit; }
+
+  .pos-pay-summary {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.75rem 1rem;
+    display: flex; flex-direction: column; gap: 0.375rem;
+  }
+  .pos-pay-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 0.8125rem; color: var(--text-muted);
+  }
+  .pos-pay-row span:last-child {
+    font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums;
+  }
+  .pos-pay-row.is-grand span:last-child {
+    font-size: 1.25rem; font-weight: 900; color: var(--accent);
+  }
+  .pos-pay-row.is-change span:last-child { color: var(--success); font-size: 1rem; }
+  .pos-pay-row.is-short span:last-child { color: var(--danger); }
+
+  .pos-quick-cash {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.375rem;
+  }
+  .pos-quick-cash button {
+    padding: 0.625rem 0.25rem; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--bg);
+    color: var(--text-muted); font-size: 0.8125rem; font-weight: 700;
+  }
+  .pos-quick-cash button:hover {
+    background: var(--bg-hover); color: var(--text); border-color: var(--accent);
+  }
+  .pos-form-actions { display: flex; justify-content: flex-end; gap: 0.5rem; padding-top: 0.5rem; }
+  .pos-modal-btn {
+    padding: 0.625rem 1rem; border-radius: 6px; border: none;
+    font-size: 0.875rem; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 0.375rem;
+  }
+  .pos-modal-btn-primary { background: var(--accent); color: var(--bg); }
+  .pos-modal-btn-primary:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+  .pos-modal-btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+  .pos-modal-btn-secondary {
+    background: transparent; color: var(--text-muted); border: 1px solid var(--border);
+  }
+  .pos-modal-btn-secondary:hover { background: var(--bg-hover); color: var(--text); }
+  .pos-modal-btn-danger { background: var(--danger); color: white; }
+  .pos-modal-btn-danger:hover:not(:disabled) { opacity: 0.9; }
+
+  /* ─── Receipt ─── */
+  .pos-receipt {
+    padding: 1.5rem; background: white; color: #000;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.75rem; line-height: 1.4; margin: 1rem; border-radius: 4px;
+  }
+  .pos-receipt-center { text-align: center; }
+  .pos-receipt-title { font-size: 1rem; font-weight: 800; letter-spacing: 0.05em; }
+  .pos-receipt-meta { color: #555; font-size: 0.6875rem; margin-top: 0.25rem; }
+  .pos-receipt-hr { border: none; border-top: 1px dashed #999; margin: 0.75rem 0; }
+  .pos-receipt-line {
+    display: flex; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.25rem;
+  }
+  .pos-receipt-line span:last-child {
+    font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap;
+  }
+  .pos-receipt-line.is-grand {
+    font-size: 0.9375rem; font-weight: 800;
+    margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid #000;
+  }
+  .pos-receipt-footer {
+    text-align: center; font-size: 0.6875rem; color: #555; margin-top: 0.75rem;
+  }
+  .pos-receipt-actions { padding: 0 1.25rem 1.25rem; display: flex; gap: 0.5rem; }
+  .pos-receipt-actions .pos-modal-btn { flex: 1; justify-content: center; }
+
+  /* ─── Toast ─── */
+  .pos-toast {
+    position: fixed; bottom: 1.5rem; left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); padding: 0.75rem 1rem;
+    border-radius: 6px; font-size: 0.875rem; color: var(--text);
+    opacity: 0; transition: transform 0.2s, opacity 0.2s;
+    z-index: 300; pointer-events: none; max-width: 90vw;
+  }
+  .pos-toast.is-visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* ─── Print ─── */
+  @media print {
+    body * { visibility: hidden; }
+    .pos-modal-backdrop.is-open,
+    .pos-modal-backdrop.is-open * { visibility: visible; }
+    .pos-modal-backdrop.is-open {
+      position: absolute; inset: 0; background: white;
+      padding: 0; display: block;
+    }
+    .pos-modal {
+      box-shadow: none; border: none; max-width: 80mm;
+      margin: 0 auto; background: white;
+    }
+    .pos-modal-header,
+    .pos-receipt-actions { display: none; }
+    .pos-receipt {
+      margin: 0; padding: 4mm; border-radius: 0;
+      font-size: 10pt;
+    }
+    @page { margin: 0; size: 80mm auto; }
+  }
+
+  @media (max-width: 900px) {
+    .pos-shell {
+      grid-template-columns: 1fr;
+      grid-template-rows: var(--topbar-height) 1fr auto;
+      grid-template-areas: "topbar" "catalog" "cart";
+    }
+    .pos-cart { border-left: none; border-top: 1px solid var(--border); max-height: 50vh; }
+    .pos-history, .pos-report { grid-area: catalog / catalog / cart / cart; }
+    .pos-tabs { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="pos-shell">
+
+  <!-- ─── Top bar ─── -->
+  <header class="pos-topbar">
+    <a class="pos-brand" href="#">
+      <div class="pos-brand-mark">M</div>
+      <span>MAK POS</span>
+    </a>
+    <div class="pos-register">Register 01 · Open</div>
+    <label class="pos-barcode" id="barcode-wrap">
+      <span class="pos-barcode-icon">⌗</span>
+      <input id="barcode-input" type="text" placeholder="Scan barcode or type SKU…" autocomplete="off">
+    </label>
+    <div class="pos-tabs">
+      <button class="pos-tab is-active" data-view="pos">POS</button>
+      <button class="pos-tab" data-view="history">History</button>
+      <button class="pos-tab" data-view="report">Z-Report</button>
+    </div>
+    <div class="pos-topbar-right">
+      <div class="pos-cashier">
+        <div class="pos-avatar">AR</div>
+        <span>Alex Rivera</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── POS VIEW ─── -->
+  <div class="pos-view is-active" id="view-pos">
+
+    <main class="pos-catalog">
+      <div class="pos-catalog-header">
+        <div class="pos-categories" id="categories"></div>
+        <div class="pos-product-count" id="product-count">Loading…</div>
+      </div>
+      <div class="pos-grid" id="product-grid">
+        <div class="pos-loading">Loading products…</div>
+      </div>
+    </main>
+
+    <aside class="pos-cart">
+      <div class="pos-cart-header">
+        <div class="pos-cart-title">Cart</div>
+        <div class="pos-cart-count" id="cart-count">0 items</div>
+      </div>
+      <div class="pos-cart-lines" id="cart-lines"></div>
+      <div class="pos-cart-empty" id="cart-empty">
+        <div class="pos-cart-empty-icon">🛒</div>
+        <div class="pos-cart-empty-title">No items yet</div>
+        <div class="pos-cart-empty-sub">Tap a product or scan a barcode to start a sale.</div>
+      </div>
+      <div class="pos-totals">
+        <div class="pos-total-row">
+          <span>Subtotal</span><span id="total-subtotal">$0.00</span>
+        </div>
+        <div class="pos-total-row is-tax">
+          <span>Tax rate</span>
+          <span>
+            <input type="number" id="tax-rate" value="8.5" min="0" max="20" step="0.1">
+            <span style="color:var(--text-dim); font-weight:600;">%</span>
+          </span>
+        </div>
+        <div class="pos-total-row">
+          <span>Tax amount</span><span id="total-tax">$0.00</span>
+        </div>
+        <div class="pos-total-row is-grand">
+          <span>Total</span><span id="total-grand">$0.00</span>
+        </div>
+      </div>
+      <div class="pos-actions">
+        <button class="pos-btn pos-btn-charge" id="charge-btn" type="button" disabled>
+          Charge · $0.00
+        </button>
+        <div class="pos-btn-row">
+          <button class="pos-btn pos-btn-hold" id="hold-btn" type="button" disabled>Hold</button>
+          <button class="pos-btn pos-btn-hold" id="held-btn" type="button">Held</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ─── HISTORY VIEW ─── -->
+  <div class="pos-view" id="view-history">
+    <div class="pos-history">
+      <div class="pos-panel">
+        <div class="pos-panel-header">
+          <h2 class="pos-panel-title">Sales history</h2>
+          <div class="pos-filters">
+            <label>From</label>
+            <input type="date" id="hist-from">
+            <label>To</label>
+            <input type="date" id="hist-to">
+            <label>Method</label>
+            <select id="hist-method">
+              <option value="">All</option>
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="other">Other</option>
+            </select>
+            <button class="pos-modal-btn pos-modal-btn-primary" id="hist-search">Search</button>
+          </div>
+        </div>
+        <table class="pos-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Cashier</th>
+              <th>Method</th>
+              <th class="num">Total</th>
+              <th class="num">Status</th>
+            </tr>
+          </thead>
+          <tbody id="history-tbody">
+            <tr><td colspan="6" class="pos-loading">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── REPORT VIEW ─── -->
+  <div class="pos-view" id="view-report">
+    <div class="pos-report">
+      <div class="pos-panel">
+        <div class="pos-panel-header">
+          <h2 class="pos-panel-title">Z-Report</h2>
+          <div class="pos-filters">
+            <label>Date</label>
+            <input type="date" id="z-date">
+            <button class="pos-modal-btn pos-modal-btn-primary" id="z-load">Load</button>
+          </div>
+        </div>
+        <div id="z-content">
+          <div class="pos-loading">Choose a date and click Load.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ─── Payment modal ─── -->
+<div class="pos-modal-backdrop" id="payment-backdrop">
+  <div class="pos-modal">
+    <div class="pos-modal-header">
+      <h2 class="pos-modal-title">Payment</h2>
+      <button class="pos-modal-close" type="button" data-close="payment">×</button>
+    </div>
+    <form class="pos-form" id="payment-form">
+      <div class="pos-pay-summary">
+        <div class="pos-pay-row is-grand">
+          <span>Total due</span><span id="pay-total">$0.00</span>
+        </div>
+      </div>
+      <div class="pos-field">
+        <label for="payment-method">Payment method</label>
+        <select id="payment-method">
+          <option value="cash">Cash</option>
+          <option value="card">Card</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div id="cash-section">
+        <div class="pos-field">
+          <label for="cash-tendered">Cash tendered</label>
+          <input type="number" id="cash-tendered" min="0" step="0.01" placeholder="0.00">
+        </div>
+        <div class="pos-quick-cash" style="margin-top:0.5rem;">
+          <button type="button" data-cash="exact">Exact</button>
+          <button type="button" data-cash="5">+$5</button>
+          <button type="button" data-cash="10">+$10</button>
+          <button type="button" data-cash="20">+$20</button>
+        </div>
+        <div class="pos-pay-summary" style="margin-top:0.75rem;">
+          <div class="pos-pay-row" id="change-row">
+            <span>Change due</span><span id="pay-change">$0.00</span>
+          </div>
+        </div>
+      </div>
+      <div class="pos-form-actions">
+        <button type="button" class="pos-modal-btn pos-modal-btn-secondary" data-close="payment">Cancel</button>
+        <button type="submit" class="pos-modal-btn pos-modal-btn-primary" id="payment-submit">Complete sale</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ─── Receipt modal ─── -->
+<div class="pos-modal-backdrop" id="receipt-backdrop">
+  <div class="pos-modal">
+    <div class="pos-modal-header">
+      <h2 class="pos-modal-title">Receipt</h2>
+      <button class="pos-modal-close" type="button" data-close="receipt">×</button>
+    </div>
+    <div class="pos-receipt" id="receipt-content"></div>
+    <div class="pos-receipt-actions" id="receipt-actions">
+      <button class="pos-modal-btn pos-modal-btn-secondary" type="button" data-close="receipt">Close</button>
+      <button class="pos-modal-btn pos-modal-btn-primary" type="button" id="print-btn">Print</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Refund modal ─── -->
+<div class="pos-modal-backdrop" id="refund-backdrop">
+  <div class="pos-modal">
+    <div class="pos-modal-header">
+      <h2 class="pos-modal-title" id="refund-title">Refund sale</h2>
+      <button class="pos-modal-close" type="button" data-close="refund">×</button>
+    </div>
+    <div class="pos-form">
+      <div class="pos-pay-summary">
+        <div class="pos-pay-row"><span>Sale #</span><span id="refund-sale-id">—</span></div>
+        <div class="pos-pay-row"><span>Original total</span><span id="refund-total">$0.00</span></div>
+        <div class="pos-pay-row is-grand"><span>Refund amount</span><span id="refund-amount">$0.00</span></div>
+      </div>
+      <div class="pos-field">
+        <label for="refund-note">Note</label>
+        <textarea id="refund-note" placeholder="Customer returned damaged item…"></textarea>
+      </div>
+      <div class="pos-form-actions">
+        <button type="button" class="pos-modal-btn pos-modal-btn-secondary" data-close="refund">Cancel</button>
+        <button type="button" class="pos-modal-btn pos-modal-btn-danger" id="refund-confirm">Confirm refund</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── Held sales modal ─── -->
+<div class="pos-modal-backdrop" id="held-backdrop">
+  <div class="pos-modal" style="max-width:560px;">
+    <div class="pos-modal-header">
+      <h2 class="pos-modal-title">Held sales</h2>
+      <button class="pos-modal-close" type="button" data-close="held">×</button>
+    </div>
+    <div class="pos-form">
+      <div id="held-list">
+        <div class="pos-loading">Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pos-toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  const API = (location.protocol === 'file:') ? 'http://localhost:5000' : '';
+  const CART_KEY = 'mak-pos-cart-v4';
+  const TAX_KEY  = 'mak-pos-tax-v4';
+
+  const state = {
+    catalog: [], categories: [],
+    lines: [], taxRate: 8.5,
+    categoryFilter: 'All',
+    lastScan: { value: '', startedAt: 0 },
+    checkoutInFlight: false,
+    currentView: 'pos'
+  };
+
+  // ─────────────────────────────────────────────
+  // API
+  // ─────────────────────────────────────────────
+  async function apiFetch(path, opts) {
+    const res = await fetch(API + path, Object.assign({
+      headers: { 'Content-Type': 'application/json' }
+    }, opts || {}));
+    let body = null;
+    try { body = await res.json(); } catch (_) {}
+    if (!res.ok) {
+      const err = new Error((body && body.error) || ('Request failed (' + res.status + ')'));
+      err.status = res.status; err.body = body;
+      throw err;
+    }
+    return body;
+  }
+
+  const api = {
+    listProducts: () => apiFetch('/api/products'),
+    listCategories: () => apiFetch('/api/categories'),
+    createSale: (p) => apiFetch('/api/sales', { method: 'POST', body: JSON.stringify(p) }),
+    holdSale: (p) => apiFetch('/api/sales/hold', { method: 'POST', body: JSON.stringify(p) }),
+    listHeld: () => apiFetch('/api/sales/held'),
+    resumeSale: (id) => apiFetch('/api/sales/' + id + '/resume', { method: 'POST' }),
+    voidSale: (id) => apiFetch('/api/sales/' + id + '/void', { method: 'POST' }),
+    listSales: (q) => apiFetch('/api/sales?' + q),
+    getSale: (id) => apiFetch('/api/sales/' + id),
+    refundSale: (id, note) => apiFetch('/api/sales/' + id + '/refund', {
+      method: 'POST', body: JSON.stringify({ note })
+    }),
+    zReport: (date) => apiFetch('/api/reports/z?date=' + date)
+  };
+
+  // ─────────────────────────────────────────────
+  // Persistence
+  // ─────────────────────────────────────────────
+  function saveCart() {
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify(state.lines));
+      localStorage.setItem(TAX_KEY, String(state.taxRate));
+    } catch (_) {}
+  }
+  function loadCart() {
+    try {
+      const raw = localStorage.getItem(CART_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          state.lines = parsed.filter(l =>
+            l && state.catalog.some(p => p.id === l.productId));
+        }
+      }
+      const tax = localStorage.getItem(TAX_KEY);
+      if (tax !== null && !isNaN(parseFloat(tax))) {
+        state.taxRate = parseFloat(tax);
+        document.getElementById('tax-rate').value = state.taxRate;
+      }
+    } catch (_) { state.lines = []; }
+  }
+
+  // ─────────────────────────────────────────────
+  // Derived
+  // ─────────────────────────────────────────────
+  function getProduct(id) { return state.catalog.find(p => p.id === id) || null; }
+  function lineTotal(l) { const p = getProduct(l.productId); return p ? p.price * l.qty : 0; }
+  function totals() {
+    const sub = state.lines.reduce((s, l) => s + lineTotal(l), 0);
+    const tax = Math.round(sub * state.taxRate) / 100;
+    const grand = Math.round((sub + tax) * 100) / 100;
+    return { subtotal: sub, taxAmount: tax, grandTotal: grand };
+  }
+  function itemCount() { return state.lines.reduce((n, l) => n + l.qty, 0); }
+  function qtyInCart(id) {
+    const l = state.lines.find(l => l.productId === id);
+    return l ? l.qty : 0;
+  }
+
+  // ─────────────────────────────────────────────
+  // Format
+  // ─────────────────────────────────────────────
+  function money(n) {
+    const v = Number(n || 0);
+    const sign = v < 0 ? '-' : '';
+    return sign + '$' + Math.abs(v).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[c]);
+  }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' +
+             d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    } catch (_) { return iso; }
+  }
+
+  // ─────────────────────────────────────────────
+  // View switching
+  // ─────────────────────────────────────────────
+  function switchView(view) {
+    state.currentView = view;
+    document.querySelectorAll('.pos-view').forEach(v => {
+      v.classList.toggle('is-active', v.id === 'view-' + view);
+    });
+    document.querySelectorAll('.pos-tab').forEach(t => {
+      t.classList.toggle('is-active', t.getAttribute('data-view') === view);
+    });
+    if (view === 'history') loadHistory();
+    if (view === 'report') loadZReport();
+    if (view === 'pos') focusBarcode();
+  }
+
+  document.querySelectorAll('.pos-tab').forEach(t => {
+    t.addEventListener('click', () => switchView(t.getAttribute('data-view')));
+  });
+
+  // ─────────────────────────────────────────────
+  // Render — catalog
+  // ─────────────────────────────────────────────
+  function renderCategories() {
+    const cats = ['All'].concat(state.categories);
+    document.getElementById('categories').innerHTML = cats.map(c => {
+      const active = c === state.categoryFilter ? ' is-active' : '';
+      return '<button class="pos-category' + active + '" type="button" data-cat="' +
+        escapeHtml(c) + '">' + escapeHtml(c) + '</button>';
+    }).join('');
+  }
+  function renderCatalog() {
+    const filtered = state.categoryFilter === 'All'
+      ? state.catalog
+      : state.catalog.filter(p => p.category === state.categoryFilter);
+    document.getElementById('product-count').textContent =
+      filtered.length + ' product' + (filtered.length === 1 ? '' : 's');
+    const grid = document.getElementById('product-grid');
+    if (filtered.length === 0) {
+      grid.innerHTML = '<div class="pos-empty">No products in this category.</div>';
+      return;
+    }
+    grid.innerHTML = filtered.map(p => {
+      const inCart = qtyInCart(p.id);
+      const remaining = p.stock - inCart;
+      const isOut = p.stock === 0;
+      const canAdd = !isOut && remaining > 0;
+      const cls = 'pos-product' + (isOut ? ' is-out' : '');
+      const stockCls = p.stock === 0 ? 'out' : (p.stock <= 10 ? 'low' : '');
+      const badge = isOut
+        ? '<span class="pos-product-out-tag">Out</span>'
+        : (inCart > 0 ? '<span class="pos-product-in-cart">' + inCart + '</span>' : '');
+      return '<button class="' + cls + '" type="button" data-add="' + p.id + '"' +
+        (canAdd ? '' : ' disabled') + '>' + badge +
+        '<div class="pos-product-sku">' + escapeHtml(p.sku) + '</div>' +
+        '<div class="pos-product-name">' + escapeHtml(p.name) + '</div>' +
+        '<div class="pos-product-footer">' +
+          '<span class="pos-product-price">' + money(p.price) + '</span>' +
+          '<span class="pos-product-stock ' + stockCls + '">' + p.stock + ' in stock</span>' +
+        '</div></button>';
+    }).join('');
+  }
+
+  // ─────────────────────────────────────────────
+  // Render — cart
+  // ─────────────────────────────────────────────
+  function renderCart() {
+    const lines = document.getElementById('cart-lines');
+    const empty = document.getElementById('cart-empty');
+    document.getElementById('cart-count').textContent =
+      itemCount() + ' item' + (itemCount() === 1 ? '' : 's');
+    if (state.lines.length === 0) {
+      lines.innerHTML = '';
+      empty.style.display = 'flex';
+    } else {
+      empty.style.display = 'none';
+      lines.innerHTML = state.lines.map(l => {
+        const p = getProduct(l.productId);
+        if (!p) return '';
+        const atMax = l.qty >= p.stock;
+        return '<div class="pos-line' + (atMax ? ' is-at-max' : '') + '">' +
+          '<div class="pos-line-top">' +
+            '<div style="flex:1;">' +
+              '<div class="pos-line-name">' + escapeHtml(p.name) + '</div>' +
+              (atMax ? '<div class="pos-line-warning">Max stock reached</div>' : '') +
+            '</div>' +
+            '<button class="pos-line-remove" type="button" data-remove="' + p.id + '">×</button>' +
+          '</div>' +
+          '<div class="pos-line-bottom">' +
+            '<div class="pos-qty">' +
+              '<button class="pos-qty-btn" type="button" data-dec="' + p.id + '">−</button>' +
+              '<div class="pos-qty-value">' + l.qty + '</div>' +
+              '<button class="pos-qty-btn" type="button" data-inc="' + p.id + '"' +
+                (atMax ? ' disabled' : '') + '>+</button>' +
+            '</div>' +
+            '<div class="pos-line-price">' + money(lineTotal(l)) +
+              '<small>' + money(p.price) + ' ea</small>' +
+            '</div>' +
+          '</div></div>';
+      }).join('');
+    }
+    renderTotals();
+    renderCatalog();
+  }
+  function renderTotals() {
+    const t = totals();
+    document.getElementById('total-subtotal').textContent = money(t.subtotal);
+    document.getElementById('total-tax').textContent = money(t.taxAmount);
+    document.getElementById('total-grand').textContent = money(t.grandTotal);
+    const charge = document.getElementById('charge-btn');
+    const has = state.lines.length > 0;
+    charge.disabled = !has || state.checkoutInFlight;
+    charge.textContent = state.checkoutInFlight
+      ? 'Processing…'
+      : 'Charge · ' + money(t.grandTotal);
+    document.getElementById('hold-btn').disabled = !has || state.checkoutInFlight;
+  }
+
+  // ─────────────────────────────────────────────
+  // Cart mutations
+  // ─────────────────────────────────────────────
+  function addToCart(id) {
+    const p = getProduct(id);
+    if (!p) return;
+    const l = state.lines.find(l => l.productId === id);
+    if (l) {
+      if (l.qty >= p.stock) { showToast('Only ' + p.stock + ' available.', true); return; }
+      l.qty += 1;
+    } else {
+      if (p.stock <= 0) { showToast('"' + p.name + '" is out of stock.', true); return; }
+      state.lines.push({ productId: id, qty: 1 });
+    }
+    saveCart(); renderCart(); flashProduct(id);
+  }
+  function incQty(id) {
+    const p = getProduct(id), l = state.lines.find(l => l.productId === id);
+    if (!l || !p) return;
+    if (l.qty >= p.stock) { showToast('Only ' + p.stock + ' available.', true); return; }
+    l.qty += 1; saveCart(); renderCart();
+  }
+  function decQty(id) {
+    const l = state.lines.find(l => l.productId === id);
+    if (!l) return;
+    if (l.qty <= 1) { removeLine(id); return; }
+    l.qty -= 1; saveCart(); renderCart();
+  }
+  function removeLine(id) {
+    state.lines = state.lines.filter(l => l.productId !== id);
+    saveCart(); renderCart();
+  }
+  function clearCart() {
+    if (state.lines.length === 0) return;
+    if (!confirm('Clear the cart?')) return;
+    state.lines = []; saveCart(); renderCart(); focusBarcode();
+  }
+  function flashProduct(id) {
+    const btn = document.querySelector('[data-add="' + id + '"]');
+    if (!btn) return;
+    btn.classList.add('is-flash');
+    setTimeout(() => btn.classList.remove('is-flash'), 200);
+  }
+
+  // ─────────────────────────────────────────────
+  // Barcode
+  // ─────────────────────────────────────────────
+  const barcodeWrap = document.getElementById('barcode-wrap');
+  const barcodeInput = document.getElementById('barcode-input');
+  let scanTimer = null;
+  function focusBarcode() {
+    setTimeout(() => { barcodeInput.focus(); barcodeInput.select(); }, 30);
+  }
+  function handleBarcodeSubmit(raw) {
+    const v = raw.trim();
+    if (!v) return;
+    const p = state.catalog.find(p => p.sku.toLowerCase() === v.toLowerCase());
+    if (!p) { showToast('No product matches "' + v + '".', true); barcodeInput.value = ''; return; }
+    addToCart(p.id); barcodeInput.value = '';
+  }
+  barcodeInput.addEventListener('focus', () => barcodeWrap.classList.add('is-focused'));
+  barcodeInput.addEventListener('blur', () => barcodeWrap.classList.remove('is-focused'));
+  barcodeInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      clearTimeout(scanTimer);
+      handleBarcodeSubmit(barcodeInput.value);
+      focusBarcode();
+      return;
+    }
+    state.lastScan = { value: barcodeInput.value, startedAt: Date.now() };
+  });
+
+  // ─────────────────────────────────────────────
+  // Payment flow
+  // ─────────────────────────────────────────────
+  const paymentBackdrop = document.getElementById('payment-backdrop');
+  const paymentForm = document.getElementById('payment-form');
+  const paymentMethod = document.getElementById('payment-method');
+  const cashSection = document.getElementById('cash-section');
+  const cashTendered = document.getElementById('cash-tendered');
+  const payTotal = document.getElementById('pay-total');
+  const payChange = document.getElementById('pay-change');
+  const changeRow = document.getElementById('change-row');
+  const paymentSubmit = document.getElementById('payment-submit');
+
+  function openPayment() {
+    if (state.lines.length === 0 || state.checkoutInFlight) return;
+    payTotal.textContent = money(totals().grandTotal);
+    cashTendered.value = '';
+    paymentMethod.value = 'cash';
+    cashSection.style.display = 'block';
+    paymentSubmit.disabled = true;
+    updateChange();
+    paymentBackdrop.classList.add('is-open');
+    setTimeout(() => cashTendered.focus(), 50);
+  }
+  function updateChange() {
+    const t = totals();
+    if (paymentMethod.value !== 'cash') {
+      paymentSubmit.disabled = state.checkoutInFlight; return;
+    }
+    const tn = parseFloat(cashTendered.value) || 0;
+    const ch = tn - t.grandTotal;
+    payChange.textContent = money(Math.max(0, ch));
+    if (ch < 0) {
+      changeRow.classList.remove('is-change'); changeRow.classList.add('is-short');
+      paymentSubmit.disabled = true;
+    } else {
+      changeRow.classList.add('is-change'); changeRow.classList.remove('is-short');
+      paymentSubmit.disabled = state.checkoutInFlight;
+    }
+  }
+  paymentMethod.addEventListener('change', () => {
+    cashSection.style.display = paymentMethod.value === 'cash' ? 'block' : 'none';
+    updateChange();
+  });
+  cashTendered.addEventListener('input', updateChange);
+  document.querySelectorAll('[data-cash]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = totals();
+      let amt = btn.getAttribute('data-cash') === 'exact'
+        ? t.grandTotal
+        : (parseFloat(cashTendered.value) || t.grandTotal) + parseFloat(btn.getAttribute('data-cash'));
+      cashTendered.value = amt.toFixed(2);
+      updateChange();
+    });
+  });
+
+  paymentForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    if (state.checkoutInFlight) return;
+    const t = totals();
+    const tendered = paymentMethod.value === 'cash'
+      ? (parseFloat(cashTendered.value) || 0) : t.grandTotal;
+    if (paymentMethod.value === 'cash' && tendered < t.grandTotal) {
+      showToast('Cash tendered is less than the total.', true); return;
+    }
+
+    const payload = {
+      cashier: 'Alex Rivera',
+      taxRate: state.taxRate,
+      lines: state.lines.map(l => ({ productId: l.productId, qty: l.qty })),
+      payment: { method: paymentMethod.value, tendered }
+    };
+
+    state.checkoutInFlight = true;
+    paymentSubmit.disabled = true;
+    paymentSubmit.textContent = 'Processing…';
+    renderTotals();
+
+    try {
+      const sale = await api.createSale(payload);
+      state.lines = []; saveCart();
+      paymentBackdrop.classList.remove('is-open');
+      renderCart();
+      await loadCatalog();
+      showReceipt(sale, 'receipt');
+      showToast('Sale #' + sale.id + ' · ' + money(sale.grand_total));
+      focusBarcode();
+    } catch (err) {
+      showToast(err.message || 'Checkout failed.', true);
+      await loadCatalog();
+      reconcileCart();
+    } finally {
+      state.checkoutInFlight = false;
+      paymentSubmit.textContent = 'Complete sale';
+      updateChange(); renderTotals();
+    }
+  });
+
+  function reconcileCart() {
+    const removed = [];
+    state.lines = state.lines.filter(l => {
+      const p = getProduct(l.productId);
+      if (!p || p.stock === 0) { removed.push(p ? p.name : '#' + l.productId); return false; }
+      if (l.qty > p.stock) l.qty = p.stock;
+      return true;
+    });
+    if (removed.length) { saveCart(); showToast('Removed: ' + removed.join(', '), true); }
+    renderCart();
+  }
+
+  // ─────────────────────────────────────────────
+  // Receipt
+  // ─────────────────────────────────────────────
+  const receiptBackdrop = document.getElementById('receipt-backdrop');
+  const receiptContent = document.getElementById('receipt-content');
+  const receiptActions = document.getElementById('receipt-actions');
+  let receiptSale = null;
+
+  function showReceipt(sale, mode) {
+    receiptSale = sale;
+    const d = new Date(sale.created_at || Date.now());
+    const ds = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    const ts = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    const payment = sale.payment || {};
+    const method = (payment.method || 'cash').toUpperCase();
+    const isRefund = sale.refund_of_sale_id != null;
+
+    receiptContent.innerHTML =
+      '<div class="pos-receipt-center">' +
+        '<div class="pos-receipt-title">MAK STORE</div>' +
+        '<div class="pos-receipt-meta">123 Main St · Springfield<br>(555) 010-0100</div>' +
+        '<div class="pos-receipt-meta" style="margin-top:0.5rem;">' +
+          ds + ' · ' + ts + '<br>Sale #' + escapeHtml(String(sale.id)) +
+          (isRefund ? ' · REFUND of #' + escapeHtml(String(sale.refund_of_sale_id)) : '') +
+          '<br>Cashier: ' + escapeHtml(sale.cashier) +
+        '</div>' +
+      '</div>' +
+      '<hr class="pos-receipt-hr">' +
+      (sale.lines || []).map(l =>
+        '<div class="pos-receipt-line">' +
+          '<span>' + escapeHtml(l.product_name) + ' × ' + l.qty + '</span>' +
+          '<span>' + money(l.line_total) + '</span>' +
+        '</div>').join('') +
+      '<hr class="pos-receipt-hr">' +
+      '<div class="pos-receipt-line"><span>Subtotal</span><span>' + money(sale.subtotal) + '</span></div>' +
+      '<div class="pos-receipt-line"><span>Tax (' + sale.tax_rate + '%)</span><span>' + money(sale.tax_total) + '</span></div>' +
+      '<div class="pos-receipt-line is-grand"><span>' + (isRefund ? 'REFUND' : 'TOTAL') + '</span><span>' + money(sale.grand_total) + '</span></div>' +
+      '<hr class="pos-receipt-hr">' +
+      '<div class="pos-receipt-line"><span>Method</span><span>' + escapeHtml(method) + '</span></div>' +
+      (method === 'CASH' && !isRefund
+        ? '<div class="pos-receipt-line"><span>Cash tendered</span><span>' + money(payment.tendered || 0) + '</span></div>' +
+          '<div class="pos-receipt-line"><span>Change</span><span>' + money(payment.change || 0) + '</span></div>'
+        : '') +
+      '<div class="pos-receipt-footer">' +
+        (isRefund ? 'Refund processed.' : 'Thank you for your purchase!') +
+        '<br>Returns accepted within 30 days with receipt.' +
+      '</div>';
+
+    // Choose action buttons by mode
+    const isReceiptHistory = mode === 'history';
+    const refundable = !isRefund && sale.status === 'paid' && mode === 'receipt';
+    receiptActions.innerHTML =
+      '<button class="pos-modal-btn pos-modal-btn-secondary" type="button" data-close="receipt">Close</button>' +
+      (refundable
+        ? '<button class="pos-modal-btn pos-modal-btn-secondary" type="button" id="receipt-refund-btn" style="color:var(--warning); border-color:var(--warning);">Refund</button>'
+        : '') +
+      '<button class="pos-modal-btn pos-modal-btn-primary" type="button" id="print-btn">Print</button>';
+    document.getElementById('print-btn').addEventListener('click', () => window.print());
+    if (refundable) {
+      document.getElementById('receipt-refund-btn').addEventListener('click', () => {
+        receiptBackdrop.classList.remove('is-open');
+        openRefund(sale.id, sale.grand_total);
+      });
+    }
+
+    receiptBackdrop.classList.add('is-open');
+  }
+
+  // ─────────────────────────────────────────────
+  // Refund flow
+  // ─────────────────────────────────────────────
+  const refundBackdrop = document.getElementById('refund-backdrop');
+  let refundSaleId = null;
+
+  function openRefund(saleId, amount) {
+    refundSaleId = saleId;
+    document.getElementById('refund-sale-id').textContent = '#' + saleId;
+    document.getElementById('refund-total').textContent = money(amount);
+    document.getElementById('refund-amount').textContent = money(-amount);
+    document.getElementById('refund-note').value = '';
+    refundBackdrop.classList.add('is-open');
+  }
+  document.getElementById('refund-confirm').addEventListener('click', async () => {
+    if (!refundSaleId) return;
+    const note = document.getElementById('refund-note').value;
+    const btn = document.getElementById('refund-confirm');
+    btn.disabled = true; btn.textContent = 'Processing…';
+    try {
+      const refund = await api.refundSale(refundSaleId, note);
+      refundBackdrop.classList.remove('is-open');
+      await loadCatalog();
+      showToast('Refund #' + refund.id + ' · ' + money(refund.grand_total));
+      switchView('history');
+    } catch (err) {
+      showToast(err.message, true);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Confirm refund';
+    }
+  });
+
+  // ─────────────────────────────────────────────
+  // Hold / resume
+  // ─────────────────────────────────────────────
+  const heldBackdrop = document.getElementById('held-backdrop');
+  document.getElementById('hold-btn').addEventListener('click', async () => {
+    if (state.lines.length === 0) return;
+    try {
+      const payload = {
+        cashier: 'Alex Rivera',
+        taxRate: state.taxRate,
+        lines: state.lines.map(l => ({ productId: l.productId, qty: l.qty }))
+      };
+      await api.holdSale(payload);
+      state.lines = []; saveCart(); renderCart();
+      showToast('Sale held. Tap "Held" to resume.');
+      focusBarcode();
+    } catch (err) { showToast(err.message, true); }
+  });
+
+  document.getElementById('held-btn').addEventListener('click', async () => {
+    heldBackdrop.classList.add('is-open');
+    const list = document.getElementById('held-list');
+    list.innerHTML = '<div class="pos-loading">Loading…</div>';
+    try {
+      const held = await api.listHeld();
+      if (held.length === 0) {
+        list.innerHTML = '<div class="pos-loading">No held sales.</div>';
+        return;
+      }
+      list.innerHTML = held.map(h =>
+        '<div class="pos-line" style="margin-bottom:0.5rem;">' +
+          '<div class="pos-line-top">' +
+            '<div style="flex:1;">' +
+              '<div class="pos-line-name">Sale #' + h.id + '</div>' +
+              '<div style="font-size:0.75rem;color:var(--text-dim);">' +
+                fmtDate(h.created_at) + ' · ' + h.line_count + ' lines' +
+              '</div>' +
+            '</div>' +
+            '<div style="text-align:right;">' +
+              '<div class="pos-line-price">' + money(h.grand_total) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div style="display:flex;gap:0.5rem;margin-top:0.5rem;">' +
+            '<button class="pos-modal-btn pos-modal-btn-primary" type="button" data-resume="' + h.id + '">Resume</button>' +
+            '<button class="pos-modal-btn pos-modal-btn-secondary" type="button" data-void="' + h.id + '">Void</button>' +
+          '</div>' +
+        '</div>').join('');
+    } catch (err) {
+      list.innerHTML = '<div class="pos-loading">Error: ' + escapeHtml(err.message) + '</div>';
+    }
+  });
+
+  document.getElementById('held-list').addEventListener('click', async e => {
+    const resumeBtn = e.target.closest('[data-resume]');
+    const voidBtn = e.target.closest('[data-void]');
+    if (resumeBtn) {
+      const id = parseInt(resumeBtn.getAttribute('data-resume'), 10);
+      try {
+        const sale = await api.resumeSale(id);
+        // Load the held lines into the cart, then void the held sale
+        state.lines = sale.lines.map(l => ({
+          productId: l.product_id,
+          qty: Math.max(0, l.qty)
+        })).filter(l => l.qty > 0 && getProduct(l.productId));
+        saveCart(); renderCart();
+        await api.voidSale(id);
+        heldBackdrop.classList.remove('is-open');
+        showToast('Resumed sale #' + id + ' into cart.');
+        focusBarcode();
+      } catch (err) { showToast(err.message, true); }
+    } else if (voidBtn) {
+      const id = parseInt(voidBtn.getAttribute('data-void'), 10);
+      if (!confirm('Void held sale #' + id + '?')) return;
+      try {
+        await api.voidSale(id);
+        heldBackdrop.classList.remove('is-open');
+        showToast('Sale #' + id + ' voided.');
+      } catch (err) { showToast(err.message, true); }
+    }
+  });
+
+  // ─────────────────────────────────────────────
+  // History
+  // ─────────────────────────────────────────────
+  async function loadHistory() {
+    const from = document.getElementById('hist-from').value;
+    const to = document.getElementById('hist-to').value;
+    const method = document.getElementById('hist-method').value;
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (method) params.set('method', method);
+    params.set('status', 'paid');
+
+    const tbody = document.getElementById('history-tbody');
+    tbody.innerHTML = '<tr><td colspan="6" class="pos-loading">Loading…</td></tr>';
+
+    try {
+      const rows = await api.listSales(params.toString());
+      if (rows.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="pos-loading">No sales match.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(s => {
+        const isRefund = s.refund_of_sale_id != null;
+        const statusCls = isRefund ? 'refunded' : 'paid';
+        const statusLabel = isRefund ? 'Refund' : 'Paid';
+        return '<tr data-sale="' + s.id + '">' +
+          '<td class="pos-sku">#' + s.id + '</td>' +
+          '<td>' + escapeHtml(fmtDate(s.created_at)) + '</td>' +
+          '<td class="pos-cell-muted">' + escapeHtml(s.cashier) + '</td>' +
+          '<td class="pos-cell-muted">' + escapeHtml((s.method || '—').toUpperCase()) + '</td>' +
+          '<td class="num ' + (s.grand_total < 0 ? 'pos-negative' : '') + '">' + money(s.grand_total) + '</td>' +
+          '<td class="num"><span class="pos-status ' + statusCls + '">' + statusLabel + '</span></td>' +
+        '</tr>';
+      }).join('');
+    } catch (err) {
+      tbody.innerHTML = '<tr><td colspan="6" class="pos-loading">Error: ' + escapeHtml(err.message) + '</td></tr>';
+    }
+  }
+  document.getElementById('hist-search').addEventListener('click', loadHistory);
+  document.getElementById('history-tbody').addEventListener('click', async e => {
+    const tr = e.target.closest('[data-sale]');
+    if (!tr) return;
+    const id = parseInt(tr.getAttribute('data-sale'), 10);
+    try {
+      const sale = await api.getSale(id);
+      showReceipt(sale, 'history');
+    } catch (err) { showToast(err.message, true); }
+  });
+
+  // ─────────────────────────────────────────────
+  // Z-Report
+  // ─────────────────────────────────────────────
+  document.getElementById('z-date').value = new Date().toISOString().slice(0, 10);
+
+  async function loadZReport() {
+    const d = document.getElementById('z-date').value;
+    const content = document.getElementById('z-content');
+    content.innerHTML = '<div class="pos-loading">Loading…</div>';
+    try {
+      const r = await api.zReport(d);
+      const reconCls = r.reconciles ? 'pos-recon-ok' : 'pos-recon-bad';
+      const reconIcon = r.reconciles ? '✓' : '!';
+      const reconTitle = r.reconciles ? 'Till reconciles' : 'Till does not reconcile';
+      const reconDetail = r.reconciles
+        ? 'Payments total ' + money(r.payments_total) + ' equals net sales ' + money(r.net_sales)
+        : 'Payments total ' + money(r.payments_total) + ' ≠ net sales ' + money(r.net_sales) +
+          ' — investigate before closing.';
+
+      const methods = Object.keys(r.by_method);
+      const methodRows = methods.map(m =>
+        '<div class="pos-report-card">' +
+          '<div class="pos-report-label">' + escapeHtml(m.toUpperCase()) + '</div>' +
+          '<div class="pos-report-value">' + money(r.by_method[m]) + '</div>' +
+        '</div>').join('') || '<div class="pos-report-card"><div class="pos-report-label">No payments</div><div class="pos-report-value">$0.00</div></div>';
+
+      content.innerHTML =
+        '<div class="pos-recon">' +
+          '<div class="pos-recon-icon ' + reconCls + '">' + reconIcon + '</div>' +
+          '<div>' +
+            '<div class="pos-recon-title">' + reconTitle + '</div>' +
+            '<div class="pos-recon-detail">' + reconDetail + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="pos-report-grid">' +
+          '<div class="pos-report-card">' +
+            '<div class="pos-report-label">Gross sales</div>' +
+            '<div class="pos-report-value">' + money(r.gross_sales) + '</div>' +
+          '</div>' +
+          '<div class="pos-report-card">' +
+            '<div class="pos-report-label">Refunds</div>' +
+            '<div class="pos-report-value neg">' + money(r.refunds) + '</div>' +
+          '</div>' +
+          '<div class="pos-report-card">' +
+            '<div class="pos-report-label">Net sales</div>' +
+            '<div class="pos-report-value accent">' + money(r.net_sales) + '</div>' +
+          '</div>' +
+          '<div class="pos-report-card">' +
+            '<div class="pos-report-label">Tax collected</div>' +
+            '<div class="pos-report-value">' + money(r.tax_collected) + '</div>' +
+          '</div>' +
+          '<div class="pos-report-card">' +
+            '<div class="pos-report-label">Sales</div>' +
+            '<div class="pos-report-value">' + r.sale_count + '</div>' +
+          '</div>' +
+          '<div class="pos-report-card">' +
+            '<div class="pos-report-label">Refunds</div>' +
+            '<div class="pos-report-value">' + r.refund_count + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="padding:0 1.25rem 1.25rem;">' +
+          '<div class="pos-report-label" style="margin-bottom:0.5rem;">By payment method</div>' +
+          '<div class="pos-report-grid" style="padding:0;">' + methodRows + '</div>' +
+        '</div>';
+    } catch (err) {
+      content.innerHTML = '<div class="pos-loading">Error: ' + escapeHtml(err.message) + '</div>';
+    }
+  }
+  document.getElementById('z-load').addEventListener('click', loadZReport);
+
+  // ─────────────────────────────────────────────
+  // Modal wiring
+  // ─────────────────────────────────────────────
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const which = btn.getAttribute('data-close');
+      const el = document.getElementById(which + '-backdrop');
+      if (el) el.classList.remove('is-open');
+      if (which !== 'receipt' || state.currentView === 'pos') focusBarcode();
+    });
+  });
+  ['payment', 'receipt', 'refund', 'held'].forEach(name => {
+    const el = document.getElementById(name + '-backdrop');
+    el.addEventListener('click', e => {
+      if (e.target === el) {
+        el.classList.remove('is-open');
+        if (name !== 'receipt' || state.currentView === 'pos') focusBarcode();
+      }
+    });
+  });
+
+  // ─────────────────────────────────────────────
+  // Event wiring
+  // ─────────────────────────────────────────────
+  document.getElementById('product-grid').addEventListener('click', e => {
+    const btn = e.target.closest('[data-add]');
+    if (!btn || btn.disabled) return;
+    addToCart(parseInt(btn.getAttribute('data-add'), 10));
+  });
+  document.getElementById('categories').addEventListener('click', e => {
+    const btn = e.target.closest('[data-cat]');
+    if (!btn) return;
+    state.categoryFilter = btn.getAttribute('data-cat');
+    renderCategories(); renderCatalog();
+  });
+  document.getElementById('cart-lines').addEventListener('click', e => {
+    const inc = e.target.closest('[data-inc]');
+    const dec = e.target.closest('[data-dec]');
+    const rem = e.target.closest('[data-remove]');
+    if (inc) incQty(parseInt(inc.getAttribute('data-inc'), 10));
+    else if (dec) decQty(parseInt(dec.getAttribute('data-dec'), 10));
+    else if (rem) removeLine(parseInt(rem.getAttribute('data-remove'), 10));
+  });
+  document.getElementById('tax-rate').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    state.taxRate = isNaN(v) ? 0 : Math.max(0, Math.min(20, v));
+    saveCart(); renderTotals();
+  });
+  document.getElementById('charge-btn').addEventListener('click', openPayment);
+
+  // ─────────────────────────────────────────────
+  // Toast
+  // ─────────────────────────────────────────────
+  let toastTimer = null;
+  function showToast(msg, isErr) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderLeftColor = isErr ? '#ef4444' : '#61dafb';
+    t.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('is-visible'), 3000);
+  }
+
+  // ─────────────────────────────────────────────
+  // Loaders
+  // ─────────────────────────────────────────────
+  async function loadCatalog() {
+    try {
+      state.catalog = await api.listProducts();
+      renderCatalog();
+    } catch (err) {
+      document.getElementById('product-grid').innerHTML =
+        '<div class="pos-empty">Could not load products: ' + escapeHtml(err.message) +
+        '<br><br>Is the Flask server running?</div>';
+    }
+  }
+  async function loadCategories() {
+    try { state.categories = await api.listCategories(); renderCategories(); } catch (_) {}
+  }
+
+  // ─────────────────────────────────────────────
+  // Init
+  // ─────────────────────────────────────────────
+  (async function init() {
+    await Promise.all([loadCatalog(), loadCategories()]);
+    loadCart();
+    renderCart();
+    focusBarcode();
+  })();
+
+})();
+</script>
+</body>
+</html>
