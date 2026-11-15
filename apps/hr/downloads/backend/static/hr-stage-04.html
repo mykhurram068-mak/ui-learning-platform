@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HR &amp; Attendance - Stage 04: Advanced</title>
+<style>
+  :root {
+    --bg: #0f172a; --bg-elevated: #1e293b; --bg-hover: #334155;
+    --border: #334155; --text: #e2e8f0; --text-muted: #94a3b8;
+    --text-dim: #64748b; --accent: #61dafb; --accent-dark: #0891b2;
+    --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+    --radius: 8px; --header-h: 56px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5; overflow: hidden;
+  }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; }
+  button { cursor: pointer; }
+
+  .hr-header {
+    height: var(--header-h); background: var(--bg-elevated);
+    border-bottom: 1px solid var(--border); padding: 0 1.5rem;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .hr-brand {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-weight: 800; font-size: 0.9375rem; color: var(--text);
+    text-decoration: none; flex-shrink: 0;
+  }
+  .hr-brand-mark {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bg); font-weight: 900; font-size: 0.75rem;
+  }
+  .hr-tabs { display: flex; gap: 2px; margin-left: auto; flex-wrap: wrap; }
+  .hr-tab {
+    padding: 0.5rem 0.875rem; border-radius: 6px;
+    background: transparent; border: 1px solid transparent;
+    color: var(--text-muted); font-size: 0.8125rem; font-weight: 600;
+  }
+  .hr-tab:hover { background: var(--bg-hover); color: var(--text); }
+  .hr-tab.is-active {
+    background: var(--bg); color: var(--accent); border-color: var(--border);
+  }
+
+  .hr-view { display: none; height: calc(100vh - var(--header-h)); overflow-y: auto; }
+  .hr-view.is-active { display: block; }
+
+  .hr-page { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
+
+  .hr-panel {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 1rem; overflow: hidden;
+  }
+  .hr-panel-header {
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap;
+  }
+  .hr-panel-title { font-size: 1rem; font-weight: 800; }
+  .hr-panel-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+  .hr-panel-body { padding: 1rem 1.25rem; }
+
+  .hr-btn {
+    padding: 0.5rem 1rem; border-radius: 6px; border: none;
+    font-size: 0.8125rem; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 0.375rem;
+  }
+  .hr-btn-primary { background: var(--accent); color: var(--bg); }
+  .hr-btn-primary:hover { background: var(--accent-dark); color: white; }
+  .hr-btn-secondary {
+    background: transparent; color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .hr-btn-secondary:hover { background: var(--bg-hover); color: var(--text); }
+  .hr-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .hr-input, .hr-select, .hr-textarea {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.375rem 0.625rem;
+    color: var(--text); font-size: 0.8125rem; outline: none;
+  }
+  .hr-input:focus, .hr-select:focus, .hr-textarea:focus {
+    border-color: var(--accent);
+  }
+  .hr-textarea { min-height: 60px; resize: vertical; }
+
+  .hr-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1rem; }
+  .hr-kpi {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1.25rem;
+  }
+  .hr-kpi-label {
+    font-size: 0.6875rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim);
+    font-weight: 700; margin-bottom: 0.5rem;
+  }
+  .hr-kpi-value {
+    font-size: 1.75rem; font-weight: 800; color: var(--text);
+    line-height: 1; font-variant-numeric: tabular-nums;
+  }
+  .hr-kpi-context { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem; }
+
+  .hr-table { width: 100%; border-collapse: collapse; }
+  .hr-table th {
+    text-align: left; padding: 0.625rem 0.875rem;
+    font-size: 0.6875rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim); font-weight: 700;
+    border-bottom: 1px solid var(--border); background: var(--bg);
+  }
+  .hr-table th.num, .hr-table td.num { text-align: right; }
+  .hr-table td {
+    padding: 0.75rem 0.875rem; font-size: 0.8125rem;
+    border-bottom: 1px solid var(--border); vertical-align: middle;
+  }
+  .hr-table tr:last-child td { border-bottom: none; }
+  .hr-table tr:hover td { background: var(--bg); }
+  .hr-table .num { font-variant-numeric: tabular-nums; }
+
+  .hr-badge {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.125rem 0.5rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .hr-badge.open { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .hr-badge.closed { background: rgba(100, 116, 139, 0.2); color: var(--text-muted); }
+  .hr-badge.approved { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+  .hr-badge.late { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .hr-badge.absent { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+  .hr-badge.on-time { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+  .hr-badge.ot { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+
+  .hr-empty {
+    padding: 3rem 1rem; text-align: center;
+    color: var(--text-dim); font-size: 0.875rem;
+  }
+
+  .hr-toast {
+    position: fixed; bottom: 1.5rem; left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 0.75rem 1rem; border-radius: 6px;
+    font-size: 0.875rem; color: var(--text);
+    opacity: 0; transition: transform 0.2s, opacity 0.2s;
+    z-index: 300; pointer-events: none; max-width: 90vw;
+  }
+  .hr-toast.is-visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  .hr-modal {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    padding: 1rem; z-index: 100;
+  }
+  .hr-modal.is-open { display: flex; }
+  .hr-modal-card {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: var(--radius); width: 100%; max-width: 480px;
+  }
+  .hr-modal-header {
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .hr-modal-title { font-size: 1rem; font-weight: 800; }
+  .hr-modal-close {
+    background: transparent; border: none; color: var(--text-muted);
+    font-size: 1.25rem; padding: 0.25rem 0.5rem; border-radius: 4px;
+  }
+  .hr-modal-close:hover { background: var(--bg-hover); color: var(--text); }
+  .hr-modal-body {
+    padding: 1.25rem; display: flex; flex-direction: column; gap: 0.875rem;
+  }
+  .hr-modal-actions {
+    display: flex; justify-content: flex-end; gap: 0.5rem;
+    padding: 0 1.25rem 1.25rem;
+  }
+  .hr-field { display: flex; flex-direction: column; gap: 0.375rem; }
+  .hr-field label {
+    font-size: 0.6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+
+  /* Timesheet grid */
+  .ts-grid {
+    display: grid;
+    grid-template-columns: 160px repeat(7, 1fr);
+    border: 1px solid var(--border);
+    border-radius: 6px; overflow: hidden;
+  }
+  .ts-head {
+    background: var(--bg); font-size: 0.6875rem;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-dim); font-weight: 700;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .ts-cell {
+    padding: 0.625rem 0.75rem; font-size: 0.8125rem;
+    border-bottom: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  .ts-cell.name { font-weight: 700; }
+  .ts-cell.empty { color: var(--text-dim); }
+  .ts-cell.has-hours { color: var(--accent); font-weight: 600; }
+  .ts-cell.approved { background: rgba(16, 185, 129, 0.06); }
+  .ts-cell.total { font-weight: 800; color: var(--text); border-left: 1px solid var(--border); }
+  .ts-cell.total.ot { color: #a78bfa; }
+
+  /* Employee view (clock) */
+  .hr-employee {
+    display: grid; place-items: center;
+    height: calc(100vh - var(--header-h)); padding: 2rem;
+  }
+  .hr-clock-card {
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    border-radius: 16px; padding: 3rem 2.5rem; max-width: 420px; width: 100%;
+    text-align: center; display: flex; flex-direction: column;
+    gap: 1.5rem; align-items: center;
+  }
+  .hr-clock-name { font-size: 0.875rem; color: var(--text-muted); font-weight: 600; }
+  .hr-clock-time {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 3rem; font-weight: 800; color: var(--text);
+    letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .hr-clock-status { font-size: 0.875rem; color: var(--text-muted); }
+  .hr-clock-status strong { color: var(--text); font-weight: 700; }
+  .hr-clock-btn {
+    width: 100%; padding: 1.5rem;
+    font-size: 1.5rem; font-weight: 800;
+    border-radius: 12px; border: none;
+    background: var(--accent); color: var(--bg);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    transition: background 0.15s, transform 0.05s;
+  }
+  .hr-clock-btn:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+  .hr-clock-btn:active:not(:disabled) { transform: scale(0.99); }
+  .hr-clock-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .hr-clock-btn.is-out { background: var(--success); color: var(--bg); }
+  .hr-clock-btn.is-out:hover:not(:disabled) { background: #059669; color: white; }
+  .hr-clock-hours {
+    font-size: 0.8125rem; color: var(--text-dim); font-variant-numeric: tabular-nums;
+  }
+  .hr-clock-hours strong { color: var(--text-muted); font-weight: 700; }
+  .hr-clock-break {
+    width: 100%; padding: 0.75rem;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-muted);
+    font-size: 0.8125rem; font-weight: 600;
+  }
+  .hr-clock-break:hover:not(:disabled) { background: var(--bg-hover); color: var(--text); }
+  .hr-clock-break:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  @media (max-width: 900px) {
+    .hr-kpis { grid-template-columns: repeat(2, 1fr); }
+    .ts-grid { grid-template-columns: 120px repeat(7, 1fr); font-size: 0.75rem; }
+    .ts-head, .ts-cell { padding: 0.375rem 0.5rem; }
+  }
+  @media (max-width: 500px) {
+    .hr-kpis { grid-template-columns: 1fr; }
+    .ts-grid { display: none; }
+  }
+</style>
+</head>
+<body data-view="dashboard">
+
+<header class="hr-header">
+  <a class="hr-brand" href="#">
+    <div class="hr-brand-mark">M</div>
+    <span>MAK HR</span>
+  </a>
+  <div class="hr-tabs">
+    <button class="hr-tab is-active" data-view="dashboard" type="button">Dashboard</button>
+    <button class="hr-tab" data-view="timesheet" type="button">Timesheet</button>
+    <button class="hr-tab" data-view="roster" type="button">Roster</button>
+    <button class="hr-tab" data-view="report" type="button">Report</button>
+    <button class="hr-tab" data-view="clock" type="button">Clock in/out</button>
+  </div>
+</header>
+
+<!-- ═══ DASHBOARD VIEW ═══ -->
+<div class="hr-view is-active" id="view-dashboard">
+  <div class="hr-page">
+    <div class="hr-kpis">
+      <div class="hr-kpi">
+        <div class="hr-kpi-label">Clocked in now</div>
+        <div class="hr-kpi-value" id="kpi-clocked-in">-</div>
+        <div class="hr-kpi-context" id="kpi-active-ctx">-</div>
+      </div>
+      <div class="hr-kpi">
+        <div class="hr-kpi-label">Hours today</div>
+        <div class="hr-kpi-value" id="kpi-hours-today">-</div>
+        <div class="hr-kpi-context">across all employees</div>
+      </div>
+      <div class="hr-kpi">
+        <div class="hr-kpi-label">Late today</div>
+        <div class="hr-kpi-value" id="kpi-late">-</div>
+        <div class="hr-kpi-context">scheduled but late</div>
+      </div>
+      <div class="hr-kpi">
+        <div class="hr-kpi-label">Active employees</div>
+        <div class="hr-kpi-value" id="kpi-active">-</div>
+        <div class="hr-kpi-context">on payroll</div>
+      </div>
+    </div>
+
+    <div class="hr-panel">
+      <div class="hr-panel-header">
+        <div class="hr-panel-title">Today's activity</div>
+        <div class="hr-panel-actions">
+          <button class="hr-btn hr-btn-secondary" id="btn-correction" type="button">Add correction</button>
+          <button class="hr-btn hr-btn-secondary" id="btn-refresh" type="button">Refresh</button>
+        </div>
+      </div>
+      <table class="hr-table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Employee</th>
+            <th>Event</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody id="timeline-tbody">
+          <tr><td colspan="4" class="hr-empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="hr-panel">
+      <div class="hr-panel-header">
+        <div class="hr-panel-title">Employees</div>
+        <div class="hr-panel-actions" id="emp-count-badge">-</div>
+      </div>
+      <table class="hr-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Role</th>
+            <th>Current status</th>
+            <th class="num">Today's hours</th>
+          </tr>
+        </thead>
+        <tbody id="employees-tbody">
+          <tr><td colspan="4" class="hr-empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TIMESHEET VIEW ═══ -->
+<div class="hr-view" id="view-timesheet">
+  <div class="hr-page">
+    <div class="hr-panel">
+      <div class="hr-panel-header">
+        <div class="hr-panel-title" id="ts-title">Timesheet</div>
+        <div class="hr-panel-actions">
+          <button class="hr-btn hr-btn-secondary" id="ts-prev" type="button">Prev week</button>
+          <button class="hr-btn hr-btn-secondary" id="ts-next" type="button">Next week</button>
+          <button class="hr-btn hr-btn-primary" id="ts-approve" type="button">Approve week</button>
+          <button class="hr-btn hr-btn-secondary" id="ts-reopen" type="button">Reopen week</button>
+        </div>
+      </div>
+      <div style="padding: 1rem 1.25rem;">
+        <div id="timesheet-grid" class="ts-grid">
+          <div class="ts-head">Employee</div>
+          <div class="ts-head">Mon</div>
+          <div class="ts-head">Tue</div>
+          <div class="ts-head">Wed</div>
+          <div class="ts-head">Thu</div>
+          <div class="ts-head">Fri</div>
+          <div class="ts-head">Sat</div>
+          <div class="ts-head">Sun</div>
+        </div>
+        <div id="timesheet-totals" style="margin-top: 1rem;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ROSTER VIEW ═══ -->
+<div class="hr-view" id="view-roster">
+  <div class="hr-page">
+    <div class="hr-panel">
+      <div class="hr-panel-header">
+        <div class="hr-panel-title" id="roster-title">Roster - scheduled vs actual</div>
+        <div class="hr-panel-actions">
+          <button class="hr-btn hr-btn-secondary" id="roster-prev" type="button">Prev week</button>
+          <button class="hr-btn hr-btn-secondary" id="roster-next" type="button">Next week</button>
+        </div>
+      </div>
+      <table class="hr-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Employee</th>
+            <th>Scheduled</th>
+            <th>Actual in</th>
+            <th>Actual out</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="roster-tbody">
+          <tr><td colspan="6" class="hr-empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ REPORT VIEW ═══ -->
+<div class="hr-view" id="view-report">
+  <div class="hr-page">
+    <div class="hr-panel">
+      <div class="hr-panel-header">
+        <div class="hr-panel-title" id="report-title">Attendance report</div>
+        <div class="hr-panel-actions">
+          <button class="hr-btn hr-btn-secondary" id="report-prev" type="button">Prev week</button>
+          <button class="hr-btn hr-btn-secondary" id="report-next" type="button">Next week</button>
+        </div>
+      </div>
+      <table class="hr-table">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th class="num">Total hours</th>
+            <th class="num">Overtime</th>
+            <th class="num">Late days</th>
+            <th class="num">Absent days</th>
+          </tr>
+        </thead>
+        <tbody id="report-tbody">
+          <tr><td colspan="5" class="hr-empty">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CLOCK VIEW ═══ -->
+<div class="hr-view" id="view-clock">
+  <div class="hr-employee">
+    <div class="hr-clock-card">
+      <div class="hr-clock-name" id="clock-name">-</div>
+      <div class="hr-clock-time" id="clock-time">--:--</div>
+      <div class="hr-clock-status" id="clock-status">-</div>
+      <button class="hr-clock-btn" type="button" id="clock-btn" disabled>Clock in</button>
+      <button class="hr-clock-break" type="button" id="break-btn" disabled>Start break</button>
+      <div class="hr-clock-hours" id="clock-hours">Today: <strong>0h 0m</strong></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CORRECTION MODAL ═══ -->
+<div class="hr-modal" id="correction-modal">
+  <div class="hr-modal-card">
+    <div class="hr-modal-header">
+      <div class="hr-modal-title">Add correction</div>
+      <button class="hr-modal-close" type="button" data-close="correction">x</button>
+    </div>
+    <div class="hr-modal-body">
+      <div class="hr-field">
+        <label for="corr-employee">Employee</label>
+        <select id="corr-employee" class="hr-select"></select>
+      </div>
+      <div class="hr-field">
+        <label for="corr-type">Correction type</label>
+        <select id="corr-type" class="hr-select">
+          <option value="manual_in">Manual clock-in</option>
+          <option value="manual_out">Manual clock-out</option>
+        </select>
+      </div>
+      <div class="hr-field">
+        <label for="corr-time">Time</label>
+        <input type="datetime-local" id="corr-time" class="hr-input">
+      </div>
+      <div class="hr-field">
+        <label for="corr-note">Note (required)</label>
+        <textarea id="corr-note" class="hr-textarea" placeholder="Reason for the correction..."></textarea>
+      </div>
+    </div>
+    <div class="hr-modal-actions">
+      <button class="hr-btn hr-btn-secondary" type="button" data-close="correction">Cancel</button>
+      <button class="hr-btn hr-btn-primary" type="button" id="corr-submit">Save correction</button>
+    </div>
+  </div>
+</div>
+
+<div class="hr-toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var API = (location.protocol === 'file:') ? 'http://localhost:5000' : '';
+  var CURRENT_EMPLOYEE_ID = 1;
+
+  var state = {
+    employees: [],
+    events: [],
+    shifts: [],
+    today: null,
+    view: 'dashboard',
+    week: null,
+    weekTimesheet: null,
+    weekRoster: null,
+    weekReport: null
+  };
+
+  var clockTimer = null;
+  var transitioning = false;
+
+  // ---------- API ----------
+  function api(path, opts) {
+    return fetch(API + path, Object.assign({
+      headers: { 'Content-Type': 'application/json' }
+    }, opts || {})).then(function (res) {
+      return res.json().catch(function () { return null; })
+        .then(function (body) {
+          return { ok: res.ok, status: res.status, body: body };
+        });
+    });
+  }
+
+  function refreshState() {
+    return api('/api/state').then(function (r) {
+      if (r.ok && r.body) applyState(r.body);
+      else showToast('Could not load state', true);
+    }).catch(function (err) {
+      showToast('Network: ' + err.message, true);
+    });
+  }
+
+  function applyState(payload) {
+    state.employees = payload.employees || [];
+    state.events = payload.events || [];
+    state.shifts = payload.shifts || [];
+    state.today = payload.today;
+    renderDashboard();
+    renderClock();
+  }
+
+  // ---------- Helpers ----------
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      var n = c.charCodeAt(0);
+      if (n === 38) return '&amp;';
+      if (n === 60) return '&lt;';
+      if (n === 62) return '&gt;';
+      if (n === 34) return '&quot;';
+      if (n === 39) return '&#39;';
+      return c;
+    });
+  }
+
+  function diffMinutes(aIso, bIso) {
+    return Math.round((new Date(bIso) - new Date(aIso)) / 60000);
+  }
+
+  function formatTime(iso) {
+    if (!iso) return '-';
+    return new Date(iso).toLocaleTimeString(undefined, {
+      hour: 'numeric', minute: '2-digit'
+    });
+  }
+
+  function formatDuration(min) {
+    if (min == null || min < 0) min = 0;
+    var h = Math.floor(min / 60);
+    var m = Math.round(min % 60);
+    return h + 'h ' + m + 'm';
+  }
+
+  function todayUtc() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function mondayOf(dateStr) {
+    var d = new Date(dateStr + 'T00:00:00Z');
+    var day = d.getUTCDay();
+    var diff = (day === 0 ? 6 : day - 1);
+    d.setUTCDate(d.getUTCDate() - diff);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function addDays(dateStr, n) {
+    var d = new Date(dateStr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // ---------- Derivation (mirrors server) ----------
+  function deriveShift(events, employeeId) {
+    var evs = events
+      .filter(function (e) { return e.employeeId === employeeId || e.employee_id === employeeId; })
+      .map(function (e) {
+        return { type: e.type, occurredAt: e.occurredAt || e.occurred_at };
+      })
+      .sort(function (a, b) { return a.occurredAt.localeCompare(b.occurredAt); });
+
+    var clockIn = null, clockOut = null;
+    var breakMinutes = 0, breakStart = null;
+    var status = 'not-started';
+
+    for (var i = 0; i < evs.length; i++) {
+      var e = evs[i];
+      if (e.type === 'in' || e.type === 'manual_in') {
+        if (status === 'not-started' || status === 'finished') {
+          clockIn = e.occurredAt; clockOut = null; status = 'working';
+        }
+      } else if (e.type === 'break_start') {
+        if (status === 'working') { breakStart = e.occurredAt; status = 'on-break'; }
+      } else if (e.type === 'break_end') {
+        if (status === 'on-break' && breakStart) {
+          breakMinutes += diffMinutes(breakStart, e.occurredAt);
+          breakStart = null; status = 'working';
+        }
+      } else if (e.type === 'out' || e.type === 'manual_out') {
+        if (status === 'working' || status === 'on-break') {
+          if (breakStart) {
+            breakMinutes += diffMinutes(breakStart, e.occurredAt);
+            breakStart = null;
+          }
+          clockOut = e.occurredAt; status = 'finished';
+        }
+      }
+    }
+
+    var minutesWorked = 0;
+    if (clockIn) {
+      var end = clockOut || new Date().toISOString();
+      minutesWorked = diffMinutes(clockIn, end) - breakMinutes;
+      if (minutesWorked < 0) minutesWorked = 0;
+    }
+    return { clockIn: clockIn, clockOut: clockOut, breakMinutes: breakMinutes,
+             minutesWorked: minutesWorked, status: status };
+  }
+
+  function statusLabel(shift) {
+    if (!shift.clockIn) return 'Off';
+    if (shift.status === 'working') return 'Working since ' + formatTime(shift.clockIn);
+    if (shift.status === 'on-break') return 'On break';
+    if (shift.status === 'finished') return 'Finished ' + formatTime(shift.clockOut);
+    return 'Off';
+  }
+
+  // ---------- Dashboard ----------
+  function renderDashboard() {
+    var active = state.employees.filter(function (e) { return !e.archived_at && !e.archivedAt; });
+
+    var clockedIn = 0, totalMin = 0, late = 0;
+    for (var i = 0; i < active.length; i++) {
+      var sh = deriveShift(state.events, active[i].id);
+      if (sh.status === 'working') clockedIn++;
+      totalMin += sh.minutesWorked;
+    }
+
+    document.getElementById('kpi-clocked-in').textContent = clockedIn;
+    document.getElementById('kpi-active-ctx').textContent = 'of ' + active.length + ' active employees';
+    document.getElementById('kpi-hours-today').textContent = (totalMin / 60).toFixed(1);
+    document.getElementById('kpi-late').textContent = late;
+    document.getElementById('kpi-active').textContent = active.length;
+
+    document.getElementById('emp-count-badge').innerHTML =
+      '<span class="hr-badge on-time">' + active.length + ' active</span>';
+
+    // Timeline
+    var tbody = document.getElementById('timeline-tbody');
+    var labels = {
+      'in': 'Clocked in', 'out': 'Clocked out',
+      'break_start': 'Break start', 'break_end': 'Break end',
+      'manual_in': 'Manual in', 'manual_out': 'Manual out'
+    };
+    var empLookup = {};
+    state.employees.forEach(function (e) { empLookup[e.id] = e; });
+
+    if (state.events.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="hr-empty">No events today.</td></tr>';
+    } else {
+      tbody.innerHTML = state.events.map(function (e) {
+        var at = e.occurredAt || e.occurred_at;
+        var emp = empLookup[e.employeeId || e.employee_id];
+        return '<tr>' +
+          '<td>' + escapeHtml(formatTime(at)) + '</td>' +
+          '<td>' + escapeHtml(emp ? emp.name : 'Unknown') + '</td>' +
+          '<td>' + escapeHtml(labels[e.type] || e.type) + '</td>' +
+          '<td style="color:var(--text-muted);font-size:0.75rem;">' +
+            escapeHtml(e.note || '') +
+          '</td>' +
+        '</tr>';
+      }).join('');
+    }
+
+    // Employees
+    var empTbody = document.getElementById('employees-tbody');
+    if (active.length === 0) {
+      empTbody.innerHTML = '<tr><td colspan="4" class="hr-empty">No employees.</td></tr>';
+    } else {
+      empTbody.innerHTML = active.map(function (emp) {
+        var sh = deriveShift(state.events, emp.id);
+        return '<tr>' +
+          '<td>' + escapeHtml(emp.name) + '</td>' +
+          '<td>' + escapeHtml(emp.role) + '</td>' +
+          '<td>' + escapeHtml(statusLabel(sh)) + '</td>' +
+          '<td class="num">' + formatDuration(sh.minutesWorked) + '</td>' +
+        '</tr>';
+      }).join('');
+    }
+  }
+
+  // ---------- Clock view ----------
+  function renderClock() {
+    var emp = state.employees.find(function (e) { return e.id === CURRENT_EMPLOYEE_ID; });
+    if (!emp) return;
+
+    document.getElementById('clock-name').textContent = emp.name + ' - ' + emp.role;
+
+    var sh = deriveShift(state.events, CURRENT_EMPLOYEE_ID);
+    var btn = document.getElementById('clock-btn');
+    var brk = document.getElementById('break-btn');
+
+    if (sh.status === 'not-started' || sh.status === 'finished') {
+      btn.textContent = 'Clock in';
+      btn.className = 'hr-clock-btn';
+      btn.disabled = false;
+      brk.disabled = true;
+      brk.textContent = 'Start break';
+      document.getElementById('clock-status').innerHTML =
+        sh.status === 'finished'
+          ? 'Finished at <strong>' + formatTime(sh.clockOut) + '</strong>'
+          : '<strong>Off</strong> - not clocked in';
+    } else if (sh.status === 'working') {
+      btn.textContent = 'Clock out';
+      btn.className = 'hr-clock-btn is-out';
+      btn.disabled = false;
+      brk.disabled = false;
+      brk.textContent = 'Start break';
+      document.getElementById('clock-status').innerHTML =
+        '<strong>Working</strong> since ' + formatTime(sh.clockIn);
+    } else if (sh.status === 'on-break') {
+      btn.textContent = 'Clock out';
+      btn.className = 'hr-clock-btn is-out';
+      btn.disabled = false;
+      brk.disabled = false;
+      brk.textContent = 'End break';
+      document.getElementById('clock-status').innerHTML =
+        '<strong>On break</strong>';
+    }
+    document.getElementById('clock-hours').innerHTML =
+      'Today: <strong>' + formatDuration(sh.minutesWorked) + '</strong>';
+  }
+
+  function startClock() {
+    stopClock();
+    clockTimer = setInterval(renderTick, 1000);
+    renderTick();
+  }
+  function stopClock() {
+    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+  }
+  function renderTick() {
+    if (state.view !== 'clock') return;
+    var el = document.getElementById('clock-time');
+    if (el) el.textContent = new Date().toLocaleTimeString(undefined, {
+      hour: 'numeric', minute: '2-digit'
+    });
+    var hrs = document.getElementById('clock-hours');
+    if (hrs) {
+      var sh = deriveShift(state.events, CURRENT_EMPLOYEE_ID);
+      hrs.innerHTML = 'Today: <strong>' + formatDuration(sh.minutesWorked) + '</strong>';
+    }
+  }
+
+  // ---------- Timesheet ----------
+  function loadTimesheet() {
+    var week = state.week || mondayOf(todayUtc());
+    state.week = week;
+    document.getElementById('ts-title').textContent = 'Timesheet - week of ' + week;
+
+    return api('/api/timesheet?week=' + week).then(function (r) {
+      if (!r.ok) { showToast('Could not load timesheet', true); return; }
+      state.weekTimesheet = r.body;
+      renderTimesheet();
+    });
+  }
+
+  function renderTimesheet() {
+    var data = state.weekTimesheet;
+    if (!data) return;
+
+    var grid = document.getElementById('timesheet-grid');
+    var start = data.week_start;
+    var cells = ['<div class="ts-head">Employee</div>'];
+    for (var i = 0; i < 7; i++) {
+      var d = addDays(start, i);
+      var label = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i] + ' ' + d.slice(5);
+      cells.push('<div class="ts-head">' + label + '</div>');
+    }
+
+    var totals = [];
+    for (var e = 0; e < data.employees.length; e++) {
+      var emp = data.employees[e];
+      var weekTotal = 0;
+      cells.push('<div class="ts-cell name">' + escapeHtml(emp.name) + '</div>');
+      for (var i = 0; i < 7; i++) {
+        var d = addDays(start, i);
+        var day = emp.days[d];
+        if (day && day.minutes > 0) {
+          weekTotal += day.minutes;
+          var cls = 'ts-cell has-hours';
+          if (day.status === 'approved') cls += ' approved';
+          cells.push('<div class="' + cls + '">' + formatDuration(day.minutes) + '</div>');
+        } else {
+          cells.push('<div class="ts-cell empty">-</div>');
+        }
+      }
+      var totalCls = weekTotal > 40 * 60 ? 'ts-cell total ot' : 'ts-cell total';
+      totals.push({
+        name: emp.name,
+        minutes: weekTotal,
+        overtime: Math.max(0, weekTotal - 40 * 60)
+      });
+      cells.push('<div class="' + totalCls + '">' + formatDuration(weekTotal) + '</div>');
+    }
+
+    grid.innerHTML = cells.join('');
+
+    var totalsHtml = '<table class="hr-table"><thead><tr>' +
+      '<th>Employee</th><th class="num">Total</th><th class="num">Overtime</th></tr></thead><tbody>' +
+      totals.map(function (t) {
+        var ot = t.overtime > 0
+          ? '<span class="hr-badge ot">' + formatDuration(t.overtime) + '</span>'
+          : '<span style="color:var(--text-dim);">-</span>';
+        return '<tr><td>' + escapeHtml(t.name) + '</td>' +
+          '<td class="num">' + formatDuration(t.minutes) + '</td>' +
+          '<td class="num">' + ot + '</td></tr>';
+      }).join('') + '</tbody></table>';
+    document.getElementById('timesheet-totals').innerHTML = totalsHtml;
+  }
+
+  // ---------- Roster ----------
+  function loadRoster() {
+    var week = state.week || mondayOf(todayUtc());
+    state.week = week;
+    document.getElementById('roster-title').textContent = 'Roster - week of ' + week;
+
+    return api('/api/roster/compare?week=' + week).then(function (r) {
+      if (!r.ok) { showToast('Could not load roster', true); return; }
+      state.weekRoster = r.body;
+      renderRoster();
+    });
+  }
+
+  function renderRoster() {
+    var data = state.weekRoster;
+    if (!data) return;
+    var tbody = document.getElementById('roster-tbody');
+    var empLookup = {};
+    state.employees.forEach(function (e) { empLookup[e.id] = e; });
+
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="hr-empty">No scheduled shifts this week.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = data.map(function (r) {
+      var emp = empLookup[r.employee_id];
+      var status = '';
+      if (r.absent) status = '<span class="hr-badge absent">Absent</span>';
+      else if (r.late_minutes > 0) status = '<span class="hr-badge late">Late ' + r.late_minutes + 'm</span>';
+      else if (r.actual && r.actual.in) status = '<span class="hr-badge on-time">On time</span>';
+      else status = '<span class="hr-badge open">Pending</span>';
+
+      var schedStr = formatTime(r.scheduled.start) + ' - ' + formatTime(r.scheduled.end);
+      var actualIn = r.actual.in ? formatTime(r.actual.in) : '-';
+      var actualOut = r.actual.out ? formatTime(r.actual.out) : '-';
+
+      return '<tr>' +
+        '<td>' + escapeHtml(r.date) + '</td>' +
+        '<td>' + escapeHtml(emp ? emp.name : 'Emp ' + r.employee_id) + '</td>' +
+        '<td style="font-size:0.75rem;color:var(--text-muted);">' + schedStr + '</td>' +
+        '<td>' + actualIn + '</td>' +
+        '<td>' + actualOut + '</td>' +
+        '<td>' + status + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  // ---------- Report ----------
+  function loadReport() {
+    var week = state.week || mondayOf(todayUtc());
+    state.week = week;
+    document.getElementById('report-title').textContent = 'Attendance report - week of ' + week;
+
+    return api('/api/report?week=' + week).then(function (r) {
+      if (!r.ok) { showToast('Could not load report', true); return; }
+      state.weekReport = r.body;
+      renderReport();
+    });
+  }
+
+  function renderReport() {
+    var data = state.weekReport;
+    if (!data) return;
+    var tbody = document.getElementById('report-tbody');
+    if (data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="hr-empty">No data.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(function (r) {
+      var ot = r.overtime_minutes > 0
+        ? '<span class="hr-badge ot">' + formatDuration(r.overtime_minutes) + '</span>'
+        : '<span style="color:var(--text-dim);">-</span>';
+      var late = r.late_count > 0
+        ? '<span class="hr-badge late">' + r.late_count + '</span>'
+        : '<span style="color:var(--text-dim);">-</span>';
+      var absent = r.absent_count > 0
+        ? '<span class="hr-badge absent">' + r.absent_count + '</span>'
+        : '<span style="color:var(--text-dim);">-</span>';
+      return '<tr>' +
+        '<td>' + escapeHtml(r.employee_name) + '</td>' +
+        '<td class="num">' + formatDuration(r.total_minutes) + '</td>' +
+        '<td class="num">' + ot + '</td>' +
+        '<td class="num">' + late + '</td>' +
+        '<td class="num">' + absent + '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  // ---------- View switching ----------
+  function switchView(view) {
+    state.view = view;
+    document.querySelectorAll('.hr-view').forEach(function (v) {
+      v.classList.toggle('is-active', v.id === 'view-' + view);
+    });
+    document.querySelectorAll('.hr-tab').forEach(function (t) {
+      t.classList.toggle('is-active', t.getAttribute('data-view') === view);
+    });
+    if (view === 'clock') startClock(); else stopClock();
+    if (view === 'timesheet') loadTimesheet();
+    if (view === 'roster') loadRoster();
+    if (view === 'report') loadReport();
+    if (view === 'dashboard') refreshState();
+  }
+
+  // ---------- Actions ----------
+  function clockAction() {
+    if (transitioning) return;
+    transitioning = true;
+    var sh = deriveShift(state.events, CURRENT_EMPLOYEE_ID);
+    var path = (sh.status === 'not-started' || sh.status === 'finished')
+      ? '/api/clock-in' : '/api/clock-out';
+
+    api(path, { method: 'POST', body: JSON.stringify({ employeeId: CURRENT_EMPLOYEE_ID }) })
+      .then(function (r) {
+        if (r.status === 409) return refreshState();
+        if (!r.ok) { showToast((r.body && r.body.error) || 'Failed', true); return; }
+        applyState(r.body);
+      })
+      .catch(function (err) { showToast('Network: ' + err.message, true); })
+      .finally(function () { transitioning = false; });
+  }
+
+  function breakAction() {
+    if (transitioning) return;
+    transitioning = true;
+    api('/api/break', { method: 'POST', body: JSON.stringify({ employeeId: CURRENT_EMPLOYEE_ID }) })
+      .then(function (r) {
+        if (r.status === 409) return refreshState();
+        if (!r.ok) { showToast((r.body && r.body.error) || 'Failed', true); return; }
+        applyState(r.body);
+      })
+      .catch(function (err) { showToast('Network: ' + err.message, true); })
+      .finally(function () { transitioning = false; });
+  }
+
+  function openCorrection() {
+    var sel = document.getElementById('corr-employee');
+    sel.innerHTML = state.employees
+      .filter(function (e) { return !e.archived_at && !e.archivedAt; })
+      .map(function (e) { return '<option value="' + e.id + '">' + escapeHtml(e.name) + '</option>'; })
+      .join('');
+    var now = new Date();
+    var local = now.getFullYear() + '-' +
+      String(now.getMonth() + 1).padStart(2, '0') + '-' +
+      String(now.getDate()).padStart(2, '0') + 'T' +
+      String(now.getHours()).padStart(2, '0') + ':' +
+      String(now.getMinutes()).padStart(2, '0');
+    document.getElementById('corr-time').value = local;
+    document.getElementById('corr-note').value = '';
+    document.getElementById('correction-modal').classList.add('is-open');
+  }
+
+  function submitCorrection() {
+    var employeeId = parseInt(document.getElementById('corr-employee').value, 10);
+    var type = document.getElementById('corr-type').value;
+    var localTime = document.getElementById('corr-time').value;
+    var note = document.getElementById('corr-note').value.trim();
+
+    if (!localTime || !note) { showToast('Time and note are required.', true); return; }
+    var occurredAt = new Date(localTime).toISOString();
+
+    api('/api/correction', {
+      method: 'POST',
+      body: JSON.stringify({
+        employeeId: employeeId, type: type,
+        occurredAt: occurredAt, note: note
+      })
+    }).then(function (r) {
+      if (!r.ok) { showToast((r.body && r.body.error) || 'Failed', true); return; }
+      document.getElementById('correction-modal').classList.remove('is-open');
+      applyState(r.body);
+      showToast('Correction saved.');
+    }).catch(function (err) { showToast('Network: ' + err.message, true); });
+  }
+
+  function approveWeek() {
+    var week = state.week || mondayOf(todayUtc());
+    api('/api/approve-week', { method: 'POST', body: JSON.stringify({ weekStart: week }) })
+      .then(function (r) {
+        if (r.status === 409) { showToast((r.body && r.body.error) || 'Cannot approve', true); return; }
+        if (!r.ok) { showToast('Approve failed', true); return; }
+        showToast('Week approved.');
+        loadTimesheet();
+      });
+  }
+
+  function reopenWeek() {
+    var week = state.week || mondayOf(todayUtc());
+    api('/api/reopen-week', { method: 'POST', body: JSON.stringify({ weekStart: week }) })
+      .then(function (r) {
+        if (!r.ok) { showToast('Reopen failed', true); return; }
+        showToast('Week reopened.');
+        loadTimesheet();
+      });
+  }
+
+  // ---------- Toast ----------
+  var toastTimer = null;
+  function showToast(msg, isErr) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.borderLeftColor = isErr ? '#ef4444' : '#61dafb';
+    t.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('is-visible'); }, 3000);
+  }
+
+  // ---------- Wire events ----------
+  document.querySelectorAll('.hr-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () { switchView(tab.getAttribute('data-view')); });
+  });
+
+  document.getElementById('clock-btn').addEventListener('click', clockAction);
+  document.getElementById('break-btn').addEventListener('click', breakAction);
+  document.getElementById('btn-correction').addEventListener('click', openCorrection);
+  document.getElementById('btn-refresh').addEventListener('click', refreshState);
+  document.getElementById('corr-submit').addEventListener('click', submitCorrection);
+
+  document.getElementById('ts-approve').addEventListener('click', approveWeek);
+  document.getElementById('ts-reopen').addEventListener('click', reopenWeek);
+  document.getElementById('ts-prev').addEventListener('click', function () {
+    state.week = addDays(state.week || mondayOf(todayUtc()), -7);
+    loadTimesheet();
+  });
+  document.getElementById('ts-next').addEventListener('click', function () {
+    state.week = addDays(state.week || mondayOf(todayUtc()), 7);
+    loadTimesheet();
+  });
+
+  document.getElementById('roster-prev').addEventListener('click', function () {
+    state.week = addDays(state.week || mondayOf(todayUtc()), -7);
+    loadRoster();
+  });
+  document.getElementById('roster-next').addEventListener('click', function () {
+    state.week = addDays(state.week || mondayOf(todayUtc()), 7);
+    loadRoster();
+  });
+
+  document.getElementById('report-prev').addEventListener('click', function () {
+    state.week = addDays(state.week || mondayOf(todayUtc()), -7);
+    loadReport();
+  });
+  document.getElementById('report-next').addEventListener('click', function () {
+    state.week = addDays(state.week || mondayOf(todayUtc()), 7);
+    loadReport();
+  });
+
+  document.querySelectorAll('[data-close]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var which = btn.getAttribute('data-close');
+      document.getElementById(which + '-modal').classList.remove('is-open');
+    });
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) stopClock();
+    else if (state.view === 'clock') startClock();
+  });
+
+  // ---------- Init ----------
+  refreshState();
+
+})();
+</script>
+</body>
+</html>
