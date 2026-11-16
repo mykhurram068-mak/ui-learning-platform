@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Authentication & Sessions — 4-Stage Flask Course (2026)</title>
+<meta name="description" content="A complete 4-stage course on authentication and sessions in Flask: users table, password hashing, session cookies, roles, and applying it to a real HR build. No framework, no magic — just the patterns every production app needs.">
+<meta name="keywords" content="flask authentication tutorial, flask sessions, password hashing werkzeug, flask login required decorator, flask role based access">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Authentication & Sessions — 4-Stage Flask Course">
+<meta property="og:description" content="Users table, password hashing, sessions, roles, and applying it to a real build.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/auth/index.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Authentication & Sessions — 4-Stage Flask Course">
+<meta name="twitter:description" content="Users table, password hashing, sessions, roles.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/auth/index.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "Course",
+"name": "Authentication & Sessions in Flask",
+"description": "A complete 4-stage course on authentication and sessions in Flask: users table, password hashing, session cookies, roles, and applying it to a real HR build.",
+"provider": { "@type": "Organization", "name": "MAK Studio", "sameAs": "https://makuistudio.com" },
+"hasCourseInstance": [
+{ "@type": "CourseInstance", "name": "Stage 01 - The Users Table", "description": "A users table with email and password. Register, login, logout forms. Plaintext passwords — deliberately wrong, shown so we can fix it." },
+{ "@type": "CourseInstance", "name": "Stage 02 - Hashing & Sessions", "description": "Password hashing with werkzeug. Session cookies. The @login_required decorator. What changes when passwords aren't stored in the clear." },
+{ "@type": "CourseInstance", "name": "Stage 03 - Roles", "description": "A role column, a @role_required decorator, and protected routes. Viewer, editor, admin. Who can see what." },
+{ "@type": "CourseInstance", "name": "Stage 04 - Applied to HR", "description": "Take the auth pattern and drop it into the HR & Attendance build. Employee login sees the employee view; manager login sees the manager view. The pattern carried into a real app." }
+]
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why start with plaintext passwords in Stage 01?","acceptedAnswer":{"@type":"Answer","text":"Because the fix is only meaningful once you've seen what it fixes. Stage 01 shows a working login with passwords stored in plaintext. It works. It's also wrong, and the lesson names why: a database leak exposes every user's password, and people reuse passwords across sites. Stage 02 replaces plaintext with hashing and explains what changed. The wrong version is not a footnote — it's the first stage, because the correct pattern only lands when you've felt the problem."}},
+{"@type":"Question","name":"Hashing vs encryption — what's the difference?","acceptedAnswer":{"@type":"Answer","text":"Hashing is one-way. Encryption is two-way. A password should be hashed, never encrypted. Hashing means: run the password through a function that produces a fixed-length string, and there's no way to reverse it. To check a login, you hash the input and compare to the stored hash. Encryption means: the stored value can be decrypted back to the original, which means anyone with the key can read the passwords. Hashing is correct for passwords. Encryption is correct for other things (messages, files, PII that needs to be read later). The distinction matters."}},
+{"@type":"Question","name":"Why not use JWT instead of sessions?","acceptedAnswer":{"@type":"Answer","text":"Because sessions and JWT solve different problems. A session is a random token stored in a cookie; the actual user data lives on the server. A JWT is a signed token containing the user data itself. Sessions are simpler, revocable (delete the session row, user is logged out everywhere), and the right default for a server-rendered Flask app. JWT is better for stateless APIs (mobile clients, microservices) where the server can't share session storage. For a Flask app that's already rendering HTML, sessions are the correct choice. JWT is not wrong; it's for a different shape of app."}},
+{"@type":"Question","name":"What does 'role' mean in this course?","acceptedAnswer":{"@type":"Answer","text":"A role is a named permission level attached to a user. Stage 03 uses three: viewer (read-only), editor (can modify), admin (can delete, manage users). The role lives on the users table. A route checks the current user's role before allowing the action. This is role-based access control (RBAC), the simplest form of authorization. It's not the same as authentication (who are you?) — authentication happens at login, authorization happens on every request. Both are needed."}},
+{"@type":"Question","name":"Why apply the course to the HR build in Stage 04?","acceptedAnswer":{"@type":"Answer","text":"Because the HR build has the cleanest two-audience split of any app in the studio. It has a manager view (dashboard, timesheets, approvals) and an employee view (clock in, clock out). Before auth, both views were accessible to anyone — the tab was the only gate. After auth, the tab is enforced by role: a viewer can clock in but not approve timesheets; a manager can do both. The change is small and its value is obvious. That's why it's the right final stage."}},
+{"@type":"Question","name":"Is this course only for Flask?","acceptedAnswer":{"@type":"Answer","text":"The code is Flask because the studio's builds are Flask. But the concepts are not Flask-specific. The users table, password hashing, session cookies, and role checks work in Django, FastAPI, Express, Rails, Laravel — the function names differ, the pattern doesn't. If you know Flask, you'll see the pattern clearly. If you know a different framework, the code snippets are still readable and the 'why' tabs are still the payload."}},
+{"@type":"Question","name":"What does this course NOT cover?","acceptedAnswer":{"@type":"Answer","text":"OAuth (Google, GitHub login), multi-factor authentication, password reset flows, email verification, and rate limiting on login attempts. Those are real production concerns but each is a course on its own. This course covers the foundation — the users table, the hash, the session, the role — that every other auth pattern builds on. Once you have this, the rest is smaller problems."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Authentication & Sessions</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">4-Stage Flask Course</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Authentication & Sessions</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">4 stages · ~6–8 hours · Foundation</div>
+<h1>Make the app know who's using it.<br><span class="py-accent">Users. Passwords. Sessions. Roles.</span></h1>
+<p class="lead">
+Every production app has to answer two questions on every request: <strong>who is this?</strong> (authentication) and <strong>what can they do?</strong> (authorization). This course teaches both, in Flask, from the ground up. A users table. A password hash that can't be reversed. A session cookie that survives a reload. A role that changes what a user can see. Then, in the final stage, we drop the whole pattern into the HR & Attendance build — the cleanest two-audience app in the studio — and watch the manager/employee split become enforced by the database instead of the honor system.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> ~6–8 hours</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> Python · Flask · werkzeug · SQLite</span>
+<span><i class="fa-solid fa-flag-checkered"></i> 4 stages · foundation course</span>
+</div>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>What this course is:</strong> the foundation of authentication. A users table with email and password. Hashing, correctly. A session cookie and a <code>@login_required</code> decorator. A role column and a <code>@role_required</code> decorator. Then applied to the HR build so you see it work in a real app, not a toy demo.
+</p>
+<p class="text-base font-semibold leading-relaxed" style="color:#e8eef7 !important;">
+<strong>What this course is not:</strong> OAuth, MFA, password reset, email verification, rate limiting. Each is a course of its own. This course teaches the foundation those other courses assume.
+</p>
+</div>
+
+<section>
+<h2 class="section-title">Why this course exists</h2>
+<p class="section-sub">The gap between "works on my laptop" and "could run for a real user".</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Every build in the studio — CRM, Inventory, POS, HR, Delivery — has the same missing piece. There's no way to tell who's using the app. The CRM has a basic username field but no password. The others have no user concept at all. That's fine for a teaching build; it's wrong for anything that ships.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Authentication is the smallest change that closes the biggest gap. It's six things: a users table, a register form, a login form, a logout route, a password hash, a session cookie. That's it. Once you have those, the app knows who's asking. Once you add roles, it knows what they can do.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The reason this is a course and not a build stage: it's a pattern, not a domain. Auth doesn't care whether the app is a CRM or an HR system. The users table is the same. The hash is the same. The session is the same. The role check is the same. So it belongs in a course, where you learn it once and apply it five times.
+</p>
+</section>
+
+<section>
+<h2 class="section-title">The four stages</h2>
+<p class="section-sub">Each stage adds exactly one piece. Stage 04 applies the whole pattern.</p>
+
+<div class="space-y-3 mt-4">
+
+<!-- Stage 01 -->
+<a href="/courses/auth/stage-01-users-table.html" class="block bg-slate-900 border-2 border-cyan-500/40 rounded-2xl p-5 hover:border-cyan-400 transition-all">
+<div class="flex items-start justify-between gap-4 mb-2">
+<div class="flex items-center gap-3">
+<span class="text-2xl">🔓</span>
+<div>
+<div class="text-xs font-bold uppercase tracking-widest text-cyan-400">Stage 01 · CURRENT</div>
+<div class="text-lg font-bold text-white">The Users Table</div>
+</div>
+</div>
+<span class="text-xs font-bold text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded">Start here</span>
+</div>
+<p class="text-sm text-slate-400 leading-relaxed">
+A users table with email, password, and created_at. A register form. A login form. A logout route. Passwords stored in plaintext — deliberately wrong, and named as wrong. The point of Stage 01 is to see what a working login looks like before we make it safe. It works. It's also the worst possible thing to ship.
+</p>
+<div class="mt-3 text-xs text-slate-500">
+<i class="fa-solid fa-clock mr-1"></i> 1.5–2 hours · Python · Flask · SQLite
+</div>
+</a>
+
+<!-- Stage 02 -->
+<a href="/courses/auth/stage-02-hashing-sessions.html" class="block bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-cyan-500/50 transition-all">
+<div class="flex items-start justify-between gap-4 mb-2">
+<div class="flex items-center gap-3">
+<span class="text-2xl">🔐</span>
+<div>
+<div class="text-xs font-bold uppercase tracking-widest text-cyan-400">Stage 02</div>
+<div class="text-lg font-bold text-white">Hashing & Sessions</div>
+</div>
+</div>
+<span class="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-1 rounded">Upcoming</span>
+</div>
+<p class="text-sm text-slate-400 leading-relaxed">
+Replace plaintext with a hash. <code>generate_password_hash</code> and <code>check_password_hash</code> from werkzeug. Change the login flow to hash-and-compare instead of string-equality. Add a session cookie. Add <code>@login_required</code> so unauthenticated requests get redirected to login. Explain why hashing is one-way, why the salt matters, and what a database leak actually exposes now.
+</p>
+<div class="mt-3 text-xs text-slate-500">
+<i class="fa-solid fa-clock mr-1"></i> 1.5–2 hours · werkzeug.security · Flask sessions
+</div>
+</a>
+
+<!-- Stage 03 -->
+<a href="/courses/auth/stage-03-roles.html" class="block bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-cyan-500/50 transition-all">
+<div class="flex items-start justify-between gap-4 mb-2">
+<div class="flex items-center gap-3">
+<span class="text-2xl">👥</span>
+<div>
+<div class="text-xs font-bold uppercase tracking-widest text-cyan-400">Stage 03</div>
+<div class="text-lg font-bold text-white">Roles</div>
+</div>
+</div>
+<span class="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-1 rounded">Upcoming</span>
+</div>
+<p class="text-sm text-slate-400 leading-relaxed">
+Add a <code>role</code> column: viewer, editor, admin. Add a <code>@role_required</code> decorator. Show three routes with different role requirements. Explain the difference between authentication ("who are you?") and authorization ("what can you do?"). Explain why the check happens on every request, not just at login. Show what happens when a viewer tries to hit an editor route.
+</p>
+<div class="mt-3 text-xs text-slate-500">
+<i class="fa-solid fa-clock mr-1"></i> 1.5–2 hours · RBAC · decorator patterns
+</div>
+</a>
+
+<!-- Stage 04 -->
+<a href="/courses/auth/stage-04-applied-to-hr.html" class="block bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-cyan-500/50 transition-all">
+<div class="flex items-start justify-between gap-4 mb-2">
+<div class="flex items-center gap-3">
+<span class="text-2xl">🎯</span>
+<div>
+<div class="text-xs font-bold uppercase tracking-widest text-cyan-400">Stage 04 · FINAL</div>
+<div class="text-lg font-bold text-white">Applied to HR</div>
+</div>
+</div>
+<span class="text-xs font-bold text-slate-500 bg-slate-800 px-2 py-1 rounded">Upcoming</span>
+</div>
+<p class="text-sm text-slate-400 leading-relaxed">
+Take the whole pattern and drop it into the HR & Attendance build. An employee logs in and sees the employee view. A manager logs in and sees both the employee view and the manager dashboard. The tab that used to be accessible to anyone is now enforced by role. The change is about 80 lines of code, and it makes the HR app meaningfully more real.
+</p>
+<div class="mt-3 text-xs text-slate-500">
+<i class="fa-solid fa-clock mr-1"></i> 1.5–2 hours · Integration · HR build
+</div>
+</a>
+
+</div>
+</section>
+
+<section>
+<h2 class="section-title">What you'll learn</h2>
+<p class="section-sub">Seven concepts, each with a small code surface and a large conceptual payload.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+<div class="font-bold text-white text-sm mb-1">Hashing vs encryption</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+One-way vs two-way. Why passwords must be hashed, never encrypted. Why "we'll encrypt the passwords" is a red flag in a vendor conversation.
+</p>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+<div class="font-bold text-white text-sm mb-1">Salts</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+Why the same password produces different hashes for different users. Why a rainbow table stops working. What werkzeug does automatically that you'd otherwise do manually.
+</p>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+<div class="font-bold text-white text-sm mb-1">Session cookies</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+What's in the cookie (a random ID). What's on the server (the actual user data). Why you can't forge a session. Why logging out is deleting the session row, not clearing the cookie.
+</p>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+<div class="font-bold text-white text-sm mb-1">Authentication vs authorization</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+"Who are you?" vs "what can you do?". One happens at login, the other on every request. Why confusing the two is a common source of security bugs.
+</p>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+<div class="font-bold text-white text-sm mb-1">Decorators</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+<code>@login_required</code> and <code>@role_required</code> are functions that wrap functions. Understanding them is understanding the pattern: "before this route runs, check something."
+</p>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+<div class="font-bold text-white text-sm mb-1">Role-based access control</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+The simplest form of authorization. A role column. A check per route. Viewer, editor, admin. Why this is enough for most apps and what patterns replace it at scale.
+</p>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+<div class="font-bold text-white text-sm mb-1">Sessions vs JWT</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+When each is correct. Server-rendered HTML uses sessions. Stateless APIs (mobile, microservices) use JWT. Neither is "better" — they solve different problems.
+</p>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+<div class="font-bold text-white text-sm mb-1">Applying it to a real app</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+The most important lesson: none of this matters until it's in a real app. Stage 04 shows the pattern carried into the HR build, and the change is small and visible.
+</p>
+</div>
+
+</div>
+</section>
+
+<section>
+<h2 class="section-title">Why this course is text-heavy and code-light</h2>
+<p class="section-sub">The payload is the pattern, not the typing.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Every stage in this course has 4–6 code snippets of 10–20 lines each. That's the minimum that makes the point. The rest is explanation: why this approach, what alternative would also work, what happens if you skip it, what the failure mode looks like.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+This is deliberate. Auth is not a typing exercise. The code is small. What makes it hard is knowing what to do, why, and what to never do. A tutorial that gives you 500 lines of a working auth system teaches you how to copy 500 lines. A course that gives you 60 lines and 3,000 words of explanation teaches you how to think about auth.
+</p>
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The full files (delivered separately) are small — a models.py, an auth.py, maybe a template each for login and register. You can paste them into any Flask app. The lesson pages tell you which lines matter and why. The full files are the answer; the lesson pages are the reasoning.
+</p>
+</section>
+
+<section>
+<h2 class="section-title">What you need before starting</h2>
+<p class="section-sub">Three things, all assumed.</p>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+<div class="font-bold text-white text-sm mb-2">Python + Flask basics</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+You've written at least one route. You know <code>@app.route</code>, <code>request</code>, <code>jsonify</code>. If you've done any of the studio's Stage 03 builds, you're ready.
+</p>
+<a href="/courses/python/index.html" class="inline-block mt-2 text-xs text-cyan-400 hover:text-cyan-300">Python course →</a>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+<div class="font-bold text-white text-sm mb-2">SQLite basics</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+You can write <code>CREATE TABLE</code>, <code>INSERT</code>, <code>SELECT</code>. If you've done any of the studio's Stage 03 builds, you've done this.
+</p>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4">
+<div class="font-bold text-white text-sm mb-2">HTML forms</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+You know <code><form></code>, <code><input></code>, <code><button></code>. The forms in this course are plain HTML — no framework, no templating language you have to learn.
+</p>
+</div>
+
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-3">What comes after this course</h2>
+<p class="text-sm text-slate-300 leading-relaxed mb-4">
+Authentication is the foundation. Three courses build on it, and one more sits beside it:
+</p>
+
+<div class="space-y-2">
+<div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-white font-bold text-sm">Deploying Flask + SQLite</span>
+<span class="text-xs text-slate-500 ml-auto">Companion</span>
+</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+The other course you need before shipping. Auth protects the app; deployment makes it reachable. Both are prerequisites for "real."
+</p>
+</div>
+<div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-white font-bold text-sm">Testing Flask apps</span>
+<span class="text-xs text-slate-500 ml-auto">Follow-up</span>
+</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+Once you have auth, the question becomes "did I break the auth flow?" Testing answers that. It's the course that makes every other concern cheaper.
+</p>
+</div>
+<div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+<div class="flex items-center gap-2 mb-1">
+<span class="text-white font-bold text-sm">OAuth & SSO</span>
+<span class="text-xs text-slate-500 ml-auto">Advanced follow-up</span>
+</div>
+<p class="text-xs text-slate-400 leading-relaxed">
+"Log in with Google" is built on top of everything in this course. The users table, the sessions, the roles — all the same. OAuth is a different way of authenticating, not a different foundation.
+</p>
+</div>
+</div>
+
+<p class="text-xs text-slate-500 leading-relaxed mt-4">
+Each is a four-stage course, same format. None is required to use what you learn here — the foundation stands on its own. But they stack, and each one makes the app more real.
+</p>
+</section>
+
+<section>
+<h2 class="section-title">The delivery rhythm</h2>
+<p class="section-sub">Same shape as the builds. Small lesson pages, full files separate.</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mt-4">
+<div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Per stage, two deliveries</div>
+<div class="space-y-2">
+<div class="p-3 rounded-lg bg-slate-950 border border-slate-800">
+<div class="text-sm font-semibold text-white">1. Lesson page</div>
+<div class="text-xs text-slate-500 mt-1">Under 600 lines. 4–6 snippets, each under 20 lines. Explanation dominates. Links to the full file at the end.</div>
+</div>
+<div class="p-3 rounded-lg bg-slate-950 border border-slate-800">
+<div class="text-sm font-semibold text-white">2. Full file</div>
+<div class="text-xs text-slate-500 mt-1">Code-only message. The complete runnable version. Small — usually 100–250 lines. Ready to paste or run.</div>
+</div>
+</div>
+<p class="text-xs text-slate-500 leading-relaxed mt-3">
+Four stages → eight deliveries → one complete course. Same rhythm as the builds, but each delivery is smaller because the code surface is smaller. The text is the work.
+</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-3">Download what exists so far</h2>
+<p class="text-sm text-slate-300 leading-relaxed mb-4">
+The course hub is live. The Stage 01 lesson page and full file are the next two deliveries. Nothing else exists yet.
+</p>
+
+<div class="space-y-2">
+<div class="p-3 rounded-lg bg-slate-950/50 border border-slate-800/50">
+<div class="text-sm font-semibold text-slate-500">Stage 01 — The Users Table (lesson page)</div>
+<div class="text-xs text-slate-600">Coming next.</div>
+</div>
+<div class="p-3 rounded-lg bg-slate-950/50 border border-slate-800/50">
+<div class="text-sm font-semibold text-slate-500">Stage 01 — The Users Table (full file)</div>
+<div class="text-xs text-slate-600">Coming after the lesson page.</div>
+</div>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">Continue learning</h2>
+<a href="/courses/auth/stage-01-users-table.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">Start with Stage 01 — The Users Table</div>
+<div class="text-xs text-slate-400 mt-1">A working login, with plaintext passwords, deliberately. So we can see what's wrong before we fix it.</div>
+</a>
+<a href="/courses/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Back to all courses</div>
+<div class="text-xs text-slate-400 mt-1">Auth, Deployment, Testing — the three concept courses that make every build more real.</div>
+</a>
+</section>
+
+<a href="/courses/index.html" class="back-link">← Back to Courses</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Authentication & Sessions · 4-Stage Course <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+</body>
+</html>
