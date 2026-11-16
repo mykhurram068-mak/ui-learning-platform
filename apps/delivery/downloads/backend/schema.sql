@@ -1,8 +1,11 @@
--- Delivery Tracking schema - Stage 03
--- Five tables: customers, couriers, deliveries, delivery_events, delivery_legs.
+-- Delivery Tracking schema - Stage 04 (final)
+-- Seven tables: customers, couriers, deliveries, delivery_events,
+-- delivery_legs, proof_of_delivery, notifications.
 
 PRAGMA foreign_keys = ON;
 
+DROP TABLE IF EXISTS notifications;
+DROP TABLE IF EXISTS proof_of_delivery;
 DROP TABLE IF EXISTS delivery_legs;
 DROP TABLE IF EXISTS delivery_events;
 DROP TABLE IF EXISTS deliveries;
@@ -76,10 +79,39 @@ CREATE TABLE delivery_legs (
   FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE CASCADE
 );
 
+CREATE TABLE proof_of_delivery (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  delivery_id    INTEGER NOT NULL UNIQUE,
+  method         TEXT NOT NULL
+                 CHECK (method IN ('photo', 'signature', 'otp')),
+  reference      TEXT NOT NULL,
+  note           TEXT,
+  captured_at    TEXT NOT NULL,
+  captured_by    TEXT NOT NULL DEFAULT 'courier',
+  FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE CASCADE
+);
+
+CREATE TABLE notifications (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  delivery_id INTEGER NOT NULL,
+  type        TEXT NOT NULL
+              CHECK (type IN ('out_for_delivery', 'delivered', 'failed')),
+  recipient   TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'pending'
+              CHECK (status IN ('pending', 'sent', 'failed')),
+  created_at  TEXT NOT NULL,
+  sent_at     TEXT,
+  FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE CASCADE
+);
+
 CREATE INDEX idx_deliveries_code     ON deliveries(tracking_code);
 CREATE INDEX idx_deliveries_status   ON deliveries(status);
 CREATE INDEX idx_deliveries_courier  ON deliveries(courier_id);
+CREATE INDEX idx_deliveries_updated  ON deliveries(updated_at);
 CREATE INDEX idx_events_delivery     ON delivery_events(delivery_id);
 CREATE INDEX idx_events_occurred     ON delivery_events(occurred_at);
 CREATE INDEX idx_legs_delivery       ON delivery_legs(delivery_id);
 CREATE INDEX idx_legs_active         ON delivery_legs(delivery_id, ended_at);
+CREATE INDEX idx_proof_delivery      ON proof_of_delivery(delivery_id);
+CREATE INDEX idx_notif_status        ON notifications(status);
+CREATE INDEX idx_notif_delivery      ON notifications(delivery_id);
