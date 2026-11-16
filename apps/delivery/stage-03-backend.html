@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Delivery Tracking Stage 03 - Backend (Five Tables + Atomic Events + Public Tracking) (2026)</title>
+<meta name="description" content="Stage 03 of the Delivery Tracking build: Flask + SQLite. Five tables - customers, couriers, deliveries, delivery_events, delivery_legs - with a server-side state machine, atomic event recording, and a public tracking endpoint. The client rewired to fetch().">
+<meta name="keywords" content="delivery tracking flask backend, state machine api, atomic event log, public tracking endpoint, sqlite delivery schema">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Delivery Tracking Stage 03 - Backend">
+<meta property="og:description" content="Five tables, atomic events, server-side state machine, public tracking.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/apps/delivery/stage-03-backend.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Delivery Tracking Stage 03 - Backend">
+<meta name="twitter:description" content="Five tables, atomic events, server-side state machine.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/apps/delivery/stage-03-backend.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Delivery Tracking Stage 03 - Backend",
+"description": "Flask + SQLite. Five tables with an event log and derived legs cache. Server-side state machine. Atomic event recording. Public tracking endpoint.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-15",
+"dateModified": "2026-11-15",
+"proficiencyLevel": "Intermediate",
+"dependencies": "Python, Flask, SQLite, JavaScript"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why five tables for a delivery tracking app?","acceptedAnswer":{"@type":"Answer","text":"Each table answers a different question. customers is who ordered it. couriers is who delivers it. deliveries is the parcel itself. delivery_events is the append-only log of what happened. delivery_legs is a derived cache of the current journey segment. Without the event log, you cannot answer 'where is my parcel?' with the journey. Without the legs cache, you cannot render the tracking page quickly. Without customers and couriers as separate tables, the same customer or courier data would be duplicated across every delivery. Five tables is the honest normalized shape."}},
+{"@type":"Question","name":"Why is delivery_legs a separate table if it can be derived from events?","acceptedAnswer":{"@type":"Answer","text":"It's a cache. Walking every event for every delivery on every page load is O(events times deliveries). The legs table has one row per leg of the journey, which answers 'where is it in its journey' in one query. This is the same trade-off as products.quantity in Inventory and shifts in HR: pay on writes (in a transaction) to save on reads. The events remain the source of truth; the legs table can always be recomputed."}},
+{"@type":"Question","name":"Why is the state machine enforced at the API, not just the client?","acceptedAnswer":{"@type":"Answer","text":"Because the client can be bypassed. Anyone with DevTools can POST any event type to any delivery. If the server trusts the client, a malicious user can mark a pending delivery as delivered in one jump, or mark a delivered delivery as pending. The server-side state machine rejects invalid transitions with 409 Conflict. The client-side state machine from Stage 02 remains useful for UI (showing the right button, disabling invalid actions), but the server is the enforcement boundary. Same discipline as POS checkout and HR clock-in: never trust the client with state transitions."}},
+{"@type":"Question","name":"What does the atomic event recording do?","acceptedAnswer":{"@type":"Answer","text":"A single POST to /api/deliveries/<id>/events does five things inside one transaction: (1) validates the transition against the state machine, (2) inserts the event row, (3) updates the deliveries.status field to the new state, (4) refreshes or creates the current delivery_legs row, (5) returns the updated state. If any step fails, the whole thing rolls back. The database never holds a delivery with an event that doesn't match its status, or a status that doesn't match its legs."}},
+{"@type":"Question","name":"What does the public tracking endpoint return, and what does it omit?","acceptedAnswer":{"@type":"Answer","text":"GET /api/track/<code> returns the delivery's tracking code, destination address, current status, current courier name (only the first name plus last initial, not full contact info), and the full timeline of events with timestamps and notes. It omits: the delivery id, the customer email and phone, the courier phone, the internal leg data, and the priority field. The tracking page is public - anyone with the code can access it - so the response must be the minimum necessary to answer 'where is my parcel' without leaking PII or operational data."}},
+{"@type":"Question","name":"How does the client keep the live UI responsive with a network backend?","acceptedAnswer":{"@type":"Answer","text":"The client still derives status locally for the parts of the UI that need to be instant - the courier's next-action button, the current status badge. When the client loads the state from the server, it receives the events and re-derives. When it sends an event, the server responds with the full updated state, which the client applies. So the client's derivation and the server's derivation run on the same events and always agree. The client derivation is a preview; the server is the source of truth on load and after every write."}},
+{"@type":"Question","name":"Why does the state machine live in two places - Python and JavaScript?","acceptedAnswer":{"@type":"Answer","text":"Because each serves a different purpose. The server-side version is the enforcement boundary - it validates every write, it's the source of truth. The client-side version is the UX boundary - it decides which button to show, it prevents the user from attempting obviously-invalid actions. They must agree, and the way to ensure they agree is to keep them small and identical. The Python map and the JavaScript map have the same keys and the same values. If they ever diverge, the server is right and the client needs updating."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+.snippet-meta { font-size: 11px; color: #64748b; padding: 0 12px 8px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Delivery Tracking Build</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 03 &middot; Backend</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> &rsaquo;
+<a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> &rsaquo;
+<a href="/apps/delivery/index.html" style="color:#7ee8fc;">Delivery Tracking</a> &rsaquo;
+<span style="color:#FFFFFF; font-weight:700;">Stage 03</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">Stage 03 &middot; 3&ndash;4 hours</div>
+<h1>Give it a memory.<br><span class="py-accent">Five tables. Atomic events. Public tracking.</span></h1>
+<p class="lead">
+The events move to SQLite. Five tables: <code>customers</code>, <code>couriers</code>, <code>deliveries</code>, <code>delivery_events</code> (append-only), <code>delivery_legs</code> (derived cache). The server runs the same state machine as the client and enforces it at the API. <code>POST /api/deliveries/&lt;id&gt;/events</code> does the event insert, the status update, and the leg refresh in one transaction. <code>GET /api/track/&lt;code&gt;</code> serves the customer page without auth, returning only the fields the customer needs.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 3&ndash;4 hours</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> Python &middot; Flask &middot; SQLite &middot; state machine</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/apps/delivery/index.html">Delivery hub</a>
+<a href="#schema">The 5 tables</a>
+<a href="#machine">Server state machine</a>
+<a href="#atomic">Atomic event write</a>
+<a href="#legs">The legs cache</a>
+<a href="#public">Public tracking</a>
+<a href="#client">Client rewired</a>
+<a href="#next">Next: Stage 04</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Five tables. <code>customers</code>, <code>couriers</code>, <code>deliveries</code> (with a UNIQUE <code>tracking_code</code> and a nullable <code>courier_id</code>), <code>delivery_events</code> (CASCADE, one row per fact), <code>delivery_legs</code> (CASCADE, one row per leg). The state machine is a Python dict mapping event types to the set of statuses they can transition from. A POST event does five things inside one transaction: validate, insert event, update delivery status, upsert current leg, return new state. The public tracking endpoint redacts PII and returns only the tracking code, destination, status, courier first name, and timeline.
+</p>
+</div>
+
+<section id="schema">
+<h2 class="section-title">The five tables</h2>
+<p class="section-sub">Three FKs. One event log. One derived cache.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Each table has one job. The customers and couriers are the actors. The deliveries table is the parcel. The events are the facts. The legs are the journey summary. Every table except <code>deliveries</code> uses <code>CASCADE</code> because they have no independent meaning without the delivery they describe.
+</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">schema.sql</span>
+<span class="snippet-meta">backend/schema.sql &middot; lines 1&ndash;28</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">SQL</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">CREATE TABLE customers (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  email      TEXT NOT NULL UNIQUE,
+  phone      TEXT,
+  address    TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE couriers (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  phone      TEXT,
+  vehicle    TEXT NOT NULL DEFAULT 'van'
+             CHECK (vehicle IN ('bike', 'car', 'van')),
+  status     TEXT NOT NULL DEFAULT 'available'
+             CHECK (status IN ('available', 'on_delivery', 'off_duty')),
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE deliveries (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  tracking_code TEXT NOT NULL UNIQUE,
+  customer_id   INTEGER NOT NULL,
+  courier_id    INTEGER,
+  origin        TEXT NOT NULL,
+  destination   TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'pending'
+                CHECK (status IN ('pending', 'assigned', 'picked_up',
+                                  'in_transit', 'out_for_delivery',
+                                  'delivered', 'failed', 'cancelled')),
+  priority      TEXT NOT NULL DEFAULT 'standard'
+                CHECK (priority IN ('standard', 'express')),
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT,
+  FOREIGN KEY (courier_id)  REFERENCES couriers(id)  ON DELETE SET NULL
+);</pre>
+<script type="text/plain" id="raw-code-sol1">CREATE TABLE customers (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  email      TEXT NOT NULL UNIQUE,
+  phone      TEXT,
+  address    TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE couriers (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  phone      TEXT,
+  vehicle    TEXT NOT NULL DEFAULT 'van'
+             CHECK (vehicle IN ('bike', 'car', 'van')),
+  status     TEXT NOT NULL DEFAULT 'available'
+             CHECK (status IN ('available', 'on_delivery', 'off_duty')),
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE deliveries (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  tracking_code TEXT NOT NULL UNIQUE,
+  customer_id   INTEGER NOT NULL,
+  courier_id    INTEGER,
+  origin        TEXT NOT NULL,
+  destination   TEXT NOT NULL,
+  status        TEXT NOT NULL DEFAULT 'pending'
+                CHECK (status IN ('pending', 'assigned', 'picked_up',
+                                  'in_transit', 'out_for_delivery',
+                                  'delivered', 'failed', 'cancelled')),
+  priority      TEXT NOT NULL DEFAULT 'standard'
+                CHECK (priority IN ('standard', 'express')),
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT NOT NULL,
+  FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE RESTRICT,
+  FOREIGN KEY (courier_id)  REFERENCES couriers(id)  ON DELETE SET NULL
+);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why customer_id is RESTRICT but courier_id is SET NULL:
+
+  A customer who has ever ordered cannot
+  be deleted. Their delivery history is a
+  financial and legal record. RESTRICT
+  refuses the delete.
+
+  A courier can leave the company. Their
+  historical deliveries still exist, but
+  the courier is no longer responsible.
+  SET NULL preserves the delivery and
+  removes the courier link. Correct
+  semantics for a "person who used to
+  work here" relationship.
+
+  Two FKs, two actions, two meanings. Each
+  action encodes what the relationship
+  actually is.
+
+Why tracking_code is UNIQUE but not the PK:
+
+  The tracking code is what the customer
+  uses. It's human-readable (DEL-8F3A2B)
+  and public.
+
+  The id is the internal key. It's an
+  integer, monotonic, never exposed to
+  the customer.
+
+  Two reasons for the split:
+
+  1. The code can change format (add a
+     prefix, change length) without touching
+     internal IDs.
+
+  2. The code doesn't leak volume. If the
+     customer sees /track/4728, they know
+     they're the 4,728th delivery. The code
+     DEL-8F3A2B tells them nothing.
+
+Why status has 8 allowed values:
+
+  Six in the happy path:
+    pending -> assigned -> picked_up ->
+    in_transit -> out_for_delivery -> delivered
+
+  Two in the exception path:
+    failed (couldn't complete)
+    cancelled (order cancelled before delivery)
+
+  The CHECK constraint prevents a typo'd
+  status from being stored. If the code
+  writes 'delivred' instead of 'delivered',
+  the INSERT fails. The database refuses
+  inconsistent data at the boundary.
+
+  The state machine (in app.py) enforces
+  which transitions between these states
+  are allowed. The CHECK constraint only
+  ensures the values are from the enum.
+  Two levels of validation, two different
+  jobs.
+
+Why updated_at is a separate column:
+
+  created_at - when the delivery was
+               registered.
+  updated_at - when the delivery was last
+               modified (status change,
+               courier assignment, etc.).
+
+  Two timestamps, two questions. "When did
+  this order come in?" and "When was it
+  last touched?" are different. Storing
+  both is cheap and answers both.</pre>
+</div>
+</div>
+</section>
+
+<section id="machine">
+<h2 class="section-title">The server state machine</h2>
+<p class="section-sub">Same map as the client. Enforced at the API.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The state machine is the core of the backend. Every event recording goes through <code>can_transition</code>. Invalid transitions return <code>409 Conflict</code> before the INSERT runs. The client's state machine decides which button to show; the server's state machine decides what actually gets recorded.
+</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">machine.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 65&ndash;90</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">TRANSITIONS = {
+    "assigned":         {"pending"},
+    "picked_up":        {"assigned"},
+    "in_transit":       {"picked_up"},
+    "out_for_delivery": {"in_transit"},
+    "delivered":        {"out_for_delivery"},
+    "failed":           {"assigned", "picked_up", "in_transit", "out_for_delivery"},
+}
+
+EVENT_RESULT = {
+    "assigned":         "assigned",
+    "picked_up":        "picked_up",
+    "in_transit":       "in_transit",
+    "out_for_delivery": "out_for_delivery",
+    "delivered":        "delivered",
+    "failed":           "failed",
+}
+
+def can_transition(current_status, event_type):
+    allowed_from = TRANSITIONS.get(event_type)
+    if allowed_from is None:
+        return False
+    return current_status in allowed_from</pre>
+<script type="text/plain" id="raw-code-sol2">TRANSITIONS = {
+    "assigned":         {"pending"},
+    "picked_up":        {"assigned"},
+    "in_transit":       {"picked_up"},
+    "out_for_delivery": {"in_transit"},
+    "delivered":        {"out_for_delivery"},
+    "failed":           {"assigned", "picked_up", "in_transit", "out_for_delivery"},
+}
+
+EVENT_RESULT = {
+    "assigned":         "assigned",
+    "picked_up":        "picked_up",
+    "in_transit":       "in_transit",
+    "out_for_delivery": "out_for_delivery",
+    "delivered":        "delivered",
+    "failed":           "failed",
+}
+
+def can_transition(current_status, event_type):
+    allowed_from = TRANSITIONS.get(event_type)
+    if allowed_from is None:
+        return False
+    return current_status in allowed_from</script>
+</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the machine is a Python dict, not a class:
+
+  A class with a transition() method would
+  work. But the state machine is data, not
+  behavior. The transitions are a set of
+  relationships between strings. A dict
+  expresses that exactly.
+
+  can_transition is the only function. One
+  function, one dict. If the rules change,
+  the dict changes, the function doesn't.
+  If a new event type appears (like
+  'reassigned' in Stage 04), add one line
+  to TRANSITIONS and one line to
+  EVENT_RESULT.
+
+  This is the same shape as the JavaScript
+  version. Different language, same data.
+
+Why the sets, not lists:
+
+  Sets give O(1) membership testing. For
+  transitions like 'failed' that have four
+  allowed from-statuses, checking is
+  constant-time. Lists would be O(n) but n
+  is small (4), so the difference is
+  negligible.
+
+  Sets also express intent: "these are the
+  allowed values, order doesn't matter,
+  duplicates don't exist." A list would
+  suggest order is meaningful. It isn't.
+
+Why can_transition returns False for
+unknown event types:
+
+  TRANSITIONS.get(event_type) returns None
+  for an unknown type. None is not iterable,
+  so 'current_status in None' would crash.
+  The explicit None check returns False
+  cleanly, so an unknown event type is
+  rejected the same as an invalid
+  transition.
+
+  This is defense in depth. The API endpoint
+  also has a CHECK constraint on the
+  delivery_events.type column. An unknown
+  type would fail at the INSERT. But
+  can_transition failing first gives a
+  cleaner error message ("cannot do that
+  from this state" instead of "constraint
+  violation").</pre>
+</div>
+</div>
+</section>
+
+<section id="atomic">
+<h2 class="section-title">Atomic event recording</h2>
+<p class="section-sub">Five writes. One transaction. Or nothing.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The event endpoint does more than insert a row. It also updates the delivery status and refreshes the current leg. All three writes must succeed or none should, or the database ends up with a delivery whose status doesn't match its events.
+</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">atomic.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 145&ndash;175</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">@app.route("/api/deliveries/&lt;int:did&gt;/events", methods=["POST"])
+def record_event(did):
+    data = request.get_json(silent=True) or {}
+    event_type = data.get("type")
+    note = (data.get("note") or "").strip() or None
+    courier_id = data.get("courierId")
+
+    if event_type not in EVENT_RESULT:
+        return jsonify({"error": "Unknown event type."}), 400
+
+    with get_db() as conn:
+        delivery = conn.execute(
+            "SELECT * FROM deliveries WHERE id = ?", (did,)
+        ).fetchone()
+        if not delivery:
+            return jsonify({"error": "Delivery not found."}), 404
+
+        if not can_transition(delivery["status"], event_type):
+            return jsonify({
+                "error": "Cannot " + event_type.replace("_", " ") +
+                         " from status '" + delivery["status"] + "'."
+            }), 409
+
+        # The transaction: all writes inside `with get_db()`
+        ts = now_iso()
+        conn.execute(
+            """INSERT INTO delivery_events
+               (delivery_id, type, location, note, occurred_at, created_at, created_by)
+               VALUES (?, ?, NULL, ?, ?, ?, 'api')""",
+            (did, event_type, note, ts, ts),
+        )
+
+        new_status = EVENT_RESULT[event_type]
+        conn.execute(
+            "UPDATE deliveries SET status = ?, updated_at = ? WHERE id = ?",
+            (new_status, ts, did),
+        )
+
+        if event_type == "assigned" and courier_id:
+            conn.execute(
+                "UPDATE deliveries SET courier_id = ? WHERE id = ?",
+                (courier_id, did),
+            )
+
+        _refresh_current_leg(conn, did, event_type, ts)
+        conn.commit()
+
+        return jsonify(_delivery_payload(conn, did)), 201</pre>
+<pre id="code-sol3">@app.route("/api/deliveries/<int:did>/events", methods=["POST"])
+def record_event(did):
+    data = request.get_json(silent=True) or {}
+    event_type = data.get("type")
+    note = (data.get("note") or "").strip() or None
+    courier_id = data.get("courierId")
+
+    if event_type not in EVENT_RESULT:
+        return jsonify({"error": "Unknown event type."}), 400
+
+    with get_db() as conn:
+        delivery = conn.execute(
+            "SELECT * FROM deliveries WHERE id = ?", (did,)
+        ).fetchone()
+        if not delivery:
+            return jsonify({"error": "Delivery not found."}), 404
+
+        if not can_transition(delivery["status"], event_type):
+            return jsonify({
+                "error": "Cannot " + event_type.replace("_", " ") +
+                         " from status '" + delivery["status"] + "'."
+            }), 409
+
+        # The transaction: all writes inside `with get_db()`
+        ts = now_iso()
+        conn.execute(
+            """INSERT INTO delivery_events
+               (delivery_id, type, location, note, occurred_at, created_at, created_by)
+               VALUES (?, ?, NULL, ?, ?, ?, 'api')""",
+            (did, event_type, note, ts, ts),
+        )
+
+        new_status = EVENT_RESULT[event_type]
+        conn.execute(
+            "UPDATE deliveries SET status = ?, updated_at = ? WHERE id = ?",
+            (new_status, ts, did),
+        )
+
+        if event_type == "assigned" and courier_id:
+            conn.execute(
+                "UPDATE deliveries SET courier_id = ? WHERE id = ?",
+                (courier_id, did),
+            )
+
+        _refresh_current_leg(conn, did, event_type, ts)
+        conn.commit()
+
+        return jsonify(_delivery_payload(conn, did)), 201</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the transition check reads delivery.status, not the events:
+
+  The status field on deliveries is a cache
+  of the last event's result. It's updated
+  by this same endpoint, so it's always in
+  sync with the event log.
+
+  Reading status directly (one row lookup)
+  is O(1). Deriving status from events (walk
+  the log) is O(events). For the hot path of
+  "record an event," the cache is what we
+  want.
+
+  This is the same trade-off as Inventory's
+  products.quantity: cached field, kept in
+  sync by the write path, used by the read
+  path. The event log remains the source of
+  truth if the cache ever needs to be
+  recomputed.
+
+Why 'assigned' has a courier_id side-effect:
+
+  The event insert records the fact
+  ("assigned"). The UPDATE records the
+  consequence ("to courier 3").
+
+  Two writes, one transition. They must
+  both succeed or both fail. The `with
+  get_db()` block guarantees it.
+
+  An alternative would be a separate
+  /api/deliveries/<id>/assign endpoint.
+  That's also valid, but it would need to
+  call record_event internally, which
+  means the same transaction scope. One
+  endpoint with a conditional side-effect
+  is simpler.
+
+Why 409 for invalid transitions:
+
+  400 means the request is malformed (bad
+  JSON, missing field). The client made
+  a mistake.
+
+  409 means the request is valid, but the
+  server's current state doesn't allow it.
+  The client sent a well-formed 'delivered'
+  event, but the delivery is still pending.
+  The state machine refuses.
+
+  The client handles 409 differently from
+  400: on 409, it shows "the delivery is
+  still pending - pick it up first". On
+  400, it shows a generic error.
+
+  Same discipline as HR's clock-in and POS's
+  checkout.
+
+The transaction guarantee:
+
+  Five writes for one event:
+    1. INSERT delivery_events
+    2. UPDATE deliveries.status
+    3. UPDATE deliveries.courier_id (if assigned)
+    4. INSERT or UPDATE delivery_legs
+    5. UPDATE deliveries.updated_at (part of #2)
+
+  If any fails, none commit. The invariant
+  is: the delivery's status matches the
+  last event's result, and the current leg
+  matches the delivery's status. The
+  transaction is what makes that invariant
+  hold.</pre>
+</div>
+</div>
+</section>
+
+<section id="legs">
+<h2 class="section-title">The legs cache</h2>
+<p class="section-sub">One row per journey segment. Derived from events.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The <code>delivery_legs</code> table is the cache that makes the tracking page fast. Each delivery has one or more legs. When an event arrives that ends a leg or starts a new one, <code>_refresh_current_leg</code> runs inside the same transaction. The tracking page reads legs directly, without walking events.
+</p>
+
+<div class="code-block" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">legs.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 195&ndash;225</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol4', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">def _refresh_current_leg(conn, delivery_id, event_type, ts):
+    """Update or close the current leg, and open a new one if needed."""
+    current = conn.execute(
+        """SELECT * FROM delivery_legs
+           WHERE delivery_id = ? AND ended_at IS NULL
+           ORDER BY leg_index DESC LIMIT 1""",
+        (delivery_id,),
+    ).fetchone()
+
+    # Events that end the current leg
+    ends_leg = event_type in ("picked_up", "in_transit", "delivered", "failed")
+    # Events that start a new leg
+    starts_leg = event_type in ("assigned", "picked_up", "in_transit")
+
+    if current and ends_leg:
+        conn.execute(
+            "UPDATE delivery_legs SET ended_at = ?, status = 'completed' WHERE id = ?",
+            (ts, current["id"]),
+        )
+
+    if starts_leg:
+        next_index = (current["leg_index"] + 1) if current else 0
+        conn.execute(
+            """INSERT INTO delivery_legs
+               (delivery_id, leg_index, from_location, to_location,
+                started_at, ended_at, status)
+               VALUES (?, ?, NULL, NULL, ?, NULL, 'active')""",
+            (delivery_id, next_index, ts),
+        )</pre>
+<pre id="code-sol4">def _refresh_current_leg(conn, delivery_id, event_type, ts):
+    """Update or close the current leg, and open a new one if needed."""
+    current = conn.execute(
+        """SELECT * FROM delivery_legs
+           WHERE delivery_id = ? AND ended_at IS NULL
+           ORDER BY leg_index DESC LIMIT 1""",
+        (delivery_id,),
+    ).fetchone()
+
+    # Events that end the current leg
+    ends_leg = event_type in ("picked_up", "in_transit", "delivered", "failed")
+    # Events that start a new leg
+    starts_leg = event_type in ("assigned", "picked_up", "in_transit")
+
+    if current and ends_leg:
+        conn.execute(
+            "UPDATE delivery_legs SET ended_at = ?, status = 'completed' WHERE id = ?",
+            (ts, current["id"]),
+        )
+
+    if starts_leg:
+        next_index = (current["leg_index"] + 1) if current else 0
+        conn.execute(
+            """INSERT INTO delivery_legs
+               (delivery_id, leg_index, from_location, to_location,
+                started_at, ended_at, status)
+               VALUES (?, ?, NULL, NULL, ?, NULL, 'active')""",
+            (delivery_id, next_index, ts),
+        )</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why legs are simpler than events:
+
+  An event is a fact: "picked up at 9:14
+  by courier Alex". Each event is one row,
+  with a type and a timestamp.
+
+  A leg is a summary: "the segment from
+  'assigned' to 'picked_up' took 4 hours".
+  Each leg is one row, with a start, an
+  optional end, and a status.
+
+  The event log has 4 events for delivery 1
+  (assigned, picked_up, in_transit,
+  out_for_delivery). The leg log has 3
+  legs: assigned->picked_up,
+  picked_up->in_transit, in_transit->out_for_delivery.
+
+  The legs table is smaller. It's the
+  summary the tracking page needs. The
+  events table is the detail the audit log
+  needs. Two shapes, two purposes, one
+  source of truth (the events).
+
+Why ends_leg and starts_leg are separate:
+
+  Some events do both: picked_up ends the
+  'assigned' leg and starts the 'picked_up'
+  leg. Some events only end: delivered ends
+  the last leg and doesn't start a new one.
+  Some events only start: assigned starts
+  the first leg.
+
+  Splitting the logic into two checks makes
+  the handling explicit. If an event type
+  is added later (say 'arrived_at_facility'),
+  the developer decides: does it end the
+  current leg? Does it start a new one? The
+  two sets make the answer visible.
+
+Why leg_index increments from the last leg:
+
+  Legs are sequential. The first leg is 0,
+  the next is 1, and so on. The query
+  ORDER BY leg_index DESC LIMIT 1 gets the
+  highest-numbered leg (the current one).
+
+  next_index = current.leg_index + 1 (or 0
+  if there's no current leg). The new leg
+  gets the next number.
+
+  If a delivery is retried after a failure,
+  the leg count grows. The history is
+  preserved. 'Failed' ends a leg; the retry
+  starts a new one with a higher index.
+  Stage 04 will use this.
+
+Why NULL locations in Stage 03:
+
+  The legs table has from_location and
+  to_location columns, but Stage 03 doesn't
+  populate them. The schema is ready for
+  Stage 04's map integration, where each
+  leg will have real coordinates.
+
+  Storing NULL now is honest: the data
+  isn't known yet. Storing placeholder
+  strings would be misleading. The
+  columns exist for the shape Stage 04
+  will fill in.
+
+The atomicity guarantee:
+
+  _refresh_current_leg is called inside the
+  same `with get_db()` block as the event
+  insert and the status update. If the leg
+  insert fails (constraint, disk error), the
+  whole transaction rolls back. The event
+  isn't recorded, the status isn't updated,
+  no leg is created.
+
+  The legs cache is therefore never
+  inconsistent with the events. It's either
+  fully updated to reflect the new event,
+  or fully unchanged. Same invariant as
+  every previous transaction in the studio.</pre>
+</div>
+</div>
+</section>
+
+<section id="public">
+<h2 class="section-title">Public tracking - what to return, what to redact</h2>
+<p class="section-sub">Anyone with the code can see the timeline. Nobody sees PII.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The tracking page is public. The customer received a code, clicked a link, and sees the timeline. No login. The server responds to <code>GET /api/track/&lt;code&gt;</code> with a deliberately minimal payload.
+</p>
+
+<div class="code-block" id="sol5">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">public.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 245&ndash;285</span>
+<button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol5', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol5', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">@app.route("/api/track/&lt;code&gt;", methods=["GET"])
+def track(code):
+    with get_db() as conn:
+        d = conn.execute(
+            """SELECT d.tracking_code, d.destination, d.status,
+                      c.name AS courier_name
+               FROM deliveries d
+               LEFT JOIN couriers c ON c.id = d.courier_id
+               WHERE d.tracking_code = ?""",
+            (code,),
+        ).fetchone()
+
+        if not d:
+            return jsonify({"error": "Not found."}), 404
+
+        events = conn.execute(
+            """SELECT type, note, occurred_at
+               FROM delivery_events
+               WHERE delivery_id = (SELECT id FROM deliveries WHERE tracking_code = ?)
+               ORDER BY occurred_at DESC""",
+            (code,),
+        ).fetchall()
+
+    # Redact courier to first name + last initial
+    courier = d["courier_name"] or "Unassigned"
+    if courier != "Unassigned":
+        parts = courier.split(" ")
+        if len(parts) > 1:
+            courier = parts[0] + " " + parts[-1][0] + "."
+
+    return jsonify({
+        "trackingCode": d["tracking_code"],
+        "destination": d["destination"],
+        "status": d["status"],
+        "courier": courier,
+        "events": [dict(e) for e in events],
+    })</pre>
+<pre id="code-sol5">@app.route("/api/track/<code>", methods=["GET"])
+def track(code):
+    with get_db() as conn:
+        d = conn.execute(
+            """SELECT d.tracking_code, d.destination, d.status,
+                      c.name AS courier_name
+               FROM deliveries d
+               LEFT JOIN couriers c ON c.id = d.courier_id
+               WHERE d.tracking_code = ?""",
+            (code,),
+        ).fetchone()
+
+        if not d:
+            return jsonify({"error": "Not found."}), 404
+
+        events = conn.execute(
+            """SELECT type, note, occurred_at
+               FROM delivery_events
+               WHERE delivery_id = (SELECT id FROM deliveries WHERE tracking_code = ?)
+               ORDER BY occurred_at DESC""",
+            (code,),
+        ).fetchall()
+
+    # Redact courier to first name + last initial
+    courier = d["courier_name"] or "Unassigned"
+    if courier != "Unassigned":
+        parts = courier.split(" ")
+        if len(parts) > 1:
+            courier = parts[0] + " " + parts[-1][0] + "."
+
+    return jsonify({
+        "trackingCode": d["tracking_code"],
+        "destination": d["destination"],
+        "status": d["status"],
+        "courier": courier,
+        "events": [dict(e) for e in events],
+    })</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the SELECT lists specific columns:
+
+  A SELECT * would return the delivery's
+  internal id, customer_id, courier_id,
+  priority, created_at, and updated_at.
+
+  None of those should be in the public
+  response. The customer doesn't need the
+  internal id (the tracking code is the
+  public key). The customer_id and
+  courier_id would let an attacker enumerate
+  other records. Priority is operational.
+  Timestamps are useful but belong in the
+  event log, not the header.
+
+  Listing only the needed columns is
+  defense by design. Even if someone later
+  adds a 'customer_email' column to
+  deliveries (which would be a bad design,
+  but happens), the public endpoint won't
+  leak it because it never selects it.
+
+Why the courier name is redacted:
+
+  The customer sees "Alex R." instead of
+  "Alex Rivera". First name + last initial
+  is enough for the customer to recognize
+  their courier if they've interacted. The
+  full name is unnecessary and could be
+  used to look the courier up on social
+  media.
+
+  The redaction is server-side, not
+  client-side. A client-side redaction
+  (like the earlier version of this
+  pattern) would send the full name over
+  the wire; anyone inspecting the response
+  in DevTools sees it. Server-side redaction
+  means the full name never leaves the
+  server.
+
+Why the events query uses a subquery for
+delivery_id:
+
+  The event query needs the delivery's
+  internal id, which we have from the
+  first query (d doesn't include it after
+  the SELECT list is trimmed).
+
+  The subquery re-looks it up. It's an
+  extra lookup per event request, but it
+  keeps the response shape clean (no id
+  in the payload). The alternative - two
+  queries where the first returns the id -
+  would work too, but requires the
+  caller to have both queries open
+  simultaneously.
+
+  For a demo, the difference is negligible.
+  For a hot path, you'd combine into one
+  query with a JOIN.
+
+Why this endpoint has no auth:
+
+  The whole point of a tracking page is
+  that the customer doesn't need an
+  account. The tracking code IS the
+  credential. It's long enough
+  (DEL-XXXXXXXX) that guessing is
+  impractical, and it's shared only with
+  the customer.
+
+  This is a "capability URL" pattern: the
+  URL itself grants access, like a
+  password-reset link. It's not as secure
+  as auth, but it's the right choice for
+  a public tracking page. The alternative
+  (require the customer to log in) is a
+  UX failure for a simple delivery.
+
+  The lesson: match the security to the
+  data. Tracking timeline for a parcel is
+  low-sensitivity. Health records are not.
+  The capability URL is right for one,
+  wrong for the other.</pre>
+</div>
+</div>
+</section>
+
+<section id="client">
+<h2 class="section-title">Client rewired - fetch() instead of localStorage</h2>
+<p class="section-sub">Same UI. The server is now the source of truth.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The Stage 02 frontend is largely unchanged. The differences are: <code>loadState</code> calls <code>GET /api/state</code>, event recording POSTs to <code>/api/deliveries/&lt;id&gt;/events</code>, and the customer tracking page calls <code>GET /api/track/&lt;code&gt;</code>. The derivation still runs client-side for the live UI, but the server's derivation is the source of truth on load.
+</p>
+
+<div class="code-block" id="sol6">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">client.js</span>
+<span class="snippet-meta">backend/static/delivery-stage-03.html &middot; lines 620&ndash;655</span>
+<button class="copy-btn" onclick="copyCode('code-sol6', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol6', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol6', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol6">async function recordEvent(deliveryId, eventType, note, courierId) {
+  if (transitioning) return { ok: false, error: 'Processing' };
+  transitioning = true;
+
+  try {
+    const res = await fetch(API + '/api/deliveries/' + deliveryId + '/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: eventType, note: note, courierId: courierId })
+    });
+
+    const body = await res.json();
+
+    if (res.status === 409) {
+      // State machine rejected the transition. Show the server's message.
+      return { ok: false, error: body.error };
+    }
+
+    if (!res.ok) {
+      return { ok: false, error: body.error || 'Request failed' };
+    }
+
+    // Server returns the full updated delivery; apply it locally
+    applyDeliveryUpdate(body);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: 'Network: ' + err.message };
+  } finally {
+    transitioning = false;
+  }
+}</pre>
+<pre id="code-sol6">async function recordEvent(deliveryId, eventType, note, courierId) {
+  if (transitioning) return { ok: false, error: 'Processing' };
+  transitioning = true;
+
+  try {
+    const res = await fetch(API + '/api/deliveries/' + deliveryId + '/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: eventType, note: note, courierId: courierId })
+    });
+
+    const body = await res.json();
+
+    if (res.status === 409) {
+      // State machine rejected the transition. Show the server's message.
+      return { ok: false, error: body.error };
+    }
+
+    if (!res.ok) {
+      return { ok: false, error: body.error || 'Request failed' };
+    }
+
+    // Server returns the full updated delivery; apply it locally
+    applyDeliveryUpdate(body);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: 'Network: ' + err.message };
+  } finally {
+    transitioning = false;
+  }
+}</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why 409 is treated as a specific case:
+
+  The state machine on the server is the
+  source of truth. When it rejects a
+  transition, it sends a specific error
+  message ("Cannot pick up from status
+  'pending'"). That message is more useful
+  than the client's own generic check.
+
+  The client's canTransition is still useful
+  for showing the right button. But when a
+  user does something unexpected (opens
+  two tabs, gets distracted, comes back),
+  the server is the final authority. The
+  client shows the server's message, not
+  its own guess.
+
+Why transitioning is cleared in finally:
+
+  If the fetch throws (network error), the
+  flag must still be cleared. Otherwise
+  every subsequent event recording is
+  rejected forever.
+
+  This is the same pattern as every
+  previous Stage 02 and Stage 03. The flag
+  is set before the async work, cleared in
+  finally. The window where it's true is
+  exactly the window of the network
+  request.
+
+Why applyDeliveryUpdate vs applying the
+full state:
+
+  The server returns the full updated
+  delivery, not the whole world. The client
+  updates that one delivery in its local
+  state and re-renders the affected views
+  (courier button, dispatcher table row,
+  customer timeline if visible).
+
+  The alternative - refetching all
+  deliveries after every event - is one
+  extra round-trip per event, which is
+  fine for a demo but unnecessary. The
+  server's return value is the full
+  delivery; use it.
+
+Why the client still derives status:
+
+  The courier's button needs to update
+  instantly (before the server responds).
+  The client derives status from its local
+  events, shows the optimistic button state,
+  then the server's response reconciles.
+
+  This is optimistic UI: assume success,
+  show the result, roll back if the server
+  disagrees. Stage 03 does a simpler
+  version: the client waits for the server,
+  then renders. Stage 04 could add
+  optimistic UI as a refinement.
+
+  The principle: for the parts of the UI
+  that must be instant (the button, the
+  badge), the client derives. For the
+  parts that must be correct (the timeline,
+  the KPI counts), the server derives. Both
+  derive from the same events, so they
+  agree.</pre>
+</div>
+</div>
+</section>
+
+<section id="next">
+<h2 class="section-title">Next: Stage 04 - Advanced (Final)</h2>
+<p class="section-sub">Proof of delivery. Failed workflow. Bulk dispatch. Reports.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stage 03 gives the app a memory. Stage 04 turns it into a real system:
+</p>
+
+<ul class="text-sm text-slate-300 leading-relaxed space-y-1 mb-3" style="padding-left: 1.5rem; list-style: disc;">
+<li><strong>Proof of delivery</strong> - a sixth table, <code>proof_of_delivery</code>, with photo or OTP evidence. One row per completed delivery. The evidence is its own table because it's referenced by audits, not by the operational dashboard.</li>
+<li><strong>Failed-delivery workflow</strong> - a delivery that fails can be retried without becoming a new delivery. The state machine gains a 'retry' concept. The legs table shows the failed attempt and the retry.</li>
+<li><strong>Bulk dispatch</strong> - assign 20 deliveries to a courier in one transaction. Either all 20 succeed or none do. The same atomicity lesson as POS checkout, applied to a batch.</li>
+<li><strong>Live map polling</strong> - the dispatcher dashboard refreshes every 30 seconds. <code>GET /api/deliveries/active</code> returns all active deliveries with their current leg joined, in one response.</li>
+<li><strong>Customer notification queue</strong> - a stub table, not sent, but the pattern is real. When a delivery transitions, a notification row is queued. A separate worker would send it. Stage 04 shows the queue, not the sender.</li>
+<li><strong>Reports</strong> - deliveries per courier per day, average delivery time, failure rate. Computed in SQL, not JavaScript. The same Z-report pattern from POS and timesheet pattern from HR.</li>
+<li><strong>Closeout</strong> - four stages, six tables, event log, state machine, atomic writes, public tracking, proof of delivery, bulk dispatch, reports. No Stage 05.</li>
+</ul>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+The Stage 04 lesson page follows the same format: six sections, six snippets, all under 30 lines. Then the full backend files. Then the hub update and homepage update.
+</p>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">Continue the build</h2>
+<a href="/apps/delivery/stage-04-advanced.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">Next: Stage 04 - Advanced (Final)</div>
+<div class="text-xs text-slate-400 mt-1">Proof of delivery, failed workflow, bulk dispatch, live map, notifications, reports. 3&ndash;4 hours.</div>
+</a>
+<a href="/apps/delivery/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Back to the Delivery Tracking hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages, the data model, and the roadmap.</div>
+</a>
+</section>
+
+<a href="/apps/delivery/index.html" class="back-link">&larr; Back to Delivery Tracking hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Delivery Tracking Stage 03 &middot; Backend <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
