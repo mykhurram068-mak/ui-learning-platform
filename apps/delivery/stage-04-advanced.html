@@ -501,54 +501,6 @@ def bulk_dispatch():
         conn.commit()
 
     return jsonify({"ok": True, "count": len(delivery_ids)}), 200</pre>
-<pre id="code-sol3">@app.route("/api/dispatch/bulk", methods=["POST"])
-def bulk_dispatch():
-    data = request.get_json(silent=True) or {}
-    delivery_ids = data.get("deliveryIds") or []
-    courier_id = data.get("courierId")
-
-    if not delivery_ids or not courier_id:
-        return jsonify({"error": "deliveryIds and courierId required."}), 400
-
-    with get_db() as conn:
-        courier = conn.execute(
-            "SELECT * FROM couriers WHERE id = ?", (courier_id,)
-        ).fetchone()
-        if not courier:
-            return jsonify({"error": "Courier not found."}), 404
-
-        # Validate all deliveries BEFORE any write
-        for did in delivery_ids:
-            d = conn.execute(
-                "SELECT * FROM deliveries WHERE id = ?", (did,)
-            ).fetchone()
-            if not d:
-                return jsonify({"error": "Delivery " + str(did) + " not found."}), 404
-            if d["status"] != "pending":
-                return jsonify({
-                    "error": "Delivery " + str(did) + " is " + d["status"] +
-                             ", not pending. Bulk dispatch requires all pending."
-                }), 409
-
-        # All valid - do all writes in one pass
-        ts = now_iso()
-        for did in delivery_ids:
-            conn.execute(
-                "INSERT INTO delivery_events (delivery_id, type, note, occurred_at, created_at, created_by) VALUES (?, 'assigned', ?, ?, ?, 'api')",
-                (did, "Bulk dispatch to " + courier["name"], ts, ts),
-            )
-            conn.execute(
-                "UPDATE deliveries SET status = 'assigned', courier_id = ?, updated_at = ? WHERE id = ?",
-                (courier_id, ts, did),
-            )
-            _refresh_current_leg(conn, did, "assigned", ts)
-
-        conn.execute(
-            "UPDATE couriers SET status = 'on_delivery' WHERE id = ?", (courier_id,)
-        )
-        conn.commit()
-
-    return jsonify({"ok": True, "count": len(delivery_ids)}), 200</pre>
 </div>
 <div class="code-output-pane" data-pane="js">
 <pre>Why validate first, write second:
