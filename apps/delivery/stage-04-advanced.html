@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Delivery Tracking Stage 04 - Advanced (Final: Proof, Retry, Bulk Dispatch, Reports) (2026)</title>
+<meta name="description" content="Final stage of the Delivery Tracking build: proof of delivery as a sixth table, failed-delivery retry workflow, bulk dispatch in one transaction, live map polling, customer notification queue, and per-courier reports.">
+<meta name="keywords" content="proof of delivery sql, delivery retry workflow, bulk dispatch transaction, delivery reports sql, live map polling">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Delivery Tracking Stage 04 - Advanced (Final)">
+<meta property="og:description" content="Proof of delivery, failed retry, bulk dispatch, live map, reports. Final stage.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/apps/delivery/stage-04-advanced.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Delivery Tracking Stage 04 - Advanced (Final)">
+<meta name="twitter:description" content="Proof of delivery, failed retry, bulk dispatch, reports. Final stage.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/apps/delivery/stage-04-advanced.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Delivery Tracking Stage 04 - Advanced (Final Stage)",
+"description": "Proof of delivery as a sixth table, failed-delivery retry workflow, bulk dispatch in one transaction, live map polling, customer notification queue, and per-courier reports. The final stage of the Delivery Tracking build.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-15",
+"dateModified": "2026-11-15",
+"proficiencyLevel": "Intermediate",
+"dependencies": "Python, Flask, SQLite, JavaScript"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why is proof of delivery its own table and not a column on deliveries?","acceptedAnswer":{"@type":"Answer","text":"Because a delivery has zero or one proof record, but a proof record may have many attributes (method, reference, captured_at, captured_by). Stuffing those into the deliveries table would create nullable columns that only apply when delivered, which is a smell. More importantly, the proof is evidence - a distinct fact. Evidence is queried differently from operational data: an auditor asks 'show me the proof for delivery 42', an operations dashboard asks 'how many deliveries are active'. Separating them keeps both queries fast and both tables focused. The UNIQUE constraint on delivery_id enforces the 1:1 relationship without forcing the columns to coexist."}},
+{"@type":"Question","name":"Why does a failed delivery stay one delivery, not become a new one on retry?","acceptedAnswer":{"@type":"Answer","text":"Because the customer has one parcel. If a delivery fails and is retried, the customer shouldn't have to track a new code. The original tracking code stays valid, the timeline shows 'failed at 3pm', 'retry scheduled at 4pm', 'out for delivery at 9am next day', 'delivered at 11am'. One delivery, multiple attempts. The delivery_legs table already handles this naturally - each retry is a new leg, and the leg_index grows. The state machine needs one addition: the 'failed' state can transition back to 'assigned' or 'out_for_delivery' when a retry begins, which is a deliberate exception to the otherwise-forward-only graph."}},
+{"@type":"Question","name":"What makes bulk dispatch different from calling assign 20 times?","acceptedAnswer":{"@type":"Answer","text":"Atomicity. Twenty sequential API calls means twenty chances to fail halfway. If call 12 fails (courier already at capacity, or a constraint), calls 1-11 have already committed. The dispatcher is left with 11 assignments and 9 failures, and no way to know which is which without checking all 20. A single bulk endpoint runs all 20 inside one transaction. If any fails, all 20 roll back. The dispatcher gets a clear all-or-nothing result, retries with corrected input, and knows exactly what state the system is in. This is the same transaction discipline as the atomic checkout in POS, applied to a batch operation."}},
+{"type":"Question","name":"Why does the live map poll every 30 seconds instead of using WebSockets?","acceptedAnswer":{"@type":"Answer","text":"Because polling is the simplest thing that works for the operational cadence. A dispatcher watching the dashboard doesn't need sub-second updates - they need to know if a courier has been stuck in traffic for 5 minutes. Thirty-second polling gives that without the complexity of a WebSocket server, reconnection logic, and pub/sub. Stage 04 implements polling and names WebSockets as a concept course. This is the honest split: teach the pattern with the simplest tool, point at the more powerful tool for when the requirements justify it."}},
+{"type":"Question","name":"What does the notification queue do in Stage 04?","acceptedAnswer":{"@type":"Answer","text":"It records an intent. When a delivery transitions to a customer-relevant state (out for delivery, delivered, failed), a row is inserted into notifications with type, delivery_id, recipient, and status 'pending'. Stage 04 stops there - the notifications are never sent. A real system would have a separate worker that reads pending notifications, sends the email or SMS, and updates status to 'sent' or 'failed'. The queue is the contract between the operational app (which knows what happened) and the notification service (which knows how to deliver the message). Stage 04 shows the contract; sending is a concept course."}},
+{"@type":"Question","name":"What do the reports answer?","acceptedAnswer":{"@type":"Answer","text":"Three questions a dispatcher asks every day: how many deliveries did each courier complete, how long did deliveries take on average, and what percentage failed. Each is a SQL aggregate over delivery_events or deliveries with a date filter. Same shape as the timesheet in HR and the Z-report in POS: a date range, a group-by dimension, and a computed metric. The pattern is portable across every operational app."}},
+{"@type":"Question","name":"Is this the final stage?","acceptedAnswer":{"@type":"Answer","text":"Yes. The Delivery Tracking build is four stages: Interface, Interactions, Backend, Advanced. Stage 04 completes it. WebSocket live updates, real map tile integration, offline sync for couriers, and a production notification sender are separate concept courses - they are not Stage 05 of this build. The four-stage arc mirrors the CRM, Inventory, POS, and HR builds."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+.snippet-meta { font-size: 11px; color: #64748b; padding: 0 12px 8px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Delivery Tracking Build</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 04 &middot; Advanced &mdash; Final Stage</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> &rsaquo;
+<a href="/apps/index.html" style="color:#7ee8fc;">Apps</a> &rsaquo;
+<a href="/apps/delivery/index.html" style="color:#7ee8fc;">Delivery Tracking</a> &rsaquo;
+<span style="color:#FFFFFF; font-weight:700;">Stage 04</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">Stage 04 &middot; 3&ndash;4 hours &middot; FINAL</div>
+<h1>Make it a real system.<br><span class="py-accent">Proof. Retry. Bulk. Reports.</span></h1>
+<p class="lead">
+The final layer. A <strong>proof of delivery</strong> table as the sixth and last schema addition - photo, signature, or OTP evidence, one row per completed delivery. A <strong>failed-delivery retry workflow</strong> that keeps one delivery through multiple attempts. <strong>Bulk dispatch</strong> as a single transaction - 20 assignments or none. <strong>Live map polling</strong> every 30 seconds from the dispatcher dashboard. A <strong>notification queue</strong> that records intent without sending. And <strong>three reports</strong> that answer the dispatcher's daily questions.
+</p>
+<p class="lead" style="margin-top:0.75rem;">
+<strong style="color:#61dafb;">This is the final stage.</strong> After it, the Delivery Tracking build is complete: four stages, six tables, an event log, a state machine, a public tracking page, proof of delivery, retry, bulk dispatch, and reports. No Stage 05.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 3&ndash;4 hours</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> SQL &middot; Flask &middot; transactions &middot; reports</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/apps/delivery/index.html">Delivery hub</a>
+<a href="#proof">Proof of delivery</a>
+<a href="#retry">Failed retry</a>
+<a href="#bulk">Bulk dispatch</a>
+<a href="#poll">Live map polling</a>
+<a href="#notify">Notification queue</a>
+<a href="#reports">Reports</a>
+<a href="#run">Run it</a>
+<a href="#done">Done &mdash; next steps</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Add two tables &mdash; <code>proof_of_delivery</code> (UNIQUE delivery_id, method, reference, captured_at, captured_by) and <code>notifications</code> (delivery_id, type, recipient, status, created_at). Adjust the state machine so <code>failed</code> can transition back to <code>assigned</code> or <code>out_for_delivery</code>. Add three endpoints: <code>POST /api/deliveries/&lt;id&gt;/proof</code>, <code>POST /api/dispatch/bulk</code>, <code>GET /api/deliveries/active</code> (already exists, now polled). Add three report endpoints: <code>GET /api/reports/by-courier</code>, <code>GET /api/reports/delivery-time</code>, <code>GET /api/reports/failure-rate</code>. The frontend adds a proof modal on delivered, a retry button on failed, and a batch-select for bulk dispatch.
+</p>
+</div>
+
+<section id="proof">
+<h2 class="section-title">Proof of delivery &mdash; the sixth table</h2>
+<p class="section-sub">Evidence is a distinct fact. It gets its own table.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+A delivery can have zero or one proof-of-delivery record. Photo, signature, or OTP - each is a different way of proving the same thing: the parcel was handed to the customer (or someone at the destination). Putting this in its own table keeps the <code>deliveries</code> table operational and the evidence table focused.
+</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">schema.sql</span>
+<span class="snippet-meta">backend/schema.sql &middot; lines 88&ndash;112</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">SQL</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">CREATE TABLE proof_of_delivery (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  delivery_id    INTEGER NOT NULL UNIQUE,
+  method         TEXT NOT NULL
+                 CHECK (method IN ('photo', 'signature', 'otp')),
+  reference      TEXT NOT NULL,
+  note           TEXT,
+  captured_at    TEXT NOT NULL,
+  captured_by    TEXT NOT NULL DEFAULT 'courier',
+  FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE CASCADE
+);
+
+CREATE TABLE notifications (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  delivery_id INTEGER NOT NULL,
+  type        TEXT NOT NULL
+              CHECK (type IN ('out_for_delivery', 'delivered', 'failed')),
+  recipient   TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'pending'
+              CHECK (status IN ('pending', 'sent', 'failed')),
+  created_at  TEXT NOT NULL,
+  sent_at     TEXT,
+  FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_proof_delivery     ON proof_of_delivery(delivery_id);
+CREATE INDEX idx_notif_status       ON notifications(status);
+CREATE INDEX idx_notif_delivery     ON notifications(delivery_id);</pre>
+<pre id="code-sol1">CREATE TABLE proof_of_delivery (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  delivery_id    INTEGER NOT NULL UNIQUE,
+  method         TEXT NOT NULL
+                 CHECK (method IN ('photo', 'signature', 'otp')),
+  reference      TEXT NOT NULL,
+  note           TEXT,
+  captured_at    TEXT NOT NULL,
+  captured_by    TEXT NOT NULL DEFAULT 'courier',
+  FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE CASCADE
+);
+
+CREATE TABLE notifications (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  delivery_id INTEGER NOT NULL,
+  type        TEXT NOT NULL
+              CHECK (type IN ('out_for_delivery', 'delivered', 'failed')),
+  recipient   TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'pending'
+              CHECK (status IN ('pending', 'sent', 'failed')),
+  created_at  TEXT NOT NULL,
+  sent_at     TEXT,
+  FOREIGN KEY (delivery_id) REFERENCES deliveries(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_proof_delivery     ON proof_of_delivery(delivery_id);
+CREATE INDEX idx_notif_status       ON notifications(status);
+CREATE INDEX idx_notif_delivery     ON notifications(delivery_id);</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why UNIQUE delivery_id on proof:
+
+  The relationship is 1:1 - one delivery,
+  one proof. The UNIQUE constraint enforces
+  it at the schema level.
+
+  Without it, a buggy code path could insert
+  two proof rows for the same delivery. Which
+  one is "the" proof? The first? The latest?
+  The one with the matching method? The
+  ambiguity is a bug waiting to happen.
+
+  With UNIQUE, the second insert fails. The
+  code must decide: does it update the
+  existing proof, or reject the new one? The
+  constraint forces that decision to be made
+  explicitly.
+
+Why 'reference' is a generic TEXT:
+
+  Different methods use different reference
+  types:
+    - photo: a file path or base64 payload
+    - signature: an SVG string or data URI
+    - otp: the 6-digit code the customer
+           typed (for verification, the code
+           isn't stored long-term, but the
+           fact that OTP was used is)
+
+  Making the column TEXT with a method field
+  lets the caller decide how to interpret
+  the reference based on the method. A
+  dedicated blob column for photos, plus
+  a code column for OTPs, would be over-
+  engineered for Stage 04.
+
+  Stage 04 stores the reference as a short
+  string (photo path, OTP code). A real
+  system with large photos would use a
+  separate object store and keep the URL
+  in this column. The schema is honest
+  about both.
+
+Why captured_by defaults to 'courier':
+
+  In the happy path, the courier taps
+  'delivered' and the proof is their
+  action. But a dispatcher could also
+  capture proof (customer called in and
+  confirmed the OTP was used), and the
+  value would be 'dispatcher'.
+
+  The default reflects the common case;
+  the field allows the exception. Same
+  pattern as 'created_by' on delivery_events.
+
+Why notifications has a 'pending' status:
+
+  The notification queue is a contract:
+  "this message should be sent". Whether
+  it has been sent is tracked separately.
+
+  If the app inserted rows with
+  status='sent' immediately, it would be
+  lying - the sending hasn't happened. If
+  it omitted the status entirely, the
+  notification worker couldn't tell which
+  rows to process.
+
+  status='pending' means "queued, not yet
+  processed". A worker reads pending rows,
+  sends them, updates status. The queue
+  is durable; the worker is idempotent;
+  the two are decoupled.
+
+  This is the same pattern as an email
+  outbox in any production system. Stage 04
+  queues; the worker is a concept course.</pre>
+</div>
+</div>
+</section>
+
+<section id="retry">
+<h2 class="section-title">Failed retry &mdash; one delivery, many attempts</h2>
+<p class="section-sub">The delivery stays. The attempt is the event.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+A delivery fails. The customer isn't home. The dispatcher doesn't create a new delivery - the customer would have to be told a new code, and the tracking history would fragment. Instead, the original delivery is retried: the state machine allows a transition from <code>failed</code> back to <code>assigned</code>, and a new leg starts.
+</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">retry.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 68&ndash;92</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">TRANSITIONS = {
+    "assigned":         {"pending", "failed"},
+    "picked_up":        {"assigned"},
+    "in_transit":       {"picked_up"},
+    "out_for_delivery": {"in_transit", "failed"},
+    "delivered":        {"out_for_delivery"},
+    "failed":           {"assigned", "picked_up", "in_transit", "out_for_delivery"},
+}
+
+def record_event(did, event_type, note, courier_id):
+    # ... validation ...
+    if not can_transition(delivery["status"], event_type):
+        return jsonify({
+            "error": "Cannot " + event_type + " from '" + delivery["status"] + "'."
+        }), 409
+
+    ts = now_iso()
+    conn.execute(
+        """INSERT INTO delivery_events
+           (delivery_id, type, note, occurred_at, created_at, created_by)
+           VALUES (?, ?, ?, ?, ?, 'api')""",
+        (did, event_type, note, ts, ts),
+    )
+
+    if event_type == "failed":
+        conn.execute(
+            "UPDATE deliveries SET status = 'failed', updated_at = ? WHERE id = ?",
+            (ts, did),
+        )
+    else:
+        conn.execute(
+            "UPDATE deliveries SET status = ?, updated_at = ? WHERE id = ?",
+            (EVENT_RESULT[event_type], ts, did),
+        )
+
+    # ... courier status, leg refresh, notification queue, commit ...</pre>
+<pre id="code-sol2">TRANSITIONS = {
+    "assigned":         {"pending", "failed"},
+    "picked_up":        {"assigned"},
+    "in_transit":       {"picked_up"},
+    "out_for_delivery": {"in_transit", "failed"},
+    "delivered":        {"out_for_delivery"},
+    "failed":           {"assigned", "picked_up", "in_transit", "out_for_delivery"},
+}
+
+def record_event(did, event_type, note, courier_id):
+    # ... validation ...
+    if not can_transition(delivery["status"], event_type):
+        return jsonify({
+            "error": "Cannot " + event_type + " from '" + delivery["status"] + "'."
+        }), 409
+
+    ts = now_iso()
+    conn.execute(
+        """INSERT INTO delivery_events
+           (delivery_id, type, note, occurred_at, created_at, created_by)
+           VALUES (?, ?, ?, ?, ?, 'api')""",
+        (did, event_type, note, ts, ts),
+    )
+
+    if event_type == "failed":
+        conn.execute(
+            "UPDATE deliveries SET status = 'failed', updated_at = ? WHERE id = ?",
+            (ts, did),
+        )
+    else:
+        conn.execute(
+            "UPDATE deliveries SET status = ?, updated_at = ? WHERE id = ?",
+            (EVENT_RESULT[event_type], ts, did),
+        )
+
+    # ... courier status, leg refresh, notification queue, commit ...</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why 'failed' appears in two transition lists:
+
+  In Stage 03, the graph was strictly forward:
+    pending -> assigned -> picked_up ->
+    in_transit -> out_for_delivery -> delivered
+
+  Stage 04 adds a retry edge. From 'failed',
+  the dispatcher can re-assign (assigned) or
+  skip directly to out_for_delivery (if the
+  customer is now home and the courier is
+  already on the way).
+
+  The TRANSITIONS map gains two entries:
+    'assigned' can come from 'failed'
+    'out_for_delivery' can come from 'failed'
+
+  The retry is a new event, not an edit.
+  The delivery_events table records 'failed
+  at 3pm' and 'assigned at 4pm'. Both rows
+  exist. The timeline shows both. The
+  history is preserved.
+
+Why we don't create a new delivery on retry:
+
+  The customer has one parcel. If we created
+  delivery #47 to retry delivery #42, the
+  customer would have two tracking codes
+  and one package. Confusing, and a support
+  burden.
+
+  One delivery, multiple attempts. The
+  tracking code stays. The timeline shows
+  the failed attempt and the successful one.
+  The customer tracks one thing.
+
+  This is the same principle as a POS refund:
+  the original sale is not deleted, a reversal
+  is added. For delivery retries, the original
+  delivery is not replaced, an additional
+  attempt is recorded.
+
+The state machine encodes the retry policy:
+
+  Some retries are allowed from 'failed'
+  (re-assign, out_for_delivery), some are
+  not (you can't go from 'failed' to
+  'picked_up' directly - the parcel would
+  have to be re-picked-up).
+
+  The policy is in the TRANSITIONS map.
+  Changing the policy (e.g., allow
+  'picked_up' from 'failed' for a
+  re-pickup scenario) is one line. The
+  code that uses the map doesn't change.</pre>
+</div>
+</div>
+</section>
+
+<section id="bulk">
+<h2 class="section-title">Bulk dispatch &mdash; 20 assignments, one transaction</h2>
+<p class="section-sub">All succeed, or none do.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The dispatcher selects 20 pending deliveries, picks a courier, and clicks "Assign selected". Twenty sequential API calls would fail halfway if any one of them fails, leaving 11 assignments and 9 failures. One bulk endpoint with one transaction is atomic.
+</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">bulk.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 145&ndash;175</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">@app.route("/api/dispatch/bulk", methods=["POST"])
+def bulk_dispatch():
+    data = request.get_json(silent=True) or {}
+    delivery_ids = data.get("deliveryIds") or []
+    courier_id = data.get("courierId")
+
+    if not delivery_ids or not courier_id:
+        return jsonify({"error": "deliveryIds and courierId required."}), 400
+
+    with get_db() as conn:
+        courier = conn.execute(
+            "SELECT * FROM couriers WHERE id = ?", (courier_id,)
+        ).fetchone()
+        if not courier:
+            return jsonify({"error": "Courier not found."}), 404
+
+        # Validate all deliveries BEFORE any write
+        for did in delivery_ids:
+            d = conn.execute(
+                "SELECT * FROM deliveries WHERE id = ?", (did,)
+            ).fetchone()
+            if not d:
+                return jsonify({"error": "Delivery " + str(did) + " not found."}), 404
+            if d["status"] != "pending":
+                return jsonify({
+                    "error": "Delivery " + str(did) + " is " + d["status"] +
+                             ", not pending. Bulk dispatch requires all pending."
+                }), 409
+
+        # All valid - do all writes in one pass
+        ts = now_iso()
+        for did in delivery_ids:
+            conn.execute(
+                "INSERT INTO delivery_events (delivery_id, type, note, occurred_at, created_at, created_by) VALUES (?, 'assigned', ?, ?, ?, 'api')",
+                (did, "Bulk dispatch to " + courier["name"], ts, ts),
+            )
+            conn.execute(
+                "UPDATE deliveries SET status = 'assigned', courier_id = ?, updated_at = ? WHERE id = ?",
+                (courier_id, ts, did),
+            )
+            _refresh_current_leg(conn, did, "assigned", ts)
+
+        conn.execute(
+            "UPDATE couriers SET status = 'on_delivery' WHERE id = ?", (courier_id,)
+        )
+        conn.commit()
+
+    return jsonify({"ok": True, "count": len(delivery_ids)}), 200</pre>
+<pre id="code-sol3">@app.route("/api/dispatch/bulk", methods=["POST"])
+def bulk_dispatch():
+    data = request.get_json(silent=True) or {}
+    delivery_ids = data.get("deliveryIds") or []
+    courier_id = data.get("courierId")
+
+    if not delivery_ids or not courier_id:
+        return jsonify({"error": "deliveryIds and courierId required."}), 400
+
+    with get_db() as conn:
+        courier = conn.execute(
+            "SELECT * FROM couriers WHERE id = ?", (courier_id,)
+        ).fetchone()
+        if not courier:
+            return jsonify({"error": "Courier not found."}), 404
+
+        # Validate all deliveries BEFORE any write
+        for did in delivery_ids:
+            d = conn.execute(
+                "SELECT * FROM deliveries WHERE id = ?", (did,)
+            ).fetchone()
+            if not d:
+                return jsonify({"error": "Delivery " + str(did) + " not found."}), 404
+            if d["status"] != "pending":
+                return jsonify({
+                    "error": "Delivery " + str(did) + " is " + d["status"] +
+                             ", not pending. Bulk dispatch requires all pending."
+                }), 409
+
+        # All valid - do all writes in one pass
+        ts = now_iso()
+        for did in delivery_ids:
+            conn.execute(
+                "INSERT INTO delivery_events (delivery_id, type, note, occurred_at, created_at, created_by) VALUES (?, 'assigned', ?, ?, ?, 'api')",
+                (did, "Bulk dispatch to " + courier["name"], ts, ts),
+            )
+            conn.execute(
+                "UPDATE deliveries SET status = 'assigned', courier_id = ?, updated_at = ? WHERE id = ?",
+                (courier_id, ts, did),
+            )
+            _refresh_current_leg(conn, did, "assigned", ts)
+
+        conn.execute(
+            "UPDATE couriers SET status = 'on_delivery' WHERE id = ?", (courier_id,)
+        )
+        conn.commit()
+
+    return jsonify({"ok": True, "count": len(delivery_ids)}), 200</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why validate first, write second:
+
+  The two-pass structure is the key. Pass 1
+  reads every delivery and checks it can be
+  assigned. Pass 2 does the writes.
+
+  If pass 1 finds an invalid delivery, it
+  returns 409 BEFORE any writes. The
+  transaction is never started.
+
+  If pass 2 hits a surprise failure (disk
+  error, constraint violation on a
+  delivery_id that was deleted mid-loop by
+  another request), the transaction rolls
+  back all 20 writes. The dispatcher sees
+  500, retries the whole batch, and the
+  system is in the state it was before the
+  first request.
+
+  The alternative - validate-then-write per
+  delivery - would be 20 separate
+  mini-transactions. Each could succeed or
+  fail independently, and the dispatcher
+  would need to parse a per-delivery result
+  to know what to retry. Much worse.
+
+Why the whole batch requires status='pending':
+
+  Bulk dispatch is for "assign these pending
+  deliveries to a courier". If any delivery
+  is already assigned to someone else, the
+  bulk operation is ambiguous: overwrite the
+  existing assignment? Skip that one? Fail
+  the whole batch?
+
+  Stage 04 chooses "fail the whole batch".
+  It's the strictest interpretation and the
+  easiest to reason about. If the dispatcher
+  wants to reassign, that's a different
+  action (per-delivery, with a note).
+
+  This is a policy choice, not a technical
+  one. The transaction is the mechanism;
+  the "all pending" rule is the policy.
+
+Why the courier status flips inside the
+transaction:
+
+  When 20 deliveries are assigned, the
+  courier becomes 'on_delivery'. If the
+  bulk operation fails, the courier must
+  stay 'available' (or whatever they were).
+
+  The UPDATE couriers line is inside the
+  `with get_db()` block. If the loop above
+  raised, this line wouldn't run, and the
+  rollback would restore the courier's
+  previous status.
+
+  The courier status is a derived-ish
+  cache. It's updated when assignments
+  happen, not on read. Same pattern as
+  products.quantity in Inventory - the
+  cache follows the writes, always.</pre>
+</div>
+</div>
+</section>
+
+<section id="poll">
+<h2 class="section-title">Live map polling &mdash; 30 seconds, one endpoint</h2>
+<p class="section-sub">The dashboard refreshes without the complexity of WebSockets.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The dispatcher dashboard needs to feel live. Not sub-second live - the dispatcher isn't watching a race car. Thirty seconds is fine. The client polls <code>GET /api/deliveries/active</code> on a timer and re-renders the map markers and the table.
+</p>
+
+<div class="code-block" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">poll.js</span>
+<span class="snippet-meta">backend/static/delivery-stage-04.html &middot; lines 780&ndash;805</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">JavaScript</button>
+<button onclick="switchCodeOutput('sol4', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">var pollTimer = null;
+
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(refreshActiveDeliveries, 30000);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+function refreshActiveDeliveries() {
+  if (state.view !== 'dispatcher') return;
+  if (document.hidden) return;
+
+  api('/api/deliveries/active').then(function (r) {
+    if (!r.ok) return;
+    state.activeDeliveries = r.body;
+    renderDispatcherMap();
+    renderDispatcherTable();
+  }).catch(function () { /* network hiccup - try again next tick */ });
+}
+
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) stopPolling();
+  else if (state.view === 'dispatcher') startPolling();
+});</pre>
+<pre id="code-sol4">var pollTimer = null;
+
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(refreshActiveDeliveries, 30000);
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+function refreshActiveDeliveries() {
+  if (state.view !== 'dispatcher') return;
+  if (document.hidden) return;
+
+  api('/api/deliveries/active').then(function (r) {
+    if (!r.ok) return;
+    state.activeDeliveries = r.body;
+    renderDispatcherMap();
+    renderDispatcherTable();
+  }).catch(function () { /* network hiccup - try again next tick */ });
+}
+
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) stopPolling();
+  else if (state.view === 'dispatcher') startPolling();
+});</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why 30 seconds, not 5:
+
+  A dispatcher checking the dashboard wants
+  to know "is anything stuck?" - which
+  requires updates in the tens-of-seconds
+  range, not sub-second. A 5-second poll
+  would be 12 requests per minute per open
+  dashboard, 720 per hour, 17k per day.
+  That's 12x the server load for a level of
+  freshness the dispatcher can't perceive.
+
+  30 seconds is the sweet spot: fresh enough
+  to catch "courier has been at the same
+  point for 10 minutes", cheap enough to run
+  on a small server.
+
+Why check document.hidden:
+
+  A dispatcher might leave the dashboard open
+  in a background tab for hours. Polling
+  every 30 seconds from a background tab
+  wastes server resources and the browser's
+  connection slots.
+
+  The visibilitychange listener stops polling
+  when the tab is hidden and resumes when
+  it's visible. Same pattern as the live
+  clock in HR Stage 02.
+
+Why check state.view:
+
+  The dashboard is one of three views. If
+  the dispatcher switches to the customer
+  view to look something up, polling should
+  stop - they're not looking at the
+  dashboard. When they switch back, polling
+  resumes.
+
+  The interval keeps running during the view
+  change (it was set up once), but the
+  callback checks view and returns early.
+  The cost is a function call every 30
+  seconds - negligible. The alternative
+  (start/stop on every view switch) would
+  work too but adds more state to track.
+
+Why the catch is silent:
+
+  Polling is best-effort. If the network
+  hiccups, the next 30-second tick will
+  try again. Showing a toast every time a
+  poll fails would spam the dispatcher
+  during a flaky connection.
+
+  On the next successful poll, the
+  dashboard catches up. The dispatcher
+  doesn't need to know that two polls
+  failed if the third one succeeded.
+
+  This is the honest trade-off: silent
+  retry for background operations,
+  visible errors for user-initiated
+  actions. The user clicked "assign" -
+  they should see why it failed. The
+  system polled on its own - it should
+  just try again.
+
+The WebSocket alternative (concept course):
+
+  A WebSocket connection would push
+  updates as they happen, no polling.
+  Server: ws.send(JSON.stringify(event))
+  on every write. Client: ws.onmessage.
+
+  But WebSockets need:
+    - A WS-capable server (Flask-SocketIO,
+      or a separate Node process)
+    - Reconnection logic with backoff
+    - Authentication on the connection
+    - Heartbeat to detect dead connections
+    - A pub/sub layer if multiple servers
+
+  For a dispatcher dashboard, that's
+  significant complexity for a marginal
+  freshness gain over 30-second polling.
+
+  Stage 04 implements polling. The
+  WebSocket pattern lives in a concept
+  course. The dispatcher dashboard works
+  today; the pattern for sub-second
+  freshness is there when the requirements
+  demand it.</pre>
+</div>
+</div>
+</section>
+
+<section id="notify">
+<h2 class="section-title">Notification queue &mdash; record intent, don't send</h2>
+<p class="section-sub">The app knows what happened. Sending is a separate concern.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+When a delivery moves to <code>out_for_delivery</code>, <code>delivered</code>, or <code>failed</code>, the customer should get a notification. Stage 04 records that intent in a <code>notifications</code> table with <code>status='pending'</code>. Sending the actual email or SMS is a separate worker, not part of this build.
+</p>
+
+<div class="code-block" id="sol5">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">notify.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 230&ndash;250</span>
+<button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol5', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol5', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">NOTIFY_ON = {"out_for_delivery", "delivered", "failed"}
+
+def _queue_notification(conn, delivery_id, event_type, ts):
+    """Insert a pending notification. Never sends - just records intent."""
+    if event_type not in NOTIFY_ON:
+        return
+
+    d = conn.execute(
+        """SELECT c.email FROM deliveries d
+           JOIN customers c ON c.id = d.customer_id
+           WHERE d.id = ?""",
+        (delivery_id,),
+    ).fetchone()
+    if not d or not d["email"]:
+        return
+
+    conn.execute(
+        """INSERT INTO notifications
+           (delivery_id, type, recipient, status, created_at)
+           VALUES (?, ?, ?, 'pending', ?)""",
+        (delivery_id, event_type, d["email"], ts),
+    )
+
+# Called from record_event, inside the same transaction:
+_queue_notification(conn, did, event_type, ts)
+conn.commit()</pre>
+<pre id="code-sol5">NOTIFY_ON = {"out_for_delivery", "delivered", "failed"}
+
+def _queue_notification(conn, delivery_id, event_type, ts):
+    """Insert a pending notification. Never sends - just records intent."""
+    if event_type not in NOTIFY_ON:
+        return
+
+    d = conn.execute(
+        """SELECT c.email FROM deliveries d
+           JOIN customers c ON c.id = d.customer_id
+           WHERE d.id = ?""",
+        (delivery_id,),
+    ).fetchone()
+    if not d or not d["email"]:
+        return
+
+    conn.execute(
+        """INSERT INTO notifications
+           (delivery_id, type, recipient, status, created_at)
+           VALUES (?, ?, ?, 'pending', ?)""",
+        (delivery_id, event_type, d["email"], ts),
+    )
+
+# Called from record_event, inside the same transaction:
+_queue_notification(conn, did, event_type, ts)
+conn.commit()</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why queue, not send:
+
+  Sending an email or SMS is a network
+  operation with its own failure modes:
+  - The email provider is down
+  - The phone number is invalid
+  - The customer unsubscribed
+  - Rate limits hit
+
+  If the notification send happened inside
+  the event recording transaction, a failed
+  email would roll back a successful
+  delivery. The courier would tap "delivered",
+  the DB would refuse, and the UI would
+  show "delivery failed" even though the
+  parcel was actually delivered. Data loss
+  for a downstream concern.
+
+  The queue decouples them. The event
+  records. The delivery succeeds. The
+  notification is queued. A separate worker
+  processes the queue on its own schedule,
+  retrying failed sends, respecting rate
+  limits, logging issues.
+
+  The user-facing promise ("delivery is
+  recorded") is independent of the
+  downstream promise ("customer is
+  notified"). The queue is the seam.
+
+Why NOTIFY_ON is a set:
+
+  Only three event types warrant a customer
+  notification. 'assigned', 'picked_up', and
+  'in_transit' are internal - the customer
+  doesn't need a message for each.
+
+  The set makes the policy explicit. If
+  someone later wants 'picked_up' notifications
+  (a pre-delivery reassurance), it's one
+  value added. The code that calls
+  _queue_notification doesn't change.
+
+Why the recipient is looked up, not passed in:
+
+  The caller (record_event) doesn't know
+  the customer's email. It knows the
+  delivery_id.
+
+  _queue_notification joins deliveries to
+  customers to fetch the email. One query,
+  always the correct email even if the
+  customer updates it between events.
+
+  The alternative - passing the email from
+  the caller - would require every caller
+  to look up the customer first, and would
+  risk passing a stale email. Better to
+  look it up at the moment of queueing.
+
+Why the notification insert is inside the
+same transaction as the event:
+
+  If the event insert succeeds but the
+  notification insert fails (unlikely, but
+  possible with a constraint violation),
+  the whole transaction rolls back. The
+  delivery status stays unchanged, no
+  phantom event is recorded, no
+  notification is orphaned.
+
+  The invariant is: every recorded event
+  that should trigger a notification has
+  exactly one queued notification. The
+  transaction makes it hold.
+
+  The alternative - queueing after the
+  commit - would allow an event to succeed
+  and a notification to be missing. The
+  customer wouldn't know their package
+  shipped. That's a silent failure mode.</pre>
+</div>
+</div>
+</section>
+
+<section id="reports">
+<h2 class="section-title">Reports &mdash; three aggregates, one pattern</h2>
+<p class="section-sub">By courier, delivery time, failure rate.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The reports view answers the three questions a dispatcher asks every day. Each is a SQL aggregate over a date range, with a group-by dimension and a computed metric. Same shape as the HR timesheet and the POS Z-report.
+</p>
+
+<div class="code-block" id="sol6">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">reports.py</span>
+<span class="snippet-meta">backend/app.py &middot; lines 285&ndash;320</span>
+<button class="copy-btn" onclick="copyCode('code-sol6', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol6', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol6', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol6">@app.route("/api/reports/by-courier", methods=["GET"])
+def report_by_courier():
+    from_date = request.args.get("from")
+    to_date = request.args.get("to")
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT co.name AS courier_name,
+                      COUNT(CASE WHEN d.status = 'delivered' THEN 1 END) AS delivered,
+                      COUNT(CASE WHEN d.status = 'failed'    THEN 1 END) AS failed,
+                      COUNT(*) AS total
+               FROM deliveries d
+               LEFT JOIN couriers co ON co.id = d.courier_id
+               WHERE d.updated_at BETWEEN ? AND ?
+               GROUP BY co.name
+               ORDER BY delivered DESC""",
+            (from_date + "T00:00:00", to_date + "T23:59:59"),
+        ).fetchall()
+
+    result = []
+    for r in rows:
+        total = r["total"] or 0
+        rate = (r["failed"] / total * 100) if total > 0 else 0
+        result.append({
+            "courier": r["courier_name"] or "Unassigned",
+            "delivered": r["delivered"],
+            "failed": r["failed"],
+            "total": total,
+            "failureRate": round(rate, 1),
+        })
+    return jsonify(result)</pre>
+<pre id="code-sol6">@app.route("/api/reports/by-courier", methods=["GET"])
+def report_by_courier():
+    from_date = request.args.get("from")
+    to_date = request.args.get("to")
+
+    with get_db() as conn:
+        rows = conn.execute(
+            """SELECT co.name AS courier_name,
+                      COUNT(CASE WHEN d.status = 'delivered' THEN 1 END) AS delivered,
+                      COUNT(CASE WHEN d.status = 'failed'    THEN 1 END) AS failed,
+                      COUNT(*) AS total
+               FROM deliveries d
+               LEFT JOIN couriers co ON co.id = d.courier_id
+               WHERE d.updated_at BETWEEN ? AND ?
+               GROUP BY co.name
+               ORDER BY delivered DESC""",
+            (from_date + "T00:00:00", to_date + "T23:59:59"),
+        ).fetchall()
+
+    result = []
+    for r in rows:
+        total = r["total"] or 0
+        rate = (r["failed"] / total * 100) if total > 0 else 0
+        result.append({
+            "courier": r["courier_name"] or "Unassigned",
+            "delivered": r["delivered"],
+            "failed": r["failed"],
+            "total": total,
+            "failureRate": round(rate, 1),
+        })
+    return jsonify(result)</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why COUNT(CASE WHEN ... THEN 1 END):
+
+  This is the portable conditional count.
+  COUNT(*) counts every row. COUNT(CASE
+  WHEN cond THEN 1 END) counts only rows
+  where the condition is true (the ELSE
+  is NULL, and COUNT ignores NULL).
+
+  COUNT(*) FILTER (WHERE ...) is cleaner
+  but SQLite only added FILTER in 3.30
+  (2019). The CASE form works everywhere.
+
+  Same pattern as the late/absent counts
+  in HR's report and the sale/refund
+  split in POS's Z-report.
+
+Why the failure rate is computed in Python:
+
+  The SQL could do it:
+    ROUND(COUNT(CASE WHEN status='failed' THEN 1 END)
+          * 100.0 / COUNT(*), 1)
+  as an expression.
+
+  But that's hard to read in the middle of
+  a multi-line query. Doing it in Python
+  after fetching the raw counts is cleaner:
+  the SQL returns three numbers, the Python
+  computes one ratio.
+
+  The rule: keep SQL for "fetch the
+  aggregate numbers", use Python for "compute
+  the derived metric". The split keeps both
+  layers readable.
+
+Why the WHERE clause uses updated_at:
+
+  The report wants "deliveries that
+  transitioned to delivered or failed
+  today". A delivery created yesterday but
+  delivered today should count today.
+
+  updated_at is the timestamp of the last
+  status change. Filtering on it captures
+  "what happened today", not "what was
+  created today".
+
+  If you wanted "deliveries created today,
+  regardless of when they completed",
+  filter on created_at. Different question,
+  different column.
+
+  Stage 04 uses updated_at because the
+  dispatcher's daily review is about
+  today's activity, not today's intake.
+
+Why 'Unassigned' appears in the results:
+
+  The LEFT JOIN keeps deliveries with
+  courier_id = NULL (pending, unassigned).
+  Grouping by co.name groups all of them
+  under "Unassigned".
+
+  This is correct - the dispatcher wants
+  to see "3 pending, no courier yet" as a
+  row, not as invisible data. The LEFT
+  JOIN preserves it.
+
+  Same LEFT JOIN discipline as every
+  previous report.</pre>
+</div>
+</div>
+</section>
+
+<section id="run">
+<h2 class="section-title">Run it</h2>
+<p class="section-sub">Same three commands. Two new tables.</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+<div class="text-sm text-slate-300 mb-3"><strong class="text-white">Folder structure:</strong></div>
+<pre class="text-xs text-slate-400 leading-relaxed" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; line-height: 1.6;">apps/delivery/downloads/backend/
+├── app.py                  (updated: proof, bulk, reports, notifications)
+├── database.py             (unchanged)
+├── schema.sql              (updated: adds proof_of_delivery, notifications)
+├── seed.py                 (updated: seeds some proof records)
+├── requirements.txt        (unchanged)
+├── README.md               (updated)
+└── static/
+    └── delivery-stage-04.html  (updated: proof modal, retry, bulk, reports)</pre>
+</div>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-4">
+<div class="text-sm text-slate-300 mb-3"><strong class="text-white">Commands &mdash; note the reseed:</strong></div>
+<pre class="text-xs text-slate-400 leading-relaxed" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; line-height: 1.6;">cd apps/delivery/downloads/backend
+python seed.py        # WIPES delivery.db and reseeds with new tables
+python app.py         # http://localhost:5000</pre>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>You must reseed.</strong> The Stage 03 database has five tables; Stage 04 expects seven. <code>seed.py</code> drops and recreates everything. Any data you added in Stage 03 is lost - that is fine, it was sample data. In a real migration, you would write an <code>ALTER TABLE</code> script; here, reseeding is the honest reset.
+</p>
+
+<div class="concept-grid mt-6">
+<div class="concept-card">
+<h4>Test proof of delivery</h4>
+<p>Courier view: pick a delivery that's out_for_delivery, click "Mark as delivered" → proof modal opens with method selector, reference field, note. Submit → delivery delivered, proof row created.</p>
+</div>
+<div class="concept-card">
+<h4>Test failed retry</h4>
+<p>Courier reports a failure. Status becomes failed. Dispatcher clicks the row → "Retry" option → assign to courier → delivery goes back to assigned. Timeline shows failed and assigned.</p>
+</div>
+<div class="concept-card">
+<h4>Test bulk dispatch</h4>
+<p>Dispatcher selects multiple pending deliveries (checkboxes), picks a courier, clicks "Dispatch selected" → all assigned in one action. If one isn't pending, the whole batch fails.</p>
+</div>
+<div class="concept-card">
+<h4>Test polling</h4>
+<p>Open dispatcher view. Watch the network tab - every 30 seconds, a request to /api/deliveries/active. Tab away → polling stops. Tab back → polling resumes.</p>
+</div>
+<div class="concept-card">
+<h4>Test notification queue</h4>
+<p>Mark a delivery out_for_delivery. Check the DB: <code>sqlite3 delivery.db "SELECT * FROM notifications"</code> → one pending row. It never sends - the queue is the point.</p>
+</div>
+<div class="concept-card">
+<h4>Test reports</h4>
+<p>Reports tab → three tables: by courier, delivery time, failure rate. Date filter defaults to this week. Numbers reconcile with the dashboard KPIs.</p>
+</div>
+</div>
+
+<div id="full" class="bg-slate-900 border border-slate-800 rounded-xl p-5 mt-6">
+<div class="text-sm text-slate-300 mb-3">
+<strong class="text-white">Download the full backend:</strong>
+</div>
+<p class="text-xs text-slate-500 mb-4 leading-relaxed">
+Seven files. Drop them into <code>apps/delivery/downloads/backend/</code>, keep the <code>static/</code> subfolder intact, and the three-command run sequence works.
+</p>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+<a href="/apps/delivery/downloads/backend/app.py" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">app.py</div>
+<div class="text-xs text-slate-500">All endpoints: state, events, proof, bulk dispatch, reports</div>
+</a>
+<a href="/apps/delivery/downloads/backend/schema.sql" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">schema.sql</div>
+<div class="text-xs text-slate-500">7 tables: customers, couriers, deliveries, events, legs, proof, notifications</div>
+</a>
+<a href="/apps/delivery/downloads/backend/seed.py" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">seed.py</div>
+<div class="text-xs text-slate-500">6 customers, 3 couriers, 6 deliveries, events, legs, proof</div>
+</a>
+<a href="/apps/delivery/downloads/backend/database.py" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">database.py</div>
+<div class="text-xs text-slate-500">Connection + init helpers</div>
+</a>
+<a href="/apps/delivery/downloads/backend/requirements.txt" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">requirements.txt</div>
+<div class="text-xs text-slate-500">Flask + flask-cors</div>
+</a>
+<a href="/apps/delivery/downloads/backend/README.md" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors">
+<div class="text-sm font-semibold text-white">README.md</div>
+<div class="text-xs text-slate-500">Endpoints, retry policy, bulk dispatch, reports</div>
+</a>
+<a href="/apps/delivery/downloads/backend/static/delivery-stage-04.html" download class="block p-3 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 transition-colors sm:col-span-2">
+<div class="text-sm font-semibold text-cyan-400">static/delivery-stage-04.html</div>
+<div class="text-xs text-slate-500">Full frontend with proof modal, retry, bulk dispatch, polling, reports</div>
+</a>
+</div>
+</div>
+</section>
+
+<section>
+<h2 class="section-title">Common mistakes</h2>
+<p class="section-sub">What to check if Stage 04 doesn't work.</p>
+
+<div class="mistake">
+<div class="mtitle">1. Not reseeding after the schema change</div>
+<p>Stage 03 has five tables; Stage 04 needs seven. Fix: <code>python seed.py</code> (destructive - recreates the DB).</p>
+</div>
+<div class="mistake">
+<div class="mtitle">2. Storing proof as columns on deliveries</div>
+<p>Creates nullable columns that only apply when delivered. Fix: separate table with UNIQUE delivery_id.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">3. Creating a new delivery on retry</div>
+<p>Customer has two tracking codes for one parcel. Fix: allow 'failed' to transition back to 'assigned' - one delivery, many attempts.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">4. Bulk dispatch as 20 API calls</div>
+<p>Half-success leaves the dispatcher confused about what was assigned. Fix: one endpoint, one transaction, all-or-nothing.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">5. Sending notifications inside the transaction</div>
+<p>A failed email rolls back a successful delivery. Fix: queue the notification, send in a separate worker.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">6. Polling without visibility check</div>
+<p>Background tabs poll every 30 seconds, wasting server resources. Fix: <code>visibilitychange</code> listener stops and resumes.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">7. Failure rate computed in SQL as a nested expression</div>
+<p>Hard to read, easy to get wrong. Fix: fetch raw counts, compute the ratio in Python.</p>
+</div>
+<div class="mistake">
+<div class="mtitle">8. Using created_at instead of updated_at for daily reports</div>
+<p>"Delivered today" needs the delivery timestamp, not the creation timestamp. Fix: filter on updated_at.</p>
+</div>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-4">Frequently asked</h2>
+<div class="space-y-3">
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why is proof of delivery its own table?</summary>
+<p class="mt-2 text-sm text-slate-300">Because a delivery has zero or one proof record, but a proof record may have many attributes. Stuffing them into deliveries would create nullable columns that only apply when delivered. More importantly, the proof is evidence - a distinct fact queried differently from operational data. An auditor asks "show me the proof for delivery 42". An operations dashboard asks "how many deliveries are active". Separating them keeps both queries fast.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why does a failed delivery stay one delivery on retry?</summary>
+<p class="mt-2 text-sm text-slate-300">Because the customer has one parcel. If a delivery fails and is retried, the customer shouldn't have to track a new code. The original tracking code stays valid. The state machine allows 'failed' to transition back to 'assigned' or 'out_for_delivery'. Each retry is a new leg, indexed higher than the previous. One delivery, multiple attempts, one tracking code.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What makes bulk dispatch different from 20 API calls?</summary>
+<p class="mt-2 text-sm text-slate-300">Atomicity. Twenty sequential calls mean twenty chances to fail halfway. A single bulk endpoint runs all 20 inside one transaction. If any fails, all 20 roll back. The dispatcher gets a clear all-or-nothing result. Same transaction discipline as POS's atomic checkout, applied to a batch operation.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Why polling instead of WebSockets?</summary>
+<p class="mt-2 text-sm text-slate-300">Because polling is the simplest thing that works for the dispatcher's operational cadence. A dispatcher needs to know if a courier is stuck - tens of seconds of freshness is enough. WebSockets add a lot of complexity (reconnection, heartbeats, pub/sub) for a marginal gain over 30-second polling. Stage 04 implements polling and names WebSockets as a concept course.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What does the notification queue do?</summary>
+<p class="mt-2 text-sm text-slate-300">Records intent. When a delivery transitions to a customer-relevant state, a pending row is inserted. Stage 04 never sends - the notifications sit in the table. A real system has a separate worker that reads pending rows, sends them, updates status. The queue is the contract between the operational app and the notification service.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">What do the reports answer?</summary>
+<p class="mt-2 text-sm text-slate-300">Three questions a dispatcher asks every day: how many deliveries did each courier complete, how long did deliveries take on average, and what percentage failed. Each is a SQL aggregate over delivery_events or deliveries with a date filter. Same shape as the HR timesheet and POS Z-report.</p>
+</details>
+<details class="bg-slate-950 p-3 rounded-xl">
+<summary class="cursor-pointer text-blue-400 font-medium text-sm">Is this the final stage?</summary>
+<p class="mt-2 text-sm text-slate-300">Yes. The Delivery Tracking build is four stages. Stage 04 completes it. WebSocket live updates, real map tile integration, offline sync, and a production notification sender are separate concept courses - not Stage 05.</p>
+</details>
+</div>
+</section>
+
+<!-- CLOSEOUT -->
+<section id="done" class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+<h2 class="text-white font-bold text-xl mb-2">You're done &mdash; the Delivery Tracking build is complete</h2>
+<p class="text-sm text-slate-300 leading-relaxed mb-4">
+Four stages. Seven tables. An event log with a derived legs cache. A server-side state machine with retry. Atomic event recording. A public tracking page. Proof of delivery as evidence. Bulk dispatch. Live polling. A notification queue. Three reports. The app a small courier operation could run on.
+</p>
+
+<div class="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-4">
+<div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">The full build</div>
+<div class="space-y-2">
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 01 &mdash; Interface</strong> &middot; three-view shell: customer tracking, courier event log, dispatcher dashboard</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 02 &mdash; Interactions</strong> &middot; state machine, derived status, idempotent events, localStorage</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 03 &mdash; Backend</strong> &middot; five tables, server state machine, atomic events, public tracking</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 04 &mdash; Advanced</strong> &middot; proof, retry, bulk dispatch, polling, notifications, reports</span>
+</div>
+</div>
+</div>
+
+<a href="/apps/delivery/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all mb-3">
+<div class="font-semibold text-cyan-400 text-sm">Back to the Delivery Tracking hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages in one place, with the data model and the download links for the full backend.</div>
+</a>
+
+<div class="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-2">
+<div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Where to go from here &mdash; separate tracks, not Stage 05</div>
+<a href="/courses/flask/deployment.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors mb-2">
+<div class="font-semibold text-white text-sm">Deploying Flask + SQLite</div>
+<div class="text-xs text-slate-400 mt-1">Gunicorn, reverse proxy, backups, file permissions. From laptop to server.</div>
+</a>
+<a href="/courses/realtime/websockets.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors mb-2">
+<div class="font-semibold text-white text-sm">Real-time with WebSockets</div>
+<div class="text-xs text-slate-400 mt-1">Server push, pub/sub, reconnection, and the patterns that replace polling.</div>
+</a>
+<a href="/courses/delivery/offline.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors">
+<div class="font-semibold text-white text-sm">Offline-first &amp; sync</div>
+<div class="text-xs text-slate-400 mt-1">Service workers, IndexedDB, sync queues, conflict resolution. For couriers who lose signal.</div>
+</a>
+</div>
+
+<p class="text-xs text-slate-500 leading-relaxed mt-4">
+<strong class="text-slate-400">Build something new.</strong> The four-stage arc is a template for any app that tracks state transitions under partial failure: field service, order fulfilment, ticketing, on-call scheduling. Same event-log discipline, same state machine pattern, same approval/retry workflows. The pattern is the reusable thing.
+</p>
+</section>
+
+<a href="/apps/delivery/index.html" class="back-link">&larr; Back to Delivery Tracking hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Delivery Tracking Stage 04 &middot; Advanced &middot; Final <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
