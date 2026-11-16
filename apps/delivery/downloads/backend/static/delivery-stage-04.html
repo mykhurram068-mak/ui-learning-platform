@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Delivery Tracking - Stage 04: Advanced</title>
+<style>
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface-2: #334155;
+    --border: #334155; --text: #e2e8f0; --text-muted: #94a3b8;
+    --text-dim: #64748b; --accent: #61dafb; --accent-dark: #0891b2;
+    --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+    --radius: 8px; --header-h: 56px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5; overflow: hidden;
+  }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; }
+  button { cursor: pointer; }
+
+  .dl-header {
+    height: var(--header-h); background: var(--surface);
+    border-bottom: 1px solid var(--border); padding: 0 1.5rem;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .dl-brand {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-weight: 800; font-size: 0.9375rem;
+    color: var(--text); text-decoration: none; flex-shrink: 0;
+  }
+  .dl-brand-mark {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bg); font-weight: 900; font-size: 0.75rem;
+  }
+  .dl-tabs { display: flex; gap: 2px; margin-left: auto; flex-wrap: wrap; }
+  .dl-tab {
+    padding: 0.5rem 0.875rem; border-radius: 6px;
+    background: transparent; border: 1px solid transparent;
+    color: var(--text-muted); font-size: 0.8125rem; font-weight: 600;
+  }
+  .dl-tab:hover { background: var(--surface-2); color: var(--text); }
+  .dl-tab.is-active { background: var(--bg); color: var(--accent); border-color: var(--border); }
+
+  .dl-view { display: none; height: calc(100vh - var(--header-h)); overflow-y: auto; }
+  .dl-view.is-active { display: block; }
+  .dl-page { padding: 1.5rem; max-width: 1400px; margin: 0 auto; }
+
+  /* Customer */
+  .dl-customer { display: grid; place-items: center; min-height: calc(100vh - var(--header-h)); padding: 2rem 1rem; }
+  .dl-track-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 2rem 1.75rem; max-width: 520px; width: 100%;
+    display: flex; flex-direction: column; gap: 1.5rem;
+  }
+  .dl-track-brand { text-align: center; }
+  .dl-track-brand h1 { font-size: 1.25rem; font-weight: 800; margin-bottom: 0.25rem; }
+  .dl-track-brand p { font-size: 0.8125rem; color: var(--text-muted); }
+  .dl-track-code { display: flex; gap: 0.5rem; }
+  .dl-track-code input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.75rem 1rem; color: var(--text); font-size: 1rem;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; outline: none;
+    text-transform: uppercase;
+  }
+  .dl-track-code input::placeholder { color: var(--text-dim); text-transform: none; font-family: inherit; }
+  .dl-track-code input:focus { border-color: var(--accent); }
+  .dl-track-code button {
+    padding: 0.75rem 1.25rem; background: var(--accent); color: var(--bg);
+    border: none; border-radius: 8px; font-weight: 700; font-size: 0.875rem;
+  }
+  .dl-track-code button:hover { background: var(--accent-dark); color: white; }
+  .dl-track-error {
+    padding: 0.75rem 1rem; background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px;
+    color: var(--danger); font-size: 0.8125rem; display: none;
+  }
+  .dl-track-error.is-visible { display: block; }
+
+  .dl-timeline { display: flex; flex-direction: column; gap: 0; position: relative; padding-left: 1.25rem; }
+  .dl-timeline::before {
+    content: ""; position: absolute; left: 7px; top: 8px; bottom: 8px;
+    width: 2px; background: var(--border);
+  }
+  .dl-tl-event {
+    display: grid; grid-template-columns: 80px 1fr; gap: 0.75rem;
+    padding: 0.5rem 0 0.5rem 1rem; position: relative; font-size: 0.8125rem;
+  }
+  .dl-tl-dot {
+    position: absolute; left: -1.25rem; top: 0.75rem;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--border);
+  }
+  .dl-tl-event.is-current .dl-tl-dot {
+    background: var(--accent); border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(97, 218, 251, 0.15);
+  }
+  .dl-tl-event.is-complete .dl-tl-dot { background: var(--success); border-color: var(--success); }
+  .dl-tl-event.is-failed .dl-tl-dot { background: var(--danger); border-color: var(--danger); }
+  .dl-tl-time {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--text-dim); font-size: 0.75rem;
+    font-variant-numeric: tabular-nums; padding-top: 0.125rem;
+  }
+  .dl-tl-body { color: var(--text); }
+  .dl-tl-body strong { font-weight: 700; }
+  .dl-tl-body p { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.125rem; }
+
+  .dl-track-meta {
+    border-top: 1px solid var(--border); padding-top: 1rem;
+    display: flex; flex-direction: column; gap: 0.375rem;
+  }
+  .dl-track-meta-row { display: flex; justify-content: space-between; font-size: 0.8125rem; }
+  .dl-track-meta-row span:first-child { color: var(--text-muted); }
+  .dl-track-meta-row span:last-child { color: var(--text); font-weight: 600; }
+
+  .dl-track-empty { padding: 2rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.8125rem; }
+  .dl-track-empty-icon { font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.4; }
+
+  /* Courier */
+  .dl-courier {
+    padding: 1rem; max-width: 480px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 1rem;
+    min-height: calc(100vh - var(--header-h));
+  }
+  .dl-courier-section-label {
+    font-size: 0.6875rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim);
+    font-weight: 700; margin-bottom: 0.25rem;
+  }
+  .dl-delivery-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 1.25rem;
+    display: flex; flex-direction: column; gap: 0.75rem;
+  }
+  .dl-delivery-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+  .dl-delivery-code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.75rem; color: var(--accent); font-weight: 700;
+  }
+  .dl-delivery-customer { font-size: 1.0625rem; font-weight: 700; margin-top: 0.25rem; }
+  .dl-delivery-status {
+    padding: 0.25rem 0.625rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;
+  }
+  .dl-delivery-status.pending { background: rgba(100,116,139,0.2); color: var(--text-muted); }
+  .dl-delivery-status.assigned { background: rgba(139,92,246,0.15); color: #a78bfa; }
+  .dl-delivery-status.picked_up { background: rgba(97,218,251,0.15); color: var(--accent); }
+  .dl-delivery-status.in_transit { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .dl-delivery-status.out_for_delivery { background: rgba(245,158,11,0.15); color: var(--warning); }
+  .dl-delivery-status.delivered { background: rgba(16,185,129,0.15); color: var(--success); }
+  .dl-delivery-status.failed { background: rgba(239,68,68,0.15); color: var(--danger); }
+  .dl-delivery-address { font-size: 0.8125rem; color: var(--text-muted); line-height: 1.5; }
+
+  .dl-courier-action {
+    width: 100%; padding: 1.5rem 1rem;
+    font-size: 1.125rem; font-weight: 800;
+    border-radius: 12px; border: none;
+    background: var(--accent); color: var(--bg);
+    text-transform: uppercase; letter-spacing: 0.05em;
+    transition: background 0.15s, transform 0.05s;
+  }
+  .dl-courier-action:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+  .dl-courier-action:active:not(:disabled) { transform: scale(0.99); }
+  .dl-courier-action:disabled { opacity: 0.5; cursor: not-allowed; }
+  .dl-courier-action.is-fail { background: var(--danger); color: white; }
+  .dl-courier-secondary { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  .dl-courier-secondary button {
+    padding: 0.75rem; border-radius: 8px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--text-muted); font-size: 0.8125rem; font-weight: 600;
+    min-height: 44px;
+  }
+  .dl-courier-secondary button:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+  .dl-courier-secondary button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .dl-courier-empty { padding: 3rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.875rem; }
+
+  /* Dispatcher */
+  .dl-dispatcher { display: grid; grid-template-rows: auto 1fr; grid-template-columns: 1fr 1fr; grid-template-areas: "kpis kpis" "map table"; height: calc(100vh - var(--header-h)); gap: 1rem; padding: 1rem; }
+  .dl-kpis { grid-area: kpis; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+  .dl-kpi {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 1rem 1.25rem;
+  }
+  .dl-kpi-label {
+    font-size: 0.6875rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim);
+    font-weight: 700; margin-bottom: 0.375rem;
+  }
+  .dl-kpi-value { font-size: 1.75rem; font-weight: 800; color: var(--text); line-height: 1; font-variant-numeric: tabular-nums; }
+  .dl-kpi-context { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem; }
+
+  .dl-map {
+    grid-area: map;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); min-height: 0; overflow: hidden;
+    position: relative; display: flex; align-items: center; justify-content: center;
+    background-image:
+      linear-gradient(rgba(97, 218, 251, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(97, 218, 251, 0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .dl-map-placeholder { text-align: center; color: var(--text-dim); padding: 2rem; }
+  .dl-map-placeholder-icon { font-size: 3rem; margin-bottom: 0.5rem; opacity: 0.4; }
+  .dl-map-placeholder-title { font-size: 0.9375rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.25rem; }
+  .dl-map-placeholder-sub { font-size: 0.8125rem; }
+  .dl-map-pulse {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-size: 0.75rem; color: var(--text-dim);
+    margin-top: 0.75rem; justify-content: center;
+  }
+  .dl-map-pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--success);
+    animation: dl-pulse 1.5s infinite;
+  }
+  @keyframes dl-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .dl-table-panel {
+    grid-area: table;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); min-height: 0; overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .dl-table-header { padding: 0.875rem 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 0.75rem; flex-wrap: wrap; }
+  .dl-table-title { font-size: 0.875rem; font-weight: 800; }
+  .dl-table-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .dl-table-count { font-size: 0.75rem; color: var(--text-dim); font-weight: 600; }
+  .dl-table-wrap { flex: 1; overflow-y: auto; min-height: 0; }
+  .dl-table { width: 100%; border-collapse: collapse; }
+  .dl-table th {
+    text-align: left; padding: 0.625rem 1rem;
+    font-size: 0.6875rem; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--text-dim);
+    font-weight: 700; border-bottom: 1px solid var(--border);
+    background: var(--bg); position: sticky; top: 0; z-index: 1;
+  }
+  .dl-table td {
+    padding: 0.75rem 1rem; font-size: 0.8125rem;
+    border-bottom: 1px solid var(--border); color: var(--text);
+  }
+  .dl-table tr:last-child td { border-bottom: none; }
+  .dl-table tbody tr { cursor: pointer; }
+  .dl-table tbody tr:hover td { background: var(--bg); }
+  .dl-table tbody tr.is-selected td { background: rgba(97, 218, 251, 0.08); }
+  .dl-checkbox { cursor: pointer; }
+  .dl-code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 0.75rem; color: var(--accent); font-weight: 600;
+  }
+  .dl-status-badge {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    padding: 0.25rem 0.625rem; border-radius: 999px;
+    font-size: 0.6875rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .dl-status-badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .dl-status-badge.pending { background: rgba(100,116,139,0.2); color: var(--text-muted); }
+  .dl-status-badge.assigned { background: rgba(139,92,246,0.15); color: #a78bfa; }
+  .dl-status-badge.picked_up { background: rgba(97,218,251,0.15); color: var(--accent); }
+  .dl-status-badge.in_transit { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .dl-status-badge.out_for_delivery { background: rgba(245,158,11,0.15); color: var(--warning); }
+  .dl-status-badge.delivered { background: rgba(16,185,129,0.15); color: var(--success); }
+  .dl-status-badge.failed { background: rgba(239,68,68,0.15); color: var(--danger); }
+
+  /* Reports */
+  .dl-reports { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+  .dl-report-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;
+  }
+  .dl-report-title { font-size: 1.25rem; font-weight: 800; }
+  .dl-report-filters { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+  .dl-report-filters label {
+    font-size: 0.6875rem; text-transform: uppercase;
+    letter-spacing: 0.06em; color: var(--text-dim); font-weight: 700;
+  }
+  .dl-report-filters input {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.375rem 0.625rem;
+    color: var(--text); font-size: 0.8125rem; outline: none;
+  }
+  .dl-report-filters input:focus { border-color: var(--accent); }
+  .dl-btn {
+    padding: 0.5rem 1rem; border-radius: 6px; border: none;
+    font-size: 0.8125rem; font-weight: 700;
+  }
+  .dl-btn-primary { background: var(--accent); color: var(--bg); }
+  .dl-btn-primary:hover:not(:disabled) { background: var(--accent-dark); color: white; }
+  .dl-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .dl-btn-secondary { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+  .dl-btn-secondary:hover { background: var(--surface-2); color: var(--text); }
+
+  .dl-report-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 1rem; overflow: hidden;
+  }
+  .dl-report-panel-header {
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    font-weight: 800; font-size: 0.9375rem;
+  }
+  .dl-report-body { padding: 1rem 1.25rem; }
+
+  /* Modal */
+  .dl-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: none; align-items: center; justify-content: center;
+    padding: 1rem; z-index: 100;
+  }
+  .dl-modal.is-open { display: flex; }
+  .dl-modal-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); width: 100%; max-width: 480px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .dl-modal-header {
+    padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .dl-modal-title { font-size: 1rem; font-weight: 800; }
+  .dl-modal-close { background: transparent; border: none; color: var(--text-muted); font-size: 1.25rem; padding: 0.25rem 0.5rem; border-radius: 4px; }
+  .dl-modal-close:hover { background: var(--surface-2); color: var(--text); }
+  .dl-modal-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.875rem; }
+  .dl-modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0 1.25rem 1.25rem; }
+  .dl-field { display: flex; flex-direction: column; gap: 0.375rem; }
+  .dl-field label { font-size: 0.6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  .dl-field select, .dl-field input, .dl-field textarea {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.5rem 0.75rem;
+    color: var(--text); font-size: 0.875rem; outline: none;
+  }
+  .dl-field textarea { min-height: 60px; resize: vertical; }
+  .dl-field select:focus, .dl-field input:focus, .dl-field textarea:focus { border-color: var(--accent); }
+
+  /* Toast */
+  .dl-toast {
+    position: fixed; bottom: 1.5rem; left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: var(--surface); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 0.75rem 1rem; border-radius: 6px;
+    font-size: 0.875rem; color: var(--text);
+    opacity: 0; transition: transform 0.2s, opacity 0.2s;
+    z-index: 300; pointer-events: none; max-width: 90vw;
+  }
+  .dl-toast.is-visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .dl-toast.is-error { border-left-color: var(--danger); }
+
+  .dl-loading { padding: 3rem 1rem; text-align: center; color: var(--text-dim); font-size: 0.875rem; }
+  .dl-empty { padding: 2rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.8125rem; }
+
+  @media (max-width: 1000px) {
+    .dl-dispatcher { grid-template-columns: 1fr; grid-template-areas: "kpis" "map" "table"; height: auto; overflow-y: auto; }
+    .dl-dispatcher .dl-map { min-height: 300px; }
+    .dl-dispatcher .dl-table-panel { min-height: 400px; }
+  }
+  @media (max-width: 700px) {
+    .dl-kpis { grid-template-columns: repeat(2, 1fr); }
+    .dl-courier { padding: 0.75rem; }
+    .dl-courier-action { font-size: 1rem; padding: 1.25rem 1rem; }
+    .dl-tabs { gap: 0; }
+    .dl-tab { padding: 0.5rem 0.625rem; font-size: 0.75rem; }
+    .dl-brand span { display: none; }
+  }
+  @media (max-width: 500px) {
+    .dl-kpis { grid-template-columns: 1fr; }
+    .dl-track-card { padding: 1.5rem 1.25rem; }
+    .dl-tl-event { grid-template-columns: 1fr; gap: 0.25rem; }
+  }
+</style>
+</head>
+<body data-view="customer">
+
+<header class="dl-header">
+  <a class="dl-brand" href="#">
+    <div class="dl-brand-mark">M</div>
+    <span>MAK DELIVERY</span>
+  </a>
+  <div class="dl-tabs">
+    <button class="dl-tab is-active" type="button" data-switch="customer">Track</button>
+    <button class="dl-tab" type="button" data-switch="courier">Courier</button>
+    <button class="dl-tab" type="button" data-switch="dispatcher">Dispatcher</button>
+    <button class="dl-tab" type="button" data-switch="reports">Reports</button>
+  </div>
+</header>
+
+<!-- CUSTOMER -->
+<div class="dl-view is-active" id="view-customer">
+  <div class="dl-customer">
+    <div class="dl-track-card">
+      <div class="dl-track-brand">
+        <h1>Track your delivery</h1>
+        <p>Enter your tracking code to see where your parcel is.</p>
+      </div>
+      <div class="dl-track-code">
+        <input type="text" id="track-input" placeholder="DEL-XXXXXX" maxlength="20" aria-label="Tracking code">
+        <button type="button" id="track-btn">Track</button>
+      </div>
+      <div class="dl-track-error" id="track-error"></div>
+      <div id="track-result">
+        <div class="dl-track-empty">
+          <div class="dl-track-empty-icon">📦</div>
+          <div>Enter a tracking code to see its journey.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COURIER -->
+<div class="dl-view" id="view-courier">
+  <div class="dl-courier">
+    <div class="dl-courier-section-label">Active delivery</div>
+    <div id="courier-content">
+      <div class="dl-loading">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<!-- DISPATCHER -->
+<div class="dl-view" id="view-dispatcher">
+  <div class="dl-dispatcher">
+    <div class="dl-kpis">
+      <div class="dl-kpi">
+        <div class="dl-kpi-label">Active deliveries</div>
+        <div class="dl-kpi-value" id="kpi-active">-</div>
+        <div class="dl-kpi-context">in progress right now</div>
+      </div>
+      <div class="dl-kpi">
+        <div class="dl-kpi-label">Out for delivery</div>
+        <div class="dl-kpi-value" id="kpi-out">-</div>
+        <div class="dl-kpi-context">courier en route</div>
+      </div>
+      <div class="dl-kpi">
+        <div class="dl-kpi-label">Delivered today</div>
+        <div class="dl-kpi-value" id="kpi-delivered">-</div>
+        <div class="dl-kpi-context">completed</div>
+      </div>
+      <div class="dl-kpi">
+        <div class="dl-kpi-label">Couriers on shift</div>
+        <div class="dl-kpi-value" id="kpi-couriers">-</div>
+        <div class="dl-kpi-context">available or delivering</div>
+      </div>
+    </div>
+
+    <div class="dl-map">
+      <div class="dl-map-placeholder">
+        <div class="dl-map-placeholder-icon">📍</div>
+        <div class="dl-map-placeholder-title">Live map</div>
+        <div class="dl-map-placeholder-sub">Polling every 30s</div>
+        <div class="dl-map-pulse">
+          <span class="dl-map-pulse-dot"></span>
+          <span id="poll-status">Idle</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="dl-table-panel">
+      <div class="dl-table-header">
+        <div class="dl-table-title">Deliveries</div>
+        <div class="dl-table-actions">
+          <span class="dl-table-count" id="table-count">-</span>
+          <button class="dl-btn dl-btn-secondary" type="button" id="bulk-clear" style="display:none;">Clear</button>
+          <button class="dl-btn dl-btn-primary" type="button" id="bulk-dispatch" disabled>Bulk dispatch</button>
+        </div>
+      </div>
+      <div class="dl-table-wrap">
+        <table class="dl-table">
+          <thead>
+            <tr>
+              <th style="width:40px;"></th>
+              <th>Code</th>
+              <th>Customer</th>
+              <th>Courier</th>
+              <th>Status</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody id="dispatcher-tbody">
+            <tr><td colspan="6" class="dl-loading">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REPORTS -->
+<div class="dl-view" id="view-reports">
+  <div class="dl-reports">
+    <div class="dl-report-header">
+      <h2 class="dl-report-title">Reports</h2>
+      <div class="dl-report-filters">
+        <label>From</label>
+        <input type="date" id="report-from">
+        <label>To</label>
+        <input type="date" id="report-to">
+        <button class="dl-btn dl-btn-primary" type="button" id="report-load">Load</button>
+      </div>
+    </div>
+
+    <div class="dl-report-panel">
+      <div class="dl-report-panel-header">By courier</div>
+      <div class="dl-report-body" id="report-by-courier">
+        <div class="dl-loading">Set a date range and click Load.</div>
+      </div>
+    </div>
+
+    <div class="dl-report-panel">
+      <div class="dl-report-panel-header">Average delivery time</div>
+      <div class="dl-report-body" id="report-delivery-time">
+        <div class="dl-loading">Set a date range and click Load.</div>
+      </div>
+    </div>
+
+    <div class="dl-report-panel">
+      <div class="dl-report-panel-header">Failure rate</div>
+      <div class="dl-report-body" id="report-failure-rate">
+        <div class="dl-loading">Set a date range and click Load.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Assign modal -->
+<div class="dl-modal" id="assign-modal">
+  <div class="dl-modal-card">
+    <div class="dl-modal-header">
+      <div class="dl-modal-title" id="assign-title">Assign courier</div>
+      <button class="dl-modal-close" type="button" data-close="assign">x</button>
+    </div>
+    <div class="dl-modal-body">
+      <div class="dl-field">
+        <label for="assign-courier">Courier</label>
+        <select id="assign-courier"></select>
+      </div>
+    </div>
+    <div class="dl-modal-actions">
+      <button class="dl-btn dl-btn-secondary" type="button" data-close="assign">Cancel</button>
+      <button class="dl-btn dl-btn-primary" type="button" id="assign-submit">Assign</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bulk dispatch modal -->
+<div class="dl-modal" id="bulk-modal">
+  <div class="dl-modal-card">
+    <div class="dl-modal-header">
+      <div class="dl-modal-title">Bulk dispatch</div>
+      <button class="dl-modal-close" type="button" data-close="bulk">x</button>
+    </div>
+    <div class="dl-modal-body">
+      <div class="dl-field">
+        <label for="bulk-count-label">Deliveries</label>
+        <div id="bulk-count-label" style="font-size:0.875rem;color:var(--text);"></div>
+      </div>
+      <div class="dl-field">
+        <label for="bulk-courier">Courier</label>
+        <select id="bulk-courier"></select>
+      </div>
+    </div>
+    <div class="dl-modal-actions">
+      <button class="dl-btn dl-btn-secondary" type="button" data-close="bulk">Cancel</button>
+      <button class="dl-btn dl-btn-primary" type="button" id="bulk-submit">Dispatch all</button>
+    </div>
+  </div>
+</div>
+
+<!-- Proof modal -->
+<div class="dl-modal" id="proof-modal">
+  <div class="dl-modal-card">
+    <div class="dl-modal-header">
+      <div class="dl-modal-title">Proof of delivery</div>
+      <button class="dl-modal-close" type="button" data-close="proof">x</button>
+    </div>
+    <div class="dl-modal-body">
+      <div class="dl-field">
+        <label for="proof-method">Method</label>
+        <select id="proof-method">
+          <option value="signature">Signature</option>
+          <option value="photo">Photo</option>
+          <option value="otp">OTP code</option>
+        </select>
+      </div>
+      <div class="dl-field">
+        <label for="proof-reference">Reference</label>
+        <input type="text" id="proof-reference" placeholder="File path, SVG URI, or OTP code">
+      </div>
+      <div class="dl-field">
+        <label for="proof-note">Note (optional)</label>
+        <textarea id="proof-note" placeholder="e.g. Signed by Sarah Johnson"></textarea>
+      </div>
+    </div>
+    <div class="dl-modal-actions">
+      <button class="dl-btn dl-btn-secondary" type="button" data-close="proof">Skip</button>
+      <button class="dl-btn dl-btn-primary" type="button" id="proof-submit">Attach proof</button>
+    </div>
+  </div>
+</div>
+
+<div class="dl-toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var API = (location.protocol === 'file:') ? 'http://localhost:5000' : '';
+
+  var EVENT_RESULT = {
+    'assigned': 'assigned', 'picked_up': 'picked_up',
+    'in_transit': 'in_transit', 'out_for_delivery': 'out_for_delivery',
+    'delivered': 'delivered', 'failed': 'failed'
+  };
+
+  var TIMELINE_LABELS = {
+    'assigned': 'Assigned to courier',
+    'picked_up': 'Picked up',
+    'in_transit': 'In transit',
+    'out_for_delivery': 'Out for delivery',
+    'delivered': 'Delivered',
+    'failed': 'Delivery failed'
+  };
+
+  var COURIER_NEXT = {
+    'assigned': { next: 'picked_up', label: 'Confirm pickup' },
+    'picked_up': { next: 'in_transit', label: 'Start transit' },
+    'in_transit': { next: 'out_for_delivery', label: 'Out for delivery' },
+    'out_for_delivery': { next: 'delivered', label: 'Mark as delivered' }
+  };
+
+  var state = {
+    deliveries: [],
+    couriers: [],
+    events: [],
+    view: 'customer',
+    selectedIds: {},
+    proofTarget: null,
+    bulkTarget: null
+  };
+
+  var transitioning = false;
+  var lastTrackedCode = null;
+  var assignTargetId = null;
+  var pollTimer = null;
+
+  function api(path, opts) {
+    return fetch(API + path, Object.assign({
+      headers: { 'Content-Type': 'application/json' }
+    }, opts || {})).then(function (res) {
+      return res.json().catch(function () { return null; }).then(function (body) {
+        return { ok: res.ok, status: res.status, body: body };
+      });
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      var n = c.charCodeAt(0);
+      if (n === 38) return '&amp;';
+      if (n === 60) return '&lt;';
+      if (n === 62) return '&gt;';
+      if (n === 34) return '&quot;';
+      if (n === 39) return '&#39;';
+      return c;
+    });
+  }
+
+  function formatTime(iso) {
+    if (!iso) return '-';
+    return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function formatRelative(iso) {
+    if (!iso) return '-';
+    var diff = (Date.now() - new Date(iso).getTime()) / 60000;
+    if (diff < 1) return 'just now';
+    if (diff < 60) return Math.floor(diff) + 'm ago';
+    if (diff < 1440) return Math.floor(diff / 60) + 'h ago';
+    return Math.floor(diff / 1440) + 'd ago';
+  }
+
+  function statusLabel(status) {
+    var labels = {
+      'pending': 'Pending', 'assigned': 'Assigned', 'picked_up': 'Picked up',
+      'in_transit': 'In transit', 'out_for_delivery': 'Out for delivery',
+      'delivered': 'Delivered', 'failed': 'Failed', 'cancelled': 'Cancelled'
+    };
+    return labels[status] || status;
+  }
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function weekAgoStr() {
+    var d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function applyState(payload) {
+    state.deliveries = payload.deliveries || [];
+    state.couriers = payload.couriers || [];
+    state.events = payload.events || [];
+    renderAll();
+  }
+
+  function applyDeliveryUpdate(delivery) {
+    var idx = state.deliveries.findIndex(function (d) { return d.id === delivery.id; });
+    if (idx >= 0) state.deliveries[idx] = delivery;
+    else state.deliveries.push(delivery);
+    renderAll();
+  }
+
+  function refreshState() {
+    return api('/api/state').then(function (r) {
+      if (r.ok && r.body) applyState(r.body);
+      else showToast('Could not load state', true);
+    }).catch(function (err) {
+      showToast('Network: ' + err.message, true);
+    });
+  }
+
+  // ===== CUSTOMER =====
+  function renderCustomer() {
+    if (!lastTrackedCode) return;
+    var error = document.getElementById('track-error');
+    api('/api/track/' + encodeURIComponent(lastTrackedCode)).then(function (r) {
+      if (!r.ok) {
+        error.textContent = 'No delivery found with code "' + lastTrackedCode + '".';
+        error.classList.add('is-visible');
+        document.getElementById('track-result').innerHTML = '';
+        return;
+      }
+      error.classList.remove('is-visible');
+      renderTrackResult(r.body);
+    });
+  }
+
+  function renderTrackResult(data) {
+    var events = data.events || [];
+    var timelineHtml = events.map(function (ev, i) {
+      var isCurrent = (i === 0);
+      var dotClass = ev.type === 'failed' ? 'is-failed' : (isCurrent ? 'is-current' : 'is-complete');
+      return '<div class="dl-tl-event ' + dotClass + '">' +
+        '<div class="dl-tl-dot"></div>' +
+        '<div class="dl-tl-time">' + formatTime(ev.occurred_at) + '</div>' +
+        '<div class="dl-tl-body">' +
+          '<strong>' + escapeHtml(TIMELINE_LABELS[ev.type] || ev.type) + '</strong>' +
+          (ev.note ? '<p>' + escapeHtml(ev.note) + '</p>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    if (!timelineHtml) {
+      timelineHtml = '<div class="dl-track-empty" style="padding:1rem;">Delivery registered. Awaiting first update.</div>';
+    }
+
+    var proofHtml = '';
+    if (data.proof && data.proof.method) {
+      proofHtml = '<div class="dl-track-meta-row">' +
+        '<span>Proof of delivery</span>' +
+        '<span>' + escapeHtml(data.proof.method.toUpperCase()) + ' (' + formatTime(data.proof.captured_at) + ')</span>' +
+      '</div>';
+    }
+
+    document.getElementById('track-result').innerHTML =
+      '<div class="dl-timeline">' + timelineHtml + '</div>' +
+      '<div class="dl-track-meta">' +
+        '<div class="dl-track-meta-row">' +
+          '<span>Tracking code</span>' +
+          '<span style="font-family: ui-monospace, monospace; color: var(--accent);">' + escapeHtml(data.trackingCode) + '</span>' +
+        '</div>' +
+        '<div class="dl-track-meta-row">' +
+          '<span>Destination</span>' +
+          '<span>' + escapeHtml(data.destination) + '</span>' +
+        '</div>' +
+        '<div class="dl-track-meta-row">' +
+          '<span>Current status</span>' +
+          '<span><span class="dl-status-badge ' + data.status + '">' + statusLabel(data.status) + '</span></span>' +
+        '</div>' +
+        '<div class="dl-track-meta-row">' +
+          '<span>Courier</span>' +
+          '<span>' + escapeHtml(data.courier) + '</span>' +
+        '</div>' +
+        proofHtml +
+      '</div>';
+  }
+
+  // ===== COURIER =====
+  function renderCourier() {
+    var content = document.getElementById('courier-content');
+    var delivery = state.deliveries.find(function (d) {
+      if (!d.courier_id) return false;
+      return d.status !== 'delivered' && d.status !== 'failed' && d.status !== 'cancelled';
+    });
+
+    if (!delivery) {
+      content.innerHTML = '<div class="dl-courier-empty">No active deliveries assigned.</div>';
+      return;
+    }
+
+    var next = COURIER_NEXT[delivery.status];
+    var actionHtml = '';
+    if (next) {
+      actionHtml = '<button class="dl-courier-action" type="button" id="courier-action" data-event="' + next.next + '">' +
+        escapeHtml(next.label) + '</button>';
+    }
+
+    content.innerHTML =
+      '<div class="dl-delivery-card">' +
+        '<div class="dl-delivery-header">' +
+          '<div>' +
+            '<div class="dl-delivery-code">' + escapeHtml(delivery.tracking_code) + '</div>' +
+            '<div class="dl-delivery-customer">' + escapeHtml(delivery.customer_name) + '</div>' +
+          '</div>' +
+          '<span class="dl-delivery-status ' + delivery.status + '">' + statusLabel(delivery.status) + '</span>' +
+        '</div>' +
+        '<div class="dl-delivery-address">' + escapeHtml(delivery.destination) + '</div>' +
+      '</div>' +
+      actionHtml +
+      '<div class="dl-courier-secondary">' +
+        '<button type="button" id="courier-fail"' + (delivery.status === 'pending' ? ' disabled' : '') + '>Report failure</button>' +
+        '<button type="button" id="courier-note" disabled>Add note</button>' +
+      '</div>';
+
+    var actionBtn = document.getElementById('courier-action');
+    if (actionBtn) {
+      actionBtn.addEventListener('click', function () {
+        var evType = actionBtn.getAttribute('data-event');
+        if (evType === 'delivered') {
+          // Show proof modal first
+          state.proofTarget = { deliveryId: delivery.id };
+          document.getElementById('proof-reference').value = '';
+          document.getElementById('proof-note').value = '';
+          document.getElementById('proof-method').value = 'signature';
+          document.getElementById('proof-modal').classList.add('is-open');
+        } else {
+          recordEvent(delivery.id, evType);
+        }
+      });
+    }
+
+    var failBtn = document.getElementById('courier-fail');
+    if (failBtn) {
+      failBtn.addEventListener('click', function () {
+        if (!confirm('Report this delivery as failed?')) return;
+        recordEvent(delivery.id, 'failed', 'Reported by courier');
+      });
+    }
+  }
+
+  // ===== DISPATCHER =====
+  function renderDispatcher() {
+    var active = 0, out = 0, delivered = 0;
+    state.deliveries.forEach(function (d) {
+      if (d.status !== 'delivered' && d.status !== 'failed' && d.status !== 'cancelled') active++;
+      if (d.status === 'out_for_delivery') out++;
+      if (d.status === 'delivered') delivered++;
+    });
+
+    document.getElementById('kpi-active').textContent = active;
+    document.getElementById('kpi-out').textContent = out;
+    document.getElementById('kpi-delivered').textContent = delivered;
+    document.getElementById('kpi-couriers').textContent = state.couriers.length;
+
+    var tbody = document.getElementById('dispatcher-tbody');
+    var sorted = state.deliveries.slice().sort(function (a, b) {
+      return (b.updated_at || '').localeCompare(a.updated_at || '');
+    });
+    document.getElementById('table-count').textContent = sorted.length + ' total';
+
+    tbody.innerHTML = sorted.map(function (d) {
+      var isPending = d.status === 'pending';
+      var isSelected = !!state.selectedIds[d.id];
+      return '<tr data-delivery-id="' + d.id + '"' + (isSelected ? ' class="is-selected"' : '') + '>' +
+        '<td>' + (isPending ? '<input type="checkbox" class="dl-checkbox" data-select-id="' + d.id + '"' + (isSelected ? ' checked' : '') + '>' : '') + '</td>' +
+        '<td class="dl-code">' + escapeHtml(d.tracking_code) + '</td>' +
+        '<td>' + escapeHtml(d.customer_name) + '</td>' +
+        '<td>' + escapeHtml(d.courier_name || 'Unassigned') + '</td>' +
+        '<td><span class="dl-status-badge ' + d.status + '">' + statusLabel(d.status) + '</span></td>' +
+        '<td style="color: var(--text-dim); font-size: 0.75rem;">' + formatRelative(d.updated_at) + '</td>' +
+      '</tr>';
+    }).join('');
+
+    // Wire checkboxes
+    tbody.querySelectorAll('input[data-select-id]').forEach(function (cb) {
+      cb.addEventListener('change', function (e) {
+        e.stopPropagation();
+        var id = parseInt(cb.getAttribute('data-select-id'), 10);
+        if (cb.checked) state.selectedIds[id] = true;
+        else delete state.selectedIds[id];
+        updateBulkUI();
+      });
+    });
+
+    // Wire row clicks
+    tbody.querySelectorAll('tr[data-delivery-id]').forEach(function (tr) {
+      tr.addEventListener('click', function (e) {
+        if (e.target.tagName === 'INPUT') return;
+        var id = parseInt(tr.getAttribute('data-delivery-id'), 10);
+        var d = state.deliveries.find(function (x) { return x.id === id; });
+        if (!d) return;
+        if (d.status === 'pending') openAssignModal(id);
+        else if (d.status === 'failed') {
+          if (confirm('Retry this failed delivery?')) {
+            openAssignModal(id);
+          }
+        }
+      });
+    });
+
+    updateBulkUI();
+  }
+
+  function updateBulkUI() {
+    var count = Object.keys(state.selectedIds).length;
+    var btn = document.getElementById('bulk-dispatch');
+    var clr = document.getElementById('bulk-clear');
+    btn.disabled = count === 0;
+    btn.textContent = count > 0 ? 'Bulk dispatch (' + count + ')' : 'Bulk dispatch';
+    clr.style.display = count > 0 ? 'inline-flex' : 'none';
+  }
+
+  function renderAll() {
+    renderCustomer();
+    renderCourier();
+    renderDispatcher();
+  }
+
+  // ===== EVENT RECORDING =====
+  function recordEvent(deliveryId, eventType, note, courierId) {
+    if (transitioning) return Promise.resolve({ ok: false, error: 'Processing' });
+    transitioning = true;
+
+    return api('/api/deliveries/' + deliveryId + '/events', {
+      method: 'POST',
+      body: JSON.stringify({ type: eventType, note: note, courierId: courierId })
+    }).then(function (r) {
+      if (r.status === 409) {
+        showToast(r.body.error || 'Invalid transition', true);
+        return { ok: false, error: r.body.error };
+      }
+      if (!r.ok) {
+        showToast((r.body && r.body.error) || 'Failed', true);
+        return { ok: false, error: r.body.error };
+      }
+      applyDeliveryUpdate(r.body);
+      showToast('Marked as ' + statusLabel(EVENT_RESULT[eventType] || eventType).toLowerCase());
+      return { ok: true };
+    }).catch(function (err) {
+      showToast('Network: ' + err.message, true);
+      return { ok: false, error: err.message };
+    }).finally(function () {
+      transitioning = false;
+    });
+  }
+
+  // ===== MODALS =====
+  function openAssignModal(deliveryId) {
+    assignTargetId = deliveryId;
+    var d = state.deliveries.find(function (x) { return x.id === deliveryId; });
+    if (!d) return;
+    document.getElementById('assign-title').textContent = 'Assign courier - ' + d.tracking_code;
+    var sel = document.getElementById('assign-courier');
+    sel.innerHTML = state.couriers.map(function (c) {
+      return '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>';
+    }).join('');
+    document.getElementById('assign-modal').classList.add('is-open');
+  }
+
+  function closeModal(name) {
+    document.getElementById(name + '-modal').classList.remove('is-open');
+    if (name === 'assign') assignTargetId = null;
+    if (name === 'proof') state.proofTarget = null;
+    if (name === 'bulk') state.bulkTarget = null;
+  }
+
+  function openBulkModal() {
+    var ids = Object.keys(state.selectedIds).map(Number);
+    if (ids.length === 0) { showToast('Select deliveries first', true); return; }
+    state.bulkTarget = ids;
+    document.getElementById('bulk-count-label').textContent = ids.length + ' deliveries selected';
+    var sel = document.getElementById('bulk-courier');
+    sel.innerHTML = state.couriers.map(function (c) {
+      return '<option value="' + c.id + '">' + escapeHtml(c.name) + '</option>';
+    }).join('');
+    document.getElementById('bulk-modal').classList.add('is-open');
+  }
+
+  // ===== POLLING =====
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(refreshActiveDeliveries, 30000);
+    document.getElementById('poll-status').textContent = 'Polling every 30s';
+  }
+
+  function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    document.getElementById('poll-status').textContent = 'Paused';
+  }
+
+  function refreshActiveDeliveries() {
+    if (state.view !== 'dispatcher') return;
+    if (document.hidden) return;
+    refreshState();
+  }
+
+  // ===== REPORTS =====
+  function loadReports() {
+    var from = document.getElementById('report-from').value;
+    var to = document.getElementById('report-to').value;
+    if (!from || !to) { showToast('Set a date range', true); return; }
+
+    var qs = '?from=' + from + '&to=' + to;
+
+    api('/api/reports/by-courier' + qs).then(function (r) {
+      var el = document.getElementById('report-by-courier');
+      if (!r.ok) { el.innerHTML = '<div class="dl-empty">Error loading report</div>'; return; }
+      if (!r.body || r.body.length === 0) { el.innerHTML = '<div class="dl-empty">No data in range</div>'; return; }
+      el.innerHTML = '<table class="dl-table"><thead><tr><th>Courier</th><th>Delivered</th><th>Failed</th><th>Total</th><th>Failure rate</th></tr></thead><tbody>' +
+        r.body.map(function (row) {
+          return '<tr><td>' + escapeHtml(row.courier) + '</td>' +
+            '<td>' + row.delivered + '</td>' +
+            '<td>' + row.failed + '</td>' +
+            '<td>' + row.total + '</td>' +
+            '<td>' + row.failureRate + '%</td></tr>';
+        }).join('') + '</tbody></table>';
+    });
+
+    api('/api/reports/delivery-time' + qs).then(function (r) {
+      var el = document.getElementById('report-delivery-time');
+      if (!r.ok) { el.innerHTML = '<div class="dl-empty">Error loading report</div>'; return; }
+      if (!r.body || r.body.length === 0) { el.innerHTML = '<div class="dl-empty">No delivered deliveries in range</div>'; return; }
+      el.innerHTML = '<table class="dl-table"><thead><tr><th>Courier</th><th>Delivered</th><th>Avg hours</th></tr></thead><tbody>' +
+        r.body.map(function (row) {
+          return '<tr><td>' + escapeHtml(row.courier) + '</td>' +
+            '<td>' + row.deliveredCount + '</td>' +
+            '<td>' + row.avgHours + 'h</td></tr>';
+        }).join('') + '</tbody></table>';
+    });
+
+    api('/api/reports/failure-rate' + qs).then(function (r) {
+      var el = document.getElementById('report-failure-rate');
+      if (!r.ok) { el.innerHTML = '<div class="dl-empty">Error loading report</div>'; return; }
+      el.innerHTML = '<div style="display:flex;gap:2rem;font-size:0.875rem;">' +
+        '<div><div style="color:var(--text-dim);font-size:0.6875rem;text-transform:uppercase;font-weight:700;">Total</div><div style="font-size:1.5rem;font-weight:800;">' + r.body.total + '</div></div>' +
+        '<div><div style="color:var(--text-dim);font-size:0.6875rem;text-transform:uppercase;font-weight:700;">Failed</div><div style="font-size:1.5rem;font-weight:800;color:var(--danger);">' + r.body.failed + '</div></div>' +
+        '<div><div style="color:var(--text-dim);font-size:0.6875rem;text-transform:uppercase;font-weight:700;">Delivered</div><div style="font-size:1.5rem;font-weight:800;color:var(--success);">' + r.body.delivered + '</div></div>' +
+        '<div><div style="color:var(--text-dim);font-size:0.6875rem;text-transform:uppercase;font-weight:700;">Failure rate</div><div style="font-size:1.5rem;font-weight:800;color:var(--warning);">' + r.body.failureRate + '%</div></div>' +
+      '</div>';
+    });
+  }
+
+  // ===== TOAST =====
+  var toastTimer = null;
+  function showToast(msg, isError) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.toggle('is-error', !!isError);
+    t.classList.add('is-visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('is-visible'); }, 2600);
+  }
+
+  // ===== VIEW SWITCH =====
+  function switchView(view) {
+    state.view = view;
+    document.querySelectorAll('.dl-view').forEach(function (v) {
+      v.classList.toggle('is-active', v.id === 'view-' + view);
+    });
+    document.querySelectorAll('.dl-tab').forEach(function (t) {
+      t.classList.toggle('is-active', t.getAttribute('data-switch') === view);
+    });
+    if (view === 'dispatcher') startPolling(); else stopPolling();
+    if (view === 'reports') loadReports();
+  }
+
+  // ===== WIRE =====
+  document.querySelectorAll('.dl-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () { switchView(tab.getAttribute('data-switch')); });
+  });
+
+  document.getElementById('track-btn').addEventListener('click', function () {
+    var code = document.getElementById('track-input').value.trim();
+    if (!code) { showToast('Enter a tracking code', true); return; }
+    lastTrackedCode = code;
+    renderCustomer();
+  });
+
+  document.getElementById('track-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('track-btn').click(); }
+  });
+
+  document.querySelectorAll('[data-close]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      closeModal(btn.getAttribute('data-close'));
+    });
+  });
+
+  ['assign', 'bulk', 'proof'].forEach(function (name) {
+    document.getElementById(name + '-modal').addEventListener('click', function (e) {
+      if (e.target.id === name + '-modal') closeModal(name);
+    });
+  });
+
+  document.getElementById('assign-submit').addEventListener('click', function () {
+    if (assignTargetId == null) return;
+    var courierId = parseInt(document.getElementById('assign-courier').value, 10);
+    recordEvent(assignTargetId, 'assigned', null, courierId).then(function (result) {
+      if (result.ok) closeModal('assign');
+    });
+  });
+
+  document.getElementById('bulk-dispatch').addEventListener('click', openBulkModal);
+  document.getElementById('bulk-clear').addEventListener('click', function () {
+    state.selectedIds = {};
+    renderDispatcher();
+  });
+
+  document.getElementById('bulk-submit').addEventListener('click', function () {
+    if (!state.bulkTarget) return;
+    var courierId = parseInt(document.getElementById('bulk-courier').value, 10);
+    api('/api/dispatch/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ deliveryIds: state.bulkTarget, courierId: courierId })
+    }).then(function (r) {
+      if (!r.ok) {
+        showToast((r.body && r.body.error) || 'Bulk dispatch failed', true);
+        return;
+      }
+      showToast('Dispatched ' + r.body.count + ' deliveries');
+      closeModal('bulk');
+      state.selectedIds = {};
+      refreshState();
+    }).catch(function (err) {
+      showToast('Network: ' + err.message, true);
+    });
+  });
+
+  document.getElementById('proof-submit').addEventListener('click', function () {
+    if (!state.proofTarget) return;
+    var method = document.getElementById('proof-method').value;
+    var reference = document.getElementById('proof-reference').value.trim();
+    var note = document.getElementById('proof-note').value.trim();
+    if (!reference) { showToast('Reference is required', true); return; }
+
+    var deliveryId = state.proofTarget.deliveryId;
+
+    api('/api/deliveries/' + deliveryId + '/proof', {
+      method: 'POST',
+      body: JSON.stringify({ method: method, reference: reference, note: note })
+    }).then(function (r) {
+      if (!r.ok) {
+        showToast((r.body && r.body.error) || 'Proof failed', true);
+        return;
+      }
+      applyDeliveryUpdate(r.body);
+      closeModal('proof');
+      showToast('Proof attached. Delivery complete.');
+    }).catch(function (err) {
+      showToast('Network: ' + err.message, true);
+    });
+  });
+
+  document.getElementById('report-load').addEventListener('click', loadReports);
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) stopPolling();
+    else if (state.view === 'dispatcher') startPolling();
+  });
+
+  // ===== INIT =====
+  document.getElementById('report-from').value = weekAgoStr();
+  document.getElementById('report-to').value = todayStr();
+  refreshState();
+
+})();
+</script>
+</body>
+</html>
