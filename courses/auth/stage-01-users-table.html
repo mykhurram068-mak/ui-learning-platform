@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Auth Stage 01 - The Users Table (Plaintext, Deliberately Wrong) (2026)</title>
+<meta name="description" content="Stage 01 of the Authentication & Sessions course: a working login. A users table, a register form, a login form, a logout route, a session cookie, and the @login_required decorator. Plaintext passwords - deliberately wrong, named as wrong, fixed in Stage 02.">
+<meta name="keywords" content="flask login tutorial, users table flask, flask session cookie, login required decorator, plaintext password danger">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Auth Stage 01 - The Users Table">
+<meta property="og:description" content="A working login. Plaintext passwords, deliberately. So we can see what's wrong before we fix it.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/auth/stage-01-users-table.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Auth Stage 01 - The Users Table">
+<meta name="twitter:description" content="A working login. Plaintext passwords, deliberately.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/auth/stage-01-users-table.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Auth Stage 01 - The Users Table",
+"description": "A users table, register form, login form, logout route, session cookie, and @login_required decorator. Plaintext passwords, deliberately, so the fix in Stage 02 lands.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-17",
+"dateModified": "2026-11-17",
+"proficiencyLevel": "Beginner",
+"dependencies": "Python, Flask"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why does Stage 01 use plaintext passwords on purpose?","acceptedAnswer":{"@type":"Answer","text":"Because the fix is only meaningful once you've seen what it fixes. Stage 01 gives you a working login with passwords stored in plaintext. It works. It also means a database leak exposes every user's password, and people reuse passwords across sites. The wrong version is not a footnote - it's the whole of Stage 01. The point is to understand what a working login looks like, in its simplest form, before making it safe. Stage 02 replaces plaintext with a hash and explains what changed."}},
+{"@type":"Question","name":"What is a session cookie, in one paragraph?","acceptedAnswer":{"@type":"Answer","text":"When a user logs in, the server generates a random string - the session ID - and sends it to the browser as a cookie. The browser sends that cookie back on every subsequent request. The server looks up the session ID in its session storage and finds the user ID attached to it. That's how the server knows who's making the request, even though HTTP itself is stateless. The user never sees the session ID; the browser handles it automatically. Logout is deleting the session from the server's storage (or from the session dict, in Flask's default client-side sessions). The cookie in the browser becomes meaningless."}},
+{"@type":"Question","name":"Why does Flask's session live in a signed cookie instead of on the server?","acceptedAnswer":{"@type":"Answer","text":"Flask's default session stores the session data in the cookie itself, signed with a secret key. It's client-side storage. This has trade-offs. Pro: no server-side session store to manage, no sticky sessions, works out of the box. Con: the data is visible to the user (base64-encoded, not encrypted), so you must not put secrets in the session. The signature prevents tampering - a user can't add fields to the session without invalidating the signature. For most apps this is fine. If you need server-side sessions, Flask-Session is the extension. This course uses the default, and explains why."}},
+{"@type":"Question","name":"What does @login_required actually do?","acceptedAnswer":{"@type":"Answer","text":"It's a decorator - a function that wraps another function. When a request comes in for a route decorated with @login_required, the wrapper runs first. It checks whether the session contains a user ID. If yes, it calls the original route function. If no, it redirects to the login page. The original function doesn't run at all. This is the 'before this route runs, check something' pattern. It's the same idea as @app.route itself - a decorator that wraps the function to register it. Understanding decorators is understanding the whole pattern of route protection."}},
+{"@type":"Question","name":"What comes in Stage 02?","acceptedAnswer":{"@type":"Answer","text":"Hashing. The users table gains a password_hash column instead of password. The register route calls generate_password_hash before inserting. The login route calls check_password_hash to compare. The session stays the same. The @login_required decorator stays the same. Only the storage and comparison of passwords changes - the surrounding flow is identical. This is why Stage 01 exists: so that when Stage 02 changes two lines, you understand exactly which two and why."}},
+{"@type":"Question","name":"What does this stage NOT cover?","acceptedAnswer":{"@type":"Answer","text":"Hashing (Stage 02), roles (Stage 03), and applying it to a real build (Stage 04). It also doesn't cover OAuth, MFA, password reset, email verification, or rate limiting on login. Those are out of scope for the whole course. This stage covers exactly one thing: a working login, in its simplest form, so the rest of the course has a foundation."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+.snippet-meta { font-size: 11px; color: #64748b; padding: 0 12px 8px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Authentication & Sessions</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 01 · The Users Table</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/auth/index.html" style="color:#7ee8fc;">Authentication & Sessions</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Stage 01</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">Stage 01 · 1.5–2 hours</div>
+<h1>Make a working login.<br><span class="py-accent">Users, session, the door.</span></h1>
+<p class="lead">
+Stage 01 builds a working login. A users table. A register form. A login form. A logout route. A session cookie. A <code>@login_required</code> decorator. Everything works. And every password is stored in plaintext — the worst possible thing to ship, and the whole point of starting here. You cannot appreciate the fix in Stage 02 until you've felt the problem.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 1.5–2 hours</span>
+<span><i class="fa-solid fa-signal"></i> Beginner</span>
+<span><i class="fa-solid fa-code"></i> Python · Flask · SQLite</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/auth/index.html">Auth hub</a>
+<a href="#table">The users table</a>
+<a href="#register">Register</a>
+<a href="#login">Login</a>
+<a href="#session">The session</a>
+<a href="#guard">The guard</a>
+<a href="#wrong">Why this is wrong</a>
+<a href="#next">Next: Stage 02</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> A <code>users</code> table with <code>id</code>, <code>email</code>, <code>password</code>, <code>created_at</code>. A <code>/register</code> route that inserts a user, with the password stored in plaintext. A <code>/login</code> route that queries by email and compares the password with <code>==</code>. On match, <code>session['user_id'] = row['id']</code>. A <code>/logout</code> route that calls <code>session.clear()</code>. A <code>@login_required</code> decorator that checks <code>'user_id' in session</code> before the wrapped route runs. A secret key for the session to be signed. That's a complete login flow. It's also broken.
+</p>
+</div>
+
+<section id="table">
+<h2 class="section-title">The users table</h2>
+<p class="section-sub">One table. Three columns that matter.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Every login system starts here. The table is the simplest part. Three columns carry the whole design: <code>id</code>, <code>email</code>, <code>password</code>. The <code>id</code> is internal — the session will store it. The <code>email</code> is how the user identifies themselves. The <code>password</code> is what proves they're who they claim.
+</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">schema.sql</span>
+<span class="snippet-meta">auth-stage-01.html · lines 12–19</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">SQL</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">CREATE TABLE users (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+email TEXT NOT NULL UNIQUE,
+password TEXT NOT NULL,
+created_at TEXT NOT NULL
+);</pre>
+<script type="text/plain" id="raw-code-sol1">CREATE TABLE users (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+email TEXT NOT NULL UNIQUE,
+password TEXT NOT NULL,
+created_at TEXT NOT NULL
+);</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why email is UNIQUE:
+
+The email is the identifier. Two users
+can't share an email - the login query
+would have to pick one, and it has no
+way to know which.
+
+The UNIQUE constraint enforces the rule
+at the schema level. A duplicate insert
+fails with a clear error. The register
+route also checks before inserting (for
+a nicer message), but the schema is the
+safety net.
+
+Why the column is named 'password' and
+not 'password_hash':
+
+Because in Stage 01 it stores a plaintext
+password. Naming it 'password_hash' would
+be dishonest - the column would lie about
+its contents.
+
+In Stage 02, when hashing is introduced,
+the column gets renamed to 'password_hash'.
+That rename is visible in the code and in
+the schema. It's a signal: what's stored
+here is not the password, it's a hash.
+
+Naming honesty is a discipline. Columns
+should describe what they actually contain.
+
+Why there's no 'active' or 'role' column yet:
+
+Stage 01 is the minimum for a working
+login. Roles come in Stage 03. An active
+flag (to soft-delete users) isn't in the
+scope of this course.
+
+Adding columns later is easy. Removing
+them is not. Start with the minimum,
+add as the design demands.</pre>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>Four columns. That's the whole table.</strong> Every auth system in every framework is built on this shape — an internal ID, an identifier the user provides, and something only the user knows. Django, Rails, Express — the table looks like this in all of them. The names and types vary; the structure doesn't.
+</p>
+</section>
+
+<section id="register">
+<h2 class="section-title">Register — a new user, a new row</h2>
+<p class="section-sub">POST a form, insert a row.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The register route reads the submitted email and password, checks whether the email is already taken, and if not, inserts a new row. Three lines of substance. The rest is validation and error handling.
+</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">register.py</span>
+<span class="snippet-meta">auth-stage-01.html · lines 45–60</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">@app.route("/register", methods=["POST"])
+def register():
+email = request.form["email"].strip().lower()
+password = request.form["password"]
+
+with get_db() as conn:
+existing = conn.execute(
+"SELECT id FROM users WHERE email = ?", (email,)
+).fetchone()
+if existing:
+return render_template("register.html", error="Email already registered."), 400
+
+conn.execute(
+"INSERT INTO users (email, password, created_at) VALUES (?, ?, ?)",
+(email, password, now_iso()),
+)
+conn.commit()
+
+return redirect("/login")</pre>
+<script type="text/plain" id="raw-code-sol2">@app.route("/register", methods=["POST"])
+def register():
+email = request.form["email"].strip().lower()
+password = request.form["password"]
+
+with get_db() as conn:
+existing = conn.execute(
+"SELECT id FROM users WHERE email = ?", (email,)
+).fetchone()
+if existing:
+return render_template("register.html", error="Email already registered."), 400
+
+conn.execute(
+"INSERT INTO users (email, password, created_at) VALUES (?, ?, ?)",
+(email, password, now_iso()),
+)
+conn.commit()
+
+return redirect("/login")</pre>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the password is stored as-is:
+
+Because this is Stage 01. The whole
+point is to see a working login before
+making it safe. The INSERT is honest
+about what it does: it stores the string
+the user typed.
+
+In Stage 02, this exact line changes to:
+generate_password_hash(password)
+The rest of the route is identical. The
+change is one line, and the reason is
+the whole point of the next stage.
+
+Why email is lowercased:
+
+'Alice@example.com' and 'alice@example.com'
+are the same user in a case-insensitive
+email system (which is most systems).
+
+Storing the lowercased version means the
+UNIQUE constraint catches case variants,
+and the login query finds them regardless
+of how the user typed their email.
+
+The alternative - storing what the user
+typed, and doing LOWER(email) in queries -
+works but means every query has to remember
+to lowercase. Storing the normalized form
+is the safer default.
+
+Why the register route redirects to /login
+after success:
+
+Three options:
+1. Redirect to /login (user logs in
+explicitly after registering)
+2. Auto-login (set session, redirect
+to home)
+3. Render a success page
+
+Option 1 is the simplest and most common
+for a course. It makes the register and
+login flows separate and easy to reason
+about. Auto-login is a UX convenience for
+production apps; it's not needed to teach
+the pattern.
+
+Why the route returns 400 on duplicate email:
+
+400 Bad Request means the client sent
+something that doesn't work. A duplicate
+email is a client error - the email exists,
+pick another.
+
+The template receives an 'error' variable
+and shows it. Same pattern as every form
+in the studio's builds: user-visible error,
+form re-renders, user tries again.
+
+The alternative would be to return 200
+with an error in the body, but 400 is
+more semantically correct and easier to
+test.</pre>
+</div>
+</div>
+</section>
+
+<section id="login">
+<h2 class="section-title">Login — find the user, compare the password</h2>
+<p class="section-sub">Query by email. Compare with <code>==</code>. Set the session.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The login route queries by email. If no row, fail. If a row, compare the submitted password to the stored password. If they match, set <code>session['user_id']</code> and redirect to the protected page.
+</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">login.py</span>
+<span class="snippet-meta">auth-stage-01.html · lines 78–95</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">@app.route("/login", methods=["POST"])
+def login():
+email = request.form["email"].strip().lower()
+password = request.form["password"]
+
+with get_db() as conn:
+user = conn.execute(
+"SELECT id, password FROM users WHERE email = ?", (email,)
+).fetchone()
+
+if not user or user["password"] != password:
+return render_template("login.html", error="Invalid email or password."), 401
+
+session["user_id"] = user["id"]
+return redirect("/dashboard")</pre>
+<script type="text/plain" id="raw-code-sol3">@app.route("/login", methods=["POST"])
+def login():
+email = request.form["email"].strip().lower()
+password = request.form["password"]
+
+with get_db() as conn:
+user = conn.execute(
+"SELECT id, password FROM users WHERE email = ?", (email,)
+).fetchone()
+
+if not user or user["password"] != password:
+return render_template("login.html", error="Invalid email or password."), 401
+
+session["user_id"] = user["id"]
+return redirect("/dashboard")</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the error is 'Invalid email or password'
+and not 'Wrong password':
+
+Because telling the user which part failed
+is a security leak. An attacker can use
+'Wrong password' to enumerate valid emails
+• try 1000 emails, see which ones say
+'Wrong password' vs 'No such user', and
+now you know 500 valid emails to focus
+on.
+
+'Invalid email or password' is ambiguous
+on purpose. The legitimate user knows
+which they typed wrong; an attacker
+learns nothing.
+
+This is a small discipline that costs
+nothing and closes a real hole. Same
+pattern as every auth system that's been
+audited.
+
+Why 401 not 400:
+
+400 = bad request. The client sent
+something malformed - missing field,
+bad JSON.
+401 = unauthorized. The request was
+well-formed, but the credentials are
+wrong.
+
+Login with wrong password is 401, not
+400. The request is valid; the identity
+is not. The distinction matters for
+clients and for readability.
+
+Why session['user_id'] = user['id']:
+
+This is the whole point of login. Set
+the user's ID in the session. From now
+on, every request from this browser
+carries that session, and the server
+can read user_id from it.
+
+The value stored is the id, not the email
+or the whole user row. The id is the
+smallest identifier that uniquely points
+to the user. Look up the rest (email,
+role) from the database when needed.
+
+Storing the whole user row in the session
+would mean stale data after any profile
+update. Storing the id means the session
+points to the current state, always.
+
+Why no password check length or complexity:
+
+Stage 01's login doesn't validate input
+beyond what's needed for the flow. Real
+production apps check minimum length,
+complexity, and (in some jurisdictions)
+dictionary checks. Those are policies,
+not patterns. They belong in a product's
+requirements, not a course on auth.
+
+The pattern here is: query by identifier,
+compare the secret, set the session.
+That's what login is.</pre>
+</div>
+</div>
+</section>
+
+<section id="session">
+<h2 class="section-title">The session — a cookie the browser carries</h2>
+<p class="section-sub">One line to set. One line to read. One line to clear.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The session is Flask's built-in cookie-based session. You set <code>session['user_id']</code>, Flask signs it with a secret key and sends it as a cookie, and every subsequent request has <code>session['user_id']</code> available. The three operations you need: set, read, clear.
+</p>
+
+<div class="code-block" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">session.py</span>
+<span class="snippet-meta">auth-stage-01.html · lines 105–125</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol4', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">import os
+from flask import session
+
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
+
+@app.route("/logout")
+def logout():
+session.clear()
+return redirect("/login")
+
+@app.route("/dashboard")
+def dashboard():
+if "user_id" not in session:
+return redirect("/login")
+return render_template("dashboard.html", user_id=session["user_id"])</pre>
+<script type="text/plain" id="raw-code-sol4">import os
+from flask import session
+
+app.secret_key = os.environ.get("SECRET_KEY", os.urandom(24))
+
+@app.route("/logout")
+def logout():
+session.clear()
+return redirect("/login")
+
+@app.route("/dashboard")
+def dashboard():
+if "user_id" not in session:
+return redirect("/login")
+return render_template("dashboard.html", user_id=session["user_id"])</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the secret key must be persistent:
+
+Flask signs the session cookie with the
+secret key. If the key changes, all
+existing sessions become invalid - every
+user gets logged out.
+
+os.urandom(24) generates a random key
+every time the app starts. That means
+every restart logs everyone out. Fine
+for a course demo, wrong for production.
+
+In production, set SECRET_KEY as an
+environment variable and never change it.
+The value should be random and long
+(32+ bytes). Anyone who knows the key
+can forge sessions - treat it like a
+password.
+
+Why session.clear() and not just deleting
+user_id:
+
+session.clear() removes everything in
+the session - user_id, and anything else
+that gets added later (roles, preferences).
+The user is logged out completely.
+
+del session['user_id'] would only remove
+that one key. If the app later stores
+other session data, logout would leave
+it behind. session.clear() is the honest
+reset.
+
+Same reasoning as 'delete the whole row'
+vs 'delete one column' - if the goal is
+a clean slate, clear the slate.
+
+Why Flask's default session is client-side:
+
+Flask's built-in session stores the data
+in the cookie itself, base64-encoded and
+signed. The server doesn't hold a session
+store. When a request comes in, Flask
+reads the cookie, verifies the signature,
+and reconstructs the session dict.
+
+This means:
+- The data is visible to the user
+(base64, not encrypted).
+- The data can't be tampered with
+(the signature protects it).
+- The server doesn't need a session
+store, so it scales horizontally
+with no sticky sessions.
+
+For a course, this is exactly the right
+default. For production, if you need
+server-side sessions (say, to revoke a
+session immediately), Flask-Session is
+the extension. That's a one-paragraph
+detour, not a course.
+
+Why the dashboard checks session manually
+here:
+
+Because Stage 01 introduces the concept
+before the decorator. The next snippet
+shows the @login_required decorator
+that wraps this check so every protected
+route doesn't have to repeat it.
+
+The manual check is the raw pattern.
+The decorator is the pattern factored
+out. Understanding both is understanding
+what decorators are for.</pre>
+</div>
+</div>
+</section>
+
+<section id="guard">
+<h2 class="section-title">The guard — <code>@login_required</code></h2>
+<p class="section-sub">A decorator is a function that wraps a function.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The manual <code>if "user_id" not in session</code> check works, but you'd have to paste it into every protected route. The <code>@login_required</code> decorator factors it out. Write it once, apply it to every route that needs protection.
+</p>
+
+<div class="code-block" id="sol5">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">guard.py</span>
+<span class="snippet-meta">auth-stage-01.html · lines 140–155</span>
+<button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol5', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol5', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">from functools import wraps
+
+def login_required(f):
+@wraps(f)
+def wrapper(*args, **kwargs):
+if "user_id" not in session:
+return redirect("/login")
+return f(*args, **kwargs)
+return wrapper
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+return render_template("dashboard.html", user_id=session["user_id"])</pre>
+<script type="text/plain" id="raw-code-sol5">from functools import wraps
+
+def login_required(f):
+@wraps(f)
+def wrapper(*args, **kwargs):
+if "user_id" not in session:
+return redirect("/login")
+return f(*args, **kwargs)
+return wrapper
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+return render_template("dashboard.html", user_id=session["user_id"])</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What a decorator actually is:
+
+@login_required above def dashboard is
+exactly equivalent to:
+dashboard = login_required(dashboard)
+
+login_required takes a function, returns
+a new function (wrapper), and the new
+function is what gets called when /dashboard
+is requested.
+
+The wrapper checks the session first. If
+logged in, it calls the original function.
+If not, it returns a redirect - the original
+function never runs.
+
+This is 'before this route runs, check
+something.' Every authentication and
+authorization pattern is a variant of
+this idea.
+
+Why @wraps(f) matters:
+
+Without @wraps, the wrapper function would
+be named 'wrapper' and lose the original
+function's name, docstring, and metadata.
+Flask uses these to register the route -
+losing them breaks routing.
+
+@wraps(f) copies them over. The wrapper
+looks like the original from the outside.
+
+This is a footgun. Forgetting @wraps is a
+common bug that produces confusing error
+messages ('wrapper has no attribute ...').
+Remember it every time.
+
+Why *args and **kwargs:
+
+The wrapper doesn't know the original
+function's parameters. Some routes take
+path parameters (@app.route('/user/<id>')),
+some don't. The wrapper forwards whatever
+it receives.
+
+*args collects positional arguments,
+**kwargs collects keyword arguments.
+Together they forward everything the
+route was called with.
+
+This is standard decorator plumbing.
+Once you know it, it's invisible.
+
+The order of decorators:
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+...
+
+@app.route is applied first (bottom
+decorator runs first), so Flask registers
+the login_required-wrapped version.
+
+If you flip them:
+@login_required
+@app.route("/dashboard")
+...Flask would try to register login_required
+as the route handler, which doesn't work.
+
+Order matters. @app.route always goes on
+top.
+
+Why the guard is on every route, not just
+the dashboard:
+
+Authentication is per-request. Every
+protected route needs the guard. Pasting
+the check in every route function works,
+but it's easy to forget one - and forgetting
+is a security hole, not a bug.
+
+The decorator makes the check visible at
+the route definition. Missing it is
+obvious in code review. Same reasoning as
+@role_required in Stage 03 - the check
+lives where the route lives.</pre>
+</div>
+</div>
+</section>
+
+<section id="wrong">
+<h2 class="section-title">Why this is wrong — and what comes next</h2>
+<p class="section-sub">It works. It's also the worst thing to ship.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Everything in this stage works. You can register, log in, see a protected page, and log out. So why is it wrong?
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>The leak</h4>
+<p>If the database is ever exposed — a backup leak, a SQL injection, a stolen laptop — every user's password is in the clear. Not "encrypted, but breakable with effort." Plaintext. Right there in a column called <code>password</code>.</p>
+</div>
+<div class="concept-card">
+<h4>The reuse problem</h4>
+<p>People reuse passwords. The same password on your app and on their email, their bank, their social media. A leak of your database becomes a credential-stuffing attack against everywhere else they've signed up.</p>
+</div>
+<div class="concept-card">
+<h4>The insider problem</h4>
+<p>Anyone with database access — a contractor, a curious employee, an attacker who got read-only access — can see every password without doing anything clever. The data is right there in a SELECT *.</p>
+</div>
+<div class="concept-card">
+<h4>The support problem</h4>
+<p>Users forget passwords. They email you asking for help. If you store plaintext, you can read their password and tell them. That feels helpful. It also means you now know their password. It's a privacy violation dressed as a feature.</p>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+The fix is one idea: <strong>don't store the password. Store a hash of the password.</strong> A hash is a one-way function. Feed it the password, get back a fixed-length string. You can't reverse it. To check a login, hash the submitted password and compare the hashes. If someone steals the database, they get a bunch of random-looking strings that can't be turned back into passwords.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>Stage 02 changes exactly two lines.</strong> The INSERT in <code>/register</code> becomes <code>generate_password_hash(password)</code>. The comparison in <code>/login</code> becomes <code>check_password_hash(user["password_hash"], password)</code>. The table renames its <code>password</code> column to <code>password_hash</code>. The session, the guard, the routes — all identical.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+That's why Stage 01 exists. So that when Stage 02 changes two lines, you understand exactly what changed, why, and what would have happened if you hadn't.
+</p>
+</section>
+
+<section id="next">
+<h2 class="section-title">Next: Stage 02 — Hashing & Sessions</h2>
+<p class="section-sub">The fix, made small and obvious.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stage 02 replaces plaintext with a hash. The change is small on purpose — the whole point is that the security of the system doesn't come from a big rewrite, it comes from one small, correct choice applied in two places.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The four big lessons in Stage 02:
+</p>
+
+<ul class="text-sm text-slate-300 leading-relaxed space-y-1" style="padding-left: 1.5rem; list-style: disc;">
+<li><strong>Hashing vs encryption</strong> — one-way vs two-way. Why passwords must be hashed, never encrypted.</li>
+<li><strong>Salts</strong> — why the same password produces different hashes for different users. Why a rainbow table stops working.</li>
+<li><strong><code>generate_password_hash</code> and <code>check_password_hash</code></strong> — the two werkzeug functions that do the work.</li>
+<li><strong>The migration</strong> — what happens to existing users when the column changes. (Spoiler: we reset their passwords, because there's no way to hash a plaintext password without knowing it, and we shouldn't know it. That's a real-world conversation, handled honestly.)</li>
+</ul>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+Stage 02 ships the full file too — <code>auth-stage-02.html</code>, ~200 lines. Same lesson + full file split as Stage 01.
+</p>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">Continue the course</h2>
+<div class="block bg-slate-950 p-4 rounded-xl border border-slate-800 mb-3">
+<div class="font-semibold text-white text-sm">Next: Stage 02 — Hashing & Sessions</div>
+<div class="text-xs text-slate-400 mt-1">Coming next. The fix, made small and obvious.</div>
+</div>
+<a href="/courses/auth/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Back to the Auth course hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages, the pattern, and the closeout.</div>
+</a>
+</section>
+
+<a href="/courses/auth/index.html" class="back-link">← Back to Auth course hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Auth Stage 01 · The Users Table <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
