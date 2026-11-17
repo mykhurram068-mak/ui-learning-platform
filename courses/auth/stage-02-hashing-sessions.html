@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Auth Stage 02 - Hashing & Sessions (The Fix, Made Small) (2026)</title>
+<meta name="description" content="Stage 02 of the Authentication & Sessions course: replace plaintext passwords with a werkzeug hash. Two lines change. The rest of the flow is identical. Explains hashing, salts, why encryption is wrong for passwords, and the honest migration when the column changes.">
+<meta name="keywords" content="werkzeug generate_password_hash, check_password_hash, flask password hashing, salt password hash, password migration plaintext to hash">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Auth Stage 02 - Hashing & Sessions">
+<meta property="og:description" content="Replace plaintext with a hash. Two lines change. The rest of the flow is identical.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/auth/stage-02-hashing-sessions.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Auth Stage 02 - Hashing & Sessions">
+<meta name="twitter:description" content="Replace plaintext with a hash. Two lines change.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/auth/stage-02-hashing-sessions.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Auth Stage 02 - Hashing & Sessions",
+"description": "Replace plaintext with a werkzeug hash. Two lines change in app.py. The rest of the login flow is identical. Explains hashing, salts, and the honest migration when the column changes.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-17",
+"dateModified": "2026-11-17",
+"proficiencyLevel": "Beginner",
+"dependencies": "Python, Flask, werkzeug"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What actually changes from Stage 01 to Stage 02?","acceptedAnswer":{"@type":"Answer","text":"Three things. The schema column password becomes password_hash. The INSERT in /register wraps the password in generate_password_hash. The comparison in /login uses check_password_hash instead of string equality. That's it. The session, the @login_required decorator, the routes, the templates - all identical. The whole point of Stage 01 was to show that a working login is one shape, and Stage 02 proves that making it safe is a small change to that shape, not a rewrite."}},
+{"@type":"Question","name":"Hashing vs encryption - what's the difference in one sentence?","acceptedAnswer":{"@type":"Answer","text":"Hashing is one-way (you can't reverse it), encryption is two-way (someone with the key can decrypt). Passwords must be hashed because nobody - not even the app's own admin - should be able to read them. If the database leaks, a hash is useless to the attacker. If you encrypted passwords instead, whoever has the key can decrypt every password the moment they find the key."}},
+{"@type":"Question","name":"What is a salt and why does werkzeug add one automatically?","acceptedAnswer":{"@type":"Answer","text":"A salt is a random string added to the password before hashing. It means two users with the same password produce different hashes. Without a salt, an attacker with a leaked database can build a rainbow table (a precomputed map from common passwords to their hashes) and look up every hash in one pass. With a salt, the same lookup doesn't work because the hash depends on the salt, which is unique per user. werkzeug's generate_password_hash generates a random salt and stores it inside the hash string itself (formatted as algorithmhash), so you don't manage salts separately. check_password_hash reads the salt out of the stored string and re-hashes for comparison."}},
+{"@type":"Question","name":"What happens to existing plaintext users when I migrate?","acceptedAnswer":{"@type":"Answer","text":"You can't hash a password you don't know. If Stage 01's database has plaintext passwords, there's no way to convert them to hashes without access to the original passwords - which you shouldn't have, and don't. The honest options are: (1) force a password reset on next login - the user logs in with their old password, you hash it and update the row immediately, then never touch plaintext again; or (2) delete the plaintext passwords and require every user to set a new password. Option 1 is better UX. Both are honest. The dishonest option is to keep the plaintext column around 'for safety' - that's not safety, that's the bug persisting under a new name. Stage 02 uses a fresh database for the demo, so migration doesn't come up. In a real app, option 1 is the standard pattern and it's worth naming."}},
+{"@type":"Question","name":"Why werkzeug instead of bcrypt or argon2?","acceptedAnswer":{"@type":"Answer","text":"Werkzeug ships with Flask. It's one import, no extra dependency. Its default algorithm (pbkdf2:sha256 by default, but changeable) is fine for most apps. bcrypt and argon2 are stronger against GPU-accelerated cracking - argon2 is currently the best choice for high-value systems. But the difference is a factor of safety margin, not a fundamental difference. For a teaching course, werkzeug is the right default: no extra install, no version pinning, no additional complexity. The lesson names the trade-off: 'if you're building a bank, use argon2; for most apps, werkzeug is fine.' The pattern is the same."}},
+{"@type":"Question","name":"What does the hash string look like and what's in it?","acceptedAnswer":{"@type":"Answer","text":"werkzeug's hash string looks like: pbkdf2:sha256:600000<hash>. Three parts separated by $`. The first part says which algorithm and how many iterations. The second part is the salt (random, unique per user). The third part is the actual hash. When check_password_hash runs, it splits the string, extracts the algorithm and salt, re-runs the same algorithm with the same salt on the submitted password, and compares the result to the stored hash. This is why you never need to store the salt separately - it's inside the hash string."}},
+{"@type":"Question","name":"Does Stage 02 change the session handling?","acceptedAnswer":{"@type":"Answer","text":"No. The session is set the same way: session['user_id'] = user['id'] after successful login. The @login_required decorator is the same. session.clear() on logout is the same. The session doesn't care whether the password was checked via string equality or hash comparison - by the time the session is set, the password is gone from the picture. That's the point of separating authentication (Stage 01) from password storage (Stage 02). The session is the 'door'; the password check is the 'lock on the door'. You can change the lock without changing the door."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+.snippet-meta { font-size: 11px; color: #64748b; padding: 0 12px 8px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Authentication & Sessions</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 02 · Hashing & Sessions</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/auth/index.html" style="color:#7ee8fc;">Authentication & Sessions</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Stage 02</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">Stage 02 · 1.5–2 hours</div>
+<h1>The fix.<br><span class="py-accent">Two lines. One column. Same door.</span></h1>
+<p class="lead">
+Stage 01 gave you a working login. Stage 02 makes it safe. That's it. Two lines in <code>app.py</code> change. One column in the schema renames. The session, the guard, the routes, the templates — all identical. The point of splitting them was to show that making a login safe is a <em>small</em> change to a working shape, not a rewrite. That distinction matters, because "rewrite the auth system" is a scary sentence and "change two lines" is not.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 1.5–2 hours</span>
+<span><i class="fa-solid fa-signal"></i> Beginner</span>
+<span><i class="fa-solid fa-code"></i> werkzeug.security · Flask sessions</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/auth/index.html">Auth hub</a>
+<a href="#what-changes">What changes</a>
+<a href="#hashing">Hashing vs encryption</a>
+<a href="#salts">Salts</a>
+<a href="#schema">The schema</a>
+<a href="#insert">Register</a>
+<a href="#compare">Login</a>
+<a href="#migrate">Migration</a>
+<a href="#next">Next: Stage 03</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Rename the column <code>password</code> to <code>password_hash</code>. In <code>/register</code>, replace <code>password</code> with <code>generate_password_hash(password)</code>. In <code>/login</code>, replace <code>user["password"] != password</code> with <code>not check_password_hash(user["password_hash"], password)</code>. Import both functions from <code>werkzeug.security</code>. That's the whole change. Same session, same <code>@login_required</code>, same routes. The lock changed; the door didn't.
+</p>
+</div>
+
+<section id="what-changes">
+<h2 class="section-title">What changes — and what doesn't</h2>
+<p class="section-sub">The shape stays. The storage changes.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+This is the most important thing to understand before reading the code: <strong>almost nothing changes</strong>. The login flow is the same. The session is set the same. The decorator guards the same routes. The templates render the same. Only the storage of the password changes — what goes into the database column, and how the login route compares the submitted password against it.
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Changes</h4>
+<p>The <code>users.password</code> column renames to <code>password_hash</code>. The value stored is a hash, not the password. The comparison in <code>/login</code> uses <code>check_password_hash</code>, not <code>==</code>.</p>
+</div>
+<div class="concept-card">
+<h4>Does not change</h4>
+<p>The users table's other columns. The register flow. The login flow's shape. The session mechanism. The <code>@login_required</code> decorator. The dashboard. The logout route.</p>
+</div>
+<div class="concept-card">
+<h4>Why this is the right shape</h4>
+<p>Authentication and password storage are separate concerns. You can change the storage without touching the flow. Real systems do exactly this: they migrate from bcrypt to argon2, or from SHA-1 to SHA-256, without changing a single route.</p>
+</div>
+<div class="concept-card">
+<h4>The lesson</h4>
+<p>A correct auth system is not a big rewrite. It's a working shape with correct storage. Get the shape right first (Stage 01). Then get the storage right (Stage 02). This ordering is the whole pedagogical point.</p>
+</div>
+</div>
+</section>
+
+<section id="hashing">
+<h2 class="section-title">Hashing vs encryption — the difference that matters</h2>
+<p class="section-sub">One is reversible. One isn't. Passwords need the second.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The most common confusion in this space is "let's just encrypt the passwords." It sounds safer than plaintext, and it is — but it's the wrong tool. Encryption is reversible by design. Hashing is not.
+</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-2">
+<pre class="text-xs text-slate-400 leading-relaxed" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; line-height: 1.7;">ENCRYPTION HASHING
+──────────── ────────────
+Two-way. One-way.
+password + key -> ciphertext password -> hash
+ciphertext + key -> password hash -> (impossible)
+
+Whoever has the key can Nobody can reverse it.
+read every password. Not the developer, not the
+admin, not the attacker.
+
+Correct for: Correct for:
+• Messages - Passwords
+• Files - Integrity checks
+• PII that must be read back - Signatures
+• Backups</pre>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>Why hashing is the correct choice for passwords:</strong> because you should never need to read a password. The only thing you need to do with a password is <em>check</em> that the one the user just typed matches the one they set. And you can do that with a hash: hash the submitted password, compare to the stored hash. Same result, no reading.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>Why encryption is wrong for passwords, even if it feels safer:</strong> because encryption means someone has the key. That someone can be compelled to give it up, can leak it, can be the attacker themselves. In a leaked-encrypted-passwords scenario, the passwords are effectively plaintext the moment the key is found. A leaked-hashed-passwords scenario doesn't have that failure mode — the hashes are useless without brute-force, and brute-force only works for weak passwords.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>The trap:</strong> some frameworks and libraries offer password encryption and call it "secure." It's not. The pattern to remember: passwords are hashed, never encrypted. Full stop. If a vendor tells you they encrypt passwords, that's a red flag in the sales call.
+</p>
+</section>
+
+<section id="salts">
+<h2 class="section-title">Salts — why two users with the same password have different hashes</h2>
+<p class="section-sub">Random per user. Stored with the hash. Makes rainbow tables useless.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Without a salt, hashing <code>"hunter2"</code> produces the same hash for every user who uses <code>"hunter2"</code>. That means an attacker with a leaked database can look up hashes in a precomputed table (a "rainbow table") and instantly find the password. The table is expensive to build once and then reusable against every leak.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+A salt fixes this. Before hashing, add a random string unique to this user. Now <code>"hunter2" + salt1</code> hashes to something different than <code>"hunter2" + salt2</code>. The rainbow table stops working — the attacker would need a separate table for every salt, which is the same cost as brute-forcing each password individually.
+</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-2">
+<pre class="text-xs text-slate-400 leading-relaxed" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; line-height: 1.7;">WITHOUT SALT:
+alice -> "hunter2" -> sha256 -> 5f4dcc3b...
+bob -> "hunter2" -> sha256 -> 5f4dcc3b... (same hash!)
+
+Attacker looks up "5f4dcc3b..." in a rainbow table.
+Finds "hunter2". Done.
+
+WITH SALT (werkzeug does this automatically):
+alice -> "hunter2" + "x8k2" -> hash -> pbkdf2:sha256:600000$x8k2$...
+bob -> "hunter2" + "m3n7" -> hash -> pbkdf2:sha256:600000$m3n7$...
+
+Different hashes. Rainbow table useless.
+Attacker must brute-force each password separately.</pre>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>The good news:</strong> <code>werkzeug.security.generate_password_hash</code> handles salts for you automatically. You don't generate them, store them separately, or pass them around. The salt is embedded in the hash string itself.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>What the hash string looks like in the database:</strong>
+</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-2">
+<pre class="text-xs text-slate-400 leading-relaxed" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; line-height: 1.7;">pbkdf2:sha256:600000$x8k2abc$9f3e2d1c8b7a6f5e4d3c2b1a...
+
+algorithm iterations salt hash</pre>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+When <code>check_password_hash(stored, submitted)</code> runs, werkzeug splits the string, extracts the algorithm and salt, re-runs the same algorithm with the same salt on the submitted password, and compares the result to the stored hash. Match or no. That's the whole check.
+</p>
+</section>
+
+<section id="schema">
+<h2 class="section-title">The schema — one column renames</h2>
+<p class="section-sub"><code>password</code> becomes <code>password_hash</code>.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The rename isn't cosmetic. It's a statement: the column doesn't contain the password, it contains a hash of the password. That distinction matters for anyone reading the schema, for anyone writing queries against it, and for anyone thinking about what a leak would expose.
+</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">schema.sql</span>
+<span class="snippet-meta">auth-stage-02.html · lines 12–19</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">SQL</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">CREATE TABLE users (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+email TEXT NOT NULL UNIQUE,
+password_hash TEXT NOT NULL,
+created_at TEXT NOT NULL
+);</pre>
+<script type="text/plain" id="raw-code-sol1">CREATE TABLE users (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+email TEXT NOT NULL UNIQUE,
+password_hash TEXT NOT NULL,
+created_at TEXT NOT NULL
+);</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the column renames:
+
+Stage 01's column was named 'password'
+because it stored a password. Stage 02's
+column is named 'password_hash' because
+it stores a hash. The name should describe
+what's actually there.
+
+This matters for two reasons. First, a
+schema is documentation - anyone reading
+it should know immediately that the
+column contains a hash, not a password.
+Second, queries written against the column
+self-document: 'SELECT password_hash FROM
+users' reads as 'fetch a hash', not 'fetch
+a password'.
+
+'password_hash' is the standard name in
+almost every framework: Django, Rails,
+Laravel, Express examples all use it. It
+signals intent.
+
+Why TEXT and not a fixed-length type:
+
+Hash strings vary in length depending on
+the algorithm. A SHA-256 hash is 64 hex
+chars plus the salt and algorithm prefix.
+An argon2 hash is longer. A bcrypt hash
+is 60 chars exactly.
+
+TEXT holds all of them. If you migrated
+from bcrypt to argon2 later, the column
+wouldn't need to change - TEXT is big
+enough for either. A VARCHAR(60) sized for
+bcrypt would truncate the argon2 hash.
+
+The rule: for hash storage, use TEXT, not
+a fixed-length type. The algorithm is
+variable; the column should be too.
+
+What if the table already has data:
+
+If Stage 01's database is live and has
+plaintext passwords in a 'password' column,
+a migration is needed:
+1. ALTER TABLE users RENAME COLUMN
+password TO password_hash
+2. For each existing user, we don't know
+their password, so we can't hash it.
+3. Options: force a password reset,
+or refuse login until reset.
+
+The honest migration story is in the
+#migrate section below. For this stage's
+demo, the database is reseeded fresh, so
+there's no plaintext to migrate. In a
+real app, migration is a real conversation
+and it's worth naming.</pre>
+</div>
+</div>
+</section>
+
+<section id="insert">
+<h2 class="section-title">Register — hash before inserting</h2>
+<p class="section-sub">One line changes in the INSERT.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+In Stage 01, the register route inserted the plaintext password. In Stage 02, it inserts the hash. That's the whole change — one line, one function call.
+</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">register.py</span>
+<span class="snippet-meta">auth-stage-02.html · lines 38–55</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">from werkzeug.security import generate_password_hash
+
+@app.route("/register", methods=["POST"])
+def register():
+email = request.form["email"].strip().lower()
+password = request.form["password"]
+
+with get_db() as conn:
+existing = conn.execute(
+"SELECT id FROM users WHERE email = ?", (email,)
+).fetchone()
+if existing:
+return render_template("register.html", error="Email already registered."), 400
+
+conn.execute(
+"INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
+(email, generate_password_hash(password), now_iso()),
+)
+conn.commit()
+
+return redirect("/login")</pre>
+<script type="text/plain" id="raw-code-sol2">from werkzeug.security import generate_password_hash
+
+@app.route("/register", methods=["POST"])
+def register():
+email = request.form["email"].strip().lower()
+password = request.form["password"]
+
+with get_db() as conn:
+existing = conn.execute(
+"SELECT id FROM users WHERE email = ?", (email,)
+).fetchone()
+if existing:
+return render_template("register.html", error="Email already registered."), 400
+
+conn.execute(
+"INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)",
+(email, generate_password_hash(password), now_iso()),
+)
+conn.commit()
+
+return redirect("/login")</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What generate_password_hash does:
+
+Takes a password string. Returns a hash
+string. That's the whole function signature:
+generate_password_hash(password) -> str
+
+What it does internally:
+1. Generate a random salt
+2. Run PBKDF2-SHA256 on (password + salt)
+with 600,000 iterations (default)
+3. Return the result formatted as
+'pbkdf2:sha256:600000`$<salt>$<hash>'
+
+The output is a single string. It contains
+everything needed to verify the password
+later: the algorithm, the iteration count,
+the salt, and the hash. No separate salt
+column, no separate storage.
+
+The 600,000 iterations matter: each
+attempt to guess a password by brute-force
+has to do 600,000 rounds of SHA-256. That's
+slow on purpose. Slow means expensive to
+attack. Modern GPUs can do maybe 5 billion
+SHA-256 hashes per second - with PBKDF2's
+600,000 iterations, that's still 8,333
+attempts per second, which is much slower
+than without iterations. Not unbreakable,
+but 600,000x more expensive than a plain
+hash.
+
+Why the hash goes into the column, not
+the password:
+
+The column now says 'password_hash' -
+storing a hash in it is consistent with
+the name. Storing a password would be a
+lie.
+
+The value written is what check_password_hash
+will read later. Same format, same
+structure. The register route and the
+login route agree on what's in the column.
+
+Why this is the only change to register:
+
+The route's shape is identical to Stage 01.
+Parse the form, check for duplicate email,
+insert the row, redirect to login. The
+only line that changed is the one inside
+the INSERT.
+
+This is the payoff of Stage 01's structure.
+The flow was right. Only the storage was
+wrong. Fix the storage; the flow carries
+forward unchanged.</pre>
+</div>
+</div>
+</section>
+
+<section id="compare">
+<h2 class="section-title">Login — compare with <code>check_password_hash</code></h2>
+<p class="section-sub">One line changes in the comparison.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The login route in Stage 01 compared plaintext with <code>==</code>. Stage 02 uses <code>check_password_hash</code>, which splits the stored hash string, re-hashes the submitted password with the same salt, and compares. That's the whole change.
+</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">login.py</span>
+<span class="snippet-meta">auth-stage-02.html · lines 70–88</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">from werkzeug.security import check_password_hash
+
+@app.route("/login", methods=["POST"])
+def login():
+email = request.form["email"].strip().lower()
+password = request.form["password"]
+
+with get_db() as conn:
+user = conn.execute(
+"SELECT id, password_hash FROM users WHERE email = ?", (email,)
+).fetchone()
+
+if not user or not check_password_hash(user["password_hash"], password):
+return render_template("login.html", error="Invalid email or password."), 401
+
+session["user_id"] = user["id"]
+return redirect("/dashboard")</pre>
+<script type="text/plain" id="raw-code-sol3">from werkzeug.security import check_password_hash
+
+@app.route("/login", methods=["POST"])
+def login():
+email = request.form["email"].strip().lower()
+password = request.form["password"]
+
+with get_db() as conn:
+user = conn.execute(
+"SELECT id, password_hash FROM users WHERE email = ?", (email,)
+).fetchone()
+
+if not user or not check_password_hash(user["password_hash"], password):
+return render_template("login.html", error="Invalid email or password."), 401
+
+session["user_id"] = user["id"]
+return redirect("/dashboard")</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>What check_password_hash does:
+
+Takes two arguments: the stored hash
+string and the submitted plaintext
+password. Returns True or False.
+
+Internally:
+1. Parse the stored hash string into
+(algorithm, iterations, salt, hash).
+2. Run the same algorithm on the
+submitted password with the same
+salt and iterations.
+3. Compare the resulting hash to the
+stored hash.
+4. Return True if they match.
+
+Everything the check needs is inside the
+stored hash string. No separate salt
+table. No global configuration. The hash
+is self-contained.
+
+This is why migrating from bcrypt to
+argon2, or from 600,000 iterations to
+1,200,000, is safe: the stored hashes
+remember their own parameters. Old hashes
+keep working with the old parameters;
+new hashes use the new ones. You can
+upgrade a user's hash on their next
+successful login without knowing their
+password.
+
+The 'not user' short-circuit:
+
+If the query returned no row (email
+not found), user is None. not user
+catches that. The check_password_hash
+never runs on None.
+
+Python's 'or' short-circuits: if the
+left side is truthy, the right side
+doesn't run. If the left is falsy
+(None is falsy), the right runs.
+
+This is why the order matters:
+if not user or not check_password_hash(...)
+works.
+if not check_password_hash(...) or not user
+crashes on None.
+
+The pattern - check existence first,
+then check credentials - is the same as
+Stage 01's 'not user or user["password"]
+!= password'. Only the comparison changed.
+
+Why 'Invalid email or password' stays the
+same:
+
+Same reasoning as Stage 01: don't leak
+which part failed. If the email exists
+but the password is wrong, or the email
+doesn't exist, the message is identical.
+An attacker can't enumerate emails.
+
+Hashing doesn't change this reasoning.
+The message is a UX decision, independent
+of how passwords are stored.
+
+Why the session line doesn't change:
+
+session["user_id"] = user["id"] works
+the same in Stage 01 and Stage 02.
+The session doesn't know or care how
+the password was verified - by the time
+we get to this line, the verification
+is done. The session stores the user's
+identity, not the verification method.
+
+This is the separation of concerns that
+makes the whole course work: Stage 01
+built the door, Stage 02 changed the
+lock. The door is the same door.</pre>
+</div>
+</div>
+</section>
+
+<section id="migrate">
+<h2 class="section-title">The migration — what happens to existing users</h2>
+<p class="section-sub">You can't hash a password you don't know. Here's the honest answer.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+If you had a real Stage 01 app running with real users, and you deployed Stage 02, the column rename from <code>password</code> to <code>password_hash</code> would fail to find anything in the new column — because the old column still has plaintext. That's a real problem, and there are only two honest solutions.
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Option 1 — force reset on login</h4>
+<p>The login route, on successful plaintext login, hashes the password and updates the row. The user's next login is against the hash. After the last user logs in once, the entire table is hashed.</p>
+</div>
+<div class="concept-card">
+<h4>Option 2 — delete and require reset</h4>
+<p>Delete every password (or every user). Send a reset email to all users. Every user must set a new password. Painful UX, but the table is hashed from the next login.</p>
+</div>
+<div class="concept-card">
+<h4>Option 3 — the dishonest one</h4>
+<p>Keep the plaintext column "just in case" and add a hash column beside it. This is not a migration. This is the bug persisting under a new name. Never do this.</p>
+</div>
+<div class="concept-card">
+<h4>Which to choose</h4>
+<p>Option 1 for production with existing users. Option 2 for a breach response. Option 3: never. The demo uses a fresh DB (Option 0: seed with a hashed password), so migration doesn't apply.</p>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>Why you can't hash the plaintext directly:</strong> because hashing requires knowing the password, and you shouldn't have access to plaintext passwords in the first place. Hashing isn't a reversible operation on the stored value — it's a one-time transformation of the user's input. The migration has to wait for the user to provide that input again, or force a reset.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>The course demo skips this:</strong> the seed script inserts a hashed password from the start. There's no plaintext to migrate. This is the honest teaching choice — showing the migration would distract from the two-line core change. The migration pattern is described here, in the lesson text, because it's real and you'll hit it in production someday.
+</p>
+</section>
+
+<section id="next">
+<h2 class="section-title">Next: Stage 03 — Roles</h2>
+<p class="section-sub">Authentication is "who are you?". Authorization is "what can you do?".</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stage 02 completed authentication. The system now knows who's logging in, safely. Stage 03 adds authorization — the layer that says "you're Alice, but Alice can't delete users."
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The four big lessons in Stage 03:
+</p>
+
+<ul class="text-sm text-slate-300 leading-relaxed space-y-1" style="padding-left: 1.5rem; list-style: disc;">
+<li><strong>Authentication vs authorization</strong> — one happens at login, the other on every request. Confusing them is a common security bug.</li>
+<li><strong>The role column</strong> — one column on the users table, three values: viewer, editor, admin.</li>
+<li><strong><code>@role_required</code></strong> — a second decorator, layered on top of <code>@login_required</code>. Same pattern, different check.</li>
+<li><strong>The "you forgot the decorator" bug</strong> — what happens when a route is protected by <code>@login_required</code> but not <code>@role_required</code>, and the viewer can delete an admin.</li>
+</ul>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+Stage 03 ships the full file too — <code>auth-stage-03.html</code>, ~280 lines. Same lesson + full file split.
+</p>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">Continue the course</h2>
+<a href="/courses/auth/stage-03-roles.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">Next: Stage 03 — Roles</div>
+<div class="text-xs text-slate-400 mt-1">Authorization. The @role_required decorator. Who can see what.</div>
+</a>
+<a href="/courses/auth/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Back to the Auth course hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages, the pattern, and the closeout.</div>
+</a>
+</section>
+
+<a href="/courses/auth/index.html" class="back-link">← Back to Auth course hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Auth Stage 02 · Hashing & Sessions <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
