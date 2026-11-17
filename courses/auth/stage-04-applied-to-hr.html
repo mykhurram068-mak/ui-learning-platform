@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Auth Stage 04 - Applied to HR (Final: Real App Integration) (2026)</title>
+<meta name="description" content="Final stage of the Authentication & Sessions course: apply Stages 01-03 to the HR & Attendance build. A users table linked to employees, login for manager and employee views, protected API routes, and an audit log that shows who did what.">
+<meta name="keywords" content="flask auth integration tutorial, adding login to existing app, employee user foreign key, role protect api routes">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Auth Stage 04 - Applied to HR (Final)">
+<meta property="og:description" content="Apply the auth pattern to a real app. The HR build gains users, login, and role-protected routes.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/auth/stage-04-applied-to-hr.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Auth Stage 04 - Applied to HR (Final)">
+<meta name="twitter:description" content="Apply the auth pattern to a real app.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/auth/stage-04-applied-to-hr.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Auth Stage 04 - Applied to HR (Final Stage)",
+"description": "Apply the authentication and authorization pattern to the HR & Attendance build. A users table linked to employees, login for manager and employee views, protected API routes.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-17",
+"dateModified": "2026-11-17",
+"proficiencyLevel": "Intermediate",
+"dependencies": "Python, Flask, SQLite, werkzeug"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"Why is the HR build the right app for this stage?","acceptedAnswer":{"@type":"Answer","text":"Because it has the cleanest two-audience split in the studio. There's a manager view (dashboard, timesheets, approval) and an employee view (clock in, clock out). Before auth, both were accessible to anyone - the tab was the only gate. After auth, the tab is enforced by role: an employee can clock in but not approve timesheets; a manager can do both. The change is small and its value is immediately visible. The pattern is the same as Stages 01-03; the app is real."}},
+{"@type":"Question","name":"How does the users table relate to the employees table?","acceptedAnswer":{"@type":"Answer","text":"A user is an account (email, password_hash, role, session). An employee is a person (name, hourly_rate, hired_at). They're different concepts that usually point at the same human. The link is employee_id on the users table: a foreign key to employees.id. This lets the app answer 'who is logged in?' (user) and 'whose hours are these?' (employee). Some users are admins who aren't employees (an IT admin who doesn't work shifts) - in that case, employee_id is NULL. The foreign key allows it, and the role check doesn't require an employee."}},
+{"@type":"Question","name":"Why does the API need role checks and not just the UI?","acceptedAnswer":{"@type":"Answer","text":"Because the UI can be bypassed. A user with DevTools can POST directly to /api/approve-week regardless of what buttons the UI shows or hides. The UI is a convenience - it hides buttons the user can't use, so they don't try. The API is the enforcement - it refuses the request regardless of what the UI shows. Same discipline as every write boundary in the studio's builds: never trust the client. The UI check and the API check must agree; the API check is the one that matters."}},
+{"@type":"Question","name":"What changes in the HR build's frontend?","acceptedAnswer":{"@type":"Answer","text":"Three things. (1) A login page - the same login form from Stages 01-03, sitting in front of everything. (2) A role-aware navigation - if the current user is an employee, hide the manager tab; if they're a manager, show both. (3) A fetch wrapper that includes the session cookie on every API call, so the server knows who's asking. The layout, the views, the components - all identical. Only the shell around them changes, and the shell is small."}},
+{"@type":"Question","name":"What if an employee has no user account?","acceptedAnswer":{"@type":"Answer","text":"They can't log in, so they can't clock in. That's a real problem in a real HR app. The solution is usually one of: (1) auto-create a user account for every new employee, with a default password they must change on first login; (2) send an invite email after the employee is added to the roster; (3) an admin creates accounts manually. All three work. Stage 04's seed creates a user for every employee, with the employee's email, so the demo has a clean 1:1 correspondence. The lesson names the alternatives, because in production the choice matters."}},
+{"@type":"Question","name":"How is audit-logging tied to auth?","acceptedAnswer":{"@type":"Answer","text":"The HR build already has an attendance_events table - every clock-in, clock-out, and break is logged. Before auth, the log showed what happened but not who did it. After auth, the events are attributed to a user_id (through the employee's user account), so the log shows 'employee #5 clocked in at 9:02' AND 'the clock-in was made by user #8 (alice@example.com)'. The second is more defensible in an audit. The pattern generalizes: any action taken by an authenticated user should record the user_id somewhere. Same as the created_by field in the delivery_events table from the Delivery Tracking build."}},
+{"@type":"Question","name":"Is this the end of the auth course?","acceptedAnswer":{"@type":"Answer","text":"Yes. The course is four stages: users table (Stage 01), hashing (Stage 02), roles (Stage 03), applied to a real app (Stage 04). Stage 04 completes it. OAuth, MFA, password reset flows, email verification, and rate limiting are separate concerns - each a course of its own, each built on top of what this course teaches. The foundation is done. The layers above it are still ahead, but you now have the ground to build them on."}},
+{"@type":"Question","name":"What should I build next after this course?","acceptedAnswer":{"@type":"Answer","text":"Two things. First: add auth to one of the other builds (CRM, Inventory, POS, Delivery). Same pattern, different app - it makes the pattern stick. Second: take the deployment course - the app now has auth, which means it's ready to be protected by HTTPS, deployed behind a reverse proxy, and given a real database backup. Auth makes an app ready to be real; deployment makes it reachable. Both are prerequisites for 'shipped'."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+.snippet-meta { font-size: 11px; color: #64748b; padding: 0 12px 8px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Authentication &amp; Sessions</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 04 &middot; Applied to HR &mdash; Final Stage</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> &rsaquo;
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> &rsaquo;
+<a href="/courses/auth/index.html" style="color:#7ee8fc;">Authentication &amp; Sessions</a> &rsaquo;
+<span style="color:#FFFFFF; font-weight:700;">Stage 04</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">Stage 04 &middot; 1.5&ndash;2 hours &middot; FINAL</div>
+<h1>Make it real.<br><span class="py-accent">Auth in a working app.</span></h1>
+<p class="lead">
+Stages 01–03 built auth in a vacuum. A small demo app with a login page and a dashboard. Stage 04 takes that whole pattern and drops it into the HR &amp; Attendance build &mdash; a real app, with real routes, where the change has visible consequences. Before auth, anyone with a browser could clock in as any employee, approve any timesheet, see any payroll data. After auth, the manager view is manager-only, the employee view is employee-only, and every action is attributed to a real user.
+</p>
+<p class="lead" style="margin-top:0.75rem;">
+<strong style="color:#61dafb;">This is the final stage of the course.</strong> After it, the Authentication &amp; Sessions course is complete: four stages, three demo apps, one real-app integration, and the foundation every production system needs. No Stage 05.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 1.5&ndash;2 hours</span>
+<span><i class="fa-solid fa-signal"></i> Intermediate</span>
+<span><i class="fa-solid fa-code"></i> Flask &middot; werkzeug &middot; RBAC &middot; integration</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/auth/index.html">Auth hub</a>
+<a href="#two-tables">Users + employees</a>
+<a href="#login-gate">The login gate</a>
+<a href="#roles-ui">Role-aware UI</a>
+<a href="#api-protection">API protection</a>
+<a href="#audit">The audit log</a>
+<a href="#done">Done &mdash; next steps</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Add a <code>users</code> table with <code>employee_id</code> as a foreign key to <code>employees</code>, plus <code>role</code> (<code>employee</code> or <code>manager</code>). Wrap the HR app in a login gate - <code>@login_required</code> on the HTML routes, <code>@role_required("manager")</code> on the manager-only API routes. Pass the session cookie on every <code>fetch()</code>. Hide the manager tab for employees. Add <code>user_id</code> to <code>attendance_events</code> so the audit log shows <em>who</em>, not just <em>what</em>.
+</p>
+</div>
+
+<section id="two-tables">
+<h2 class="section-title">Users + employees &mdash; two tables, one person</h2>
+<p class="section-sub">A user is an account. An employee is a person. The FK connects them.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The HR build already has an <code>employees</code> table. It stores names, hourly rates, and hire dates &mdash; the facts about a person who works there. Stage 04 adds a <code>users</code> table on top of it. A user is an <em>account</em>: email, password hash, role, session. In the common case, one user corresponds to one employee, and the FK on the user points at the employee.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+This separation matters because it's not always 1:1. An HR admin might have a user account (to log in and manage the app) but no employee record (because they don't clock in and don't get paid by the hour). An employee might have an employee record before they have a user account (a new hire who hasn't received their login email yet). The FK is nullable, and that's correct.
+</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">schema.sql (excerpt)</span>
+<span class="snippet-meta">auth-stage-04.html &middot; lines 15&ndash;28</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">SQL</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">CREATE TABLE users (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  email         TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role          TEXT NOT NULL DEFAULT 'employee'
+                CHECK (role IN ('employee', 'manager')),
+  employee_id   INTEGER,
+  created_at    TEXT NOT NULL,
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL
+);</pre>
+<script type="text/plain" id="raw-code-sol1">CREATE TABLE users (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  email         TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role          TEXT NOT NULL DEFAULT 'employee'
+                CHECK (role IN ('employee', 'manager')),
+  employee_id   INTEGER,
+  created_at    TEXT NOT NULL,
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL
+);</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why two roles, not three:
+
+  The HR build has two audiences: employees
+  and managers. An employee clocks in and out.
+  A manager does that plus approves timesheets.
+  No third role is needed.
+
+  In a bigger org you'd add 'hr_admin' for
+  someone who manages the payroll data but
+  isn't a manager themselves. The CHECK
+  constraint has room for it - add a value
+  to the IN list and a role to the decorator
+  call. Stage 04 uses two because the app
+  has two.
+
+Why employee_id is nullable:
+
+  Not every user is an employee. An IT admin
+  might have a login to fix the app without
+  ever clocking in. An employee's user account
+  might be created before their employee
+  record is (order-of-creation edge case).
+
+  Nullable FK means either state is valid.
+  The role check doesn't require employee_id.
+  The role check requires a role.
+
+Why ON DELETE SET NULL and not CASCADE:
+
+  If an employee record is deleted, the user
+  account should survive. The person still
+  exists - they just don't work there anymore.
+  Their login still works for the app, but
+  they can't clock in because there's no
+  employee record to attribute hours to.
+
+  CASCADE would delete the user. That's too
+  aggressive - you'd lose their login history,
+  their audit trail, their session's identity
+  in old logs.
+
+  SET NULL is the correct default for
+  'reference, but don't depend'.
+
+Why role lives on users, not employees:
+
+  The role describes the account, not the
+  person. An employee could be an employee
+  today and a manager tomorrow - that's an
+  account role change, not an employee record
+  change.
+
+  Put it on users, next to the password and
+  the session. The employee record stays
+  about the person. The user record stays
+  about the login.</pre>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>The whole schema change is 10 lines.</strong> That's the pattern: a new table (users), one FK to the existing table (employee_id), one CHECK constraint on role. The HR build's existing four tables stay exactly the same. Auth is <em>additive</em> &mdash; it wraps the app, it doesn't rewrite it.
+</p>
+</section>
+
+<section id="login-gate">
+<h2 class="section-title">The login gate &mdash; one page in front of everything</h2>
+<p class="section-sub">Same login form. Same session. Same decorator. New app.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The HR build already has HTML routes (<code>/</code>, <code>/dashboard</code>, <code>/employee</code>, <code>/manager</code>) and API routes (<code>/api/clock-in</code>, <code>/api/approve-week</code>, etc.). Stage 04 adds one new HTML route &mdash; <code>/login</code> &mdash; and wraps every existing HTML route in <code>@login_required</code>. The gate sits in front of the app.
+</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">app.py (excerpt)</span>
+<span class="snippet-meta">auth-stage-04.html &middot; lines 45&ndash;65</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">@app.route("/")
+@login_required
+def index():
+    """Serve the HR app. The role determines what the tab bar shows."""
+    user = current_user()
+    return render_template("app.html", user=user)
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        return render_template("login.html")
+    email = request.form["email"].strip().lower()
+    password = request.form["password"]
+    with get_db() as conn:
+        user = conn.execute(
+            "SELECT id, password_hash FROM users WHERE email = ?", (email,)
+        ).fetchone()
+    if not user or not check_password_hash(user["password_hash"], password):
+        return render_template("login.html", error="Invalid email or password."), 401
+    session["user_id"] = user["id"]
+    return redirect("/")</pre>
+<script type="text/plain" id="raw-code-sol2">@app.route("/")
+@login_required
+def index():
+    """Serve the HR app. The role determines what the tab bar shows."""
+    user = current_user()
+    return render_template("app.html", user=user)
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        return render_template("login.html")
+    email = request.form["email"].strip().lower()
+    password = request.form["password"]
+    with get_db() as conn:
+        user = conn.execute(
+            "SELECT id, password_hash FROM users WHERE email = ?", (email,)
+        ).fetchone()
+    if not user or not check_password_hash(user["password_hash"], password):
+        return render_template("login.html", error="Invalid email or password."), 401
+    session["user_id"] = user["id"]
+    return redirect("/")</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the login route is a form POST,
+not an API call:
+
+  Two approaches work. (1) The form submits
+  to /login, the server sets a session cookie,
+  the browser is redirected to /. (2) JavaScript
+  fetches /api/login, gets a token, stores it,
+  sends it in headers. 
+
+  Option 1 is simpler for a server-rendered
+  app. The session cookie is set by the
+  browser automatically. No JS involved.
+  Login is a full page reload, but that's a
+  one-time cost.
+
+  Option 2 is necessary if the frontend is
+  a separate app (React SPA, mobile client).
+  Not our case.
+
+  Stage 04 uses option 1. Same as the HR
+  build's existing HTML routes - server-rendered,
+  form-posted. Consistent with the app.
+
+Why the login page is now the entry point:
+
+  Before Stage 04, visiting / went straight
+  to the HR dashboard. After Stage 04,
+  visiting / without a session redirects to
+  /login. The redirect is automatic because
+  of @login_required.
+
+  This is the "gate" pattern: the app is
+  behind a check. The check is one decorator
+  on one route. Everything else flows from
+  there.
+
+Why 'user' is passed to the template:
+
+  The HR app's template needs to know the
+  user's role, name, and employee_id to
+  render the right tab bar, the right views,
+  and the right data.
+
+  Passing the full user row (id, email, role,
+  employee_id) means the template has
+  everything it needs in one object. No
+  extra queries, no template-side lookups.
+
+  The template uses {% if user['role'] ==
+  'manager' %} to decide what to show. That's
+  the UI-level check. The API-level check
+  (next section) is the enforcement.</pre>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>The whole gate is 20 lines of code.</strong> A login route that checks the password hash and sets the session. A decorator on the index route. The app's existing routes don't change &mdash; they just get the decorator added.
+</p>
+</section>
+
+<section id="roles-ui">
+<h2 class="section-title">Role-aware UI &mdash; the tab bar changes</h2>
+<p class="section-sub">Hide what the user can't use. Show what they can.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The HR build already has a tab bar with two tabs: Manager and Employee. Before auth, both tabs were visible to everyone. After auth, the tab bar is role-aware: an employee sees only the Employee tab; a manager sees both. Same HTML, one template condition.
+</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">app.html (excerpt)</span>
+<span class="snippet-meta">auth-stage-04.html &middot; lines 78&ndash;95</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">HTML (Jinja)</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">&lt;header class="hr-header"&gt;
+  &lt;div class="hr-brand"&gt;MAK HR&lt;/div&gt;
+  &lt;div class="hr-tabs"&gt;
+    {% if user['role'] == 'manager' %}
+    &lt;button class="hr-tab" data-switch="manager"&gt;Manager&lt;/button&gt;
+    {% endif %}
+    &lt;button class="hr-tab" data-switch="employee"&gt;Employee&lt;/button&gt;
+  &lt;/div&gt;
+  &lt;div class="hr-user"&gt;
+    {{ user['email'] }} &middot; {{ user['role'] }}
+    &lt;a href="/logout"&gt;Log out&lt;/a&gt;
+  &lt;/div&gt;
+&lt;/header&gt;</pre>
+<script type="text/plain" id="raw-code-sol3"><header class="hr-header">
+  <div class="hr-brand">MAK HR</div>
+  <div class="hr-tabs">
+    {% if user['role'] == 'manager' %}
+    <button class="hr-tab" data-switch="manager">Manager</button>
+    {% endif %}
+    <button class="hr-tab" data-switch="employee">Employee</button>
+  </div>
+  <div class="hr-user">
+    {{ user['email'] }} &middot; {{ user['role'] }}
+    <a href="/logout">Log out</a>
+  </div>
+</header></script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why the manager tab is behind a condition:
+
+  An employee should never see a tab they
+  can't use. Clicking it would get a 403,
+  which is confusing. Hiding it means the
+  employee never tries.
+
+  This is the UX half of authorization. The
+  API half is the enforcement.
+
+Why the employee tab isn't conditioned:
+
+  Both roles can clock in and out. An employee
+  clocks in; a manager can also clock in
+  (managers are people who work shifts too,
+  or at least might need to record hours for
+  someone else).
+
+  So the employee tab is visible to everyone.
+  The manager tab is manager-only.
+
+  The rule: hide what the user can't use.
+  Show what they can. The Employee tab is
+  always usable.
+
+Why user info is in the header:
+
+  The user needs to know who they're logged
+  in as. The email + role in the header
+  answers that in one glance. The logout
+  link is right there.
+
+  This is standard app UX. Every authenticated
+  app shows the current user somewhere in
+  the chrome. Stage 04 makes the HR build do
+  the same.</pre>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>Two lines of Jinja. The whole UI change.</strong> The <code>{% if %}</code> around the manager tab, and the user info block in the header. The rest of the HR app's HTML is unchanged. Role-aware UI is small on purpose.
+</p>
+</section>
+
+<section id="api-protection">
+<h2 class="section-title">API protection &mdash; the enforcement boundary</h2>
+<p class="section-sub">The UI hides buttons. The API refuses requests. Both matter. The API is the one that counts.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The HR build has API routes for clock-in, clock-out, break, and approve-week. Before auth, any of them could be called by anyone. After auth, each one has the right decorator: <code>@login_required</code> for clock actions (any logged-in user), <code>@role_required("manager")</code> for approve-week (managers only).
+</p>
+
+<div class="code-block" id="sol4">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">app.py (API routes)</span>
+<span class="snippet-meta">auth-stage-04.html &middot; lines 110&ndash;135</span>
+<button class="copy-btn" onclick="copyCode('code-sol4', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol4', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol4', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol4">@app.route("/api/clock-in", methods=["POST"])
+@login_required
+def clock_in():
+    """Any logged-in user can clock in for themselves."""
+    user = current_user()
+    if not user["employee_id"]:
+        return jsonify({"error": "No employee record for this account."}), 400
+    # ... existing clock-in logic, using user["employee_id"] ...
+
+@app.route("/api/approve-week", methods=["POST"])
+@role_required("manager")
+def approve_week():
+    """Only managers can approve timesheets."""
+    # ... existing approve-week logic ...
+    return jsonify({"ok": True}), 200</pre>
+<script type="text/plain" id="raw-code-sol4">@app.route("/api/clock-in", methods=["POST"])
+@login_required
+def clock_in():
+    """Any logged-in user can clock in for themselves."""
+    user = current_user()
+    if not user["employee_id"]:
+        return jsonify({"error": "No employee record for this account."}), 400
+    # ... existing clock-in logic, using user["employee_id"] ...
+
+@app.route("/api/approve-week", methods=["POST"])
+@role_required("manager")
+def approve_week():
+    """Only managers can approve timesheets."""
+    # ... existing approve-week logic ...
+    return jsonify({"ok": True}), 200</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why clock-in uses employee_id, not a request field:
+
+  Before auth, the frontend sent {"employeeId":
+  5} in the POST body. The server trusted it.
+  Anyone could clock in as anyone by sending
+  a different employeeId.
+
+  After auth, the server doesn't trust the
+  body. It uses user["employee_id"] - the
+  employee associated with the logged-in
+  user. The employeeId in the body is ignored
+  (or removed entirely).
+
+  This is the same discipline as every write
+  in the studio's builds: never trust the
+  client with identity. The session is the
+  identity. The body is a payload.
+
+Why approve-week needs role_required, not
+just login_required:
+
+  Any employee could approve their own
+  timesheet if only login_required were on
+  the route. The role check is what makes
+  'approve' mean 'a manager approved it'.
+
+  Same forgotten-decorator bug from Stage 03:
+  login_required checks that you're someone,
+  not that you're the right someone. Approve
+  is the right-someone case.
+
+  Same for delete-user, if the HR app had
+  one. Admin actions need admin roles.
+
+Why the API returns 403 and not a redirect:
+
+  The HTML routes redirect to /login on 401
+  because the user is navigating. A page
+  reload to login is fine.
+
+  The API returns 403 (or 401) as JSON,
+  because the client is a JavaScript fetch.
+  A redirect would confuse the fetch handler
+  - the client expects JSON, gets HTML.
+
+  The client handles 401/403 by showing a
+  toast and (for 401) redirecting to login
+  via window.location. That's the client's
+  job. The server just tells the truth in
+  the response.</pre>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>The API protection is the enforcement boundary.</strong> The UI can hide the approve button for employees, but a determined employee with DevTools can still POST to <code>/api/approve-week</code>. The <code>@role_required("manager")</code> decorator is what actually stops them. UI-level hiding is UX. API-level checking is security. Both matter. The API is the one that holds under attack.
+</p>
+</section>
+
+<section id="audit">
+<h2 class="section-title">The audit log &mdash; who, not just what</h2>
+<p class="section-sub">Every event is now attributed to a user.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The HR build already has an <code>attendance_events</code> table. It records every clock-in, clock-out, and break, with a timestamp. But before auth, the log said <em>what</em> happened, not <em>who</em> caused it. Stage 04 adds a <code>user_id</code> column to the events table, so the audit log can answer both.
+</p>
+
+<div class="code-block" id="sol5">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">schema.sql (addition)</span>
+<span class="snippet-meta">auth-stage-04.html &middot; lines 145&ndash;155</span>
+<button class="copy-btn" onclick="copyCode('code-sol5', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol5', 'ts', this)">SQL</button>
+<button onclick="switchCodeOutput('sol5', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol5">CREATE TABLE attendance_events (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  employee_id INTEGER NOT NULL,
+  type        TEXT NOT NULL
+              CHECK (type IN ('in', 'out', 'break_start', 'break_end',
+                              'manual_in', 'manual_out')),
+  occurred_at TEXT NOT NULL,
+  note        TEXT,
+  created_by  INTEGER,
+  created_at  TEXT NOT NULL,
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE RESTRICT,
+  FOREIGN KEY (created_by)  REFERENCES users(id)     ON DELETE SET NULL
+);</pre>
+<script type="text/plain" id="raw-code-sol5">CREATE TABLE attendance_events (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  employee_id INTEGER NOT NULL,
+  type        TEXT NOT NULL
+              CHECK (type IN ('in', 'out', 'break_start', 'break_end',
+                              'manual_in', 'manual_out')),
+  occurred_at TEXT NOT NULL,
+  note        TEXT,
+  created_by  INTEGER,
+  created_at  TEXT NOT NULL,
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE RESTRICT,
+  FOREIGN KEY (created_by)  REFERENCES users(id)     ON DELETE SET NULL
+);</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why both employee_id and created_by:
+
+  Two different questions:
+    employee_id  - whose hours is this?
+    created_by   - who recorded this event?
+
+  In the common case, they're the same person:
+  Alice clocks in for herself, employee_id =
+  Alice's employee record, created_by = Alice's
+  user account.
+
+  But they're not always the same. A manager
+  might correct a missed clock-out for an
+  employee who forgot. Then:
+    employee_id = the employee
+    created_by  = the manager
+
+  The audit log now shows 'Alice's clock-out
+  was recorded by manager Bob at 10:05 AM.'
+  That's the sentence a payroll audit needs.
+
+Why created_by is nullable:
+
+  Events created before auth existed have no
+  created_by. That's fine - they predate the
+  feature, and forcing a value would mean
+  inventing a user, which is worse.
+
+  New events always have created_by set
+  (because all writes go through an
+  authenticated endpoint). Old events have
+  NULL, and the log renders them as 'system'
+  or 'pre-auth'.
+
+  Same pattern as the delivery_events
+  created_by field in the Delivery Tracking
+  build. Audit fields are best added before
+  you need them, but nullable is the honest
+  migration for an existing table.
+
+Why ON DELETE SET NULL and not CASCADE:
+
+  If a user account is deleted, the events
+  they created should survive. The audit log
+  is a historical record. Deleting a user
+  shouldn't erase their history.
+
+  SET NULL means the created_by column
+  becomes NULL if the user is deleted. The
+  event survives with 'system' or 'deleted
+  user' as the attribution.
+
+  CASCADE would delete the events. That's
+  wrong. History doesn't get deleted when
+  a person leaves - it becomes historical.
+
+What the audit log now answers:
+
+  Before Stage 04:
+    'Someone approved week 44.' (who?)
+    'Someone clocked in at 9:02.' (whose?)
+
+  After Stage 04:
+    'Manager Bob (bob@example.com) approved
+    week 44 at 10:05 AM.'
+    'Alice clocked in at 9:02. Recorded by
+    Alice.'
+    'Alice's clock-out was manually corrected
+    by manager Bob at 10:05 AM.'
+
+  Every sentence is now auditable. Every
+  action has a who.</pre>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>This is what auth enables that nothing else does:</strong> attribution. Before auth, the HR build could tell you what happened. After auth, it can tell you who. That's the difference between an app and an audit trail. Any action taken by an authenticated user should record <code>created_by</code>. Every write should attribute itself.
+</p>
+</section>
+
+<section id="done">
+<h2 class="section-title">Done &mdash; the auth course is complete</h2>
+<p class="section-sub">Four stages. Three demo apps. One real-app integration. The foundation is done.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Four stages. Every one adds exactly one layer. No Stage 05.
+</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mt-4 mb-4">
+<div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">The full course</div>
+<div class="space-y-2">
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 01 &mdash; The Users Table</strong> &middot; a working login, plaintext on purpose, so we can see what's wrong</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 02 &mdash; Hashing &amp; Sessions</strong> &middot; the fix. Two lines change. The lock is replaced, the door is the same</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 03 &mdash; Roles</strong> &middot; authorization. The role column, the <code>@role_required</code> decorator, the forgotten-decorator bug</span>
+</div>
+<div class="flex items-center gap-3 text-sm">
+<span class="text-emerald-400 font-bold">&#10003;</span>
+<span class="text-slate-300"><strong class="text-white">Stage 04 &mdash; Applied to HR</strong> &middot; the pattern in a real app. Two tables, one gate, role-aware UI, protected routes, audit log</span>
+</div>
+</div>
+</div>
+
+<a href="/courses/auth/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all mb-3">
+<div class="font-semibold text-cyan-400 text-sm">Back to the Auth course hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages in one place, with the download links for each full file.</div>
+</a>
+
+<div class="bg-slate-950 border border-slate-800 rounded-xl p-4 mb-2">
+<div class="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">What comes next &mdash; not Stage 05</div>
+<a href="/courses/deployment/index.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors mb-2">
+<div class="font-semibold text-white text-sm">Deploying Flask + SQLite</div>
+<div class="text-xs text-slate-400 mt-1">Auth makes an app ready to be real. Deployment makes it reachable. The other prerequisite for shipping.</div>
+</a>
+<a href="/courses/testing/index.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors mb-2">
+<div class="font-semibold text-white text-sm">Testing Flask Apps</div>
+<div class="text-xs text-slate-400 mt-1">Once auth exists, the question becomes 'did I break it?' Testing answers that.</div>
+</a>
+<a href="/courses/auth-advanced/index.html" class="block p-3 rounded-lg hover:bg-slate-900 transition-colors">
+<div class="font-semibold text-white text-sm">OAuth, MFA, password reset</div>
+<div class="text-xs text-slate-400 mt-1">The layers above the foundation. Each a course of its own, each built on what you just learned.</div>
+</a>
+</div>
+
+<p class="text-xs text-slate-500 leading-relaxed mt-4">
+<strong class="text-slate-400">Apply it to another app.</strong> The pattern you learned here works on every app in the studio. Add auth to CRM, Inventory, POS, or Delivery Tracking. Same users table (adjust the FK target), same login form, same <code>@login_required</code> and <code>@role_required</code> decorators, same audit-log attribution. The app changes; the pattern doesn't.
+</p>
+</section>
+
+<a href="/courses/auth/index.html" class="back-link">&larr; Back to Auth course hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Auth Stage 04 &middot; Applied to HR &middot; Final <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+  if (typeof window.switchCodeOutput !== 'function') {
+    window.switchCodeOutput = function (blockId, paneName, btn) {
+      var block = document.getElementById(blockId);
+      if (!block) block = btn.closest('.code-block');
+      if (!block) return;
+      block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+      btn.classList.add('active');
+      block.querySelectorAll('.code-output-pane').forEach(function (p) {
+        p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+      });
+    };
+  }
+  if (typeof window.copyCode !== 'function') {
+    window.copyCode = function (id, btn) {
+      var raw = document.getElementById('raw-' + id);
+      var text = raw ? raw.textContent : document.getElementById(id).textContent;
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+      else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+    };
+  }
+})();
+</script>
+</body>
+</html>
