@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Auth Stage 03 - Roles (Authentication becomes Authorization) (2026)</title>
+<meta name="description" content="Stage 03 of the Authentication & Sessions course: add a role column and a @role_required decorator. Viewer, editor, admin. The difference between authentication (who) and authorization (what). And the specific bug that happens when a route is @login_required but not @role_required.">
+<meta name="keywords" content="flask role required decorator, rbac flask, authentication vs authorization, flask role based access control, role column sqlite">
+<meta name="author" content="MAK Studio">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Auth Stage 03 - Roles">
+<meta property="og:description" content="Add a role column and a @role_required decorator. Viewer, editor, admin.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://makuistudio.com/courses/auth/stage-03-roles.html">
+<meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+<meta property="og:site_name" content="MAK UI Studio">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Auth Stage 03 - Roles">
+<meta name="twitter:description" content="Add a role column and a @role_required decorator.">
+<meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+<link href="/favicon.png" rel="icon" type="image/png"/>
+<link rel="canonical" href="https://makuistudio.com/courses/auth/stage-03-roles.html"/>
+
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "TechArticle",
+"headline": "Auth Stage 03 - Roles",
+"description": "Add a role column to the users table, a @role_required decorator, and see the specific bug that happens when a route is @login_required but not @role_required.",
+"author": { "@type": "Organization", "name": "MAK Studio" },
+"datePublished": "2026-11-17",
+"dateModified": "2026-11-17",
+"proficiencyLevel": "Beginner",
+"dependencies": "Python, Flask, SQLite"
+}
+</script>
+<script type="application/ld+json">
+{
+"@context": "https://schema.org",
+"@type": "FAQPage",
+"mainEntity": [
+{"@type":"Question","name":"What's the difference between authentication and authorization?","acceptedAnswer":{"@type":"Answer","text":"Authentication asks 'who are you?' It happens once, at login. Authorization asks 'what are you allowed to do?' It happens on every request. Stage 01 and 02 completed authentication - the app knows who's making a request. Stage 03 adds authorization - the app also knows what that user can do. Confusing the two is a common security bug: a route that's protected by @login_required is authenticated but not authorized, so any logged-in user can access it regardless of role."}},
+{"@type":"Question","name":"Why one role column instead of a permissions table?","acceptedAnswer":{"@type":"Answer","text":"Because for most apps, role-based access control (RBAC) with three or four roles is enough. A viewer, an editor, and an admin cover the vast majority of authorization needs. A permissions table (user -> many permissions) is more flexible but also more complex: every new permission is a new row, every check has to look up the user's permissions, every UI has to ask the server what the user can do. Start with roles. Migrate to permissions only when the roles genuinely don't fit the access patterns. The lesson names this trade-off so you know when to upgrade."}},
+{"@type":"Question","name":"Why is the role stored in the session instead of looked up on every request?","acceptedAnswer":{"@type":"Answer","text":"Because the session is signed with the secret key, so the role stored in it can't be tampered with. If you store user_id in the session and look up the role from the DB on every request, you get correctness (the role is always current) but you pay a DB query per request. If you store role in the session, you pay zero per request but the role is a snapshot from login time. If the role changes during the session, the user keeps the old role until they log in again. For most apps, the snapshot is fine: role changes are rare, and the next login picks up the new role. The trade-off is worth naming: store what changes often (user_id) in the session pointer, look up what changes rarely (role) either from the DB or from a session snapshot, and know which you chose."}},
+{"@type":"Question","name":"What does the forgotten @role_required bug look like?","acceptedAnswer":{"@type":"Answer","text":"A route that's protected by @login_required but not @role_required is accessible to any logged-in user, regardless of role. If the route is 'DELETE /users/<id>', a viewer can delete an admin. The decorator checks authentication but not authorization. The fix is to layer both decorators: @login_required on top, @role_required on top of that. Or, better, make @role_required imply @login_required, so a route that requires a role can't accidentally skip the login check. Stage 03 shows both approaches and explains which is safer."}},
+{"@type":"Question","name":"How does the @role_required decorator get the user's role?","acceptedAnswer":{"@type":"Answer","text":"Two choices. (1) Look up the role from the database inside the decorator, using session['user_id']. This is always correct - the role is current at the moment of the request. Costs one DB query per protected request. (2) Store the role in session at login time. This is fast - zero DB queries - but stale if the role changes during the session. Stage 03 uses option 1 for correctness. The lesson explains when option 2 is acceptable (role changes are rare, sessions are short) and when it's not (admin roles that need immediate revocation)."}},
+{"@type":"Question","name":"What about roles that change mid-session?","acceptedAnswer":{"@type":"Answer","text":"If you use option 1 (DB lookup on every request), the change takes effect immediately - the next request sees the new role. If you use option 2 (role in session), the change takes effect at next login. For most apps, option 1 is worth the extra query. If you have a hot route that's hit thousands of times per second, caching the role in session (with a short expiry) becomes attractive. Stage 03 uses option 1 - correctness first. The lesson names the cache-invalidation problem so you know what to solve if you ever need option 2."}},
+{"@type":"Question","name":"What does Stage 04 add that Stage 03 doesn't?","acceptedAnswer":{"@type":"Answer","text":"Stage 04 takes everything from Stages 01-03 and applies it to the HR & Attendance build. A real app, with real users, where the manager role sees the manager dashboard and the employee role sees only the employee view. Stage 03's role logic is the whole implementation. Stage 04 is about wiring it into an existing app: adding the users table to an existing schema, adding a login page to an existing HTML, protecting routes that were already written. The pattern is the same; the integration is the lesson."}}
+]
+}
+</script>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="/style.css" rel="stylesheet"/>
+<link href="/assets/courses.css" rel="stylesheet"/>
+<link href="/assets/language-react.css" rel="stylesheet"/>
+<style>
+.code-output-tabs { display: flex; gap: 4px; padding: 0 12px; background: #0f172a; border-bottom: 1px solid #1e293b; }
+.code-output-tabs button { padding: 6px 12px; font-size: 12px; font-weight: 600; color: #94a3b8; background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer; }
+.code-output-tabs button.active { color: #61dafb; border-bottom-color: #61dafb; }
+.code-output-pane { display: none; }
+.code-output-pane.active { display: block; }
+.snippet-meta { font-size: 11px; color: #64748b; padding: 0 12px 8px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; }
+</style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="index.html">MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+<section class="p-8 text-center">
+<h2 class="text-4xl font-black uppercase mb-2" style="color:#61dafb !important;">Authentication & Sessions</h2>
+<p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Stage 03 · Roles</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+<div class="text-xs" style="color:#7d8fa9;">
+<a href="/index.html" style="color:#7ee8fc;">Home</a> ›
+<a href="/courses/index.html" style="color:#7ee8fc;">Courses</a> ›
+<a href="/courses/auth/index.html" style="color:#7ee8fc;">Authentication & Sessions</a> ›
+<span style="color:#FFFFFF; font-weight:700;">Stage 03</span>
+</div>
+
+<div class="py-hero">
+<div class="badge">Stage 03 · 1.5–2 hours</div>
+<h1>Who are you is done.<br><span class="py-accent">Now: what can you do?</span></h1>
+<p class="lead">
+Authentication says who. Authorization says what. Stages 01 and 02 completed authentication — the app knows who's making a request, and the passwords are hashed. Stage 03 adds authorization: a <code>role</code> column, a <code>@role_required</code> decorator, and the three roles every app starts with — viewer, editor, admin. The code is small. The bug that appears when you forget the decorator is not.
+</p>
+<div class="meta">
+<span><i class="fa-solid fa-clock"></i> 1.5–2 hours</span>
+<span><i class="fa-solid fa-signal"></i> Beginner</span>
+<span><i class="fa-solid fa-code"></i> Python · Flask · RBAC</span>
+</div>
+</div>
+
+<div class="quick-nav">
+<a href="/courses/auth/index.html">Auth hub</a>
+<a href="#auth-vs-authz">Auth vs authz</a>
+<a href="#schema">The role column</a>
+<a href="#decorator">@role_required</a>
+<a href="#layering">Layering decorators</a>
+<a href="#bug">The forgotten decorator</a>
+<a href="#next">Next: Stage 04</a>
+</div>
+
+<div class="info-box">
+<p class="text-base font-semibold leading-relaxed mb-2" style="color:#e8eef7 !important;">
+<strong>Short answer:</strong> Add a <code>role</code> column to <code>users</code> with a CHECK constraint (<code>viewer</code>, <code>editor</code>, <code>admin</code>). Write a <code>@role_required(*roles)</code> decorator that reads <code>session["user_id"]</code>, looks up the user's role from the DB, and returns 403 if the role isn't in the allowed list. Layer it with <code>@login_required</code> on every protected route — or make <code>@role_required</code> imply <code>@login_required</code> so you can't forget the login check. The lesson shows both, and explains why the second is safer.
+</p>
+</div>
+
+<section id="auth-vs-authz">
+<h2 class="section-title">Authentication vs authorization</h2>
+<p class="section-sub">Two questions. Two layers. Confusing them is a security bug.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The two words look similar and get conflated constantly. They answer different questions and happen at different times. Getting the distinction right is most of what this stage teaches.
+</p>
+
+<div class="concept-grid">
+<div class="concept-card">
+<h4>Authentication</h4>
+<p><strong>Who are you?</strong> Happens once, at login. Succeeds when the password hash matches. Produces a session. Every request after that carries the session.</p>
+</div>
+<div class="concept-card">
+<h4>Authorization</h4>
+<p><strong>What can you do?</strong> Happens on every request. Succeeds when the user's role permits the action. Fails with 403 Forbidden.</p>
+</div>
+<div class="concept-card">
+<h4>The wrong mental model</h4>
+<p>"Logged in = allowed." No. Logged in means the app knows who you are. It doesn't mean you can delete every user. Authz is a separate check.</p>
+</div>
+<div class="concept-card">
+<h4>The correct mental model</h4>
+<p>Every protected action has two gates. Gate 1: are you logged in? Gate 2: does your role permit this? Both must pass. Skipping gate 2 is the bug this stage prevents.</p>
+</div>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>A concrete example.</strong> A viewer logs in. Gate 1 (authentication) passes — they're logged in. Now they navigate to "DELETE /users/42", a route that only admins should reach. If the route has only <code>@login_required</code>, the request goes through. The viewer just deleted the admin. That's the forgotten-decorator bug, and it's the reason this stage exists.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>The rule that prevents it:</strong> every route that touches sensitive data must check <em>both</em> authentication and authorization. The first says "you're someone." The second says "you're the right someone." Both are required. Neither is sufficient alone.
+</p>
+</section>
+
+<section id="schema">
+<h2 class="section-title">The role column</h2>
+<p class="section-sub">One column. Three values. A CHECK constraint.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The users table gains one column. <code>role</code> is a TEXT column with three allowed values. The CHECK constraint is the schema-level enforcement: no code path can insert a role that isn't in the list, no matter what.
+</p>
+
+<div class="code-block" id="sol1">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">schema.sql</span>
+<span class="snippet-meta">auth-stage-03.html · lines 12–20</span>
+<button class="copy-btn" onclick="copyCode('code-sol1', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol1', 'ts', this)">SQL</button>
+<button onclick="switchCodeOutput('sol1', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol1">CREATE TABLE users (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+email TEXT NOT NULL UNIQUE,
+password_hash TEXT NOT NULL,
+role TEXT NOT NULL DEFAULT 'viewer'
+CHECK (role IN ('viewer', 'editor', 'admin')),
+created_at TEXT NOT NULL
+);</pre>
+<script type="text/plain" id="raw-code-sol1">CREATE TABLE users (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+email TEXT NOT NULL UNIQUE,
+password_hash TEXT NOT NULL,
+role TEXT NOT NULL DEFAULT 'viewer'
+CHECK (role IN ('viewer', 'editor', 'admin')),
+created_at TEXT NOT NULL
+);</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why DEFAULT 'viewer':
+
+New users should have the minimum
+permissions. A user who just registered
+hasn't been vetted, hasn't been promoted,
+hasn't been assigned any responsibilities.
+
+Default to the safest role. Admins are
+made explicitly - by another admin - not
+by default.
+
+This is the principle of least privilege:
+every user starts with the minimum needed
+to use the app, and gets more only when
+someone grants it.
+
+Why the CHECK constraint:
+
+Without it, a buggy code path could insert
+role='superadmin' or role='Admin' or an
+empty string. The CHECK constraint refuses
+all of them - the database itself enforces
+the three-value enum.
+
+This is defense in depth. The decorator
+also checks the role against an allowed
+list at request time. But if the decorator
+has a bug, or a new role gets added to the
+DB without updating the decorator, the DB
+catches it first.
+
+Same pattern as every CHECK in the
+studio's builds: state is enforced at the
+schema, so bad data can't get in.
+
+Why three roles, not five or ten:
+
+The user said 'for most apps, RBAC with
+three or four roles is enough.' This is
+that claim made concrete.
+
+viewer - can read, can't modify
+editor - can read and modify
+admin - can do everything, including
+delete and manage users
+
+That's the standard trio. If your app
+has 'manager' or 'moderator', it's usually
+a viewer or editor with a specific scope,
+not a fundamentally different role.
+
+Start with three. Add a fourth only when
+the access patterns genuinely demand it.
+The lesson names this so you know the
+default is not an accident.
+
+Why role and not permissions:
+
+A permissions table would look like:
+user_permissions(user_id, permission)
+- alice -> 'delete_user'
+- alice -> 'edit_user'
+- bob -> 'edit_user'
+
+That's more flexible. Each user has an
+arbitrary set of permissions. You could
+have a user who can delete but not edit,
+or edit but not delete.
+
+It's also more code. Every check has to
+look up the user's permissions. Every
+'can this user do X?' has to be a query.
+Every UI that hides buttons has to ask
+the server 'what can I do?'
+
+RBAC with three roles is simpler and
+covers 90% of apps. The lesson is: pick
+the simplest tool that fits, not the most
+flexible tool that might be needed later.</pre>
+</div>
+</div>
+</section>
+
+<section id="decorator">
+<h2 class="section-title">The <code>@role_required</code> decorator</h2>
+<p class="section-sub">Same pattern as <code>@login_required</code>. Different check.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The <code>@role_required</code> decorator reads the user's role from the database using <code>session["user_id"]</code>, checks whether it's in the allowed list, and either calls the route or returns 403 Forbidden. The lookup on every request is deliberate — see the "Why" tab.
+</p>
+
+<div class="code-block" id="sol2">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">role_required.py</span>
+<span class="snippet-meta">auth-stage-03.html · lines 35–55</span>
+<button class="copy-btn" onclick="copyCode('code-sol2', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol2', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol2', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol2">from functools import wraps
+
+def role_required(*allowed_roles):
+def decorator(f):
+@wraps(f)
+def wrapper(*args, **kwargs):
+if "user_id" not in session:
+return redirect("/login")
+with get_db() as conn:
+user = conn.execute(
+"SELECT role FROM users WHERE id = ?", (session["user_id"],)
+).fetchone()
+if not user or user["role"] not in allowed_roles:
+return "Forbidden", 403
+return f(*args, **kwargs)
+return wrapper
+return decorator</pre>
+<script type="text/plain" id="raw-code-sol2">from functools import wraps
+
+def role_required(*allowed_roles):
+def decorator(f):
+@wraps(f)
+def wrapper(*args, **kwargs):
+if "user_id" not in session:
+return redirect("/login")
+with get_db() as conn:
+user = conn.execute(
+"SELECT role FROM users WHERE id = ?", (session["user_id"],)
+).fetchone()
+if not user or user["role"] not in allowed_roles:
+return "Forbidden", 403
+return f(*args, **kwargs)
+return wrapper
+return decorator</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>Why @role_required takes arguments:
+
+@login_required doesn't take arguments -
+it just checks 'is anyone logged in?'
+
+@role_required needs to know which roles
+are allowed. That's an argument:
+@role_required("admin")
+@role_required("editor", "admin")
+
+A decorator that takes arguments returns
+a decorator. Three levels:
+role_required(*roles) returns a function
+that takes f and returns wrapper
+
+This is the standard pattern for
+parameterized decorators. The extra level
+is the argument-capture level.
+
+Why the DB lookup on every request:
+
+The role lives in the database. If you
+put it in the session at login, the role
+is a snapshot - stale if it changes. If
+you look it up on every request, the role
+is current.
+
+For a course, correctness matters more
+than the query cost. One SELECT per
+protected request is fine for any app
+that isn't handling thousands of requests
+per second.
+
+The trade-off: if you had a hot route
+that admins hit constantly, you'd cache
+the role in session with a short TTL.
+The lesson names this so you know when
+to switch. Stage 03 uses the DB lookup
+because it's simpler and always correct.
+
+Why 403 not 404:
+
+404 means 'not found'. The route exists;
+the user just can't access it. Returning
+404 would be lying to the client.
+
+403 means 'Forbidden'. The client is
+authenticated (not 401) and the server
+refuses to run the request. That's
+exactly what's happening.
+
+Some apps use 404 for authorization
+failures as a security-by-obscurity
+measure - don't reveal that the route
+exists. That's a valid choice for some
+apps (e.g., a user endpoint whose existence
+is sensitive). For a course, 403 is the
+honest default.
+
+Why 'not user' is checked:
+
+If session['user_id'] points to a user
+that was deleted between login and this
+request, the SELECT returns None. The
+wrapper returns 403, which is correct -
+the user is effectively no longer a user.
+
+This is an edge case, but it's real: an
+admin deletes a user, the user's session
+is still active, they navigate to a
+protected route. Without 'not user', the
+code would crash on user['role']. With
+it, the request is denied cleanly.
+
+Why the decorator is three functions,
+not one:
+
+role_required(*allowed_roles) - captures
+the role arguments. Returns decorator.
+
+decorator(f) - receives the route function.
+Returns wrapper.
+
+wrapper(*args, **kwargs) - runs per
+request. Checks the role. Calls f or
+returns 403.
+
+Each level is necessary for the
+parameterized decorator pattern. There's
+no way to do it in fewer functions and
+keep the arguments.</pre>
+</div>
+</div>
+</section>
+
+<section id="layering">
+<h2 class="section-title">Layering decorators</h2>
+<p class="section-sub">Or: why <code>@role_required</code> should imply <code>@login_required</code>.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Two ways to apply the decorators. The first is explicit: put both on the route. The second is safer: make <code>@role_required</code> do the login check itself, so you can't forget.
+</p>
+
+<div class="code-block" id="sol3">
+<div class="code-header">
+<div class="dots"><span></span><span></span><span></span></div>
+<span class="lang">usage.py</span>
+<span class="snippet-meta">auth-stage-03.html · lines 70–90</span>
+<button class="copy-btn" onclick="copyCode('code-sol3', this)">Copy</button>
+</div>
+<div class="code-output-tabs">
+<button class="active" onclick="switchCodeOutput('sol3', 'ts', this)">Python</button>
+<button onclick="switchCodeOutput('sol3', 'js', this)">Why</button>
+</div>
+<div class="code-output-pane active" data-pane="ts">
+<pre id="code-sol3">@app.route("/admin/delete/<int:user_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def delete_user(user_id):
+with get_db() as conn:
+conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+conn.commit()
+return redirect("/admin/users")
+
+@app.route("/editor/posts/new", methods=["GET"])
+@login_required
+@role_required("editor", "admin")
+def new_post():
+return render_template("new_post.html")</pre>
+<script type="text/plain" id="raw-code-sol3">@app.route("/admin/delete/<int:user_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def delete_user(user_id):
+with get_db() as conn:
+conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+conn.commit()
+return redirect("/admin/users")
+
+@app.route("/editor/posts/new", methods=["GET"])
+@login_required
+@role_required("editor", "admin")
+def new_post():
+return render_template("new_post.html")</script>
+</div>
+<div class="code-output-pane" data-pane="js">
+<pre>The order of decorators matters:
+
+@app.route - always on top
+@login_required - first
+@role_required - second
+def route...
+
+Decorators are applied bottom-up.
+role_required wraps the function first,
+then login_required wraps that, then
+app.route registers the whole thing.
+
+At request time, the order is top-down:
+app.route's handler calls login_required's
+wrapper, which calls role_required's
+wrapper, which calls the actual function.
+
+Both checks run, but login runs first.
+If not logged in, redirect to login.
+If logged in but wrong role, 403.
+
+Why @role_required checks login internally:
+
+Notice in the decorator code that even
+though @login_required runs first,
+@role_required also has:
+if "user_id" not in session:
+return redirect("/login")
+
+That's intentional. It makes
+@role_required safe on its own - if a
+future route forgets @login_required,
+@role_required still catches the
+unauthenticated case.
+
+The cost is a tiny bit of redundancy
+(one extra 'in session' check per
+request). The benefit is that a single
+forgotten decorator doesn't open a
+security hole.
+
+This is defensive design. The check
+that matters (are you an admin?) runs
+regardless of the check that precedes it.
+
+Why you might also want @login_required
+alongside @role_required:
+
+With the internal check, @role_required
+alone would work. Adding @login_required
+is belt and suspenders - it makes the
+intent visible ('this route requires
+login AND requires a role').
+
+Some code styles prefer explicit. Some
+prefer minimal. Both are correct if
+@role_required is safe on its own.
+
+The lesson shows both: the explicit
+version (@login_required + @role_required)
+as the default, and the safe-alone
+version (role_required internally
+checks login) as the safety net.
+
+The bug that this design prevents:
+
+Consider a route:
+@app.route("/admin/users")
+@role_required("admin")
+def admin_users():
+return render_template("admin_users.html")
+
+If @role_required didn't check login,
+and a future developer copied this route
+but removed @login_required (thinking it
+was redundant), the route would still
+work for logged-in admins - and would
+crash for unauthenticated users (user_id
+not in session -> KeyError in the query).
+
+With the internal check, the crash
+becomes a redirect to login. The route
+is safe regardless of the surrounding
+decorators.
+
+This is why the internal check is worth
+the tiny redundancy.</pre>
+</div>
+</div>
+</section>
+
+<section id="bug">
+<h2 class="section-title">The forgotten decorator</h2>
+<p class="section-sub">The most common authorization bug. Shown, so you recognize it.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Here's the bug, in its natural habitat. A developer writes a delete route. They remember to check login. They forget to check role. Every logged-in user can now delete every other user.
+</p>
+
+<div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mt-2">
+<pre class="text-xs text-slate-400 leading-relaxed" style="font-family: ui-monospace, 'SF Mono', Menlo, monospace; line-height: 1.7;"># BROKEN - @login_required only
+@app.route("/admin/delete/<int:user_id>", methods=["POST"])
+@login_required
+def delete_user(user_id):
+conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+conn.commit()
+return redirect("/admin/users")
+
+A viewer logs in. Their session is valid. @login_required passes.
+The DELETE runs. The viewer just deleted the admin.
+Nothing in the code prevents this.
+
+FIXED - both decorators
+@app.route("/admin/delete/<int:user_id>", methods=["POST"])
+@login_required
+@role_required("admin")
+def delete_user(user_id):
+conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+conn.commit()
+return redirect("/admin/users")
+
+A viewer logs in. @login_required passes. @role_required returns 403.
+The DELETE does not run.</pre>
+</div>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-4">
+<strong>Why this bug is so common:</strong> because "logged in" feels like "authorized." For the vast majority of routes in a small app, logged-in <em>is</em> the right check — anyone logged in can see their own dashboard, edit their own profile, view their own settings. The <code>@login_required</code> decorator becomes muscle memory. Then a route comes along that needs more, and the developer writes the decorator they always write.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>The fix that prevents it structurally:</strong> make <code>@role_required</code> imply <code>@login_required</code>. If a route requires a role, it can't accidentally be reachable by someone who's not logged in — the decorator checks both. And a route that requires a role is by definition a route where "logged in" is not enough, so the two checks belong together.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+<strong>The discipline:</strong> every route that can modify other users' data, change permissions, delete records, or see data the user doesn't own needs a <code>@role_required</code>. Not just <code>@login_required</code>. The question to ask is never "are they logged in?" but "are they allowed?".
+</p>
+</section>
+
+<section id="next">
+<h2 class="section-title">Next: Stage 04 — Applied to HR</h2>
+<p class="section-sub">Everything you've learned, in a real app.</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+Stages 01–03 built auth in a vacuum. A small demo app with a login page and a dashboard. Stage 04 takes that whole pattern and drops it into the HR & Attendance build — a real app, with real routes, where the change has visible consequences.
+</p>
+
+<p class="text-sm text-slate-300 leading-relaxed mb-3">
+The four big lessons in Stage 04:
+</p>
+
+<ul class="text-sm text-slate-300 leading-relaxed space-y-1 mb-3" style="padding-left: 1.5rem; list-style: disc;">
+<li><strong>Adding a users table to an existing app.</strong> The HR build already has <code>employees</code> — how does <code>users</code> relate? (Spoiler: a user is an account; an employee is a person. Same person, different records. The <code>employee_id</code> foreign key is the connection.)</li>
+<li><strong>Adding login to an existing HTML.</strong> The HR build already has a manager view and an employee view. Login sits in front of both. Which view a user lands on depends on their role.</li>
+<li><strong>Protecting existing routes.</strong> The HR build already has <code>/api/clock-in</code>, <code>/api/employees</code>, <code>/api/approve-week</code>. Each needs the right decorator: some need <code>@login_required</code>, some need <code>@role_required("manager")</code>.</li>
+<li><strong>What the app actually gains.</strong> Before: anyone with a browser could clock in as any employee, approve any timesheet, see any payroll data. After: the manager view is manager-only; the employee view is employee-only; the audit log shows who approved what, because "who" is now a real user.</li>
+</ul>
+
+<p class="text-sm text-slate-300 leading-relaxed mt-3">
+Stage 04's full file is the HR build with auth integrated. It's the largest file in this course — about 350 lines of code changes across the existing HR files. The lesson page is still one stage, still ~550 lines, with 4–6 snippets and text-heavy explanation. The point isn't the code; the point is how a pattern from a demo becomes a real feature in a real app.
+</p>
+</section>
+
+<section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+<h2 class="text-white font-bold mb-3">Continue the course</h2>
+<a href="/courses/auth/stage-04-applied-to-hr.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all mb-3">
+<div class="font-semibold text-white text-sm">Next: Stage 04 — Applied to HR</div>
+<div class="text-xs text-slate-400 mt-1">The pattern, dropped into a real app. Employee view, manager view, protected routes.</div>
+</a>
+<a href="/courses/auth/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-cyan-500/50 transition-all">
+<div class="font-semibold text-white text-sm">Back to the Auth course hub</div>
+<div class="text-xs text-slate-400 mt-1">All four stages, the pattern, and the closeout.</div>
+</a>
+</section>
+
+<a href="/courses/auth/index.html" class="back-link">← Back to Auth course hub</a>
+
+<div class="lang-signature">
+<span class="dot"></span> Auth Stage 03 · Roles <span class="dot"></span>
+</div>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+<div class="flex justify-between items-center max-w-md mx-auto">
+<div class="flex flex-col items-center gap-1 text-blue-500">
+<i class="fa-solid fa-house text-xl"></i>
+<a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-book-open text-xl"></i>
+<a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-envelope text-xl"></i>
+<a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+</div>
+<div class="flex flex-col items-center gap-1 text-slate-500">
+<i class="fa-solid fa-circle-user text-xl"></i>
+<span class="text-[10px] font-bold uppercase">Profile</span>
+</div>
+</div>
+</footer>
+
+<script src="/assets/courses.js" defer></script>
+<script>
+(function () {
+if (typeof window.switchCodeOutput !== 'function') {
+window.switchCodeOutput = function (blockId, paneName, btn) {
+var block = document.getElementById(blockId);
+if (!block) block = btn.closest('.code-block');
+if (!block) return;
+block.querySelectorAll('.code-output-tabs button').forEach(function (t) { t.classList.remove('active'); });
+btn.classList.add('active');
+block.querySelectorAll('.code-output-pane').forEach(function (p) {
+p.classList.toggle('active', p.getAttribute('data-pane') === paneName);
+});
+};
+}
+if (typeof window.copyCode !== 'function') {
+window.copyCode = function (id, btn) {
+var raw = document.getElementById('raw-' + id);
+var text = raw ? raw.textContent : document.getElementById(id).textContent;
+var done = function () { var o = btn.textContent; btn.textContent = 'Copied!'; setTimeout(function () { btn.textContent = o; }, 1500); };
+if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done); }
+else { var ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta); done(); }
+};
+}
+})();
+</script>
+</body>
+</html>
