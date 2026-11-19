@@ -355,89 +355,378 @@ The studio's builds write SQL constantly. The Inventory build queries products a
 (function () {
   'use strict';
 
-  var KEYWORDS = [
-    'SELECT','FROM','WHERE','JOIN','LEFT JOIN','RIGHT JOIN','INNER JOIN',
-    'OUTER JOIN','GROUP BY','ORDER BY','HAVING','LIMIT','OFFSET',
-    'INSERT INTO','VALUES','UPDATE','SET','DELETE','CREATE TABLE',
-    'ALTER TABLE','DROP TABLE','AND','OR','ON','AS','DESC','ASC',
-    'DISTINCT','UNION ALL','UNION'
-  ];
+  // ─────────────────────────────────────────────────────────
+// SQL formatter + colorizer — single-pass tokenizer
+//
+// The problem with regex-only formatting: regex can't tell
+// "inside a string" from "outside a string". This tokenizes
+// first, so formatting and coloring operate on tokens, not
+// on raw text.
+// ─────────────────────────────────────────────────────────
 
-  var FUNCTIONS = [
-    'COUNT','SUM','AVG','MIN','MAX','COALESCE','IFNULL','CAST',
-    'LOWER','UPPER','TRIM','SUBSTR','LENGTH','ROUND','ABS','DATE','NOW'
-  ];
+var KEYWORDS = [
+  'SELECT','FROM','WHERE','JOIN','LEFT JOIN','RIGHT JOIN','INNER JOIN',
+  'OUTER JOIN','GROUP BY','ORDER BY','HAVING','LIMIT','OFFSET',
+  'INSERT INTO','VALUES','UPDATE','SET','DELETE','CREATE TABLE',
+  'ALTER TABLE','DROP TABLE','AND','OR','ON','AS','DESC','ASC',
+  'DISTINCT','UNION ALL','UNION'
+];
 
-  var MAJOR_CLAUSES = ['SELECT','FROM','WHERE','JOIN','LEFT JOIN','RIGHT JOIN',
-    'INNER JOIN','GROUP BY','ORDER BY','HAVING','LIMIT','OFFSET',
-    'INSERT INTO','VALUES','UPDATE','SET','DELETE'];
+var FUNCTIONS = [
+  'COUNT','SUM','AVG','MIN','MAX','COALESCE','IFNULL','CAST',
+  'LOWER','UPPER','TRIM','SUBSTR','LENGTH','ROUND','ABS','DATE','NOW'
+];
 
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, function (c) {
-      var n = c.charCodeAt(0);
-      if (n === 38) return '&amp;';
-      if (n === 60) return '&lt;';
-      if (n === 62) return '&gt;';
-      if (n === 34) return '&quot;';
-      if (n === 39) return '&#39;';
-      return c;
-    });
+var MAJOR_CLAUSES = [
+  'SELECT','FROM','WHERE','JOIN','LEFT JOIN','RIGHT JOIN','INNER JOIN',
+  'GROUP BY','ORDER BY','HAVING','LIMIT','OFFSET','INSERT INTO',
+  'VALUES','UPDATE','SET','DELETE'
+];
+
+// Token types
+var T = {
+  WS:      'ws',
+  COMMENT: 'comment',
+  STRING:  'string',
+  NUMBER:  'number',
+  WORD:    'word',
+  PUNCT:   'punct'
+};
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    var n = c.charCodeAt(0);
+    if (n === 38) return '&amp;';
+    if (n === 60) return '&lt;';
+    if (n === 62) return '&gt;';
+    if (n === 34) return '&quot;';
+    if (n === 39) return '&#39;';
+    return c;
+  });
+}
+
+// ─── Tokenizer ───
+// Returns an array of { type, value }. Whitespace and comments are
+// their own tokens so the formatter can decide where to break.
+function tokenizeSQL(sql) {
+  var tokens = [];
+  var i = 0;
+  var n = sql.length;
+
+  while (i < n) {
+    var c = sql[i];
+    var rest = sql.slice(i);
+
+    // Block comment /* ... */
+    if (rest.indexOf('/*') === 0) {
+      var endBlock = sql.indexOf('*/', i + 2);
+      if (endBlock === -1) endBlock = n; else endBlock += 2;
+      tokens.push({ type: T.COMMENT, value: sql.slice(i, endBlock) });
+      i = endBlock;
+      continue;
+    }
+
+    // Line comment -- to end of line
+    if (rest.indexOf('--') === 0) {
+      var endLine = sql.indexOf('\n', i);
+      if (endLine === -1) endLine = n;
+      tokens.push({ type: T.COMMENT, value: sql.slice(i, endLine).trimRight() });
+      i = endLine;
+      continue;
+    }
+
+    // Single-quoted string — handles '' as escaped quote inside
+    if (c === "'") {
+      var j = i + 1;
+      while (j < n) {
+        if (sql[j] === "'") {
+          if (sql[j + 1] === "'") { j += 2; continue; }
+          j += 1;
+          break;
+        }
+        j += 1;
+      }
+      tokens.push({ type: T.STRING, value: sql.slice(i, j) });
+      i = j;
+      continue;
+    }
+
+    // Double-quoted identifier (SQL standard)
+    if (c === '"') {
+      var k = i + 1;
+      while (k < n && sql[k] !== '"') k += 1;
+      tokens.push({ type: T.STRING, value: sql.slice(i, k + 1) });
+      i = k + 1;
+      continue;
+    }
+
+    // Backtick identifier (MySQL)
+    if (c === '`') {
+      var m = i + 1;
+      while (m < n && sql[m] !== '`') m += 1;
+      tokens.push({ type: T.STRING, value: sql.slice(i, m + 1) });
+      i = m + 1;
+      continue;
+    }
+
+    // Whitespace run
+    if (/\s/.test(c)) {
+      var ws = i;
+      while (ws < n && /\s/.test(sql[ws])) ws += 1;
+      tokens.push({ type: T.WS, value: sql.slice(i, ws) });
+      i = ws;
+      continue;
+    }
+
+    // Number
+    if (/[0-9]/.test(c) || (c === '.' && /[0-9]/.test(sql[i + 1] || ''))) {
+      var numEnd = i;
+      while (numEnd < n && /[0-9.]/.test(sql[numEnd])) numEnd += 1;
+      tokens.push({ type: T.NUMBER, value: sql.slice(i, numEnd) });
+      i = numEnd;
+      continue;
+    }
+
+    // Word (identifier or keyword)
+    if (/[A-Za-z_]/.test(c)) {
+      var wordEnd = i;
+      while (wordEnd < n && /[A-Za-z0-9_]/.test(sql[wordEnd])) wordEnd += 1;
+      tokens.push({ type: T.WORD, value: sql.slice(i, wordEnd) });
+      i = wordEnd;
+      continue;
+    }
+
+    // Punctuation (single character)
+    tokens.push({ type: T.PUNCT, value: c });
+    i += 1;
   }
 
-  function formatSQL(sql) {
-    // 1. Normalize
-    sql = sql.replace(/\s+/g, ' ').trim();
+  return tokens;
+}
 
-    // 2. Uppercase keywords (longest first to avoid partial matches)
-    KEYWORDS.slice().sort(function (a, b) { return b.length - a.length; })
-      .forEach(function (kw) {
-        var re = new RegExp('\\b' + kw + '\\b', 'gi');
-        sql = sql.replace(re, kw);
-      });
+// ─── Formatter ───
+// Takes a token array, returns lines. Comments always go on their own line.
+function formatTokens(tokens) {
+    var merged = [];
+    var i = 0;
+    while (i < tokens.length) {
+    var t = tokens[i];
 
-    // 3. Break on major clauses
-    MAJOR_CLAUSES.forEach(function (kw) {
-      var re = new RegExp('\\b' + kw + '\\b', 'g');
-      sql = sql.replace(re, '\n' + kw);
-    });
+    if (t.type === T.WORD) {
+    // Try to match a 2-word keyword only if the next tokens are
+    // exactly WS + WORD. The old code did i += 3 even when the
+    // two-word check FAILED — which skipped a comment and the next
+    // identifier. This version is explicit.
+    var up = t.value.toUpperCase();
 
-    // 4. Indent AND/OR
-    sql = sql.replace(/\b(AND|OR)\b/g, '\n  $1');
+    // Two-word match attempt: current WORD, next WS, next WORD
+    if (tokens[i + 1] && tokens[i + 1].type === T.WS &&
+    tokens[i + 2] && tokens[i + 2].type === T.WORD) {
+    var twoWord = up + ' ' + tokens[i + 2].value.toUpperCase();
+    if (KEYWORDS.indexOf(twoWord) !== -1) {
+    merged.push({ type: 'kw', value: twoWord });
+    i += 3;
+    continue;
+    }
+    }
 
-    // 5. Cleanup
-    return sql.replace(/\n\s+\n/g, '\n').replace(/^\n+/, '').trim();
+    // Single-word keyword or function
+    if (KEYWORDS.indexOf(up) !== -1) {
+    merged.push({ type: 'kw', value: up });
+    } else if (FUNCTIONS.indexOf(up) !== -1) {
+    merged.push({ type: 'fn', value: up });
+    } else {
+    merged.push({ type: 'id', value: t.value });
+    }
+    i += 1;
+    continue;
+    }
+
+    if (t.type === T.WS) {
+    if (merged.length && merged[merged.length - 1].type !== 'ws') {
+    merged.push({ type: 'ws', value: ' ' });
+    }
+    i += 1;
+    continue;
+    }
+
+    if (t.type === T.COMMENT) {
+    merged.push({ type: 'comment', value: t.value });
+    i += 1;
+    continue;
+    }
+
+    merged.push(t);
+    i += 1;
+    }
+
+// ... rest of the function unchanged ...
+
+
+  // 2. Walk tokens, building output lines.
+  //    Rules:
+  //      - Major clause (SELECT/FROM/WHERE/...) starts a new line.
+  //      - AND/OR on its own line, indented two spaces.
+  //      - Comment ALWAYS on its own line (indented to match previous clause).
+  //      - Punctuation attaches to the preceding token (no space before).
+  var lines = [];
+  var current = '';
+  var indent = '';
+
+  function flush() {
+    if (current.trim()) lines.push((indent + current).trimRight());
+    current = '';
   }
 
-  function colorizeSQL(sql) {
-    // Start with escaped text so nothing from the user runs as HTML
-    var safe = escapeHtml(sql);
+  for (var j = 0; j < merged.length; j++) {
+    var tok = merged[j];
 
-    // 1. Strings first — must be protected before keyword replacement
-    safe = safe.replace(/&#39;[^&]*?&#39;/g, function (m) {
-      return '<span class="sql-str">' + m + '</span>';
-    });
+    if (tok.type === 'comment') {
+      flush();
+      lines.push(indent + tok.value.trim());
+      continue;
+    }
 
-    // 2. Numbers
-    safe = safe.replace(/(?<![\w\.])(\d+(?:\.\d+)?)(?![\w\.])/g, function (m) {
-      return '<span class="sql-num">' + m + '</span>';
-    });
+    if (tok.type === 'kw') {
+      var isMajor = MAJOR_CLAUSES.indexOf(tok.value) !== -1;
+      var isMinor = tok.value === 'AND' || tok.value === 'OR';
 
-    // 3. Functions (longest first)
-    FUNCTIONS.slice().sort(function (a, b) { return b.length - a.length; })
-      .forEach(function (fn) {
-        var re = new RegExp('\\b' + fn + '\\b', 'g');
-        safe = safe.replace(re, '<span class="sql-fn">' + fn + '</span>');
-      });
+      if (isMajor) {
+        flush();
+        indent = '';
+        current = tok.value;
+      } else if (isMinor) {
+        flush();
+        indent = '  ';
+        current = tok.value;
+      } else {
+        current += (current ? ' ' : '') + tok.value;
+      }
+      continue;
+    }
 
-    // 4. Keywords (longest first)
-    KEYWORDS.slice().sort(function (a, b) { return b.length - a.length; })
-      .forEach(function (kw) {
-        var re = new RegExp('\\b' + kw + '\\b', 'g');
-        safe = safe.replace(re, '<span class="sql-kw">' + kw + '</span>');
-      });
+    if (tok.type === 'ws') {
+      // Space before the next token, but not before punctuation
+      current += ' ';
+      continue;
+    }
 
-    return safe;
+    if (tok.type === 'punct') {
+      // No space before commas, semicolons, closing parens
+      if (tok.value === ',' || tok.value === ')' || tok.value === ';') {
+        current = current.trimRight() + tok.value;
+      } else if (tok.value === '(') {
+        current = current.trimRight() + '(';
+      } else {
+        current = current.trimRight() + ' ' + tok.value;
+      }
+      continue;
+    }
+
+    current += (current && !current.endsWith(' ') ? ' ' : '') + tok.value;
   }
+  flush();
+
+  // 3. Clean up extra spaces around punctuation that got doubled
+  for (var k = 0; k < lines.length; k++) {
+    lines[k] = lines[k]
+      .replace(/\s+/g, ' ')
+      .replace(/\s+([,;)])/g, '$1')
+      .replace(/\(\s+/g, '(')
+      .trim();
+  }
+
+  return lines;
+}
+
+// ─── Colorizer ───
+// Takes formatted lines, returns HTML with spans.
+// Operates on the formatted output so token types are already known.
+function colorizeLines(lines) {
+  var html = [];
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i];
+    var out = '';
+    var j = 0;
+
+    while (j < line.length) {
+      var c = line[j];
+
+      // Comment line — anything starting with -- or /* at line start
+      if ((c === '-' && line[j + 1] === '-') ||
+          (c === '/' && line[j + 1] === '*')) {
+        out += '<span class="sql-cmt">' + escapeHtml(line.slice(j)) + '</span>';
+        break;
+      }
+
+      // String — single, double, or backtick
+      if (c === "'" || c === '"' || c === '`') {
+        var q = c;
+        var end = j + 1;
+        while (end < line.length) {
+          if (line[end] === q) {
+            if (line[end + 1] === q) { end += 2; continue; }
+            end += 1;
+            break;
+          }
+          end += 1;
+        }
+        out += '<span class="sql-str">' + escapeHtml(line.slice(j, end)) + '</span>';
+        j = end;
+        continue;
+      }
+
+      // Word — check against keyword / function lists
+      if (/[A-Za-z_]/.test(c)) {
+        var wEnd = j;
+        while (wEnd < line.length && /[A-Za-z0-9_]/.test(line[wEnd])) wEnd += 1;
+        var word = line.slice(j, wEnd);
+        var up = word.toUpperCase();
+        var cls = KEYWORDS.indexOf(up) !== -1 ? 'sql-kw'
+                : FUNCTIONS.indexOf(up) !== -1 ? 'sql-fn'
+                : '';
+        if (cls) {
+          out += '<span class="' + cls + '">' + escapeHtml(word) + '</span>';
+        } else {
+          out += escapeHtml(word);
+        }
+        j = wEnd;
+        continue;
+      }
+
+      // Number
+      if (/[0-9]/.test(c)) {
+        var nEnd = j;
+        while (nEnd < line.length && /[0-9.]/.test(line[nEnd])) nEnd += 1;
+        out += '<span class="sql-num">' + escapeHtml(line.slice(j, nEnd)) + '</span>';
+        j = nEnd;
+        continue;
+      }
+
+      // Everything else
+      out += escapeHtml(c);
+      j += 1;
+    }
+
+    html.push(out);
+  }
+  return html.join('\n');
+}
+
+// ─── Public API ───
+// Called by render(). Returns { text, html }:
+//   text — plain formatted SQL (for copy/download)
+//   html — the colored version (for display)
+function formatAndColorize(rawSql) {
+  if (!rawSql || !rawSql.trim()) {
+    return { text: '', html: '' };
+  }
+  var tokens = tokenizeSQL(rawSql);
+  var lines = formatTokens(tokens);
+  var text = lines.join('\n');
+  var html = colorizeLines(lines);
+  return { text: text, html: html };
+}
 
   var input = document.getElementById('sql-input');
   var output = document.getElementById('sql-output');
@@ -445,17 +734,11 @@ The studio's builds write SQL constantly. The Inventory build queries products a
   var toast = document.getElementById('copy-toast');
 
   function render() {
-    var raw = input.value.trim();
-    if (!raw) {
-      output.innerHTML = '';
-      rawOutput.value = '';
-      return;
-    }
-    var formatted = formatSQL(raw);
-    output.innerHTML = colorizeSQL(formatted);
-    rawOutput.value = formatted;
-  }
-
+  var raw = input.value;
+  var result = formatAndColorize(raw);
+  output.innerHTML = result.html;
+  rawOutput.value = result.text;
+}
   document.getElementById('btn-format').addEventListener('click', render);
 
   document.getElementById('btn-sample').addEventListener('click', function () {
