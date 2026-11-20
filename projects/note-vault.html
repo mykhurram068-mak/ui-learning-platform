@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>LocalStorage Note Vault — Build a Sticky-Note App in HTML, CSS & JS (2026)</title>
+    <meta name="description" content="Build a fast, searchable sticky-note vault that saves automatically in the browser using JSON and localStorage. Step-by-step guide, live demo, and copy-paste source.">
+    <meta name="keywords" content="localstorage note app javascript, sticky notes html css js, json localstorage tutorial, javascript mini project, mak ui studio">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="LocalStorage Note Vault — HTML, CSS & JS Mini-Project">
+    <meta property="og:description" content="Build a searchable sticky-note vault with pin sorting, tag filters, and automatic localStorage persistence.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/projects/note-vault.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <meta property="og:site_name" content="MAK UI Studio">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="LocalStorage Note Vault — HTML, CSS & JS Mini-Project">
+    <meta name="twitter:description" content="Build a searchable sticky-note vault with pin sorting, tag filters, and automatic localStorage persistence.">
+    <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/projects/note-vault.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"LocalStorage Note Vault — Build a Sticky-Note App in HTML, CSS & JS","description":"Build a searchable sticky-note vault with pin sorting, tag filters, and automatic localStorage persistence.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-11-20","dateModified":"2026-11-20","proficiencyLevel":"Beginner","dependencies":"HTML5, CSS3, Vanilla JS"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How much data can localStorage hold?","acceptedAnswer":{"@type":"Answer","text":"Most modern browsers allocate about 5MB per origin for localStorage. For plain text notes and JSON metadata, that is enough to store thousands of entries without a backend database."}},{"@type":"Question","name":"Why do we use JSON.stringify() and JSON.parse() with localStorage?","acceptedAnswer":{"@type":"Answer","text":"localStorage only stores string key-value pairs. JSON.stringify() converts your array of note objects into a string before saving, and JSON.parse() converts it back into a usable JavaScript array when the page reloads."}},{"@type":"Question","name":"How do I prevent XSS attacks when rendering user notes?","acceptedAnswer":{"@type":"Answer","text":"Never insert raw user input directly into innerHTML. Always escape special HTML characters (&, <, >, quotes) or use textContent so pasted code snippets render safely as text instead of executing scripts."}},{"@type":"Question","name":"Will localStorage notes stay saved if I close the browser?","acceptedAnswer":{"@type":"Answer","text":"Yes. Unlike sessionStorage, data saved in localStorage persists across page reloads, tab closures, and browser restarts until the user clears browser site data or deletes the notes."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="/style.css" rel="stylesheet"/>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 { padding: 0; }
+
+        /* Launch Demo CTA Card */
+        .demo-launch-card {
+            background: radial-gradient(circle at top right, #1e293b 0%, #0f172a 70%);
+            border: 1px solid #334155;
+            border-radius: 1.25rem;
+            padding: 2rem 1.5rem;
+            margin: 1.5rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+        .demo-launch-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            background: rgba(56, 189, 248, 0.12);
+            color: #38bdf8;
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .demo-launch-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.9rem;
+            padding: 0.8rem 1.5rem;
+            border-radius: 0.75rem;
+            text-decoration: none;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+        }
+        .demo-launch-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 26px rgba(37, 99, 235, 0.5);
+        }
+        .demo-preview-mockup {
+            margin-top: 1.5rem;
+            background: #0b1120;
+            border: 1px solid #1e293b;
+            border-radius: 0.85rem;
+            padding: 1rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 0.75rem;
+        }
+        .mock-note {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-top: 3px solid #38bdf8;
+            border-radius: 0.6rem;
+            padding: 0.75rem;
+        }
+        .mock-note.amber { border-top-color: #f59e0b; }
+        .mock-note.emerald { border-top-color: #10b981; }
+
+        /* Code Block */
+        .code-block { position: relative; margin: 1rem 0; }
+        .code-block pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            overflow-x: auto;
+            font-size: 0.74rem;
+            line-height: 1.55;
+            margin: 0;
+            max-height: 460px;
+            border: 1px solid #334155;
+        }
+        .copy-btn {
+            position: absolute; top: 0.65rem; right: 0.65rem;
+            background: #334155; color: #e2e8f0; border: 1px solid #475569;
+            padding: 0.35rem 0.75rem; border-radius: 0.45rem;
+            cursor: pointer; font-size: 0.72rem; font-weight: 600;
+            font-family: inherit; transition: all 0.2s; z-index: 10;
+        }
+        .copy-btn:hover { background: #475569; }
+        .copy-btn.copied { background: #10b981; border-color: #10b981; color: #fff; }
+
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1rem 1.25rem; border-radius: 0.5rem; margin: 1.25rem 0; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.75rem 0; }
+        .section-title { color: #fff; font-weight: 800; font-size: 1.35rem; margin-bottom: 0.5rem; }
+        .section-sub { color: #64748b; font-size: 0.85rem; margin-bottom: 1.25rem; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; font-weight: 600; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+
+<nav class="navbar">
+    <div class="nav-container">
+        <a class="logo" href="/index.html">✨ MAK UI Studio</a>
+        <div id="navbar-placeholder"></div>
+        <script src="/navbar.js"></script>
+    </div>
+</nav>
+
+<section class="p-8 text-center">
+    <h2 class="text-4xl font-black uppercase mb-2">Mini-Project</h2>
+    <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Build. Inspect. Ship.</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+    <!-- BREADCRUMB -->
+    <div class="text-xs text-slate-500">
+        <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+        <a href="/projects/index.html" class="hover:text-blue-400">Mini-Projects</a> ›
+        <span class="text-slate-400">LocalStorage Note Vault</span>
+    </div>
+
+    <!-- PART OF GUIDE BLOCK -->
+    <div class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+        <p class="text-xs text-slate-400">
+            Part of our weekend builds series:
+            <a href="/projects/index.html" class="text-blue-400 hover:text-blue-300 font-semibold">
+                All Beginner Mini-Projects →
+            </a>
+        </p>
+        <span class="text-xs font-mono text-slate-500">HTML • CSS • JS · ⏱ 30 mins</span>
+    </div>
+
+    <!-- HEADER -->
+    <div class="space-y-2">
+        <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Beginner Build · Client-Side Storage</h2>
+        <h1 class="text-3xl md:text-4xl font-black text-white">📝 LocalStorage Note Vault</h1>
+        <p class="text-slate-400 text-base">Build a fast, searchable sticky-note vault with color-coded tags, pin-to-top sorting, one-click copy, and automatic browser storage using JSON and <code class="text-blue-400">localStorage</code>.</p>
+        <p class="text-xs text-slate-500">Last updated: November 2026 · 7 min read</p>
+    </div>
+
+    <!-- OPENING ANSWER -->
+    <div class="info-box">
+        <p class="text-base text-white font-semibold leading-relaxed mb-3">
+            A LocalStorage Note Vault stores user notes directly inside the browser using <code class="text-yellow-300">JSON.stringify()</code> and <code class="text-yellow-300">localStorage.setItem()</code>. No backend server, no database setup, and zero signup required.
+        </p>
+        <p class="text-sm text-slate-400">
+            <strong class="text-slate-300">What you will build:</strong> A responsive note manager featuring instant keyword search, 4 tag filters (Code, Ideas, Tasks, Urgent), pin-to-top priority sorting, XSS-safe rendering, and full standalone source code.
+        </p>
+    </div>
+
+    <!-- STANDALONE LIVE DEMO LAUNCHER -->
+    <section>
+        <div class="demo-launch-card">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                <div class="space-y-2 max-w-xl">
+                    <span class="demo-launch-badge">⚡ Standalone Interactive App</span>
+                    <h2 class="text-2xl font-black text-white">Test the Working Note Vault</h2>
+                    <p class="text-sm text-slate-400 leading-relaxed">
+                        Open the full-screen demo in a clean tab to add notes, test tag filtering, pin important snippets, and verify that your notes stay saved after refreshing the browser.
+                    </p>
+                </div>
+                <div class="flex-shrink-0">
+                    <a href="/projects/note-vault-demo.html" target="_blank" rel="noopener" class="demo-launch-btn">
+                        <span>🚀 Open Live Demo</span>
+                        <span aria-hidden="true">↗</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Visual Feature Preview -->
+            <div class="demo-preview-mockup" aria-hidden="true">
+                <div class="mock-note">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] font-bold uppercase text-sky-400">Code</span>
+                        <span class="text-xs">📌</span>
+                    </div>
+                    <div class="text-xs font-bold text-white">CSS Grid Auto-Fit</div>
+                    <div class="text-[11px] text-slate-400 mt-1">grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));</div>
+                </div>
+                <div class="mock-note amber">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] font-bold uppercase text-amber-400">Ideas</span>
+                        <span class="text-xs">📝</span>
+                    </div>
+                    <div class="text-xs font-bold text-white">Weekend App Concept</div>
+                    <div class="text-[11px] text-slate-400 mt-1">Offline markdown scratchpad with instant JSON export.</div>
+                </div>
+                <div class="mock-note emerald">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] font-bold uppercase text-emerald-400">Tasks</span>
+                        <span class="text-xs">✅</span>
+                    </div>
+                    <div class="text-xs font-bold text-white">Ship Portfolio Update</div>
+                    <div class="text-[11px] text-slate-400 mt-1">Add live demo links and test mobile responsive layout.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- COMPLETE SOURCE CODE -->
+    <section>
+        <h2 class="section-title">💻 Complete Standalone Source Code</h2>
+        <p class="section-sub">Save this as <code class="text-blue-400">note-vault.html</code> and open it in any browser. Zero dependencies required.</p>
+
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode('vaultSourceCode', this)">Copy</button>
+            <pre id="vaultSourceCode"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+  &lt;title&gt;LocalStorage Note Vault — MAK UI Studio&lt;/title&gt;
+  &lt;style&gt;
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-alt: #0b1120;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    .container { max-width: 1020px; margin: 0 auto; }
+    header {
+      display: flex; flex-wrap: wrap; justify-content: space-between;
+      align-items: center; gap: 1rem; margin-bottom: 1.5rem;
+      padding-bottom: 1rem; border-bottom: 1px solid var(--border);
+    }
+    h1 { font-size: 1.5rem; font-weight: 800; }
+    .badge { font-size: 0.75rem; color: var(--accent); background: rgba(56,189,248,0.12); padding: 0.25rem 0.65rem; border-radius: 999px; }
+
+    /* Composer Form */
+    .composer {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;
+      display: grid; gap: 0.75rem;
+    }
+    .composer-row { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    input, select, textarea {
+      background: var(--surface-alt); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.65rem 0.85rem; font-family: inherit; font-size: 0.9rem;
+    }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    .composer input[type="text"] { flex: 1; min-width: 200px; }
+    textarea { width: 100%; min-height: 85px; resize: vertical; }
+    .btn-primary {
+      background: var(--accent); color: #0f172a; font-weight: 700;
+      border: none; border-radius: 8px; padding: 0.65rem 1.25rem;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex; flex-wrap: wrap; justify-content: space-between;
+      align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;
+    }
+    .filter-group { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .filter-btn {
+      background: var(--surface); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 999px;
+      padding: 0.35rem 0.85rem; font-size: 0.8rem; cursor: pointer;
+    }
+    .filter-btn.active { background: var(--accent); color: #0f172a; border-color: var(--accent); font-weight: 700; }
+
+    /* Notes Grid */
+    .notes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    .note-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-top: 4px solid var(--accent); border-radius: 12px;
+      padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem;
+    }
+    .note-card[data-tag="Ideas"] { border-top-color: #f59e0b; }
+    .note-card[data-tag="Tasks"] { border-top-color: #10b981; }
+    .note-card[data-tag="Urgent"] { border-top-color: #ef4444; }
+    .note-top { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--muted); }
+    .note-title { font-size: 1.05rem; font-weight: 700; word-break: break-word; }
+    .note-body { font-size: 0.88rem; color: #cbd5e1; white-space: pre-wrap; word-break: break-word; flex: 1; }
+    .note-actions {
+      display: flex; justify-content: flex-end; gap: 0.4rem;
+      padding-top: 0.6rem; border-top: 1px solid var(--border);
+    }
+    .icon-btn {
+      background: var(--surface-alt); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer;
+    }
+    .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+    .empty-state { grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: var(--muted); }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div class="container"&gt;
+    &lt;header&gt;
+      &lt;div&gt;
+        &lt;h1&gt;📝 LocalStorage Note Vault&lt;/h1&gt;
+        &lt;p style="color: var(--muted); font-size: 0.85rem;"&gt;Auto-saved in your browser • Zero backend required&lt;/p&gt;
+      &lt;/div&gt;
+      &lt;span class="badge" id="noteCount"&gt;0 Notes&lt;/span&gt;
+    &lt;/header&gt;
+
+    &lt;form class="composer" id="noteForm"&gt;
+      &lt;div class="composer-row"&gt;
+        &lt;input type="text" id="noteTitle" placeholder="Note title (e.g., Flexbox Centering Trick)" required&gt;
+        &lt;select id="noteTag"&gt;
+          &lt;option value="Code"&gt;Code&lt;/option&gt;
+          &lt;option value="Ideas"&gt;Ideas&lt;/option&gt;
+          &lt;option value="Tasks"&gt;Tasks&lt;/option&gt;
+          &lt;option value="Urgent"&gt;Urgent&lt;/option&gt;
+        &lt;/select&gt;
+        &lt;button type="submit" class="btn-primary"&gt;+ Save Note&lt;/button&gt;
+      &lt;/div&gt;
+      &lt;textarea id="noteContent" placeholder="Write your note or paste a code snippet..." required&gt;&lt;/textarea&gt;
+    &lt;/form&gt;
+
+    &lt;div class="toolbar"&gt;
+      &lt;div class="filter-group" id="filterGroup"&gt;
+        &lt;button class="filter-btn active" data-filter="All"&gt;All&lt;/button&gt;
+        &lt;button class="filter-btn" data-filter="Code"&gt;Code&lt;/button&gt;
+        &lt;button class="filter-btn" data-filter="Ideas"&gt;Ideas&lt;/button&gt;
+        &lt;button class="filter-btn" data-filter="Tasks"&gt;Tasks&lt;/button&gt;
+        &lt;button class="filter-btn" data-filter="Urgent"&gt;Urgent&lt;/button&gt;
+      &lt;/div&gt;
+      &lt;input type="search" id="searchInput" placeholder="Search notes..." style="min-width: 220px;"&gt;
+    &lt;/div&gt;
+
+    &lt;div class="notes-grid" id="notesGrid"&gt;&lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;script&gt;
+    const STORAGE_KEY = 'makui_note_vault_v1';
+    let activeFilter = 'All';
+    let searchQuery = '';
+
+    const starterNotes = [
+      { id: 1, title: 'CSS Grid Responsive Cards', tag: 'Code', content: 'grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));', pinned: true, date: 'Starter' },
+      { id: 2, title: 'Weekend Project Idea', tag: 'Ideas', content: 'Build a Pomodoro timer with SVG progress rings and audio alerts.', pinned: false, date: 'Starter' }
+    ];
+
+    function loadNotes() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [...starterNotes];
+      } catch {
+        return [...starterNotes];
+      }
+    }
+
+    let notes = loadNotes();
+
+    function saveNotes() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+      renderNotes();
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&amp;&lt;&gt;"']/g, m =&gt; ({ '&amp;':'&amp;amp;', '&lt;':'&amp;lt;', '&gt;':'&amp;gt;', '"':'&amp;quot;', "'":'&amp;#39;' }[m]));
+    }
+
+    function renderNotes() {
+      const grid = document.getElementById('notesGrid');
+      const filtered = notes
+        .filter(n =&gt; activeFilter === 'All' || n.tag === activeFilter)
+        .filter(n =&gt; n.title.toLowerCase().includes(searchQuery) || n.content.toLowerCase().includes(searchQuery))
+        .sort((a, b) =&gt; Number(b.pinned) - Number(a.pinned) || b.id - a.id);
+
+      document.getElementById('noteCount').textContent = `${filtered.length} Note${filtered.length === 1 ? '' : 's'}`;
+
+      if (!filtered.length) {
+        grid.innerHTML = '&lt;div class="empty-state"&gt;No matching notes found. Add one above!&lt;/div&gt;';
+        return;
+      }
+
+      grid.innerHTML = filtered.map(note =&gt; `
+        &lt;article class="note-card" data-tag="${escapeHTML(note.tag)}"&gt;
+          &lt;div class="note-top"&gt;
+            &lt;span&gt;${note.pinned ? '📌 Pinned · ' : ''}${escapeHTML(note.tag)}&lt;/span&gt;
+            &lt;span&gt;${escapeHTML(note.date)}&lt;/span&gt;
+          &lt;/div&gt;
+          &lt;h2 class="note-title"&gt;${escapeHTML(note.title)}&lt;/h2&gt;
+          &lt;p class="note-body"&gt;${escapeHTML(note.content)}&lt;/p&gt;
+          &lt;div class="note-actions"&gt;
+            &lt;button class="icon-btn" onclick="togglePin(${note.id})"&gt;${note.pinned ? 'Unpin' : 'Pin'}&lt;/button&gt;
+            &lt;button class="icon-btn" onclick="copyNote(${note.id}, this)"&gt;Copy&lt;/button&gt;
+            &lt;button class="icon-btn" onclick="deleteNote(${note.id})"&gt;Delete&lt;/button&gt;
+          &lt;/div&gt;
+        &lt;/article&gt;
+      `).join('');
+    }
+
+    document.getElementById('noteForm').addEventListener('submit', e =&gt; {
+      e.preventDefault();
+      const title = document.getElementById('noteTitle').value.trim();
+      const tag = document.getElementById('noteTag').value;
+      const content = document.getElementById('noteContent').value.trim();
+      if (!title || !content) return;
+
+      notes.unshift({
+        id: Date.now(),
+        title,
+        tag,
+        content,
+        pinned: false,
+        date: new Date().toLocaleDateString()
+      });
+      e.target.reset();
+      saveNotes();
+    });
+
+    document.getElementById('filterGroup').addEventListener('click', e =&gt; {
+      if (!e.target.matches('.filter-btn')) return;
+      document.querySelectorAll('.filter-btn').forEach(b =&gt; b.classList.remove('active'));
+      e.target.classList.add('active');
+      activeFilter = e.target.dataset.filter;
+      renderNotes();
+    });
+
+    document.getElementById('searchInput').addEventListener('input', e =&gt; {
+      searchQuery = e.target.value.toLowerCase().trim();
+      renderNotes();
+    });
+
+    window.togglePin = id =&gt; {
+      notes = notes.map(n =&gt; n.id === id ? { ...n, pinned: !n.pinned } : n);
+      saveNotes();
+    };
+
+    window.copyNote = (id, btn) =&gt; {
+      const note = notes.find(n =&gt; n.id === id);
+      if (!note) return;
+      navigator.clipboard.writeText(note.content);
+      btn.textContent = 'Copied!';
+      setTimeout(() =&gt; { btn.textContent = 'Copy'; }, 1500);
+    };
+
+    window.deleteNote = id =&gt; {
+      notes = notes.filter(n =&gt; n.id !== id);
+      saveNotes();
+    };
+
+    renderNotes();
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+        </div>
+    </section>
+
+    <!-- STEP-BY-STEP ARCHITECTURE -->
+    <section>
+        <h2 class="section-title">🧱 How It Works (6-Step Architecture)</h2>
+        <p class="section-sub">Understand the core browser APIs powering this app without any external libraries.</p>
+
+        <div class="space-y-3">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <div class="font-bold text-white text-sm mb-1">1. State-Driven Rendering</div>
+                <p class="text-xs text-slate-400">Instead of manually appending or removing individual DOM cards when a user adds or deletes a note, we keep a single JavaScript array (<code>notes</code>) as the source of truth and re-render the grid cleanly via <code>renderNotes()</code>.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <div class="font-bold text-white text-sm mb-1">2. JSON Serialization with localStorage</div>
+                <p class="text-xs text-slate-400">Browser storage only accepts strings. Every mutation calls <code>localStorage.setItem(STORAGE_KEY, JSON.stringify(notes))</code>. On initial page load, <code>JSON.parse()</code> restores your objects inside a safe <code>try/catch</code> block.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <div class="font-bold text-white text-sm mb-1">3. Multi-Criteria Filtering & Pin Sorting</div>
+                <p class="text-xs text-slate-400">Before rendering, we chain <code>.filter()</code> for both the active tag pill and the lowercase search query, then <code>.sort()</code> so pinned notes (<code>Number(b.pinned) - Number(a.pinned)</code>) always float to the top.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <div class="font-bold text-white text-sm mb-1">4. XSS Protection via Character Escaping</div>
+                <p class="text-xs text-slate-400">Because developers often paste HTML tags or JavaScript snippets into notes, <code>escapeHTML()</code> converts <code>&lt;</code>, <code>&gt;</code>, and <code>&amp;</code> into safe HTML entities so code displays cleanly without breaking page layout or running scripts.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <div class="font-bold text-white text-sm mb-1">5. Attribute-Driven Tag Colors</div>
+                <p class="text-xs text-slate-400">Each card receives <code>data-tag="Code"</code> or <code>data-tag="Urgent"</code>. CSS attribute selectors (<code>.note-card[data-tag="Urgent"]</code>) style the top accent border automatically without extra class-mapping logic.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <div class="font-bold text-white text-sm mb-1">6. One-Click Clipboard API</div>
+                <p class="text-xs text-slate-400">Using <code>navigator.clipboard.writeText(note.content)</code> lets users copy stored commands or snippets in one click, paired with immediate button text feedback.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- EXTENSION CHALLENGES -->
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+        <h2 class="text-white font-bold text-xl mb-3">🚀 Weekend Extension Challenges</h2>
+        <p class="text-sm text-slate-400 mb-4">Finished the base build? Level up your skills with these three additions:</p>
+        <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+            <li><strong>JSON Backup Export:</strong> Add a button that creates a downloadable <code>notes-backup.json</code> file using a <code>Blob</code> and temporary <code>&lt;a download&gt;</code> link.</li>
+            <li><strong>Inline Edit Mode:</strong> Allow clicking a note's title or body to edit text in place and save changes on <code>blur</code>.</li>
+            <li><strong>Character & Word Counter:</strong> Display a live word count below the textarea as the user types.</li>
+        </ul>
+    </section>
+
+    <!-- COMMON MISTAKES -->
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+        <h2 class="text-white font-bold text-xl mb-4">⚠️ Common mistakes</h2>
+        <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+            <li><strong>Saving objects without <code>JSON.stringify()</code>.</strong> Browser storage coerces raw arrays into <code>"[object Object]"</code>, corrupting your data on reload.</li>
+            <li><strong>Skipping <code>try/catch</code> around <code>JSON.parse()</code>.</strong> If stored data is ever corrupted or storage is blocked in private browsing, an uncaught error crashes the entire script.</li>
+            <li><strong>Mutating arrays without re-saving.</strong> Updating a note's <code>pinned</code> boolean in memory won't persist unless you call <code>saveNotes()</code> immediately afterward.</li>
+        </ul>
+    </section>
+
+    <!-- FAQ -->
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+        <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+        <div class="space-y-3">
+            <details class="bg-slate-950 p-3 rounded-xl">
+                <summary class="cursor-pointer text-blue-400 font-medium text-sm">How much data can localStorage hold?</summary>
+                <p class="mt-2 text-sm text-slate-300">Most modern browsers allocate about 5MB per origin for localStorage. For plain text notes and JSON metadata, that is enough to store thousands of entries without a backend database.</p>
+            </details>
+            <details class="bg-slate-950 p-3 rounded-xl">
+                <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why do we use JSON.stringify() and JSON.parse() with localStorage?</summary>
+                <p class="mt-2 text-sm text-slate-300">localStorage only stores string key-value pairs. JSON.stringify() converts your array of note objects into a string before saving, and JSON.parse() converts it back into a usable JavaScript array when the page reloads.</p>
+            </details>
+            <details class="bg-slate-950 p-3 rounded-xl">
+                <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I prevent XSS attacks when rendering user notes?</summary>
+                <p class="mt-2 text-sm text-slate-300">Never insert raw user input directly into innerHTML. Always escape special HTML characters (&amp;, &lt;, &gt;, quotes) or use textContent so pasted code snippets render safely as text instead of executing scripts.</p>
+            </details>
+            <details class="bg-slate-950 p-3 rounded-xl">
+                <summary class="cursor-pointer text-blue-400 font-medium text-sm">Will localStorage notes stay saved if I close the browser?</summary>
+                <p class="mt-2 text-sm text-slate-300">Yes. Unlike sessionStorage, data saved in localStorage persists across page reloads, tab closures, and browser restarts until the user clears browser site data or deletes the notes.</p>
+            </details>
+        </div>
+    </section>
+
+    <!-- RELATED MINI-PROJECTS -->
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+        <h2 class="text-white font-bold mb-3">🔗 More Beginner Mini-Projects</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <a href="/projects/fast-food-menu.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">🍔 Interactive Fast-Food Menu</div>
+                <div class="text-xs text-slate-400 mt-1">Category tabs, CSS Grid cards, and live cart totals</div>
+            </a>
+            <a href="/projects/pomodoro-timer.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">⏳ Focus Pomodoro Timer</div>
+                <div class="text-xs text-slate-400 mt-1">setInterval, SVG progress rings, and session counters</div>
+            </a>
+            <a href="/projects/url-shortener.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">🔗 Mini URL Shortener</div>
+                <div class="text-xs text-slate-400 mt-1">Python + Flask routes, custom slugs, and click tracking</div>
+            </a>
+            <a href="/projects/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">🚀 All Mini-Projects</div>
+                <div class="text-xs text-slate-400 mt-1">Browse all weekend builds</div>
+            </a>
+        </div>
+    </section>
+
+    <a href="/projects/index.html" class="back-link">← All Mini-Projects</a>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+    <div class="flex justify-between items-center max-w-md mx-auto">
+        <div class="flex flex-col items-center gap-1 text-blue-500">
+            <i class="fa-solid fa-house text-xl"></i>
+            <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+        </div>
+        <div class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fa-solid fa-book-open text-xl"></i>
+            <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+        </div>
+        <div class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fa-solid fa-envelope text-xl"></i>
+            <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+        </div>
+        <div class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fa-solid fa-circle-user text-xl"></i>
+            <span class="text-[10px] font-bold uppercase">Profile</span>
+        </div>
+    </div>
+</footer>
+
+<script>
+    function copyCode(codeId, button) {
+        const code = document.getElementById(codeId).innerText;
+        navigator.clipboard.writeText(code).then(() => {
+            const original = button.innerHTML;
+            button.innerHTML = '✅ Copied';
+            button.classList.add('copied');
+            setTimeout(() => {
+                button.innerHTML = original;
+                button.classList.remove('copied');
+            }, 2000);
+        }).catch(err => console.error('Copy failed:', err));
+    }
+</script>
+</body>
+</html>
