@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Build a Focus Pomodoro Timer in JavaScript — SVG Ring &amp; Audio (2026)</title>
+    <meta name="description" content="Build a single-file Focus Pomodoro Timer with SVG progress rings, Web Audio API alerts, session counters, and localStorage. Free step-by-step guide + source code.">
+    <meta name="keywords" content="pomodoro timer javascript, svg progress ring css, web audio api chime, javascript timer project, beginner js project">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Build a Focus Pomodoro Timer in JavaScript — SVG Ring &amp; Audio">
+    <meta property="og:description" content="Step-by-step mini-project: build an interactive Pomodoro productivity timer in pure HTML, CSS, and JS.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/projects/pomodoro-timer.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <meta property="og:site_name" content="MAK UI Studio">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Build a Focus Pomodoro Timer in JavaScript">
+    <meta name="twitter:description" content="Master setInterval, SVG stroke-dashoffset rings, and Web Audio chimes in 40 minutes.">
+    <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/projects/pomodoro-timer.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Build a Focus Pomodoro Timer in JavaScript — SVG Ring & Audio","description":"Build a single-file Focus Pomodoro Timer with SVG progress rings, Web Audio API alerts, and session counters.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-11-20","dateModified":"2026-11-20","proficiencyLevel":"Beginner","dependencies":"HTML5, CSS3, JS"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How do you animate an SVG circular progress ring?","acceptedAnswer":{"@type":"Answer","text":"Set stroke-dasharray equal to the circle's circumference (2 * Math.PI * radius) and update stroke-dashoffset proportionally to remaining time."}},{"@type":"Question","name":"Why use Web Audio API instead of an MP3 file?","acceptedAnswer":{"@type":"Answer","text":"Web Audio synthesizes a clean chime directly in the browser with zero external audio files, zero network requests, and no broken file paths."}},{"@type":"Question","name":"How do I prevent duplicate timers when clicking Start twice?","acceptedAnswer":{"@type":"Answer","text":"Always guard your start function by checking if an interval ID is already active (if (timerId) return;) and clear it properly on pause or reset."}},{"@type":"Question","name":"Does setInterval drift over long countdowns?","acceptedAnswer":{"@type":"Answer","text":"Yes, browser tab throttling can delay setInterval ticks slightly. For high-precision timers, compare Date.now() timestamps against a target end time."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="/style.css" rel="stylesheet"/>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 { padding: 0; }
+        .code-block { position: relative; margin: 1rem 0; }
+        .code-block pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.74rem; margin: 0; max-height: 440px; }
+        .copy-btn {
+            position: absolute; top: 0.6rem; right: 0.6rem;
+            background: #334155; color: #e2e8f0; border: none;
+            padding: 0.35rem 0.75rem; border-radius: 0.375rem;
+            cursor: pointer; font-size: 0.72rem; font-weight: 600;
+            font-family: inherit; transition: all 0.2s;
+        }
+        .copy-btn:hover { background: #475569; }
+        .copy-btn.copied { background: #10b981; color: #fff; }
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1rem 1.25rem; border-radius: 0.5rem; margin: 1.25rem 0; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.75rem 0; }
+        .section-title { color: #fff; font-weight: 800; font-size: 1.35rem; margin-bottom: 0.5rem; }
+        .section-sub { color: #64748b; font-size: 0.85rem; margin-bottom: 1.25rem; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="/index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Mini-Project</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Build. Inspect. Ship.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <!-- BREADCRUMB -->
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/projects/index.html" class="hover:text-blue-400">Mini-Projects</a> ›
+            <span class="text-slate-400">Focus Pomodoro Timer</span>
+        </div>
+
+        <!-- PART OF TRACK BLOCK -->
+        <div class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+            <p class="text-xs text-slate-400">
+                Beginner Mini-Project • <strong class="text-slate-200">HTML • CSS • JavaScript</strong> • ⏱ 40 mins
+            </p>
+            <a href="/projects/index.html" class="text-xs text-blue-400 hover:text-blue-300 font-semibold">
+                All Mini-Projects →
+            </a>
+        </div>
+
+        <!-- HEADER -->
+        <div class="space-y-2">
+            <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Weekend Build · JavaScript + SVG</h2>
+            <h1 class="text-3xl md:text-4xl font-black">⏳ Focus Pomodoro Timer</h1>
+            <p class="text-slate-400 text-base">Master <code class="text-blue-300">setInterval</code>, animated SVG progress rings, synthesized Web Audio chimes, and automatic break cycles in one standalone productivity widget.</p>
+            <p class="text-xs text-slate-500">Last updated: November 2026 · 40 min build</p>
+        </div>
+
+        <!-- OPENING ANSWER -->
+        <div class="info-box">
+            <p class="text-base text-white font-semibold leading-relaxed mb-3">
+                A Pomodoro timer alternates 25-minute deep focus blocks with 5-minute short breaks, awarding a 15-minute long break after every 4 completed sessions. You can build the entire visual ring and alert chime using native SVG geometry and the browser's Web Audio API—zero external libraries or audio files required.
+            </p>
+            <p class="text-sm text-slate-400">
+                <strong class="text-slate-300">What you will build:</strong> Three-mode switcher (Focus, Short Break, Long Break), smooth <code class="text-yellow-300">stroke-dashoffset</code> circular progress bar, live browser tab countdown title, synthesized 3-note chime, and persistent session tracking in <code class="text-yellow-300">localStorage</code>.
+            </p>
+        </div>
+
+        <!-- LAUNCH LIVE DEMO CARD -->
+        <section class="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center space-y-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold uppercase tracking-wider">
+                🎬 Standalone Interactive Demo
+            </div>
+            <h2 class="text-2xl font-extrabold text-white">Test the Working Timer</h2>
+            <p class="text-sm text-slate-400 max-w-xl mx-auto">
+                Open the full-screen demo in a clean tab to test the SVG countdown ring, mode switching, task input, and synthesized Web Audio completion chime.
+            </p>
+            <div class="pt-1">
+                <a href="/projects/pomodoro-timer-demo.html" target="_blank" rel="noopener" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-lg shadow-blue-600/25 transition-all">
+                    🚀 Open Live Demo ↗
+                </a>
+            </div>
+        </section>
+
+        <!-- COMPLETE CODE -->
+        <section>
+            <h2 class="section-title">📋 Complete Single-File Source Code</h2>
+            <p class="section-sub">Save this as <code>pomodoro-timer.html</code> and open it in any browser. Everything is self-contained.</p>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode('projectCode', this)">Copy</button>
+                <pre id="projectCode"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+    &lt;title&gt;Focus Pomodoro Timer — Live Demo | MAK UI Studio&lt;/title&gt;
+    &lt;meta name="description" content="Interactive Focus Pomodoro Timer live demo with SVG progress ring, Web Audio chime, session tracking, and localStorage persistence."&gt;
+    &lt;link href="/favicon.png" rel="icon" type="image/png"/&gt;
+    &lt;style&gt;
+        :root {
+            --bg: #020617;
+            --surface: #0f172a;
+            --surface-2: #1e293b;
+            --border: #334155;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.35);
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+        body.break-mode {
+            --accent: #10b981;
+            --accent-glow: rgba(16, 185, 129, 0.35);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Top Demo Bar */
+        .demo-topbar {
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #1e293b;
+            padding: 0.75rem 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+        .back-btn {
+            color: #60a5fa;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 0.5rem;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            transition: all 0.2s;
+        }
+        .back-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+        }
+        .brand-badge {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--muted);
+            letter-spacing: 0.04em;
+        }
+        /* Main Container */
+        .main-wrap {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 1rem;
+        }
+        .timer-card {
+            background: var(--surface);
+            border: 1px solid #1e293b;
+            border-radius: 1.5rem;
+            padding: 2rem;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            text-align: center;
+        }
+        .mode-tabs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.4rem;
+            background: var(--bg);
+            padding: 0.35rem;
+            border-radius: 0.85rem;
+            border: 1px solid #1e293b;
+            margin-bottom: 1.75rem;
+        }
+        .mode-btn {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 600;
+            padding: 0.55rem 0.4rem;
+            border-radius: 0.6rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .mode-btn:hover { color: var(--text); }
+        .mode-btn.active {
+            background: var(--surface-2);
+            color: var(--text);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        /* SVG Ring */
+        .ring-wrapper {
+            position: relative;
+            width: 240px;
+            height: 240px;
+            margin: 0 auto 1.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .progress-svg {
+            transform: rotate(-90deg);
+            width: 240px;
+            height: 240px;
+        }
+        .ring-bg {
+            fill: none;
+            stroke: var(--surface-2);
+            stroke-width: 10;
+        }
+        .ring-progress {
+            fill: none;
+            stroke: var(--accent);
+            stroke-width: 10;
+            stroke-linecap: round;
+            stroke-dasharray: 653.45;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 0.35s linear, stroke 0.3s ease;
+            filter: drop-shadow(0 0 8px var(--accent-glow));
+        }
+        .time-overlay {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .time-display {
+            font-size: 3.35rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+        }
+        .status-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: var(--accent);
+            margin-top: 0.5rem;
+        }
+        /* Controls */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 0.75rem;
+            margin-bottom: 1.75rem;
+        }
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            padding: 0.85rem 2rem;
+            border-radius: 0.85rem;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            box-shadow: 0 8px 20px var(--accent-glow);
+            transition: transform 0.15s, opacity 0.2s;
+            min-width: 135px;
+        }
+        .btn-primary:hover { opacity: 0.92; transform: translateY(-1px); }
+        .btn-primary:active { transform: translateY(0); }
+        .btn-secondary {
+            background: var(--surface-2);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 0.85rem 1.15rem;
+            border-radius: 0.85rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background 0.2s;
+        }
+        .btn-secondary:hover { background: #334155; }
+        /* Task Input &amp; Stats */
+        .task-box {
+            margin-bottom: 1.25rem;
+            text-align: left;
+        }
+        .task-box label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            margin-bottom: 0.4rem;
+        }
+        .task-input {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid #1e293b;
+            color: var(--text);
+            padding: 0.65rem 0.9rem;
+            border-radius: 0.65rem;
+            font-size: 0.85rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .task-input:focus { border-color: var(--accent); }
+        .stats-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid #1e293b;
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+        .session-dots {
+            display: flex;
+            gap: 0.35rem;
+            align-items: center;
+        }
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+        }
+        .dot.done {
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 6px var(--accent-glow);
+        }
+        .reset-stats {
+            background: transparent;
+            border: none;
+            color: #64748b;
+            font-size: 0.75rem;
+            cursor: pointer;
+            text-decoration: underline;
+            font-family: inherit;
+        }
+        .reset-stats:hover { color: #cbd5e1; }
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            background: #1e293b;
+            color: #f8fafc;
+            border: 1px solid #334155;
+            border-left: 4px solid var(--accent);
+            padding: 0.85rem 1.15rem;
+            border-radius: 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+            opacity: 0;
+            transform: translateY(16px);
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+            z-index: 9999;
+        }
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;div class="demo-topbar"&gt;
+        &lt;a href="/projects/pomodoro-timer.html" class="back-btn"&gt;← Back to Lesson &amp;amp; Source Code&lt;/a&gt;
+        &lt;span class="brand-badge"&gt;✨ MAK UI STUDIO • LIVE DEMO&lt;/span&gt;
+    &lt;/div&gt;
+
+    &lt;main class="main-wrap"&gt;
+        &lt;div class="timer-card"&gt;
+            &lt;div class="mode-tabs" role="tablist"&gt;
+                &lt;button class="mode-btn active" data-mode="focus" data-minutes="25"&gt;Focus (25m)&lt;/button&gt;
+                &lt;button class="mode-btn" data-mode="short" data-minutes="5"&gt;Short Break (5m)&lt;/button&gt;
+                &lt;button class="mode-btn" data-mode="long" data-minutes="15"&gt;Long Break (15m)&lt;/button&gt;
+            &lt;/div&gt;
+
+            &lt;div class="ring-wrapper"&gt;
+                &lt;svg class="progress-svg" viewBox="0 0 240 240"&gt;
+                    &lt;circle class="ring-bg" cx="120" cy="120" r="104"&gt;&lt;/circle&gt;
+                    &lt;circle class="ring-progress" id="progressRing" cx="120" cy="120" r="104"&gt;&lt;/circle&gt;
+                &lt;/svg&gt;
+                &lt;div class="time-overlay"&gt;
+                    &lt;div class="time-display" id="timeDisplay"&gt;25:00&lt;/div&gt;
+                    &lt;div class="status-label" id="statusLabel"&gt;Ready to Focus&lt;/div&gt;
+                &lt;/div&gt;
+            &lt;/div&gt;
+
+            &lt;div class="controls"&gt;
+                &lt;button class="btn-primary" id="startPauseBtn"&gt;Start&lt;/button&gt;
+                &lt;button class="btn-secondary" id="resetBtn" title="Reset Timer"&gt;Reset&lt;/button&gt;
+                &lt;button class="btn-secondary" id="skipBtn" title="Skip to Next Phase"&gt;Skip ⏭&lt;/button&gt;
+            &lt;/div&gt;
+
+            &lt;div class="task-box"&gt;
+                &lt;label for="currentTask"&gt;Current Focus Task&lt;/label&gt;
+                &lt;input type="text" id="currentTask" class="task-input" placeholder="e.g., Build CSS Grid layout..." maxlength="60"&gt;
+            &lt;/div&gt;
+
+            &lt;div class="stats-bar"&gt;
+                &lt;div class="session-dots" id="sessionDots"&gt;
+                    &lt;span&gt;Sessions:&lt;/span&gt;
+                    &lt;span class="dot" data-idx="1"&gt;&lt;/span&gt;
+                    &lt;span class="dot" data-idx="2"&gt;&lt;/span&gt;
+                    &lt;span class="dot" data-idx="3"&gt;&lt;/span&gt;
+                    &lt;span class="dot" data-idx="4"&gt;&lt;/span&gt;
+                    &lt;strong id="sessionCountText" style="color:#f8fafc;margin-left:4px;"&gt;0&lt;/strong&gt;
+                &lt;/div&gt;
+                &lt;button class="reset-stats" id="resetStatsBtn"&gt;Reset Count&lt;/button&gt;
+            &lt;/div&gt;
+        &lt;/div&gt;
+    &lt;/main&gt;
+
+    &lt;div class="toast" id="toast" role="status"&gt;&lt;/div&gt;
+
+    &lt;script&gt;
+        (function() {
+            const MODES = {
+                focus: { minutes: 25, label: 'Focus Session', isBreak: false },
+                short: { minutes: 5, label: 'Short Break', isBreak: true },
+                long: { minutes: 15, label: 'Long Break', isBreak: true }
+            };
+
+            const CIRCUMFERENCE = 2 * Math.PI * 104; // ~653.45
+            let currentMode = 'focus';
+            let totalSeconds = MODES.focus.minutes * 60;
+            let remainingSeconds = totalSeconds;
+            let timerId = null;
+            let completedSessions = 0;
+
+            const timeDisplay = document.getElementById('timeDisplay');
+            const statusLabel = document.getElementById('statusLabel');
+            const progressRing = document.getElementById('progressRing');
+            const startPauseBtn = document.getElementById('startPauseBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const skipBtn = document.getElementById('skipBtn');
+            const modeBtns = document.querySelectorAll('.mode-btn');
+            const currentTaskInput = document.getElementById('currentTask');
+            const sessionCountText = document.getElementById('sessionCountText');
+            const dots = document.querySelectorAll('.dot');
+            const resetStatsBtn = document.getElementById('resetStatsBtn');
+            const toastEl = document.getElementById('toast');
+
+            // Load saved state
+            try {
+                completedSessions = parseInt(localStorage.getItem('mak_pomo_sessions') || '0', 10) || 0;
+                currentTaskInput.value = localStorage.getItem('mak_pomo_task') || '';
+            } catch (e) {}
+
+            function showToast(msg) {
+                toastEl.textContent = msg;
+                toastEl.classList.remove('show');
+                void toastEl.offsetWidth;
+                toastEl.classList.add('show');
+                clearTimeout(toastEl._t);
+                toastEl._t = setTimeout(() =&gt; toastEl.classList.remove('show'), 3200);
+            }
+
+            // Web Audio API gentle chime (no external MP3 needed)
+            function playChime() {
+                try {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+                    notes.forEach((freq, i) =&gt; {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.14);
+                        gain.gain.setValueAtTime(0.001, ctx.currentTime + i * 0.14);
+                        gain.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime + i * 0.14 + 0.03);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i * 0.14 + 0.55);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(ctx.currentTime + i * 0.14);
+                        osc.stop(ctx.currentTime + i * 0.14 + 0.6);
+                    });
+                } catch (e) {}
+            }
+
+            function updateStatsUI() {
+                sessionCountText.textContent = completedSessions;
+                const cyclePos = completedSessions % 4;
+                dots.forEach((dot, idx) =&gt; {
+                    if (completedSessions &gt; 0 &amp;&amp; cyclePos === 0) {
+                        dot.classList.add('done');
+                    } else {
+                        dot.classList.toggle('done', idx &lt; cyclePos);
+                    }
+                });
+            }
+
+            function updateDisplay() {
+                const mins = Math.floor(remainingSeconds / 60);
+                const secs = remainingSeconds % 60;
+                const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                timeDisplay.textContent = formatted;
+                document.title = `${formatted} — ${MODES[currentMode].label} | MAK UI Studio`;
+
+                const fraction = remainingSeconds / totalSeconds;
+                const offset = CIRCUMFERENCE * (1 - fraction);
+                progressRing.style.strokeDashoffset = offset;
+            }
+
+            function stopTimer() {
+                if (timerId) {
+                    clearInterval(timerId);
+                    timerId = null;
+                }
+                startPauseBtn.textContent = 'Start';
+            }
+
+            function switchMode(mode) {
+                stopTimer();
+                currentMode = mode;
+                totalSeconds = MODES[mode].minutes * 60;
+                remainingSeconds = totalSeconds;
+                document.body.classList.toggle('break-mode', MODES[mode].isBreak);
+                modeBtns.forEach(b =&gt; b.classList.toggle('active', b.dataset.mode === mode));
+                statusLabel.textContent = `Ready • ${MODES[mode].label}`;
+                updateDisplay();
+            }
+
+            function handleComplete(skipped = false) {
+                stopTimer();
+                if (!skipped) playChime();
+
+                if (currentMode === 'focus') {
+                    if (!skipped) {
+                        completedSessions += 1;
+                        try { localStorage.setItem('mak_pomo_sessions', String(completedSessions)); } catch (e) {}
+                        updateStatsUI();
+                    }
+                    const nextMode = (completedSessions &gt; 0 &amp;&amp; completedSessions % 4 === 0) ? 'long' : 'short';
+                    showToast(skipped ? 'Skipped to break' : '🎉 Focus session complete! Time for a break.');
+                    switchMode(nextMode);
+                } else {
+                    showToast(skipped ? 'Skipped to focus' : '⚡ Break over! Ready to focus.');
+                    switchMode('focus');
+                }
+            }
+
+            function toggleStartPause() {
+                if (timerId) {
+                    stopTimer();
+                    statusLabel.textContent = 'Paused';
+                    return;
+                }
+                startPauseBtn.textContent = 'Pause';
+                statusLabel.textContent = MODES[currentMode].label;
+                timerId = setInterval(() =&gt; {
+                    remainingSeconds -= 1;
+                    updateDisplay();
+                    if (remainingSeconds &lt;= 0) {
+                        handleComplete(false);
+                    }
+                }, 1000);
+            }
+
+            startPauseBtn.addEventListener('click', toggleStartPause);
+            resetBtn.addEventListener('click', () =&gt; {
+                switchMode(currentMode);
+                showToast('Timer reset');
+            });
+            skipBtn.addEventListener('click', () =&gt; handleComplete(true));
+
+            modeBtns.forEach(btn =&gt; {
+                btn.addEventListener('click', () =&gt; switchMode(btn.dataset.mode));
+            });
+
+            currentTaskInput.addEventListener('input', () =&gt; {
+                try { localStorage.setItem('mak_pomo_task', currentTaskInput.value); } catch (e) {}
+            });
+
+            resetStatsBtn.addEventListener('click', () =&gt; {
+                completedSessions = 0;
+                try { localStorage.removeItem('mak_pomo_sessions'); } catch (e) {}
+                updateStatsUI();
+                showToast('Session counter cleared');
+            });
+
+            progressRing.style.strokeDasharray = CIRCUMFERENCE;
+            updateStatsUI();
+            updateDisplay();
+        })();
+    &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+            </div>
+        </section>
+
+        <!-- HOW IT WORKS -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">How the timer works (6 steps)</h2>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+                <div class="font-bold text-white text-sm mb-2">1. SVG Circle Geometry</div>
+                <p class="text-xs text-slate-400">An SVG <code>&lt;circle&gt;</code> with radius <code>r="104"</code> has a circumference of <code>2 × π × 104 ≈ 653.45px</code>. Setting <code>stroke-dasharray: 653.45</code> creates a single dash covering the entire ring, rotated <code>-90deg</code> so countdowns start cleanly at 12 o'clock.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+                <div class="font-bold text-white text-sm mb-2">2. Proportional Ring Drain</div>
+                <p class="text-xs text-slate-400">On every tick, we calculate <code>fraction = remainingSeconds / totalSeconds</code> and set <code>strokeDashoffset = CIRCUMFERENCE * (1 - fraction)</code>. CSS transitions smooth out each 1-second step.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+                <div class="font-bold text-white text-sm mb-2">3. Safe Interval Lifecycle</div>
+                <p class="text-xs text-slate-400">A single <code>timerId</code> variable tracks the active <code>setInterval</code>. Clicking Pause, Reset, or switching tabs immediately calls <code>clearInterval(timerId)</code> and sets <code>timerId = null</code> so multiple timers can never stack up.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+                <div class="font-bold text-white text-sm mb-2">4. Synthesized Web Audio Chime</div>
+                <p class="text-xs text-slate-400">Instead of loading external <code>.mp3</code> assets that might fail offline, <code>playChime()</code> uses <code>AudioContext</code> and three sine-wave oscillators (C5, E5, G5) with exponential gain ramps to produce a gentle notification bell.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+                <div class="font-bold text-white text-sm mb-2">5. 4-Session Pomodoro Cycle Logic</div>
+                <p class="text-xs text-slate-400">When a focus block finishes naturally, <code>completedSessions</code> increments and saves to <code>localStorage</code>. Using modulo arithmetic (<code>completedSessions % 4 === 0</code>), every fourth focus session automatically routes into a 15-minute long break.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <div class="font-bold text-white text-sm mb-2">6. Live Document Title Sync</div>
+                <p class="text-xs text-slate-400">Updating <code>document.title</code> on every second lets users monitor remaining focus time directly from their browser tab while coding in another window.</p>
+            </div>
+        </section>
+
+        <!-- WEEKEND CHALLENGES -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🚀 Weekend Extension Challenges</h2>
+            <div class="space-y-3">
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <div class="font-mono text-xs text-blue-400 mb-1">Challenge 1 • Custom Durations</div>
+                    <p class="text-xs text-slate-400">Add a small settings popover allowing users to customize Focus (e.g., 50m) and Break (10m) lengths and persist them in <code>localStorage</code>.</p>
+                </div>
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <div class="font-mono text-xs text-blue-400 mb-1">Challenge 2 • Keyboard Shortcuts</div>
+                    <p class="text-xs text-slate-400">Listen for <code>Spacebar</code> (when the task input isn't focused) to start/pause the countdown, and <code>R</code> to reset.</p>
+                </div>
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <div class="font-mono text-xs text-blue-400 mb-1">Challenge 3 • Drift-Free Timestamp Math</div>
+                    <p class="text-xs text-slate-400">Store <code>endTime = Date.now() + remainingSeconds * 1000</code> on Start and calculate remaining time from <code>endTime - Date.now()</code> so background tab throttling never slows the clock.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do you animate an SVG circular progress ring?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Set <code>stroke-dasharray</code> equal to the circle's circumference (<code>2 * Math.PI * radius</code>) and update <code>stroke-dashoffset</code> proportionally to remaining time.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why use Web Audio API instead of an MP3 file?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Web Audio synthesizes a clean chime directly in the browser with zero external audio files, zero network requests, and no broken file paths.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do I prevent duplicate timers when clicking Start twice?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Always guard your start function by checking if an interval ID is already active and clear it properly on pause or reset.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Does setInterval drift over long countdowns?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Yes, browser tab throttling can delay <code>setInterval</code> ticks slightly. For high-precision timers, compare <code>Date.now()</code> timestamps against a target end time.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 More Beginner Mini-Projects</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/projects/note-vault.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white text-sm">📝 LocalStorage Note Vault</div>
+                    <div class="text-xs text-slate-400 mt-1">Searchable sticky notes saved in JSON</div>
+                </a>
+                <a href="/projects/fast-food-menu.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white text-sm">🍔 Interactive Fast-Food Menu</div>
+                    <div class="text-xs text-slate-400 mt-1">Category filters + live order tray</div>
+                </a>
+            </div>
+        </section>
+
+        <a href="/projects/index.html" class="back-link">← All Mini-Projects</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function copyCode(codeId, button) {
+            const code = document.getElementById(codeId).innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const original = button.innerHTML;
+                button.innerHTML = '✅ Copied';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.innerHTML = original;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => console.error('Copy failed:', err));
+        }
+    </script>
+</body>
+</html>
