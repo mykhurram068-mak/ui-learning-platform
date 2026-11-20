@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Interactive Fast-Food Menu App — Build Guide & Source Code (2026)</title>
+    <meta name="description" content="Build an interactive fast-food ordering menu with category filtering, live search, localStorage order tray, and toast notifications. Copy-paste HTML/CSS/JS.">
+    <meta name="keywords" content="fast food menu html css js, shopping cart javascript project, beginner javascript mini app, localstorage cart tutorial">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Interactive Fast-Food Menu App — Build Guide & Source Code">
+    <meta property="og:description" content="Build an interactive fast-food ordering app with live search, category filtering, and localStorage cart.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/projects/fast-food-menu.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <meta property="og:site_name" content="MAK UI Studio">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Interactive Fast-Food Menu App — Build Guide & Source Code">
+    <meta name="twitter:description" content="Build an interactive fast-food ordering app with live search, category filtering, and localStorage cart.">
+    <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/projects/fast-food-menu.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Interactive Fast-Food Menu App — Build Guide & Source Code","description":"Build an interactive fast-food ordering app with live search, category filtering, and localStorage cart.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-11-20","dateModified":"2026-11-20","proficiencyLevel":"Beginner","dependencies":"HTML5, CSS3, JS"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Why use Array.reduce() to calculate the order subtotal?","acceptedAnswer":{"@type":"Answer","text":"Array.reduce() iterates over every item in the cart array and accumulates price multiplied by quantity into a single number in one clean pass, avoiding manual loop variables."}},{"@type":"Question","name":"How does localStorage keep the order tray saved after refresh?","acceptedAnswer":{"@type":"Answer","text":"localStorage only stores strings. By calling JSON.stringify(cart) on save and JSON.parse() on page load, the array of cart objects persists across browser reloads."}},{"@type":"Question","name":"Why trigger a reflow before showing a toast notification?","acceptedAnswer":{"@type":"Answer","text":"When adding and removing CSS classes rapidly, browsers batch style updates. Reading offsetWidth forces a synchronous reflow so the CSS transition plays reliably every time."}},{"@type":"Question","name":"How do category filtering and live search work together?","acceptedAnswer":{"@type":"Answer","text":"Both conditions are checked inside a single Array.filter() callback: the item must match the active category (or 'all') AND its name must include the lowercase search query."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="/style.css" rel="stylesheet"/>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 { padding: 0; }
+
+        /* === Live Mini-App Demo Stage === */
+        .app-demo-wrapper {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+        .demo-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #1e293b;
+        }
+        .filter-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
+        .filter-pill {
+            background: #1e293b;
+            color: #cbd5e1;
+            border: 1px solid #334155;
+            padding: 0.4rem 0.85rem;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-pill:hover { border-color: #3b82f6; color: #fff; }
+        .filter-pill.active {
+            background: #3b82f6;
+            border-color: #3b82f6;
+            color: #fff;
+        }
+        .demo-search {
+            background: #020617;
+            border: 1px solid #334155;
+            color: #f8fafc;
+            padding: 0.45rem 0.85rem;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            min-width: 200px;
+            outline: none;
+        }
+        .demo-search:focus { border-color: #3b82f6; }
+
+        .demo-layout {
+            display: grid;
+            grid-template-columns: 1.65fr 1fr;
+            gap: 1.25rem;
+            align-items: start;
+        }
+        @media (max-width: 768px) {
+            .demo-layout { grid-template-columns: 1fr; }
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+            gap: 0.85rem;
+        }
+        .food-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
+            padding: 0.9rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+        .food-card:hover {
+            transform: translateY(-2px);
+            border-color: #3b82f6;
+        }
+        .food-emoji { font-size: 2rem; margin-bottom: 0.4rem; }
+        .food-title { color: #fff; font-weight: 700; font-size: 0.88rem; }
+        .food-desc { color: #94a3b8; font-size: 0.74rem; margin: 0.25rem 0 0.75rem; line-height: 1.35; }
+        .food-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+        }
+        .food-price { color: #38bdf8; font-weight: 800; font-size: 0.9rem; }
+        .add-btn {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            padding: 0.35rem 0.7rem;
+            border-radius: 0.4rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .add-btn:hover { background: #1d4ed8; }
+
+        /* Order Tray */
+        .order-tray {
+            background: #020617;
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
+            padding: 1rem;
+        }
+        .tray-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 0.65rem;
+            margin-bottom: 0.75rem;
+            border-bottom: 1px solid #1e293b;
+        }
+        .tray-items {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            max-height: 230px;
+            overflow-y: auto;
+            margin-bottom: 0.85rem;
+        }
+        .tray-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0f172a;
+            padding: 0.5rem 0.65rem;
+            border-radius: 0.5rem;
+            font-size: 0.78rem;
+        }
+        .qty-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .qty-btn {
+            background: #1e293b;
+            color: #fff;
+            border: 1px solid #334155;
+            width: 22px;
+            height: 22px;
+            border-radius: 0.3rem;
+            cursor: pointer;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .qty-btn:hover { background: #334155; }
+        .tray-totals {
+            border-top: 1px solid #1e293b;
+            padding-top: 0.65rem;
+            font-size: 0.8rem;
+            space-y: 0.3rem;
+        }
+        .total-line {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.3rem;
+            color: #94a3b8;
+        }
+        .total-line.grand {
+            color: #fff;
+            font-weight: 800;
+            font-size: 0.95rem;
+            margin-top: 0.4rem;
+            padding-top: 0.4rem;
+            border-top: 1px dashed #334155;
+        }
+        .checkout-btn {
+            width: 100%;
+            margin-top: 0.75rem;
+            background: #16a34a;
+            color: #fff;
+            border: none;
+            padding: 0.6rem;
+            border-radius: 0.5rem;
+            font-weight: 700;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .checkout-btn:hover { background: #15803d; }
+
+        /* === Toast container (site standard) === */
+        .toast-container {
+            position: fixed;
+            bottom: 5.5rem;
+            right: 1rem;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 0.75rem;
+            z-index: 99999;
+            pointer-events: none;
+            max-width: 380px;
+            width: calc(100% - 2rem);
+        }
+        .toast {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-left-width: 4px;
+            border-radius: 0.75rem;
+            padding: 0.9rem 1rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            pointer-events: auto;
+            animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        .toast.removing { animation: toastSlideOut 0.25s ease forwards; }
+        @keyframes toastSlideIn {
+            from { opacity: 0; transform: translateX(120%); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes toastSlideOut {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(120%); }
+        }
+        .toast.success { border-left-color: #16a34a; }
+        .toast.warning { border-left-color: #d97706; }
+        .toast.info { border-left-color: #3b82f6; }
+        .toast-icon {
+            flex-shrink: 0;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: #fff;
+            font-weight: 700;
+        }
+        .toast.success .toast-icon { background: #16a34a; }
+        .toast.warning .toast-icon { background: #d97706; }
+        .toast.info .toast-icon { background: #3b82f6; }
+        .toast-body { flex: 1; min-width: 0; }
+        .toast-title { color: #fff; font-weight: 700; font-size: 0.85rem; margin-bottom: 0.15rem; }
+        .toast-message { color: #cbd5e1; font-size: 0.78rem; line-height: 1.4; }
+        .toast-close {
+            flex-shrink: 0;
+            background: transparent;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.375rem;
+        }
+        .toast-close:hover { background: #334155; color: #fff; }
+        .toast-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            background: #22c55e;
+            transform-origin: left;
+            animation: progress linear forwards;
+        }
+        @keyframes progress {
+            from { transform: scaleX(1); }
+            to { transform: scaleX(0); }
+        }
+
+        /* Code block & standard site boxes */
+        .code-block { position: relative; margin: 1rem 0; }
+        .code-block pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.75rem; overflow-x: auto; font-size: 0.72rem; margin: 0; max-height: 440px; }
+        .copy-btn {
+            position: absolute; top: 0.6rem; right: 0.6rem;
+            background: #334155; color: #e2e8f0; border: none;
+            padding: 0.35rem 0.75rem; border-radius: 0.375rem;
+            cursor: pointer; font-size: 0.72rem; font-weight: 600;
+            font-family: inherit; transition: all 0.2s;
+        }
+        .copy-btn:hover { background: #475569; }
+        .copy-btn.copied { background: #10b981; color: #fff; }
+
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1rem 1.25rem; border-radius: 0.5rem; margin: 1.25rem 0; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.75rem 0; }
+        .section-title { color: #fff; font-weight: 800; font-size: 1.35rem; margin-bottom: 0.5rem; }
+        .section-sub { color: #64748b; font-size: 0.85rem; margin-bottom: 1.25rem; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+<div class="nav-container">
+<a class="logo" href="/index.html">✨ MAK UI Studio</a>
+<div id="navbar-placeholder"></div>
+<script src="/navbar.js"></script>
+</div>
+</nav>
+
+    <section class="p-8 text-center">
+        <h2 class="text-4xl font-black uppercase mb-2">Mini App Build</h2>
+        <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Learn. Build. Ship.</p>
+    </section>
+
+    <main class="p-6 max-w-4xl mx-auto space-y-6">
+
+        <!-- BREADCRUMB -->
+        <div class="text-xs text-slate-500">
+            <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+            <a href="/projects/index.html" class="hover:text-blue-400">Mini Projects</a> ›
+            <span class="text-slate-400">Interactive Fast-Food Menu</span>
+        </div>
+
+        <!-- PART OF GUIDE BLOCK -->
+        <div class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+            <p class="text-xs text-slate-400">
+                Part of our beginner series:
+                <a href="/projects/index.html" class="text-blue-400 hover:text-blue-300 font-semibold">
+                    Weekend Mini-Projects →
+                </a>
+            </p>
+            <div class="flex gap-2 text-[11px] font-bold">
+                <span class="bg-slate-800 text-blue-400 px-2.5 py-0.5 rounded">HTML + CSS + JS</span>
+                <span class="bg-slate-800 text-emerald-400 px-2.5 py-0.5 rounded">~45 Mins</span>
+            </div>
+        </div>
+
+        <!-- HEADER -->
+        <div class="space-y-2">
+            <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Mini App · Vanilla JavaScript</h2>
+            <h1 class="text-3xl md:text-4xl font-black">Interactive Fast-Food Menu</h1>
+            <p class="text-slate-400 text-base">A complete restaurant ordering interface with category filters, live keyword search, persistent localStorage order tray, automatic tax math, and toast feedback.</p>
+            <p class="text-xs text-slate-500">Last updated: November 2026 · 10 min read · Zero dependencies</p>
+        </div>
+
+        <!-- OPENING ANSWER -->
+        <div class="info-box">
+            <p class="text-base text-white font-semibold leading-relaxed mb-3">
+                The cleanest way to build a front-end ordering app is state-driven rendering: store your menu and cart as plain JavaScript arrays, filter and compute totals in memory, and re-render the DOM whenever state changes.
+            </p>
+            <p class="text-sm text-slate-400">
+                <strong class="text-slate-300">What you ship:</strong> Responsive 2-column menu &amp; order tray, multi-condition filtering (category + search), quantity stepper controls, 8% tax calculation, <code class="text-yellow-300">localStorage</code> persistence, and accessible toast notifications.
+            </p>
+        </div>
+
+        <!-- WHY THIS PROJECT -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">What you will learn by building this</h2>
+            <p class="text-sm text-slate-300 leading-relaxed mb-3">Tutorials often teach array methods like <code>.filter()</code>, <code>.map()</code>, and <code>.reduce()</code> in isolation. In a real ordering app, all three work together on every user click. Clicking a category tab or typing in the search bar runs <code>.filter()</code>. Rendering the matching cards runs <code>.map()</code>. Updating the receipt totals runs <code>.reduce()</code>.</p>
+            <p class="text-sm text-slate-300 leading-relaxed">This project bridges the gap between basic DOM manipulation and our full four-stage <a href="/apps/pos.html" class="text-blue-400 hover:underline">POS &amp; Billing App Build</a>—giving you a working, portfolio-ready front-end system in a single HTML file.</p>
+        </section>
+
+        <!-- LIVE DEMO -->
+        <section>
+            <h2 class="section-title">🎬 Live Working Demo</h2>
+            <p class="section-sub">Filter by category, search by item name, adjust quantities, and place a test order.</p>
+
+            <div class="app-demo-wrapper">
+                <div class="demo-toolbar">
+                    <div class="filter-pills" id="demoFilters">
+                        <button class="filter-pill active" data-cat="all">All</button>
+                        <button class="filter-pill" data-cat="burgers">🍔 Burgers</button>
+                        <button class="filter-pill" data-cat="sides">🍟 Sides</button>
+                        <button class="filter-pill" data-cat="drinks">🥤 Drinks</button>
+                        <button class="filter-pill" data-cat="combos">🔥 Combos</button>
+                    </div>
+                    <input type="search" id="demoSearch" class="demo-search" placeholder="Search menu items..." aria-label="Search menu items">
+                </div>
+
+                <div class="demo-layout">
+                    <div class="menu-grid" id="demoMenuGrid"></div>
+
+                    <aside class="order-tray">
+                        <div class="tray-header">
+                            <span class="font-bold text-white text-sm">🧾 Order Tray</span>
+                            <button id="demoClearBtn" class="text-xs text-slate-400 hover:text-red-400">Clear</button>
+                        </div>
+                        <div class="tray-items" id="demoTrayItems">
+                            <p class="text-xs text-slate-500 text-center py-6">Your tray is empty. Add an item to begin.</p>
+                        </div>
+                        <div class="tray-totals">
+                            <div class="total-line"><span>Subtotal</span><span id="demoSubtotal">$0.00</span></div>
+                            <div class="total-line"><span>Tax (8%)</span><span id="demoTax">$0.00</span></div>
+                            <div class="total-line grand"><span>Total</span><span id="demoTotal">$0.00</span></div>
+                        </div>
+                        <button id="demoCheckoutBtn" class="checkout-btn">Place Order →</button>
+                    </aside>
+                </div>
+            </div>
+
+            <h3 class="text-white font-bold text-lg mt-8 mb-3">Complete Single-File Source Code</h3>
+            <p class="text-xs text-slate-400 mb-2">Save this as <code>index.html</code> and open it in any browser—no build step or server required.</p>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode('fullAppCode', this)">Copy</button>
+                <pre id="fullAppCode"><code>&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+  &lt;title&gt;MAK Burger — Interactive Fast-Food Menu&lt;/title&gt;
+  &lt;style&gt;
+    :root {
+      --bg: #020617;
+      --surface: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --accent: #3b82f6;
+      --success: #16a34a;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 1.5rem;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    header {
+      display: flex; flex-wrap: wrap; justify-content: space-between;
+      align-items: center; gap: 1rem; margin-bottom: 1.5rem;
+      padding-bottom: 1rem; border-bottom: 1px solid var(--border);
+    }
+    .filters { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .filter-btn {
+      background: var(--card); color: var(--muted);
+      border: 1px solid var(--border); padding: 0.45rem 0.9rem;
+      border-radius: 999px; cursor: pointer; font-weight: 600;
+    }
+    .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .search-input {
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text); padding: 0.5rem 0.9rem; border-radius: 0.5rem;
+    }
+    .layout {
+      display: grid; grid-template-columns: 1.7fr 1fr; gap: 1.5rem; align-items: start;
+    }
+    @media (max-width: 768px) { .layout { grid-template-columns: 1fr; } }
+    .menu-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;
+    }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 0.75rem; padding: 1rem; display: flex; flex-direction: column;
+    }
+    .card-emoji { font-size: 2.2rem; margin-bottom: 0.5rem; }
+    .card-title { font-weight: 700; margin-bottom: 0.25rem; }
+    .card-desc { color: var(--muted); font-size: 0.82rem; margin-bottom: 1rem; }
+    .card-foot {
+      margin-top: auto; display: flex; justify-content: space-between; align-items: center;
+    }
+    .price { color: #38bdf8; font-weight: 800; }
+    .add-btn {
+      background: var(--accent); color: #fff; border: none;
+      padding: 0.4rem 0.8rem; border-radius: 0.4rem; cursor: pointer; font-weight: 600;
+    }
+    .tray {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 0.75rem; padding: 1.25rem; position: sticky; top: 1rem;
+    }
+    .tray-head {
+      display: flex; justify-content: space-between; margin-bottom: 1rem;
+      padding-bottom: 0.75rem; border-bottom: 1px solid var(--border);
+    }
+    .tray-item {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--card); padding: 0.5rem 0.75rem; border-radius: 0.5rem;
+      margin-bottom: 0.5rem; font-size: 0.85rem;
+    }
+    .qty-btn {
+      background: var(--surface); color: #fff; border: 1px solid var(--border);
+      width: 24px; height: 24px; border-radius: 0.25rem; cursor: pointer;
+    }
+    .totals { border-top: 1px solid var(--border); padding-top: 0.75rem; margin-top: 0.75rem; }
+    .row { display: flex; justify-content: space-between; margin-bottom: 0.35rem; color: var(--muted); font-size: 0.9rem; }
+    .row.grand { color: #fff; font-weight: 800; font-size: 1.05rem; margin-top: 0.5rem; }
+    .checkout-btn {
+      width: 100%; margin-top: 1rem; padding: 0.75rem; border: none;
+      border-radius: 0.5rem; background: var(--success); color: #fff;
+      font-weight: 700; cursor: pointer;
+    }
+    #toast-container {
+      position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 99999;
+      display: flex; flex-direction: column-reverse; gap: 0.5rem;
+    }
+    .toast {
+      background: var(--card); color: #fff; border-left: 4px solid var(--success);
+      padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 0.85rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.4); opacity: 0; transform: translateY(10px);
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div class="container"&gt;
+    &lt;header&gt;
+      &lt;h1&gt;🍔 MAK Burger&lt;/h1&gt;
+      &lt;div class="filters" id="filters"&gt;
+        &lt;button class="filter-btn active" data-cat="all"&gt;All&lt;/button&gt;
+        &lt;button class="filter-btn" data-cat="burgers"&gt;Burgers&lt;/button&gt;
+        &lt;button class="filter-btn" data-cat="sides"&gt;Sides&lt;/button&gt;
+        &lt;button class="filter-btn" data-cat="drinks"&gt;Drinks&lt;/button&gt;
+        &lt;button class="filter-btn" data-cat="combos"&gt;Combos&lt;/button&gt;
+      &lt;/div&gt;
+      &lt;input type="search" id="search" class="search-input" placeholder="Search menu..."&gt;
+    &lt;/header&gt;
+
+    &lt;div class="layout"&gt;
+      &lt;main class="menu-grid" id="menuGrid"&gt;&lt;/main&gt;
+      &lt;aside class="tray"&gt;
+        &lt;div class="tray-head"&gt;
+          &lt;strong&gt;Order Tray&lt;/strong&gt;
+          &lt;button id="clearCart" style="background:none;border:none;color:#94a3b8;cursor:pointer;"&gt;Clear&lt;/button&gt;
+        &lt;/div&gt;
+        &lt;div id="cartItems"&gt;&lt;/div&gt;
+        &lt;div class="totals"&gt;
+          &lt;div class="row"&gt;&lt;span&gt;Subtotal&lt;/span&gt;&lt;span id="subtotal"&gt;$0.00&lt;/span&gt;&lt;/div&gt;
+          &lt;div class="row"&gt;&lt;span&gt;Tax (8%)&lt;/span&gt;&lt;span id="tax"&gt;$0.00&lt;/span&gt;&lt;/div&gt;
+          &lt;div class="row grand"&gt;&lt;span&gt;Total&lt;/span&gt;&lt;span id="total"&gt;$0.00&lt;/span&gt;&lt;/div&gt;
+        &lt;/div&gt;
+        &lt;button class="checkout-btn" id="checkoutBtn"&gt;Place Order&lt;/button&gt;
+      &lt;/aside&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;div id="toast-container"&gt;&lt;/div&gt;
+
+  &lt;script&gt;
+    const MENU = [
+      { id: 1, name: "Classic Smash Burger", category: "burgers", price: 8.99, emoji: "🍔", desc: "Double beef patty, cheddar, house sauce" },
+      { id: 2, name: "Crispy Zinger Burger", category: "burgers", price: 9.49, emoji: "🍗", desc: "Spiced chicken fillet, lettuce, spicy mayo" },
+      { id: 3, name: "Loaded Cheese Fries", category: "sides", price: 4.99, emoji: "🍟", desc: "Skin-on fries with warm cheddar &amp; jalapeños" },
+      { id: 4, name: "Mozzarella Sticks", category: "sides", price: 5.49, emoji: "🧀", desc: "6 golden breaded sticks with marinara dip" },
+      { id: 5, name: "Iced Mint Lemonade", category: "drinks", price: 3.49, emoji: "🥤", desc: "Fresh squeezed lemon, crushed mint, ice" },
+      { id: 6, name: "Double Smash Combo", category: "combos", price: 13.99, emoji: "🔥", desc: "Smash burger + regular fries + cold drink" }
+    ];
+
+    let activeCategory = "all";
+    let searchQuery = "";
+    let cart = JSON.parse(localStorage.getItem("mak_food_cart")) || [];
+
+    function showToast(msg) {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      toast.className = "toast";
+      toast.textContent = msg;
+      container.appendChild(toast);
+      void toast.offsetWidth; // Force browser reflow so CSS transition fires
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 250);
+      }, 2600);
+    }
+
+    function renderMenu() {
+      const grid = document.getElementById("menuGrid");
+      const filtered = MENU.filter(item =&gt; {
+        const matchCat = activeCategory === "all" || item.category === activeCategory;
+        const matchText = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchCat &amp;&amp; matchText;
+      });
+      grid.innerHTML = filtered.map(item =&gt; `
+        &lt;article class="card"&gt;
+          &lt;div class="card-emoji"&gt;${item.emoji}&lt;/div&gt;
+          &lt;div class="card-title"&gt;${item.name}&lt;/div&gt;
+          &lt;p class="card-desc"&gt;${item.desc}&lt;/p&gt;
+          &lt;div class="card-foot"&gt;
+            &lt;span class="price"&gt;$${item.price.toFixed(2)}&lt;/span&gt;
+            &lt;button class="add-btn" onclick="addToCart(${item.id})"&gt;+ Add&lt;/button&gt;
+          &lt;/div&gt;
+        &lt;/article&gt;
+      `).join("");
+    }
+
+    function addToCart(id) {
+      const existing = cart.find(c =&gt; c.id === id);
+      if (existing) existing.qty += 1;
+      else {
+        const item = MENU.find(m =&gt; m.id === id);
+        cart.push({ ...item, qty: 1 });
+      }
+      saveAndRenderCart();
+      showToast("Added to order tray");
+    }
+
+    function updateQty(id, delta) {
+      const item = cart.find(c =&gt; c.id === id);
+      if (!item) return;
+      item.qty += delta;
+      if (item.qty &lt;= 0) cart = cart.filter(c =&gt; c.id !== id);
+      saveAndRenderCart();
+    }
+
+    function saveAndRenderCart() {
+      localStorage.setItem("mak_food_cart", JSON.stringify(cart));
+      const container = document.getElementById("cartItems");
+      if (!cart.length) {
+        container.innerHTML = `&lt;p style="color:#94a3b8;font-size:0.85rem;"&gt;Your tray is empty.&lt;/p&gt;`;
+      } else {
+        container.innerHTML = cart.map(item =&gt; `
+          &lt;div class="tray-item"&gt;
+            &lt;div&gt;&lt;strong&gt;${item.name}&lt;/strong&gt;&lt;br&gt;$${(item.price * item.qty).toFixed(2)}&lt;/div&gt;
+            &lt;div&gt;
+              &lt;button class="qty-btn" onclick="updateQty(${item.id}, -1)"&gt;-&lt;/button&gt;
+              &lt;span style="margin:0 0.4rem;"&gt;${item.qty}&lt;/span&gt;
+              &lt;button class="qty-btn" onclick="updateQty(${item.id}, 1)"&gt;+&lt;/button&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        `).join("");
+      }
+      const sub = cart.reduce((sum, item) =&gt; sum + item.price * item.qty, 0);
+      const tax = sub * 0.08;
+      document.getElementById("subtotal").textContent = `$${sub.toFixed(2)}`;
+      document.getElementById("tax").textContent = `$${tax.toFixed(2)}`;
+      document.getElementById("total").textContent = `$${(sub + tax).toFixed(2)}`;
+    }
+
+    document.getElementById("filters").addEventListener("click", e =&gt; {
+      if (!e.target.dataset.cat) return;
+      document.querySelectorAll(".filter-btn").forEach(b =&gt; b.classList.remove("active"));
+      e.target.classList.add("active");
+      activeCategory = e.target.dataset.cat;
+      renderMenu();
+    });
+
+    document.getElementById("search").addEventListener("input", e =&gt; {
+      searchQuery = e.target.value;
+      renderMenu();
+    });
+
+    document.getElementById("clearCart").addEventListener("click", () =&gt; {
+      cart = [];
+      saveAndRenderCart();
+      showToast("Order tray cleared");
+    });
+
+    document.getElementById("checkoutBtn").addEventListener("click", () =&gt; {
+      if (!cart.length) return showToast("Add items before placing order");
+      cart = [];
+      saveAndRenderCart();
+      showToast("Order placed! Preparing your food.");
+    });
+
+    renderMenu();
+    saveAndRenderCart();
+  &lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+            </div>
+        </section>
+
+        <!-- STEP-BY-STEP ARCHITECTURE -->
+        <section>
+            <h2 class="text-xl font-bold text-white mb-3">Step-by-step build breakdown</h2>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+                <div class="font-bold text-white text-sm mb-2">Step 1: Two-column responsive shell</div>
+                <p class="text-xs text-slate-400">Use CSS Grid (<code>grid-template-columns: 1.7fr 1fr</code>) so the menu catalog gets roughly two-thirds of the desktop width while the order tray stays pinned on the right with <code>position: sticky</code>. At <code>768px</code> and below, collapse to <code>1fr</code> so mobile users scroll naturally from menu to checkout.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+                <div class="font-bold text-white text-sm mb-2">Step 2: Data-driven menu catalog</div>
+                <p class="text-xs text-slate-400">Never hardcode 12 food cards in HTML. Store items as an array of objects (<code>{ id, name, category, price, emoji, desc }</code>) and generate HTML strings with <code>.map().join('')</code>. Adding a new seasonal burger later means adding one line to the array instead of editing markup.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+                <div class="font-bold text-white text-sm mb-2">Step 3: Compound filtering (Category + Search)</div>
+                <p class="text-xs text-slate-400">Track two state variables—<code>activeCategory</code> and <code>searchQuery</code>. Inside <code>renderMenu()</code>, filter items where <strong>both</strong> conditions pass. That way, searching "fries" while inside the "Sides" tab narrows results accurately without resetting the active tab.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+                <div class="font-bold text-white text-sm mb-2">Step 4: Cart state &amp; localStorage persistence</div>
+                <p class="text-xs text-slate-400">When a user clicks <strong>+ Add</strong>, check if that <code>id</code> already exists in <code>cart</code> using <code>.find()</code>. Increment <code>qty</code> if found, or push a shallow copy with <code>qty: 1</code>. Save on every mutation with <code>localStorage.setItem('mak_food_cart', JSON.stringify(cart))</code> so refreshing the tab never wipes an active order.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+                <div class="font-bold text-white text-sm mb-2">Step 5: Receipt totals with Array.reduce()</div>
+                <p class="text-xs text-slate-400">Compute the subtotal in a single expression: <code>cart.reduce((sum, item) =&gt; sum + item.price * item.qty, 0)</code>. Multiply by <code>0.08</code> for tax, format every dollar string with <code>.toFixed(2)</code>, and disable or guard checkout when <code>cart.length === 0</code>.</p>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+                <div class="font-bold text-white text-sm mb-2">Step 6: Reliable toast animations with forced reflow</div>
+                <p class="text-xs text-slate-400">Appending an element and immediately adding <code>.show</code> often skips CSS transitions because the browser batches style calculations. Calling <code>void toast.offsetWidth</code> forces a synchronous layout read between insertion and class toggle, guaranteeing smooth slide-in feedback on every click.</p>
+            </div>
+        </section>
+
+        <!-- EXTENSION CHALLENGES -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">🚀 Extension challenges</h2>
+            <p class="text-sm text-slate-400 mb-4">Once the base app runs locally, try adding these three upgrades before moving to full-stack builds:</p>
+
+            <div class="space-y-3">
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <div class="font-mono text-xs text-blue-400 mb-1">Challenge 1 · Promo Code Input</div>
+                    <p class="text-xs text-slate-400">Add a coupon input above the subtotal. If the user enters <code>MAK20</code>, apply a 20% discount before tax and show a badge confirming the savings.</p>
+                </div>
+
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <div class="font-mono text-xs text-blue-400 mb-1">Challenge 2 · Item Customization Modal</div>
+                    <p class="text-xs text-slate-400">Let users pick burger doneness or drink size (Regular / Large +$1.00). Store the variant inside the cart item key so "Cola (Regular)" and "Cola (Large)" appear as separate tray lines.</p>
+                </div>
+
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    <div class="font-mono text-xs text-blue-400 mb-1">Challenge 3 · Connect a Flask + SQLite Backend</div>
+                    <p class="text-xs text-slate-400">Replace the static <code>MENU</code> array with a <code>fetch('/api/menu')</code> call and POST completed orders to SQLite—following the exact pattern in our <a href="/apps/pos.html" class="text-blue-400 hover:underline">POS &amp; Billing 4-Stage Build</a>.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- COMMON MISTAKES -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">⚠️ Common mistakes</h2>
+            <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+                <li><strong>Mutating the source <code>MENU</code> object directly.</strong> Always spread (<code>{ ...item, qty: 1 }</code>) when adding to cart so cart quantities never corrupt the catalog data.</li>
+                <li><strong>Floating-point display bugs.</strong> JavaScript math like <code>8.99 * 3</code> can produce <code>26.970000000000002</code>. Always format currency outputs with <code>.toFixed(2)</code> at render time.</li>
+                <li><strong>Forgetting <code>JSON.parse()</code> on reload.</strong> Reading <code>localStorage.getItem()</code> directly returns a raw string, causing <code>cart.find is not a function</code> errors.</li>
+                <li><strong>Toast z-index lower than sticky headers.</strong> Keep your toast container at <code>z-index: 9999</code> or higher so confirmations never hide behind sticky navigation bars.</li>
+            </ul>
+        </section>
+
+        <!-- FAQ -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+            <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+            <div class="space-y-3">
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why use Array.reduce() to calculate the order subtotal?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Array.reduce() iterates over every item in the cart array and accumulates price multiplied by quantity into a single number in one clean pass, avoiding manual loop variables.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How does localStorage keep the order tray saved after refresh?</summary>
+                    <p class="mt-2 text-sm text-slate-300">localStorage only stores strings. By calling JSON.stringify(cart) on save and JSON.parse() on page load, the array of cart objects persists across browser reloads.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why trigger a reflow before showing a toast notification?</summary>
+                    <p class="mt-2 text-sm text-slate-300">When adding and removing CSS classes rapidly, browsers batch style updates. Reading offsetWidth forces a synchronous reflow so the CSS transition plays reliably every time.</p>
+                </details>
+                <details class="bg-slate-950 p-3 rounded-xl">
+                    <summary class="cursor-pointer text-blue-400 font-medium text-sm">How do category filtering and live search work together?</summary>
+                    <p class="mt-2 text-sm text-slate-300">Both conditions are checked inside a single Array.filter() callback: the item must match the active category (or 'all') AND its name must include the lowercase search query.</p>
+                </details>
+            </div>
+        </section>
+
+        <!-- RELATED -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🔗 Related builds &amp; snippets</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <a href="/toast-notifications.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white text-sm">🔔 Toast Notifications</div>
+                    <div class="text-xs text-slate-400 mt-1">Deep dive into accessible slide-in alerts</div>
+                </a>
+                <a href="/apps/pos.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white text-sm">🧾 POS &amp; Billing (4-Stage App)</div>
+                    <div class="text-xs text-slate-400 mt-1">Upgrade this menu into a full Flask + SQLite POS</div>
+                </a>
+                <a href="/projects/note-vault.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white text-sm">📝 LocalStorage Note Vault</div>
+                    <div class="text-xs text-slate-400 mt-1">Next mini-project: Markdown notes in the browser</div>
+                </a>
+                <a href="/projects/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                    <div class="font-semibold text-white text-sm">🚀 All Mini-Projects</div>
+                    <div class="text-xs text-slate-400 mt-1">Back to the weekend builds hub</div>
+                </a>
+            </div>
+        </section>
+
+        <!-- EXTERNAL -->
+        <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+            <h2 class="text-white font-bold mb-3">🌐 External resources</h2>
+            <ul class="text-sm space-y-2 text-slate-400">
+                <li>→ <a href="https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">MDN: Window.localStorage API</a></li>
+                <li>→ <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">MDN: Array.prototype.reduce()</a></li>
+                <li>→ <a href="https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout" class="text-blue-400 hover:underline" target="_blank" rel="noopener nofollow">MDN: CSS Grid Layout</a></li>
+            </ul>
+        </section>
+
+        <a href="/projects/index.html" class="back-link">← All Mini-Projects</a>
+    </main>
+
+    <footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+        <div class="flex justify-between items-center max-w-md mx-auto">
+            <div class="flex flex-col items-center gap-1 text-blue-500">
+                <i class="fa-solid fa-house text-xl"></i>
+                <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-book-open text-xl"></i>
+                <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-envelope text-xl"></i>
+                <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+            </div>
+            <div class="flex flex-col items-center gap-1 text-slate-500">
+                <i class="fa-solid fa-circle-user text-xl"></i>
+                <span class="text-[10px] font-bold uppercase">Profile</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Site-standard Toast System
+        const container = document.createElement('div');
+        container.className = 'toast-container';
+        container.id = 'toastContainer';
+        document.body.appendChild(container);
+
+        const icons = { success: '✓', warning: '!', info: 'i' };
+
+        function showToast(type, title, message, duration = 3500) {
+            const existing = container.querySelectorAll('.toast:not(.removing)');
+            if (existing.length >= 4) existing[0].remove();
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.setAttribute('role', 'status');
+            toast.innerHTML = `
+                <div class="toast-icon">${icons[type] || '✓'}</div>
+                <div class="toast-body">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+                <button class="toast-close" aria-label="Close">✕</button>
+                <div class="toast-progress" style="animation-duration: ${duration}ms;"></div>
+            `;
+            container.appendChild(toast);
+
+            const remove = () => {
+                toast.classList.add('removing');
+                setTimeout(() => toast.remove(), 250);
+            };
+            toast.querySelector('.toast-close').addEventListener('click', remove);
+            setTimeout(remove, duration);
+        }
+
+        // Interactive Fast-Food Menu Demo Logic
+        const DEMO_MENU = [
+            { id: 1, name: "Classic Smash Burger", category: "burgers", price: 8.99, emoji: "🍔", desc: "Double beef patty, cheddar, house sauce" },
+            { id: 2, name: "Crispy Zinger Burger", category: "burgers", price: 9.49, emoji: "🍗", desc: "Spiced chicken fillet, lettuce, spicy mayo" },
+            { id: 3, name: "Loaded Cheese Fries", category: "sides", price: 4.99, emoji: "🍟", desc: "Skin-on fries with warm cheddar & jalapeños" },
+            { id: 4, name: "Mozzarella Sticks", category: "sides", price: 5.49, emoji: "🧀", desc: "6 golden breaded sticks with marinara dip" },
+            { id: 5, name: "Iced Mint Lemonade", category: "drinks", price: 3.49, emoji: "🥤", desc: "Fresh squeezed lemon, crushed mint, ice" },
+            { id: 6, name: "Double Smash Combo", category: "combos", price: 13.99, emoji: "🔥", desc: "Smash burger + regular fries + cold drink" }
+        ];
+
+        let demoCat = "all";
+        let demoQuery = "";
+        let demoCart = JSON.parse(localStorage.getItem("mak_demo_food_cart")) || [];
+
+        function renderDemoMenu() {
+            const grid = document.getElementById("demoMenuGrid");
+            const filtered = DEMO_MENU.filter(item => {
+                const matchCat = demoCat === "all" || item.category === demoCat;
+                const matchText = item.name.toLowerCase().includes(demoQuery.toLowerCase());
+                return matchCat && matchText;
+            });
+
+            if (!filtered.length) {
+                grid.innerHTML = `<p class="text-xs text-slate-500 col-span-full py-6 text-center">No menu items match "${demoQuery}".</p>`;
+                return;
+            }
+
+            grid.innerHTML = filtered.map(item => `
+                <article class="food-card">
+                    <div>
+                        <div class="food-emoji">${item.emoji}</div>
+                        <div class="food-title">${item.name}</div>
+                        <p class="food-desc">${item.desc}</p>
+                    </div>
+                    <div class="food-footer">
+                        <span class="food-price">$${item.price.toFixed(2)}</span>
+                        <button class="add-btn" onclick="addDemoItem(${item.id})">+ Add</button>
+                    </div>
+                </article>
+            `).join("");
+        }
+
+        function addDemoItem(id) {
+            const existing = demoCart.find(c => c.id === id);
+            const item = DEMO_MENU.find(m => m.id === id);
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                demoCart.push({ ...item, qty: 1 });
+            }
+            saveAndRenderDemoCart();
+            showToast('success', 'Added to Tray', `${item.name} added to your order.`);
+        }
+
+        function updateDemoQty(id, delta) {
+            const item = demoCart.find(c => c.id === id);
+            if (!item) return;
+            item.qty += delta;
+            if (item.qty <= 0) {
+                demoCart = demoCart.filter(c => c.id !== id);
+            }
+            saveAndRenderDemoCart();
+        }
+
+        function saveAndRenderDemoCart() {
+            localStorage.setItem("mak_demo_food_cart", JSON.stringify(demoCart));
+            const list = document.getElementById("demoTrayItems");
+
+            if (!demoCart.length) {
+                list.innerHTML = `<p class="text-xs text-slate-500 text-center py-6">Your tray is empty. Add an item to begin.</p>`;
+            } else {
+                list.innerHTML = demoCart.map(item => `
+                    <div class="tray-row">
+                        <div>
+                            <div class="text-white font-semibold">${item.emoji} ${item.name}</div>
+                            <div class="text-slate-400 text-[11px]">$${(item.price * item.qty).toFixed(2)}</div>
+                        </div>
+                        <div class="qty-controls">
+                            <button class="qty-btn" onclick="updateDemoQty(${item.id}, -1)" aria-label="Decrease quantity">-</button>
+                            <span class="text-white font-bold px-1">${item.qty}</span>
+                            <button class="qty-btn" onclick="updateDemoQty(${item.id}, 1)" aria-label="Increase quantity">+</button>
+                        </div>
+                    </div>
+                `).join("");
+            }
+
+            const sub = demoCart.reduce((sum, item) => sum + item.price * item.qty, 0);
+            const tax = sub * 0.08;
+            document.getElementById("demoSubtotal").textContent = `$${sub.toFixed(2)}`;
+            document.getElementById("demoTax").textContent = `$${tax.toFixed(2)}`;
+            document.getElementById("demoTotal").textContent = `$${(sub + tax).toFixed(2)}`;
+        }
+
+        document.getElementById("demoFilters").addEventListener("click", e => {
+            if (!e.target.dataset.cat) return;
+            document.querySelectorAll(".filter-pill").forEach(btn => btn.classList.remove("active"));
+            e.target.classList.add("active");
+            demoCat = e.target.dataset.cat;
+            renderDemoMenu();
+        });
+
+        document.getElementById("demoSearch").addEventListener("input", e => {
+            demoQuery = e.target.value;
+            renderDemoMenu();
+        });
+
+        document.getElementById("demoClearBtn").addEventListener("click", () => {
+            if (!demoCart.length) return;
+            demoCart = [];
+            saveAndRenderDemoCart();
+            showToast('info', 'Tray Cleared', 'All items removed from your order tray.');
+        });
+
+        document.getElementById("demoCheckoutBtn").addEventListener("click", () => {
+            if (!demoCart.length) {
+                showToast('warning', 'Empty Tray', 'Add at least one item before placing an order.');
+                return;
+            }
+            const total = document.getElementById("demoTotal").textContent;
+            demoCart = [];
+            saveAndRenderDemoCart();
+            showToast('success', 'Order Placed!', `Order confirmed (${total}). Kitchen is preparing your meal.`);
+        });
+
+        // Copy code helper
+        function copyCode(codeId, button) {
+            const code = document.getElementById(codeId).innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const original = button.innerHTML;
+                button.innerHTML = '✅ Copied';
+                button.classList.add('copied');
+                setTimeout(() => {
+                    button.innerHTML = original;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(err => console.error('Copy failed:', err));
+        }
+
+        renderDemoMenu();
+        saveAndRenderDemoCart();
+    </script>
+</body>
+</html>
