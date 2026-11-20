@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Mini URL Shortener — Python Flask &amp; JSON Mini-Project (2026)</title>
+    <meta name="description" content="Build a custom Mini URL Shortener with Python, Flask, and JSON persistence. Generate short links, track click counts, and handle HTTP redirects.">
+    <meta name="keywords" content="url shortener python flask, mini project python, flask json project, custom short links tutorial, mak ui studio">
+    <meta name="author" content="MAK Studio">
+    <meta name="robots" content="index, follow">
+    <meta property="og:title" content="Mini URL Shortener — Python Flask &amp; JSON Mini-Project">
+    <meta property="og:description" content="Generate custom short links, track click counts in JSON, and handle HTTP redirects with Python and Flask.">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="https://makuistudio.com/projects/url-shortener.html">
+    <meta property="og:image" content="https://makuistudio.com/images/social-card.png">
+    <meta property="og:site_name" content="MAK UI Studio">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Mini URL Shortener — Python Flask &amp; JSON Mini-Project">
+    <meta name="twitter:description" content="Build a working URL shortener in 45 minutes using Python, Flask, and JSON.">
+    <meta name="twitter:image" content="https://makuistudio.com/images/social-card.png">
+    <link href="/favicon.png" rel="icon" type="image/png"/>
+    <link rel="canonical" href="https://makuistudio.com/projects/url-shortener.html">
+
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"TechArticle","headline":"Mini URL Shortener — Python Flask & JSON Mini-Project","description":"Build a custom Mini URL Shortener with Python, Flask, and JSON persistence.","author":{"@type":"Organization","name":"MAK Studio"},"datePublished":"2026-11-20","dateModified":"2026-11-20","proficiencyLevel":"Beginner","dependencies":"Python 3, Flask, HTML5, CSS3"}
+    </script>
+    <script type="application/ld+json">
+    {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"How does a URL shortener work under the hood?","acceptedAnswer":{"@type":"Answer","text":"A URL shortener maps a short alphanumeric code (slug) to a long destination URL in storage. When someone visits /slug, the server looks up the destination, increments a click counter, and returns an HTTP 302 redirect response."}},{"@type":"Question","name":"Why use JSON instead of a database for this mini-project?","acceptedAnswer":{"@type":"Answer","text":"Storing links in a local links.json file lets you inspect the saved mappings in any text editor and persist data across server restarts without configuring SQLite or PostgreSQL first."}},{"@type":"Question","name":"How do I prevent invalid or dangerous URLs?","acceptedAnswer":{"@type":"Answer","text":"Always validate that user-submitted URLs start with http:// or https:// before saving them. Never redirect blindly to javascript: or data: URIs."}},{"@type":"Question","name":"How does the live browser demo work without a Python server?","acceptedAnswer":{"@type":"Answer","text":"Because static hosting does not run Python processes, our interactive demo simulates the Flask routing table, click analytics, and redirect preview right inside your browser using localStorage."}}]}
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="/style.css" rel="stylesheet"/>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        header.p-5 { padding: 0; }
+
+        .demo-launch-card {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            border: 1px solid #334155;
+            border-radius: 1.25rem;
+            padding: 2rem 1.5rem;
+            margin: 1.5rem 0;
+            text-align: center;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+        }
+        .demo-badges {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .demo-badge {
+            background: #0b1120;
+            border: 1px solid #334155;
+            color: #38bdf8;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 0.25rem 0.65rem;
+            border-radius: 999px;
+        }
+        .launch-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #3b82f6;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.92rem;
+            padding: 0.8rem 1.6rem;
+            border-radius: 0.75rem;
+            text-decoration: none;
+            transition: all 0.2s;
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.35);
+        }
+        .launch-btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+        }
+
+        .code-block { position: relative; margin: 1rem 0; }
+        .code-block pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            overflow-x: auto;
+            font-size: 0.74rem;
+            line-height: 1.55;
+            margin: 0;
+            max-height: 460px;
+        }
+        .copy-btn {
+            position: absolute; top: 0.6rem; right: 0.6rem;
+            background: #334155; color: #e2e8f0; border: none;
+            padding: 0.35rem 0.75rem; border-radius: 0.375rem;
+            cursor: pointer; font-size: 0.72rem; font-weight: 600;
+            font-family: inherit; transition: all 0.2s;
+        }
+        .copy-btn:hover { background: #475569; }
+        .copy-btn.copied { background: #10b981; color: #fff; }
+
+        .info-box { background: #0f172a; border-left: 4px solid #3b82f6; padding: 1rem 1.25rem; border-radius: 0.5rem; margin: 1.25rem 0; }
+        .pro-tip { background: #0f172a; border-left: 4px solid #f59e0b; padding: 0.75rem 1rem; border-radius: 0.5rem; margin: 0.75rem 0; }
+        .section-title { color: #fff; font-weight: 800; font-size: 1.35rem; margin-bottom: 0.5rem; }
+        .section-sub { color: #64748b; font-size: 0.85rem; margin-bottom: 1.25rem; }
+        .back-link { display: inline-block; margin-top: 2rem; color: #3b82f6; text-decoration: none; }
+    </style>
+</head>
+<body class="pb-24 bg-slate-950 text-slate-300">
+<nav class="navbar">
+    <div class="nav-container">
+        <a class="logo" href="/index.html">✨ MAK UI Studio</a>
+        <div id="navbar-placeholder"></div>
+        <script src="/navbar.js"></script>
+    </div>
+</nav>
+
+<section class="p-8 text-center">
+    <h2 class="text-4xl font-black uppercase mb-2">Mini-Projects</h2>
+    <p class="text-slate-400 font-medium text-sm tracking-widest uppercase">Python • Flask • JSON • 45 Mins</p>
+</section>
+
+<main class="p-6 max-w-4xl mx-auto space-y-6">
+
+    <!-- BREADCRUMB -->
+    <div class="text-xs text-slate-500">
+        <a href="/index.html" class="hover:text-blue-400">Home</a> ›
+        <a href="/projects/index.html" class="hover:text-blue-400">Mini-Projects</a> ›
+        <span class="text-slate-400">Mini URL Shortener</span>
+    </div>
+
+    <!-- PART OF GUIDE BLOCK -->
+    <div class="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
+        <p class="text-xs text-slate-400">
+            Beginner Mini-Project #4 · Full-Stack Bridge:
+            <a href="/projects/index.html" class="text-blue-400 hover:text-blue-300 font-semibold">
+                All Weekend Builds →
+            </a>
+        </p>
+    </div>
+
+    <!-- HEADER -->
+    <div class="space-y-2">
+        <h2 class="text-xs font-bold text-blue-500 uppercase tracking-[0.2em]">Backend Bridge · Python + Flask + JSON</h2>
+        <h1 class="text-3xl md:text-4xl font-black text-white">🔗 Mini URL Shortener</h1>
+        <p class="text-slate-400 text-base">Your first backend bridge: generate custom or random short slugs, store mappings in a JSON file, track click counts, and handle HTTP redirects.</p>
+        <p class="text-xs text-slate-500">Last updated: November 2026 · 10 min read · ~45 mins build time</p>
+    </div>
+
+    <!-- OPENING ANSWER -->
+    <div class="info-box">
+        <p class="text-base text-white font-semibold leading-relaxed mb-3">
+            A URL shortener maps a short key (like <code class="text-yellow-300">/py42</code>) to a full destination URL. When a visitor opens the short route, Flask looks up the key in <code class="text-yellow-300">links.json</code>, increments its click count, and returns <code class="text-yellow-300">redirect(target_url)</code>.
+        </p>
+        <p class="text-sm text-slate-400">
+            <strong class="text-slate-300">What you learn:</strong> Flask GET/POST routes, dynamic URL parameters (<code class="text-slate-300">&lt;slug&gt;</code>), <code class="text-slate-300">secrets</code> token generation, safe JSON file persistence, and URL scheme validation.
+        </p>
+    </div>
+
+    <!-- SEPARATE LIVE DEMO LAUNCHER -->
+    <section>
+        <h2 class="section-title">🚀 Interactive Sandbox</h2>
+        <p class="section-sub">Test creating custom short links, simulating clicks, and inspecting live JSON storage on a dedicated full-screen page.</p>
+
+        <div class="demo-launch-card">
+            <div class="demo-badges">
+                <span class="demo-badge">Custom Slugs</span>
+                <span class="demo-badge">Click Analytics</span>
+                <span class="demo-badge">Redirect Simulator</span>
+                <span class="demo-badge">JSON Inspector</span>
+            </div>
+            <h3 class="text-white font-extrabold text-xl mb-2">Mini URL Shortener — Live Sandbox</h3>
+            <p class="text-slate-400 text-sm max-w-lg mx-auto mb-6">
+                Create short links with random or custom aliases, trigger simulated visits to watch click counters climb, and inspect the live JSON payload in real time.
+            </p>
+            <a href="/projects/url-shortener-demo.html" target="_blank" rel="noopener" class="launch-btn">
+                Open Live Demo <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+            </a>
+        </div>
+    </section>
+
+    <!-- COMPLETE SOURCE CODE -->
+    <section>
+        <h2 class="section-title">📦 Complete Flask Application (<code class="text-blue-400">app.py</code>)</h2>
+        <p class="section-sub">Install Flask with <code class="text-slate-300">pip install flask</code>, save this code as <code class="text-slate-300">app.py</code>, and run <code class="text-slate-300">python app.py</code>.</p>
+
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyCode('shortenerCode', this)">Copy</button>
+            <pre id="shortenerCode"><code>import json
+import os
+import re
+import secrets
+import string
+from datetime import datetime
+from flask import Flask, abort, redirect, render_template_string, request, url_for
+
+app = Flask(__name__)
+DATA_FILE = "links.json"
+SLUG_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{3,24}$")
+
+
+def load_links():
+    if not os.path.exists(DATA_FILE):
+        return {}
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def save_links(links):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(links, f, indent=2)
+
+
+def generate_slug(existing_keys, length=6):
+    alphabet = string.ascii_letters + string.digits
+    while True:
+        slug = "".join(secrets.choice(alphabet) for _ in range(length))
+        if slug not in existing_keys:
+            return slug
+
+
+def is_valid_url(url):
+    return url.startswith("http://") or url.startswith("https://")
+
+
+HTML_TEMPLATE = """
+&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+  &lt;meta charset="UTF-8"&gt;
+  &lt;meta name="viewport" content="width=device-width, initial-scale=1.0"&gt;
+  &lt;title&gt;Mini URL Shortener — MAK UI Studio&lt;/title&gt;
+  &lt;style&gt;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #020617; color: #e2e8f0;
+      padding: 2rem 1rem; line-height: 1.5;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    h1 { font-size: 1.8rem; color: #fff; margin-bottom: 0.35rem; }
+    .sub { color: #94a3b8; font-size: 0.92rem; margin-bottom: 1.5rem; }
+    .card {
+      background: #0f172a; border: 1px solid #1e293b;
+      border-radius: 14px; padding: 1.25rem; margin-bottom: 1.5rem;
+    }
+    .row { display: grid; grid-template-columns: 2fr 1fr auto; gap: 0.65rem; }
+    input {
+      background: #020617; border: 1px solid #334155; color: #fff;
+      padding: 0.7rem 0.85rem; border-radius: 8px; font-size: 0.9rem; width: 100%;
+    }
+    input:focus { outline: none; border-color: #38bdf8; }
+    button {
+      background: #3b82f6; color: #fff; border: none; font-weight: 700;
+      padding: 0.7rem 1.2rem; border-radius: 8px; cursor: pointer;
+    }
+    button:hover { background: #2563eb; }
+    .alert {
+      background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444;
+      color: #fca5a5; padding: 0.65rem 0.9rem; border-radius: 8px;
+      margin-bottom: 1rem; font-size: 0.85rem;
+    }
+    .link-item {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 1rem; padding: 0.85rem 0; border-bottom: 1px solid #1e293b;
+    }
+    .link-item:last-child { border-bottom: none; }
+    .slug { color: #38bdf8; font-weight: 700; text-decoration: none; font-size: 0.95rem; }
+    .dest { color: #94a3b8; font-size: 0.8rem; word-break: break-all; }
+    .badge {
+      background: #1e293b; color: #34d399; font-weight: 700;
+      padding: 0.25rem 0.65rem; border-radius: 999px; font-size: 0.78rem;
+      white-space: nowrap;
+    }
+    @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+  &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+  &lt;div class="wrap"&gt;
+    &lt;h1&gt;🔗 Mini URL Shortener&lt;/h1&gt;
+    &lt;p class="sub"&gt;Python + Flask + JSON file storage with instant click tracking.&lt;/p&gt;
+
+    {% if error %}
+      &lt;div class="alert"&gt;{{ error }}&lt;/div&gt;
+    {% endif %}
+
+    &lt;form class="card" method="POST" action="/"&gt;
+      &lt;div class="row"&gt;
+        &lt;input type="url" name="url" placeholder="https://makuistudio.com/courses/python" required&gt;
+        &lt;input type="text" name="custom_slug" placeholder="Custom alias (optional)"&gt;
+        &lt;button type="submit"&gt;Shorten&lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/form&gt;
+
+    &lt;div class="card"&gt;
+      &lt;h2 style="font-size: 1rem; color: #fff; margin-bottom: 0.75rem;"&gt;Saved Short Links ({{ links|length }})&lt;/h2&gt;
+      {% if links %}
+        {% for slug, info in links.items()|reverse %}
+          &lt;div class="link-item"&gt;
+            &lt;div&gt;
+              &lt;a class="slug" href="/{{ slug }}" target="_blank"&gt;{{ request.host_url }}{{ slug }}&lt;/a&gt;
+              &lt;div class="dest"&gt;→ {{ info.url }}&lt;/div&gt;
+            &lt;/div&gt;
+            &lt;span class="badge"&gt;{{ info.clicks }} clicks&lt;/span&gt;
+          &lt;/div&gt;
+        {% endfor %}
+      {% else %}
+        &lt;p style="color: #64748b; font-size: 0.88rem;"&gt;No links shortened yet. Paste a URL above to create your first short link.&lt;/p&gt;
+      {% endif %}
+    &lt;/div&gt;
+  &lt;/div&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+"""
+
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+    links = load_links()
+    error = None
+
+    if request.method == "POST":
+        raw_url = request.form.get("url", "").strip()
+        custom_slug = request.form.get("custom_slug", "").strip()
+
+        if not is_valid_url(raw_url):
+            error = "Please enter a valid URL starting with http:// or https://"
+        elif custom_slug:
+            if not SLUG_PATTERN.match(custom_slug):
+                error = "Custom alias must be 3–24 characters (letters, numbers, hyphens, underscores)."
+            elif custom_slug in links:
+                error = f"The alias '{custom_slug}' is already taken. Pick another one."
+            else:
+                links[custom_slug] = {
+                    "url": raw_url,
+                    "clicks": 0,
+                    "created_at": datetime.utcnow().isoformat() + "Z",
+                }
+                save_links(links)
+                return redirect(url_for("index"))
+        else:
+            slug = generate_slug(links)
+            links[slug] = {
+                "url": raw_url,
+                "clicks": 0,
+                "created_at": datetime.utcnow().isoformat() + "Z",
+            }
+            save_links(links)
+            return redirect(url_for("index"))
+
+    return render_template_string(HTML_TEMPLATE, links=links, error=error)
+
+
+@app.route("/&lt;slug&gt;")
+def follow_slug(slug):
+    links = load_links()
+    entry = links.get(slug)
+    if not entry:
+        abort(404)
+
+    entry["clicks"] += 1
+    save_links(links)
+    return redirect(entry["url"], code=302)
+
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)</code></pre>
+        </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section>
+        <h2 class="text-xl font-bold text-white mb-3">How the URL Shortener works (6 steps)</h2>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+            <div class="font-bold text-white text-sm mb-2">1. JSON File Persistence (<code class="text-blue-400">load_links</code> &amp; <code class="text-blue-400">save_links</code>)</div>
+            <p class="text-xs text-slate-400">Instead of requiring a database server on day one, all shortened URLs live inside a human-readable <code>links.json</code> dictionary keyed by slug. Wrapping <code>json.load()</code> in a <code>try/except</code> ensures a missing or empty file never crashes the app.</p>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+            <div class="font-bold text-white text-sm mb-2">2. Cryptographically Random Slugs</div>
+            <p class="text-xs text-slate-400">When the user leaves the custom alias field blank, <code>secrets.choice()</code> builds a 6-character alphanumeric string and loops until it finds one not already present in <code>links.json</code>.</p>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+            <div class="font-bold text-white text-sm mb-2">3. Strict Input &amp; Scheme Validation</div>
+            <p class="text-xs text-slate-400">Before saving any entry, <code>is_valid_url()</code> enforces <code>http://</code> or <code>https://</code> prefixes, while <code>SLUG_PATTERN</code> restricts custom aliases to safe URL characters and prevents overwriting routes.</p>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+            <div class="font-bold text-white text-sm mb-2">4. Post/Redirect/Get (PRG) Form Flow</div>
+            <p class="text-xs text-slate-400">After saving a new link on a <code>POST</code> request, Flask immediately returns <code>redirect(url_for("index"))</code>. That prevents browsers from resubmitting duplicate links if the user hits Refresh.</p>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 mb-3">
+            <div class="font-bold text-white text-sm mb-2">5. Dynamic Route &amp; Click Counting (<code class="text-blue-400">/&lt;slug&gt;</code>)</div>
+            <p class="text-xs text-slate-400">Flask captures any path segment as <code>slug</code>, looks it up in <code>links.json</code>, increments <code>entry["clicks"] += 1</code>, writes the updated JSON back to disk, and issues an HTTP <code>302</code> redirect.</p>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+            <div class="font-bold text-white text-sm mb-2">6. Clean 404 Handling for Unknown Slugs</div>
+            <p class="text-xs text-slate-400">If someone visits a non-existent slug like <code>/unknown123</code>, <code>abort(404)</code> returns a proper HTTP 404 Not Found status instead of throwing a Python <code>KeyError</code>.</p>
+        </div>
+    </section>
+
+    <!-- EXTENSION CHALLENGES -->
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+        <h2 class="text-white font-bold text-xl mb-4">🛠️ Weekend Extension Challenges</h2>
+        <div class="space-y-3">
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div class="font-mono text-xs text-blue-400 mb-1">Challenge 1 · Link Expiration</div>
+                <p class="text-xs text-slate-400">Add an optional <code>expires_at</code> timestamp field. Check the current UTC time inside <code>follow_slug()</code> and return a <code>410 Gone</code> error if the link has expired.</p>
+            </div>
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div class="font-mono text-xs text-blue-400 mb-1">Challenge 2 · Delete &amp; Reset Endpoints</div>
+                <p class="text-xs text-slate-400">Add a <code>POST /delete/&lt;slug&gt;</code> route with a small delete button next to each link so users can clean up old URLs from the dashboard.</p>
+            </div>
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div class="font-mono text-xs text-blue-400 mb-1">Challenge 3 · Upgrade to SQLite</div>
+                <p class="text-xs text-slate-400">Once you understand JSON persistence, swap <code>load_links()</code> and <code>save_links()</code> for Python's built-in <code>sqlite3</code> module—just like Stage 3 of our 4-Stage App Builds.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- COMMON MISTAKES -->
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+        <h2 class="text-white font-bold text-xl mb-4">⚠️ Common mistakes</h2>
+        <ul class="list-disc list-inside text-sm space-y-2 text-slate-300">
+            <li><strong>Allowing arbitrary URL schemes.</strong> Without checking for <code>http://</code> or <code>https://</code>, users can store <code>javascript:alert(1)</code> payloads.</li>
+            <li><strong>Using <code>random</code> instead of <code>secrets</code>.</strong> Standard pseudo-random generators are predictable; <code>secrets.choice()</code> is built for tokens and slugs.</li>
+            <li><strong>Forgetting Post/Redirect/Get.</strong> Rendering HTML directly after a <code>POST</code> causes duplicate short links when the user refreshes the page.</li>
+            <li><strong>Returning HTTP 301 instead of 302 during testing.</strong> Browsers cache <code>301 Permanent Redirect</code> aggressively, bypassing your Flask server and breaking click tracking on repeat visits.</li>
+        </ul>
+    </section>
+
+    <!-- FAQ -->
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-6">
+        <h2 class="text-white font-bold text-xl mb-4">❓ Frequently asked questions</h2>
+        <div class="space-y-3">
+            <details class="bg-slate-950 p-3 rounded-xl">
+                <summary class="cursor-pointer text-blue-400 font-medium text-sm">How does a URL shortener work under the hood?</summary>
+                <p class="mt-2 text-sm text-slate-300">A URL shortener maps a short alphanumeric code (slug) to a long destination URL in storage. When someone visits <code>/slug</code>, the server looks up the destination, increments a click counter, and returns an HTTP 302 redirect response.</p>
+            </details>
+            <details class="bg-slate-950 p-3 rounded-xl">
+                <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why use JSON instead of a database for this mini-project?</summary>
+                <p class="mt-2 text-sm text-slate-300">Storing links in a local <code>links.json</code> file lets you inspect the saved mappings in any text editor and persist data across server restarts without configuring SQLite or PostgreSQL first.</p>
+            </details>
+            <details class="bg-slate-950 p-3 rounded-xl">
+                <summary class="cursor-pointer text-blue-400 font-medium text-sm">Why use HTTP 302 instead of 301 for click tracking?</summary>
+                <p class="mt-2 text-sm text-slate-300">HTTP 301 tells browsers to cache the redirect permanently and skip your server on future visits. HTTP 302 (Temporary Redirect) ensures every click hits your Flask route so your analytics stay accurate.</p>
+            </details>
+            <details class="bg-slate-950 p-3 rounded-xl">
+                <summary class="cursor-pointer text-blue-400 font-medium text-sm">How does the live browser demo work without a Python server?</summary>
+                <p class="mt-2 text-sm text-slate-300">Because static hosting does not run Python processes, our interactive demo simulates the Flask routing table, click analytics, and redirect preview right inside your browser using <code>localStorage</code>.</p>
+            </details>
+        </div>
+    </section>
+
+    <!-- RELATED -->
+    <section class="bg-slate-900 border border-slate-800 rounded-3xl p-5">
+        <h2 class="text-white font-bold mb-3">🔗 Related Mini-Projects</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <a href="/projects/note-vault.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">📝 LocalStorage Note Vault</div>
+                <div class="text-xs text-slate-400 mt-1">Searchable sticky notes with JSON persistence</div>
+            </a>
+            <a href="/projects/fast-food-menu.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">🍔 Interactive Fast-Food Menu</div>
+                <div class="text-xs text-slate-400 mt-1">Category tabs, CSS Grid, and slide-out order tray</div>
+            </a>
+            <a href="/projects/pomodoro-timer.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">⏳ Focus Pomodoro Timer</div>
+                <div class="text-xs text-slate-400 mt-1">SVG progress ring and Web Audio alerts</div>
+            </a>
+            <a href="/projects/index.html" class="block bg-slate-950 p-4 rounded-xl border border-slate-800 hover:border-blue-500/50 transition-all">
+                <div class="font-semibold text-white text-sm">🚀 All Beginner Mini-Projects</div>
+                <div class="text-xs text-slate-400 mt-1">Browse every weekend build</div>
+            </a>
+        </div>
+    </section>
+
+    <a href="/projects/index.html" class="back-link">← All Beginner Mini-Projects</a>
+</main>
+
+<footer class="fixed bottom-0 left-0 right-0 bg-slate-950 border-t border-slate-800 px-8 py-4">
+    <div class="flex justify-between items-center max-w-md mx-auto">
+        <div class="flex flex-col items-center gap-1 text-blue-500">
+            <i class="fa-solid fa-house text-xl"></i>
+            <a href="/index.html"><span class="text-[10px] font-bold uppercase">Home</span></a>
+        </div>
+        <div class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fa-solid fa-book-open text-xl"></i>
+            <a href="/courses/index.html"><span class="text-[10px] font-bold uppercase">Courses</span></a>
+        </div>
+        <div class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fa-solid fa-envelope text-xl"></i>
+            <a href="/contact.html"><span class="text-[10px] font-bold uppercase">Contact</span></a>
+        </div>
+        <div class="flex flex-col items-center gap-1 text-slate-500">
+            <i class="fa-solid fa-circle-user text-xl"></i>
+            <span class="text-[10px] font-bold uppercase">Profile</span>
+        </div>
+    </div>
+</footer>
+
+<script>
+    function copyCode(codeId, button) {
+        const code = document.getElementById(codeId).innerText;
+        navigator.clipboard.writeText(code).then(() => {
+            const original = button.innerHTML;
+            button.innerHTML = '✅ Copied';
+            button.classList.add('copied');
+            setTimeout(() => {
+                button.innerHTML = original;
+                button.classList.remove('copied');
+            }, 2000);
+        }).catch(err => console.error('Copy failed:', err));
+    }
+</script>
+</body>
+</html>
