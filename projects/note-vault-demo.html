@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LocalStorage Note Vault — MAK UI Studio</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-alt: #0b1120;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    .container { max-width: 1020px; margin: 0 auto; }
+    header {
+      display: flex; flex-wrap: wrap; justify-content: space-between;
+      align-items: center; gap: 1rem; margin-bottom: 1.5rem;
+      padding-bottom: 1rem; border-bottom: 1px solid var(--border);
+    }
+    h1 { font-size: 1.5rem; font-weight: 800; }
+    .badge { font-size: 0.75rem; color: var(--accent); background: rgba(56,189,248,0.12); padding: 0.25rem 0.65rem; border-radius: 999px; }
+
+    /* Composer Form */
+    .composer {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;
+      display: grid; gap: 0.75rem;
+    }
+    .composer-row { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    input, select, textarea {
+      background: var(--surface-alt); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.65rem 0.85rem; font-family: inherit; font-size: 0.9rem;
+    }
+    input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    .composer input[type="text"] { flex: 1; min-width: 200px; }
+    textarea { width: 100%; min-height: 85px; resize: vertical; }
+    .btn-primary {
+      background: var(--accent); color: #0f172a; font-weight: 700;
+      border: none; border-radius: 8px; padding: 0.65rem 1.25rem;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    .btn-primary:hover { opacity: 0.9; }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex; flex-wrap: wrap; justify-content: space-between;
+      align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;
+    }
+    .filter-group { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .filter-btn {
+      background: var(--surface); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 999px;
+      padding: 0.35rem 0.85rem; font-size: 0.8rem; cursor: pointer;
+    }
+    .filter-btn.active { background: var(--accent); color: #0f172a; border-color: var(--accent); font-weight: 700; }
+
+    /* Notes Grid */
+    .notes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1rem;
+    }
+    .note-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-top: 4px solid var(--accent); border-radius: 12px;
+      padding: 1rem; display: flex; flex-direction: column; gap: 0.6rem;
+    }
+    .note-card[data-tag="Ideas"] { border-top-color: #f59e0b; }
+    .note-card[data-tag="Tasks"] { border-top-color: #10b981; }
+    .note-card[data-tag="Urgent"] { border-top-color: #ef4444; }
+    .note-top { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--muted); }
+    .note-title { font-size: 1.05rem; font-weight: 700; word-break: break-word; }
+    .note-body { font-size: 0.88rem; color: #cbd5e1; white-space: pre-wrap; word-break: break-word; flex: 1; }
+    .note-actions {
+      display: flex; justify-content: flex-end; gap: 0.4rem;
+      padding-top: 0.6rem; border-top: 1px solid var(--border);
+    }
+    .icon-btn {
+      background: var(--surface-alt); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.3rem 0.6rem; font-size: 0.75rem; cursor: pointer;
+    }
+    .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+    .empty-state { grid-column: 1 / -1; text-align: center; padding: 3rem 1rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>📝 LocalStorage Note Vault</h1>
+        <p style="color: var(--muted); font-size: 0.85rem;">Auto-saved in your browser • Zero backend required</p>
+      </div>
+      <span class="badge" id="noteCount">0 Notes</span>
+    </header>
+
+    <form class="composer" id="noteForm">
+      <div class="composer-row">
+        <input type="text" id="noteTitle" placeholder="Note title (e.g., Flexbox Centering Trick)" required>
+        <select id="noteTag">
+          <option value="Code">Code</option>
+          <option value="Ideas">Ideas</option>
+          <option value="Tasks">Tasks</option>
+          <option value="Urgent">Urgent</option>
+        </select>
+        <button type="submit" class="btn-primary">+ Save Note</button>
+      </div>
+      <textarea id="noteContent" placeholder="Write your note or paste a code snippet..." required></textarea>
+    </form>
+
+    <div class="toolbar">
+      <div class="filter-group" id="filterGroup">
+        <button class="filter-btn active" data-filter="All">All</button>
+        <button class="filter-btn" data-filter="Code">Code</button>
+        <button class="filter-btn" data-filter="Ideas">Ideas</button>
+        <button class="filter-btn" data-filter="Tasks">Tasks</button>
+        <button class="filter-btn" data-filter="Urgent">Urgent</button>
+      </div>
+      <input type="search" id="searchInput" placeholder="Search notes..." style="min-width: 220px;">
+    </div>
+
+    <div class="notes-grid" id="notesGrid"></div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'makui_note_vault_v1';
+    let activeFilter = 'All';
+    let searchQuery = '';
+
+    const starterNotes = [
+      { id: 1, title: 'CSS Grid Responsive Cards', tag: 'Code', content: 'grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));', pinned: true, date: 'Starter' },
+      { id: 2, title: 'Weekend Project Idea', tag: 'Ideas', content: 'Build a Pomodoro timer with SVG progress rings and audio alerts.', pinned: false, date: 'Starter' }
+    ];
+
+    function loadNotes() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [...starterNotes];
+      } catch {
+        return [...starterNotes];
+      }
+    }
+
+    let notes = loadNotes();
+
+    function saveNotes() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+      renderNotes();
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
+    }
+
+    function renderNotes() {
+      const grid = document.getElementById('notesGrid');
+      const filtered = notes
+        .filter(n => activeFilter === 'All' || n.tag === activeFilter)
+        .filter(n => n.title.toLowerCase().includes(searchQuery) || n.content.toLowerCase().includes(searchQuery))
+        .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.id - a.id);
+
+      document.getElementById('noteCount').textContent = `${filtered.length} Note${filtered.length === 1 ? '' : 's'}`;
+
+      if (!filtered.length) {
+        grid.innerHTML = '<div class="empty-state">No matching notes found. Add one above!</div>';
+        return;
+      }
+
+      grid.innerHTML = filtered.map(note => `
+        <article class="note-card" data-tag="${escapeHTML(note.tag)}">
+          <div class="note-top">
+            <span>${note.pinned ? '📌 Pinned · ' : ''}${escapeHTML(note.tag)}</span>
+            <span>${escapeHTML(note.date)}</span>
+          </div>
+          <h2 class="note-title">${escapeHTML(note.title)}</h2>
+          <p class="note-body">${escapeHTML(note.content)}</p>
+          <div class="note-actions">
+            <button class="icon-btn" onclick="togglePin(${note.id})">${note.pinned ? 'Unpin' : 'Pin'}</button>
+            <button class="icon-btn" onclick="copyNote(${note.id}, this)">Copy</button>
+            <button class="icon-btn" onclick="deleteNote(${note.id})">Delete</button>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    document.getElementById('noteForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const title = document.getElementById('noteTitle').value.trim();
+      const tag = document.getElementById('noteTag').value;
+      const content = document.getElementById('noteContent').value.trim();
+      if (!title || !content) return;
+
+      notes.unshift({
+        id: Date.now(),
+        title,
+        tag,
+        content,
+        pinned: false,
+        date: new Date().toLocaleDateString()
+      });
+      e.target.reset();
+      saveNotes();
+    });
+
+    document.getElementById('filterGroup').addEventListener('click', e => {
+      if (!e.target.matches('.filter-btn')) return;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      activeFilter = e.target.dataset.filter;
+      renderNotes();
+    });
+
+    document.getElementById('searchInput').addEventListener('input', e => {
+      searchQuery = e.target.value.toLowerCase().trim();
+      renderNotes();
+    });
+
+    window.togglePin = id => {
+      notes = notes.map(n => n.id === id ? { ...n, pinned: !n.pinned } : n);
+      saveNotes();
+    };
+
+    window.copyNote = (id, btn) => {
+      const note = notes.find(n => n.id === id);
+      if (!note) return;
+      navigator.clipboard.writeText(note.content);
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+    };
+
+    window.deleteNote = id => {
+      notes = notes.filter(n => n.id !== id);
+      saveNotes();
+    };
+
+    renderNotes();
+  </script>
+</body>
+</html>
